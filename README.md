@@ -64,7 +64,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Monitor entities | Create a new group of entities to monitor |
 | Combine groups | Aggregate two or more existing groups into one (requires at least 2 groups already created) |
 
-![Step 1: Choose Entry Type](custom_components/entity_availability/docs/00_create_entity.png)
+![Step 1: Choose Entry Type](assets/00_create_entity.png)
 
 ### Step 2a: Create Entity Group (Monitor entities path)
 
@@ -73,7 +73,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Group Name | A descriptive name for this group (e.g., "Security Cameras") |
 | Entities to Monitor | Select the entities you want to track |
 
-![Step 2a: Create Entity Group](custom_components/entity_availability/docs/01_create_entity_group.png)
+![Step 2a: Create Entity Group](assets/01_create_entity_group.png)
 
 ### Step 3: Monitoring Settings
 
@@ -83,7 +83,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Cooldown (seconds) | `60` | Time to wait before confirming an entity is offline |
 | Staleness threshold (minutes) | `0` (disabled) | Mark entity degraded if no state change in this time |
 
-![Step 3: Monitoring Settings](custom_components/entity_availability/docs/02_monitoring_settings.png)
+![Step 3: Monitoring Settings](assets/02_monitoring_settings.png)
 
 ### Step 4: Advanced Settings
 
@@ -93,7 +93,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Availability tracking windows | `today`, `7d` | Which time windows to create availability sensors for |
 | Recovery window (minutes) | `5` | How long entities remain visible in the recently-offline and recently-recovered sensors after the event |
 
-![Step 4: Advanced Settings](custom_components/entity_availability/docs/03_advanced_settings.png)
+![Step 4: Advanced Settings](assets/03_advanced_settings.png)
 
 ### Step 5: Battery Entity Mapping (when battery threshold > 0)
 
@@ -107,7 +107,7 @@ Auto-detection checks battery sensors linked to the same device in Home Assistan
 
 Battery sensors that report `low` (text) are supported in addition to numeric percentages.
 
-![Step 5: Battery Entity Mapping](custom_components/entity_availability/docs/04_battery_entity_mapping.png)
+![Step 5: Battery Entity Mapping](assets/04_battery_entity_mapping.png)
 
 ### Step 2b: Create Combined Group (Combine groups path)
 
@@ -118,7 +118,7 @@ Battery sensors that report `low` (text) are supported in addition to numeric pe
 
 No further steps — combined groups read live from their source groups and require no additional configuration.
 
-![Step 2b: Create Combined Group](custom_components/entity_availability/docs/01b_create_combined_group.png)
+![Step 2b: Create Combined Group](assets/01b_create_combined_group.png)
 
 ### Options Flow
 
@@ -149,7 +149,7 @@ For example, a group named "Security Devices" produces the slug `security_device
 
 > **Note:** The Low Battery and Low Battery Count sensors are only created when battery threshold > 0. Availability window sensors are only created for windows selected during configuration. The recently-offline and recently-recovered sensors are always created regardless of battery threshold.
 
-![Sensors](custom_components/entity_availability/docs/05_sensors.png)
+![Sensors](assets/05_sensors.png)
 
 ### Group Summary Sensor
 
@@ -176,7 +176,7 @@ Access these in templates:
 {{ state_attr('sensor.entity_availability_security_devices_group_summary', 'offline') }}
 ```
 
-![Sensor Details & Attributes](custom_components/entity_availability/docs/06_sensor_details_attributes.png)
+![Sensor Details & Attributes](assets/06_sensor_details_attributes.png)
 
 ### Recovery Attributes
 
@@ -226,7 +226,7 @@ Suppressed entities are excluded from all combined sensor states, consistent wit
 
 The `recently_offline` and `recently_recovered` sensors use each source group's own **Recovery window** setting — if groups have different windows, each group's devices are filtered by that group's window.
 
-![Combined Group Sensors](custom_components/entity_availability/docs/05b_combined_sensors.png)
+![Combined Group Sensors](assets/05b_combined_sensors.png)
 
 ### Example Automation
 
@@ -289,7 +289,7 @@ data:
 
 **Use case:** Suppress monitoring during planned maintenance, firmware updates, or known downtime.
 
-![Suppress Entity Action](custom_components/entity_availability/docs/09_suppress_entity_action.png)
+![Suppress Entity Action](assets/09_suppress_entity_action.png)
 
 ### `entity_availability.unsuppress`
 
@@ -309,9 +309,9 @@ data:
   group: security_devices
 ```
 
-![Unsuppress Entity Action](custom_components/entity_availability/docs/10_unsuppress_entity_action.png)
+![Unsuppress Entity Action](assets/10_unsuppress_entity_action.png)
 
-![Actions Overview](custom_components/entity_availability/docs/08_actions.png)
+![Actions Overview](assets/08_actions.png)
 
 ### `entity_availability.suppress_indefinitely`
 
@@ -666,9 +666,9 @@ The `group` field accepts any group slug. The card uses the prefix `entity_avail
 
 All options are configurable via the visual card editor UI. Options that do not apply to the selected group type are hidden automatically in the editor.
 
-![Card Configuration — Regular Group](custom_components/entity_availability/docs/07_ui_card_configuration_screen.png)
+![Card Configuration — Regular Group](assets/07_ui_card_configuration_screen.png)
 
-![Card Configuration — Combined Group](custom_components/entity_availability/docs/07b_ui_card_configuration_combined.png)
+![Card Configuration — Combined Group](assets/07b_ui_card_configuration_combined.png)
 
 ### Visual Editor
 
@@ -721,11 +721,11 @@ Selecting a combined group hides editor controls that don't apply (availability 
 └───────────────────────────────────────────────┘
 ```
 
-![Card — Side by Side](custom_components/entity_availability/docs/11_card_side_by_side.png)
+![Card — Side by Side](assets/11_card_side_by_side.png)
 
 ### Dashboard Example
 
-![Dashboard Example](custom_components/entity_availability/docs/12_dashboard_example.png)
+![Dashboard Example](assets/12_dashboard_example.png)
 
 ---
 
