@@ -509,3 +509,73 @@ async def test_find_coordinator_skips_non_coordinator_values(setup_services) -> 
     for entity_id in coord.monitored_entities:
         if entity_id in coord.device_states:
             assert coord.device_states[entity_id].is_suppressed is True
+
+
+async def test_suppress_updates_all_coordinators_sharing_entity(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Suppress service calls suppress_entity on ALL coordinators that monitor the entity."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_multi_a",
+        unique_id=f"{DOMAIN}_entry_multi_a",
+    )
+
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a", "binary_sensor.device_b"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_multi_b",
+        unique_id=f"{DOMAIN}_entry_multi_b",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(
+                entity_id="binary_sensor.device_a", is_offline=False
+            )
+        }
+        coord_a.data = None
+
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(
+                entity_id="binary_sensor.device_a", is_offline=False
+            ),
+            "binary_sensor.device_b": DeviceState(
+                entity_id="binary_sensor.device_b", is_offline=False
+            ),
+        }
+        coord_b.data = None
+
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["entry_multi_a"] = coord_a
+    hass.data[DOMAIN]["entry_multi_b"] = coord_b
+
+    await async_setup_services(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SUPPRESS,
+        {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_DURATION: 10},
+        blocking=True,
+    )
+
+    assert coord_a.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert coord_b.device_states["binary_sensor.device_a"].is_suppressed is True

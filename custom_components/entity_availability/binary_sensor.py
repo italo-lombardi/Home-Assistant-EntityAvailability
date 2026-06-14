@@ -85,7 +85,7 @@ class AnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return offline entity details."""
-        offline_entities = self._offline_entities
+        offline_entities = self._refresh_offline()
         return {
             "offline_entities": offline_entities,
             "offline_count": len(offline_entities),

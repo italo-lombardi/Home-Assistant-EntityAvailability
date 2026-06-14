@@ -540,6 +540,48 @@ async def test_register_lovelace_resource_fallback_data_append(
     assert appended[0]["type"] == "module"
 
 
+async def test_async_install_card_clears_sentinel_on_register_failure(
+    mock_hass: HomeAssistant,
+) -> None:
+    """_async_install_card clears _CARD_INSTALLED_KEY when _async_register_lovelace_resource raises."""
+    from custom_components.entity_availability import (
+        _CARD_INSTALLED_KEY,
+        _async_install_card,
+    )
+
+    hass = mock_hass
+    hass.data.setdefault(DOMAIN, {})
+
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch.object(
+            hass,
+            "async_add_executor_job",
+            new_callable=AsyncMock,
+            return_value="1.0.0",
+        ),
+        patch(
+            "custom_components.entity_availability._async_register_lovelace_resource",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("lovelace exploded"),
+        ),
+        patch(
+            "custom_components.entity_availability.hass",
+            create=True,
+        ),
+        patch(
+            "homeassistant.components.http.StaticPathConfig",
+            autospec=False,
+        ),
+    ):
+        mock_http = MagicMock()
+        mock_http.async_register_static_paths = AsyncMock()
+        hass.http = mock_http
+        await _async_install_card(hass)
+
+    assert _CARD_INSTALLED_KEY not in hass.data.get(DOMAIN, {})
+
+
 async def test_register_lovelace_resource_non_storage_first_url_update(
     mock_hass: HomeAssistant,
 ) -> None:

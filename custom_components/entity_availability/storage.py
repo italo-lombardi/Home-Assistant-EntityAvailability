@@ -93,8 +93,8 @@ class AvailabilityStorage:
             return None
 
         if window == "today":
-            # Calendar day: midnight local time → now (not rolling 24 h).
-            cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Rolling 24h window — timezone-agnostic and consistent across DST changes.
+            cutoff = now - timedelta(hours=24)
         else:
             window_hours = self._window_to_hours(window)
             cutoff = now - timedelta(hours=window_hours)

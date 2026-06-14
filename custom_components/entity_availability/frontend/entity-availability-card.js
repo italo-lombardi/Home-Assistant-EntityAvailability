@@ -801,7 +801,9 @@ class EntityAvailabilityCard extends LitElement {
     if (entries.length === 0) return nothing;
 
     const sortBy = this._config.group_sort_by || "name_asc";
-    entries.sort(([nameA, gA], [nameB, gB]) => {
+    entries.sort(([, gA], [, gB]) => {
+      const nameA = gA.name ?? "";
+      const nameB = gB.name ?? "";
       if (sortBy === "name_desc") return nameB.localeCompare(nameA);
       if (sortBy === "offline_desc") {
         const diff = (gB.offline ?? 0) - (gA.offline ?? 0);
@@ -825,9 +827,9 @@ class EntityAvailabilityCard extends LitElement {
           <span style="text-align:center">Offline</span>
           <span style="text-align:center">Bat.</span>
         </div>
-        ${entries.map(([name, g]) => html`
+        ${entries.map(([, g]) => html`
           <div class="group-breakdown-row">
-            <span class="group-breakdown-name">${name}</span>
+            <span class="group-breakdown-name">${g.name ?? ""}</span>
             <span class="group-breakdown-count online">${g.online ?? 0}</span>
             <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
             <span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>

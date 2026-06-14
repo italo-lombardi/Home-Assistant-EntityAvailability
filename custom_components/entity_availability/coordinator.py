@@ -207,19 +207,25 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     device = DeviceState(entity_id=entity_id)
                     device.is_offline = ds.get("is_offline", False)
                     try:
-                        device.offline_since = (
-                            datetime.fromisoformat(ds["offline_since"])
-                            if ds.get("offline_since")
-                            else None
-                        )
+                        raw_os = ds.get("offline_since")
+                        if raw_os:
+                            ts = datetime.fromisoformat(raw_os)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            device.offline_since = ts
+                        else:
+                            device.offline_since = None
                     except (ValueError, TypeError):
                         device.offline_since = None
                     try:
-                        device.cooldown_start = (
-                            datetime.fromisoformat(ds["cooldown_start"])
-                            if ds.get("cooldown_start")
-                            else None
-                        )
+                        raw_cs = ds.get("cooldown_start")
+                        if raw_cs:
+                            ts = datetime.fromisoformat(raw_cs)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            device.cooldown_start = ts
+                        else:
+                            device.cooldown_start = None
                     except (ValueError, TypeError):
                         device.cooldown_start = None
                     try:

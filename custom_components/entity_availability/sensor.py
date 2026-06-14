@@ -402,7 +402,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             battery_powered = sum(
                 1
                 for eid in self.coordinator.monitored_entities
-                if states.get(eid) and states[eid].battery_level is not None
+                if states.get(eid)
+                and states[eid].battery_level is not None
+                and not states[eid].is_suppressed
             )
 
         low_battery_entities = [
@@ -503,7 +505,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return list of entity IDs that recently went offline."""
-        devices = self._cached_devices
+        devices = self._refresh_cache()
         return {
             "entities": [d.entity_id for d in devices],
             "count": len(devices),
@@ -569,7 +571,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return list of entity IDs that recently recovered."""
-        devices = self._cached_devices
+        devices = self._refresh_cache()
         return {
             "entities": [d.entity_id for d in devices],
             "count": len(devices),

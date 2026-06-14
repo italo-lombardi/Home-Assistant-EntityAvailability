@@ -1280,6 +1280,70 @@ async def test_save_storage_skips_suppression_for_removed_entities(
     assert "binary_sensor.device_removed" not in saved["suppressed"]
 
 
+async def test_load_storage_naive_offline_since_gets_utc(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Naive offline_since ISO string is restored with tzinfo=UTC."""
+    hass = mock_hass
+    naive_ts = (datetime.now(timezone.utc) - timedelta(minutes=5)).replace(tzinfo=None)
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": True,
+                "offline_since": naive_ts.isoformat(),
+                "cooldown_start": None,
+                "recently_offline_at": None,
+            }
+        },
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    device = coord._device_states["binary_sensor.device_a"]
+    assert device.offline_since is not None
+    assert device.offline_since.tzinfo is not None
+
+
+async def test_load_storage_naive_cooldown_start_gets_utc(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Naive cooldown_start ISO string is restored with tzinfo=UTC."""
+    hass = mock_hass
+    naive_ts = (datetime.now(timezone.utc) - timedelta(seconds=30)).replace(tzinfo=None)
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": False,
+                "offline_since": None,
+                "cooldown_start": naive_ts.isoformat(),
+                "recently_offline_at": None,
+            }
+        },
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    device = coord._device_states["binary_sensor.device_a"]
+    assert device.cooldown_start is not None
+    assert device.cooldown_start.tzinfo is not None
+
+
 # ---------------------------------------------------------------------------
 # Battery detection — device_class=battery entity reads own state
 # ---------------------------------------------------------------------------

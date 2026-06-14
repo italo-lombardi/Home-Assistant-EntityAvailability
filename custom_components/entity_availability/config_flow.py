@@ -95,7 +95,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_ENTITIES] = "no_entities"
             else:
                 await self.async_set_unique_id(
-                    f"{DOMAIN}_group_{group_name.lower().replace(' ', '_')}"
+                    f"{DOMAIN}_{group_name.lower().replace(' ', '_')}"
                 )
                 self._abort_if_unique_id_configured()
 

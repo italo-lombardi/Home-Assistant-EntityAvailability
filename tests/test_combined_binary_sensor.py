@@ -303,6 +303,20 @@ class TestCombinedGroupAnyOfflineBinarySensor:
         assert len(active) == 1
         assert active[0] is coordinators[0]
 
+    def test_available_false_when_all_coordinators_unloaded(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """available is False when all source coordinators have been removed from hass.data."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        # Simulate all group entries being unloaded
+        mock_hass.data[DOMAIN].pop("entry_a", None)
+        mock_hass.data[DOMAIN].pop("entry_b", None)
+        assert sensor.available is False
+
 
 # ---------------------------------------------------------------------------
 # async_setup_entry

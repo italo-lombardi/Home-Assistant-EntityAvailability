@@ -85,6 +85,7 @@ async def _async_install_card(hass: HomeAssistant) -> None:
     source = Path(__file__).parent / "frontend" / CARD_FILENAME
     if not source.exists():
         _LOGGER.warning("Card JS not found at %s", source)
+        domain_data.pop(_CARD_INSTALLED_KEY, None)
         return
 
     version = await hass.async_add_executor_job(_get_version)
@@ -96,7 +97,11 @@ async def _async_install_card(hass: HomeAssistant) -> None:
     except Exception:  # noqa: BLE001
         _LOGGER.debug("Static path %s already registered", CARD_URL)
 
-    await _async_register_lovelace_resource(hass, version)
+    try:
+        await _async_register_lovelace_resource(hass, version)
+    except Exception:  # noqa: BLE001
+        _LOGGER.warning("Failed to register Lovelace resource for %s", CARD_URL)
+        domain_data.pop(_CARD_INSTALLED_KEY, None)
 
 
 async def _async_register_lovelace_resource(hass: HomeAssistant, version: str) -> None:
