@@ -69,7 +69,7 @@ class AnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
         self._offline_entities: list[str] = []
 
     def _refresh_offline(self) -> list[str]:
-        """Snapshot offline entities once; shared by is_on and extra_state_attributes."""
+        """Compute and return the current list of offline, non-suppressed entity IDs."""
         self._offline_entities = [
             d.entity_id
             for d in self.coordinator.device_states.values()
