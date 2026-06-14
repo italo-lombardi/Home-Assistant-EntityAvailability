@@ -186,6 +186,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     else:
                         try:
                             until = datetime.fromisoformat(until_str)
+                            if until.tzinfo is None:
+                                until = until.replace(tzinfo=timezone.utc)
                             if until > datetime.now(timezone.utc):
                                 self._suppressed[entity_id] = until
                                 _LOGGER.debug(
@@ -220,6 +222,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         raw = ds.get("recently_offline_at")
                         if raw:
                             ts = datetime.fromisoformat(raw)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
                             window_seconds = (
                                 self.entry.data.get(
                                     CONF_RECOVERY_WINDOW, DEFAULT_RECOVERY_WINDOW
@@ -241,7 +245,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         for entity_id, device in self._device_states.items():
             if entity_id not in self._entities:
                 continue
-            if device.is_offline or device.cooldown_start is not None:
+            if (
+                device.is_offline
+                or device.cooldown_start is not None
+                or device.recently_offline_at is not None
+            ):
                 device_states_data[entity_id] = {
                     "is_offline": device.is_offline,
                     "offline_since": device.offline_since.isoformat()
@@ -351,9 +359,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     device.is_suppressed = False
                     device.suppress_until = None
                     self._suppressed.pop(entity_id, None)
+                    self._dirty = True
 
-            # Skip suppressed devices for availability tracking
+            # Skip suppressed devices for availability tracking;
+            # clear degraded/stale flags so suppressed entities don't surface
             if device.is_suppressed:
+                device.is_degraded = False
+                device.is_stale = False
                 _LOGGER.debug(
                     "[%s] Skipping suppressed entity %s (until=%s)",
                     self.group_name,
@@ -464,8 +476,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 self._availability_storage.record_online(entity_id, elapsed, now)
 
             # Record offline time (offline seconds are implicitly tracked
-            # as total_seconds - online_seconds in the bucket)
-            if device.is_offline:
+            # as total_seconds - online_seconds in the bucket).
+            # Skip if still in cooldown — recorded as online above.
+            if device.is_offline and not (
+                is_bad
+                and device.cooldown_start is not None
+                and (now - device.cooldown_start).total_seconds() < self._cooldown
+            ):
                 self._availability_storage.record_offline(entity_id, elapsed, now)
 
             # Degraded = not offline but battery low or stale
@@ -480,8 +497,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             await self._async_save_storage()
 
         return EntityAvailabilityData(
-            devices=self._device_states,
-            buckets=self._availability_storage.buckets,
+            devices=dict(self._device_states),
+            buckets=dict(self._availability_storage.buckets),
         )
 
     def _get_battery_level(self, entity_id: str) -> int | None:

@@ -398,13 +398,18 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             battery_powered = sum(1 for v in battery_map.values() if v)
         else:
             battery_powered = sum(
-                1 for d in states.values() if d.battery_level is not None
+                1
+                for eid in self.coordinator.monitored_entities
+                if states.get(eid) and states[eid].battery_level is not None
             )
 
         low_battery_entities = [
             eid
-            for eid, d in states.items()
-            if d.is_degraded and not d.is_suppressed and d.battery_level is not None
+            for eid in self.coordinator.monitored_entities
+            if states.get(eid)
+            and states[eid].is_degraded
+            and not states[eid].is_suppressed
+            and states[eid].battery_level is not None
         ]
         low_battery = len(low_battery_entities)
 

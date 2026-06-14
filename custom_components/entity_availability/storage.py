@@ -154,16 +154,19 @@ class AvailabilityStorage:
         storage = cls()
         for entity_id, buckets_data in data.items():
             buckets: list[AvailabilityBucket] = []
-            for b in buckets_data:
-                try:
-                    buckets.append(
-                        AvailabilityBucket(
+            try:
+                for b in buckets_data:
+                    try:
+                        online = float(b["o"])
+                        bucket = AvailabilityBucket(
                             interval_start=datetime.fromisoformat(b["s"]),
-                            online_seconds=float(b["o"]),
+                            online_seconds=min(online, float(BUCKET_INTERVAL)),
                         )
-                    )
-                except (KeyError, ValueError, TypeError):
-                    continue
+                        buckets.append(bucket)
+                    except (KeyError, ValueError, TypeError):
+                        continue
+            except TypeError:
+                continue
             storage._buckets[entity_id] = buckets
         return storage
 

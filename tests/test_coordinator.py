@@ -1491,6 +1491,39 @@ async def test_shutdown_cancels_debounce(
 # ---------------------------------------------------------------------------
 
 
+async def test_load_storage_restores_naive_recently_offline_at(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Naive (no tzinfo) recently_offline_at within recovery window is restored."""
+    hass = mock_hass
+    # Naive isoformat — within default 5-minute window
+    naive_ts = (datetime.now(timezone.utc) - timedelta(minutes=2)).replace(tzinfo=None)
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": True,
+                "offline_since": None,
+                "cooldown_start": None,
+                "recently_offline_at": naive_ts.isoformat(),
+            }
+        },
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    device = coord._device_states["binary_sensor.device_a"]
+    assert device.recently_offline_at is not None
+    assert device.recently_offline_at.tzinfo is not None
+
+
 async def test_load_storage_restores_future_timed_suppression(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
@@ -1544,6 +1577,33 @@ async def test_load_storage_discards_expired_timed_suppression(
     await coord._async_load_storage()
 
     assert "binary_sensor.device_a" not in coord._suppressed
+
+
+async def test_load_storage_restores_naive_timed_suppression(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Naive (no tzinfo) suppress_until ISO string is treated as UTC and restored."""
+    hass = mock_hass
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {
+            "binary_sensor.device_a": "2099-01-01T12:00:00",  # naive — far future
+        },
+        "device_states": {},
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    assert "binary_sensor.device_a" in coord._suppressed
+    restored = coord._suppressed["binary_sensor.device_a"]
+    assert restored is not None
+    assert restored.tzinfo is not None
 
 
 async def test_load_storage_ignores_invalid_suppression_timestamp(

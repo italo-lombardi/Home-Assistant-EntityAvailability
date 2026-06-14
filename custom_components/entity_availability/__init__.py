@@ -78,6 +78,10 @@ async def _async_install_card(hass: HomeAssistant) -> None:
     if domain_data.get(_CARD_INSTALLED_KEY):
         return
 
+    # Claim the slot before first await to prevent TOCTOU race when multiple
+    # entries finish setup concurrently — only one proceeds past this point.
+    domain_data[_CARD_INSTALLED_KEY] = True
+
     source = Path(__file__).parent / "frontend" / CARD_FILENAME
     if not source.exists():
         _LOGGER.warning("Card JS not found at %s", source)
@@ -93,7 +97,6 @@ async def _async_install_card(hass: HomeAssistant) -> None:
         _LOGGER.debug("Static path %s already registered", CARD_URL)
 
     await _async_register_lovelace_resource(hass, version)
-    hass.data[DOMAIN][_CARD_INSTALLED_KEY] = True
 
 
 async def _async_register_lovelace_resource(hass: HomeAssistant, version: str) -> None:
@@ -147,10 +150,11 @@ async def _async_register_lovelace_resource(hass: HomeAssistant, version: str) -
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
-    if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_COMBINED:
-        return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    is_combined = entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_COMBINED
 
-    if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+    if not is_combined and unload_ok:
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
 
     remaining = [

@@ -86,16 +86,16 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            group_name = user_input[CONF_GROUP_NAME]
+            group_name = user_input[CONF_GROUP_NAME].strip()
             entities = user_input[CONF_ENTITIES]
 
-            if not group_name.strip():
+            if not group_name:
                 errors[CONF_GROUP_NAME] = "empty_group_name"
             elif not entities:
                 errors[CONF_ENTITIES] = "no_entities"
             else:
                 await self.async_set_unique_id(
-                    f"{DOMAIN}_{group_name.lower().replace(' ', '_')}"
+                    f"{DOMAIN}_group_{group_name.lower().replace(' ', '_')}"
                 )
                 self._abort_if_unique_id_configured()
 
@@ -135,10 +135,10 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="not_enough_groups")
 
         if user_input is not None:
-            group_name = user_input[CONF_GROUP_NAME]
+            group_name = user_input[CONF_GROUP_NAME].strip()
             combined_groups = user_input[CONF_COMBINED_GROUPS]
 
-            if not group_name.strip():
+            if not group_name:
                 errors[CONF_GROUP_NAME] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
@@ -511,10 +511,10 @@ class CombinedGroupOptionsFlow(OptionsFlow):
         ]
 
         if user_input is not None:
-            group_name = user_input[CONF_GROUP_NAME]
+            group_name = user_input[CONF_GROUP_NAME].strip()
             combined_groups = user_input[CONF_COMBINED_GROUPS]
 
-            if not group_name.strip():
+            if not group_name:
                 errors[CONF_GROUP_NAME] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
@@ -530,6 +530,10 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 return self.async_create_entry(title="", data={})
 
         current = self.config_entry.data
+        valid_ids = {e.entry_id for e in existing_groups}
+        default_combined = [
+            eid for eid in current.get(CONF_COMBINED_GROUPS, []) if eid in valid_ids
+        ]
         group_options = [
             selector.SelectOptionDict(value=e.entry_id, label=e.title)
             for e in existing_groups
@@ -544,7 +548,7 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                     ): str,
                     vol.Required(
                         CONF_COMBINED_GROUPS,
-                        default=current.get(CONF_COMBINED_GROUPS, []),
+                        default=default_combined,
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=group_options,
