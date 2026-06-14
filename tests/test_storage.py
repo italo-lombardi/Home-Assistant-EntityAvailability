@@ -390,3 +390,15 @@ class TestFromDictOuterTypeError:
         """from_dict skips entity when buckets_data is an integer."""
         storage = AvailabilityStorage.from_dict({"sensor.test": 42})
         assert "sensor.test" not in storage._buckets
+
+    def test_from_dict_naive_interval_start_gets_utc(self) -> None:
+        """from_dict normalizes naive interval_start to UTC-aware."""
+        from datetime import timezone
+
+        storage = AvailabilityStorage.from_dict(
+            {"sensor.test": [{"s": "2024-01-01T12:00:00", "o": 100.0}]}
+        )
+        assert "sensor.test" in storage._buckets
+        bucket = storage._buckets["sensor.test"][0]
+        assert bucket.interval_start.tzinfo is not None
+        assert bucket.interval_start.tzinfo == timezone.utc

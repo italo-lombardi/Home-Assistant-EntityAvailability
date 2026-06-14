@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .const import BUCKET_INTERVAL, BUCKETS_MAX
@@ -165,8 +165,11 @@ class AvailabilityStorage:
                 for b in buckets_data:
                     try:
                         online = float(b["o"])
+                        interval_start = datetime.fromisoformat(b["s"])
+                        if interval_start.tzinfo is None:
+                            interval_start = interval_start.replace(tzinfo=timezone.utc)
                         bucket = AvailabilityBucket(
-                            interval_start=datetime.fromisoformat(b["s"]),
+                            interval_start=interval_start,
                             online_seconds=min(online, float(BUCKET_INTERVAL)),
                         )
                         buckets.append(bucket)

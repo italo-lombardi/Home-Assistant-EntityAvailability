@@ -1592,7 +1592,7 @@ async def test_shutdown_cancels_state_change_listener(
 async def test_shutdown_cancels_debounce(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """async_shutdown cancels the debounce timer when it exists."""
+    """async_shutdown cancels all per-entity debounce timers."""
     hass = mock_hass
 
     with patch.object(
@@ -1605,12 +1605,12 @@ async def test_shutdown_cancels_debounce(
     def debounce_cancel():
         debounce_called.append(True)
 
-    coord._debounce_cancel = debounce_cancel
+    coord._debounce_cancel_map["binary_sensor.device_a"] = debounce_cancel
     coord._dirty = False
     await coord.async_shutdown()
 
     assert len(debounce_called) == 1
-    assert coord._debounce_cancel is None
+    assert len(coord._debounce_cancel_map) == 0
 
 
 # ---------------------------------------------------------------------------
@@ -1940,12 +1940,12 @@ async def test_debounced_refresh_callback_creates_task(
 
     assert len(captured_callbacks) == 1
 
-    # Now invoke the callback: _debounce_cancel should be cleared and refresh scheduled
+    # Now invoke the callback: entry removed from map and refresh scheduled
     with patch.object(coord, "async_request_refresh", new_callable=AsyncMock):
         with patch.object(hass, "async_create_task") as mock_task:
             captured_callbacks[0](None)  # simulate the timer firing
 
-    assert coord._debounce_cancel is None
+    assert "unknown" not in coord._debounce_cancel_map
     mock_task.assert_called_once()
 
 

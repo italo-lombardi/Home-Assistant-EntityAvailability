@@ -80,7 +80,6 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._last_update: datetime | None = None
         self._startup_time: datetime | None = None
         self._unsub_state_change: CALLBACK_TYPE | None = None
-        self._debounce_cancel: CALLBACK_TYPE | None = None
         self._debounce_cancel_map: dict[str, CALLBACK_TYPE] = {}
         self._device_states: dict[str, DeviceState] = {}
         self._suppressed: dict[str, datetime | None] = {}
@@ -154,9 +153,6 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         if self._unsub_state_change is not None:
             self._unsub_state_change()
             self._unsub_state_change = None
-        if self._debounce_cancel is not None:
-            self._debounce_cancel()
-            self._debounce_cancel = None
         for cancel in self._debounce_cancel_map.values():
             cancel()
         self._debounce_cancel_map.clear()
