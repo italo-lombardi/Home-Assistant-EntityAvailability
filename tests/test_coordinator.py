@@ -577,14 +577,23 @@ async def test_debounce_cancel_on_rapid_state_changes(
             "custom_components.entity_availability.coordinator.async_call_later",
             side_effect=[first_cancel, second_cancel],
         ):
+            entity_id = "binary_sensor.test"
+
+            def make_event(eid):
+                evt = MagicMock()
+                evt.data.get.side_effect = lambda key, default=None: (
+                    eid if key == "entity_id" else None
+                )
+                return evt
+
             # First state change — schedules debounce, no previous cancel
-            coord._handle_state_change(MagicMock())
-            assert coord._debounce_cancel is first_cancel
+            coord._handle_state_change(make_event(entity_id))
+            assert coord._debounce_cancel_map.get(entity_id) is first_cancel
             assert len(cancel_calls) == 0
 
             # Second rapid state change — cancels first, schedules new
-            coord._handle_state_change(MagicMock())
-            assert coord._debounce_cancel is second_cancel
+            coord._handle_state_change(make_event(entity_id))
+            assert coord._debounce_cancel_map.get(entity_id) is second_cancel
             assert len(cancel_calls) == 1  # first cancel was called
 
 
@@ -680,6 +689,60 @@ async def test_suppressed_entity_skips_availability_storage(
     assert record_offline_calls == [], (
         "suppressed entity should not record offline time"
     )
+
+
+async def test_async_shutdown_cancels_debounce_map(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """async_shutdown calls every cancel in _debounce_cancel_map and clears it."""
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        cancel_called = []
+
+        def fake_cancel():
+            cancel_called.append(True)
+
+        coord._debounce_cancel_map["binary_sensor.x"] = fake_cancel
+
+        await coord.async_shutdown()
+
+    assert len(cancel_called) == 1
+    assert coord._debounce_cancel_map == {}
+
+
+async def test_async_update_data_save_error_logs_warning(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """When _async_save_storage raises, a warning is logged and _update_count resets."""
+    hass = mock_hass
+
+    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ) as mock_save:
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        # Prime the counter so the next update triggers the save path
+        coord._update_count = _SAVE_INTERVAL_UPDATES - 1
+        mock_save.side_effect = RuntimeError("disk full")
+
+        with patch(
+            "custom_components.entity_availability.coordinator._LOGGER"
+        ) as mock_logger:
+            await coord._async_update_data()
+
+        mock_logger.warning.assert_called_once()
+        assert coord._update_count == 0
 
 
 async def test_device_state_persistence_prevents_restart_retrigger(

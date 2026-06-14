@@ -48,6 +48,8 @@ async def async_setup_entry(
     coordinator: EntityAvailabilityCoordinator = hass.data[DOMAIN][entry.entry_id]
     group_name = entry.data[CONF_GROUP_NAME]
     group_slug = re.sub(r"[^a-z0-9_]+", "_", group_name.lower()).strip("_")
+    if not group_slug:
+        group_slug = entry.entry_id[:8].lower()
     windows = entry.data.get(CONF_AVAILABILITY_WINDOWS, DEFAULT_AVAILABILITY_WINDOWS)
 
     _LOGGER.debug(
@@ -462,14 +464,16 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
         self.entity_id = f"sensor.entity_availability_{group_slug}_recently_offline"
         self._attr_name = "Recently Offline"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+        self._cached_devices: list = []
 
     def _window_seconds(self) -> float:
         return self.coordinator.recovery_window_minutes * 60
 
-    def _matching_devices(self):
+    def _refresh_cache(self) -> list:
+        """Recompute matching devices once per call; cache for the other property."""
         now = datetime.now(timezone.utc)
         cutoff = self._window_seconds()
-        return [
+        self._cached_devices = [
             d
             for d in self.coordinator.device_states.values()
             if d.is_offline
@@ -477,6 +481,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
             and d.recently_offline_at is not None
             and (now - d.recently_offline_at).total_seconds() <= cutoff
         ]
+        return self._cached_devices
 
     def _friendly_name(self, entity_id: str) -> str:
         state = self.hass.states.get(entity_id)
@@ -487,7 +492,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
     @property
     def native_value(self) -> str:
         """Return comma-separated friendly names of recently offline entities."""
-        devices = self._matching_devices()
+        devices = self._refresh_cache()
         if not devices:
             return "None"
         result = ", ".join(self._friendly_name(d.entity_id) for d in devices)
@@ -498,7 +503,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return list of entity IDs that recently went offline."""
-        devices = self._matching_devices()
+        devices = self._cached_devices
         return {
             "entities": [d.entity_id for d in devices],
             "count": len(devices),
@@ -525,14 +530,16 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
         self.entity_id = f"sensor.entity_availability_{group_slug}_recently_recovered"
         self._attr_name = "Recently Recovered"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+        self._cached_devices: list = []
 
     def _window_seconds(self) -> float:
         return self.coordinator.recovery_window_minutes * 60
 
-    def _matching_devices(self):
+    def _refresh_cache(self) -> list:
+        """Recompute matching devices once per call; cache for the other property."""
         now = datetime.now(timezone.utc)
         cutoff = self._window_seconds()
-        return [
+        self._cached_devices = [
             d
             for d in self.coordinator.device_states.values()
             if not d.is_offline
@@ -540,6 +547,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
             and d.last_recovery is not None
             and (now - d.last_recovery).total_seconds() <= cutoff
         ]
+        return self._cached_devices
 
     def _friendly_name(self, entity_id: str) -> str:
         state = self.hass.states.get(entity_id)
@@ -550,7 +558,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
     @property
     def native_value(self) -> str:
         """Return comma-separated friendly names of recently recovered entities."""
-        devices = self._matching_devices()
+        devices = self._refresh_cache()
         if not devices:
             return "None"
         result = ", ".join(self._friendly_name(d.entity_id) for d in devices)
@@ -561,7 +569,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return list of entity IDs that recently recovered."""
-        devices = self._matching_devices()
+        devices = self._cached_devices
         return {
             "entities": [d.entity_id for d in devices],
             "count": len(devices),

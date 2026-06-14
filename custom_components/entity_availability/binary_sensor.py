@@ -31,6 +31,8 @@ async def async_setup_entry(
     coordinator: EntityAvailabilityCoordinator = hass.data[DOMAIN][entry.entry_id]
     group_name = entry.data[CONF_GROUP_NAME]
     group_slug = re.sub(r"[^a-z0-9_]+", "_", group_name.lower()).strip("_")
+    if not group_slug:
+        group_slug = entry.entry_id[:8].lower()
 
     async_add_entities(
         [
@@ -64,25 +66,26 @@ class AnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
             manufacturer="Entity Availability",
             entry_type=DeviceEntryType.SERVICE,
         )
+        self._offline_entities: list[str] = []
 
-    @property
-    def is_on(self) -> bool:
-        """Return True if any non-suppressed entity is offline."""
-        for device in self.coordinator.device_states.values():
-            if device.is_suppressed:
-                continue
-            if device.is_offline:
-                return True
-        return False
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return offline entity details."""
-        offline_entities = [
+    def _refresh_offline(self) -> list[str]:
+        """Snapshot offline entities once; shared by is_on and extra_state_attributes."""
+        self._offline_entities = [
             d.entity_id
             for d in self.coordinator.device_states.values()
             if d.is_offline and not d.is_suppressed
         ]
+        return self._offline_entities
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if any non-suppressed entity is offline."""
+        return len(self._refresh_offline()) > 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return offline entity details."""
+        offline_entities = self._offline_entities
         return {
             "offline_entities": offline_entities,
             "offline_count": len(offline_entities),

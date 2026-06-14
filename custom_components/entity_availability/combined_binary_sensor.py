@@ -28,6 +28,8 @@ async def async_setup_entry(
     """Set up combined group binary sensors."""
     group_name = entry.data[CONF_GROUP_NAME]
     group_slug = re.sub(r"[^a-z0-9_]+", "_", group_name.lower()).strip("_")
+    if not group_slug:
+        group_slug = entry.entry_id[:8].lower()
     combined_entry_ids: list[str] = entry.data.get(CONF_COMBINED_GROUPS, [])
 
     coordinators: list[EntityAvailabilityCoordinator] = [

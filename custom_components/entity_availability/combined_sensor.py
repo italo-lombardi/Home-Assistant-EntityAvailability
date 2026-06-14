@@ -36,6 +36,8 @@ async def async_setup_entry(
     """Set up combined group sensors."""
     group_name = entry.data[CONF_GROUP_NAME]
     group_slug = re.sub(r"[^a-z0-9_]+", "_", group_name.lower()).strip("_")
+    if not group_slug:
+        group_slug = entry.entry_id[:8].lower()
     combined_entry_ids: list[str] = entry.data.get(CONF_COMBINED_GROUPS, [])
 
     coordinators: list[EntityAvailabilityCoordinator] = [
@@ -197,7 +199,9 @@ class CombinedGroupSensor(CombinedSensorBase):
                 g_battery_powered = sum(1 for v in battery_map.values() if v)
             else:
                 g_battery_powered = sum(
-                    1 for d in states.values() if d.battery_level is not None
+                    1
+                    for d in states.values()
+                    if d.battery_level is not None and not d.is_suppressed
                 )
             total += g_total
             online += g_online

@@ -92,8 +92,12 @@ class AvailabilityStorage:
         if entity_id not in self._buckets or not self._buckets[entity_id]:
             return None
 
-        window_hours = self._window_to_hours(window)
-        cutoff = now - timedelta(hours=window_hours)
+        if window == "today":
+            # Calendar day: midnight local time → now (not rolling 24 h).
+            cutoff = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            window_hours = self._window_to_hours(window)
+            cutoff = now - timedelta(hours=window_hours)
 
         relevant_buckets = [
             b for b in self._buckets[entity_id] if b.interval_start >= cutoff
@@ -109,8 +113,11 @@ class AvailabilityStorage:
             return None
 
         # Require at least 1 bucket for "today", 10% for longer windows
-        expected_buckets = window_hours * 12  # 12 buckets per hour
-        min_required = 1 if window == "today" else max(1, int(expected_buckets * 0.1))
+        if window == "today":
+            min_required = 1
+        else:
+            expected_buckets = window_hours * 12  # 12 buckets per hour
+            min_required = max(1, int(expected_buckets * 0.1))
         if len(relevant_buckets) < min_required:
             _LOGGER.debug(
                 "Insufficient data for %s window '%s': have %d buckets, need %d",

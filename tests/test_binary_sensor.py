@@ -124,6 +124,7 @@ class TestAnyOfflineBinarySensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         sensor.hass = mock_hass
+        sensor.is_on
         attrs = sensor.extra_state_attributes
         assert attrs["offline_count"] == 2
         assert "binary_sensor.device_a" in attrs["offline_entities"]
@@ -140,6 +141,7 @@ class TestAnyOfflineBinarySensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         sensor.hass = mock_hass
+        sensor.is_on
         attrs = sensor.extra_state_attributes
         assert attrs["offline_count"] == 1
         assert "binary_sensor.device_a" not in attrs["offline_entities"]
@@ -174,6 +176,42 @@ async def test_binary_sensor_setup_entry_group_path(
 
     assert len(added) == 1
     assert isinstance(added[0], AnyOfflineBinarySensor)
+
+
+async def test_binary_sensor_setup_entry_slug_fallback(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """When group name produces empty slug, entry_id[:8] is used instead."""
+    hass = mock_hass
+    config = dict(mock_config_data)
+    config[CONF_GROUP_NAME] = "!!!"
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="!!!",
+        data=config,
+        entry_id="abcdef1234567890",
+        unique_id=f"{DOMAIN}_fallback_slug",
+    )
+    entry.add_to_hass(hass)
+    hass.data.setdefault(DOMAIN, {})
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+    hass.data[DOMAIN][entry.entry_id] = coord
+
+    added = []
+
+    def capture(entities):
+        added.extend(entities)
+
+    await async_setup_entry(hass, entry, capture)
+
+    assert len(added) == 1
+    assert "abcdef12" in added[0].entity_id
 
 
 async def test_binary_sensor_setup_entry_combined_path(

@@ -497,6 +497,7 @@ class TestRecentlyOfflineSensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         sensor.hass = mock_hass
+        sensor.native_value
         attrs = sensor.extra_state_attributes
         assert "binary_sensor.device_b" in attrs["entities"]
         assert attrs["count"] == 1
@@ -565,6 +566,7 @@ class TestRecentlyRecoveredSensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         sensor.hass = mock_hass
+        sensor.native_value
         attrs = sensor.extra_state_attributes
         assert "binary_sensor.device_a" in attrs["entities"]
         assert attrs["count"] == 1
@@ -1069,3 +1071,40 @@ async def test_sensor_setup_entry_slug_sanitizes_slash_in_group_name(
         assert "/" not in entity.entity_id, (
             f"entity_id '{entity.entity_id}' contains forward slash"
         )
+
+
+async def test_sensor_setup_entry_slug_fallback(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """All-special-char group name falls back to entry_id[:8] for sensor slug."""
+    hass = mock_hass
+    config = dict(mock_config_data)
+    config[CONF_GROUP_NAME] = "!!!"
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="!!!",
+        data=config,
+        entry_id="abcdef1234567890",
+        unique_id=f"{DOMAIN}_fallback_slug_sensor",
+    )
+    entry.add_to_hass(hass)
+    hass.data.setdefault(DOMAIN, {})
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+    hass.data[DOMAIN][entry.entry_id] = coord
+
+    added = []
+
+    def capture(entities):
+        added.extend(entities)
+
+    await async_setup_entry(hass, entry, capture)
+
+    assert len(added) > 0
+    for entity in added:
+        assert "abcdef12" in entity.entity_id

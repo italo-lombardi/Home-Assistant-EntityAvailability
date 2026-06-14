@@ -81,6 +81,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._startup_time: datetime | None = None
         self._unsub_state_change: CALLBACK_TYPE | None = None
         self._debounce_cancel: CALLBACK_TYPE | None = None
+        self._debounce_cancel_map: dict[str, CALLBACK_TYPE] = {}
         self._device_states: dict[str, DeviceState] = {}
         self._suppressed: dict[str, datetime | None] = {}
         self._update_count: int = 0
@@ -156,6 +157,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         if self._debounce_cancel is not None:
             self._debounce_cancel()
             self._debounce_cancel = None
+        for cancel in self._debounce_cancel_map.values():
+            cancel()
+        self._debounce_cancel_map.clear()
         # Final save
         if self._dirty:
             _LOGGER.debug("[%s] Saving dirty storage on shutdown", self.group_name)
@@ -298,7 +302,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
     @callback
     def _handle_state_change(self, event: Event) -> None:
-        """Handle state change for a monitored entity (debounced)."""
+        """Handle state change for a monitored entity (debounced per entity)."""
         entity_id = event.data.get("entity_id", "unknown")
         new_state = event.data.get("new_state")
         old_state = event.data.get("old_state")
@@ -309,18 +313,20 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             old_state.state if old_state else "None",
             new_state.state if new_state else "None",
         )
-        # Cancel any pending debounce timer
-        if self._debounce_cancel is not None:
-            self._debounce_cancel()
+        # Per-entity debounce: cancel only this entity's pending timer.
+        # A shared group-wide timer would drop all but the last entity's
+        # state change when multiple entities change within the debounce window.
+        existing = self._debounce_cancel_map.get(entity_id)
+        if existing is not None:
+            existing()
 
         @callback
         def _debounced_refresh(_now: Any) -> None:
             """Trigger a coordinator refresh after debounce."""
-            self._debounce_cancel = None
+            self._debounce_cancel_map.pop(entity_id, None)
             self.hass.async_create_task(self.async_request_refresh())
 
-        # Schedule a debounced refresh
-        self._debounce_cancel = async_call_later(
+        self._debounce_cancel_map[entity_id] = async_call_later(
             self.hass, _STATE_CHANGE_DEBOUNCE, _debounced_refresh
         )
 
@@ -493,8 +499,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._dirty = True
         self._update_count += 1
         if self._update_count >= _SAVE_INTERVAL_UPDATES:
-            self._update_count = 0
-            await self._async_save_storage()
+            try:
+                await self._async_save_storage()
+            except Exception:  # noqa: BLE001
+                _LOGGER.warning(
+                    "[%s] Failed to save storage — will retry next interval",
+                    self.group_name,
+                )
+            finally:
+                self._update_count = 0
 
         return EntityAvailabilityData(
             devices=dict(self._device_states),

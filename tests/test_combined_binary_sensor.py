@@ -440,3 +440,33 @@ async def test_combined_binary_sensor_setup_entry_slug_sanitizes_slash_in_group_
         assert "/" not in entity.entity_id, (
             f"entity_id '{entity.entity_id}' contains forward slash"
         )
+
+
+async def test_combined_binary_sensor_slug_fallback(
+    mock_hass: HomeAssistant, group_entry_a, group_entry_b
+) -> None:
+    """All-special-char group name falls back to entry_id[:8] for the slug."""
+    combined_entry = _make_combined_entry(
+        "abcdef1234567890",
+        "!!!",
+        ["entry_a", "entry_b"],
+    )
+    coord_a = MagicMock(spec=EntityAvailabilityCoordinator)
+    coord_a.entry = group_entry_a
+    coord_b = MagicMock(spec=EntityAvailabilityCoordinator)
+    coord_b.entry = group_entry_b
+    mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_b": coord_b}
+
+    group_entry_a.add_to_hass(mock_hass)
+    group_entry_b.add_to_hass(mock_hass)
+    combined_entry.add_to_hass(mock_hass)
+
+    added = []
+
+    def _fake_add(entities):
+        added.extend(entities)
+
+    await async_setup_entry(mock_hass, combined_entry, _fake_add)
+
+    assert len(added) == 1
+    assert "abcdef12" in added[0].entity_id
