@@ -232,11 +232,13 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "battery_powered": g_battery_powered,
             }
 
-        all_entities = [
-            eid
-            for coord in self._active_coordinators()
-            for eid in coord.monitored_entities
-        ]
+        all_entities = list(
+            dict.fromkeys(
+                eid
+                for coord in self._active_coordinators()
+                for eid in coord.monitored_entities
+            )
+        )
         attrs: dict[str, Any] = {
             "total_entities": total,
             "online": online,

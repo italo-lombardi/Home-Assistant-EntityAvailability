@@ -300,6 +300,51 @@ class TestCombinedGroupSensor:
             "binary_sensor.a2",
             "binary_sensor.b1",
         }
+        assert len(attrs["entities"]) == len(set(attrs["entities"])), (
+            "entities must be deduplicated"
+        )
+
+    def test_attributes_entities_deduplicated(self, mock_hass, group_entry_a):
+        """entities list has no duplicates when the same entity appears in two source groups."""
+        shared_entry = _make_group_entry(
+            "entry_shared", "Shared Group", ["binary_sensor.a1", "binary_sensor.shared"]
+        )
+        combined = _make_combined_entry(
+            "combined_dup", "Dup", ["entry_a", "entry_shared"]
+        )
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, group_entry_a)
+            coord_a._device_states = {
+                "binary_sensor.a1": DeviceState(entity_id="binary_sensor.a1"),
+                "binary_sensor.a2": DeviceState(entity_id="binary_sensor.a2"),
+            }
+            coord_shared = EntityAvailabilityCoordinator(mock_hass, shared_entry)
+            coord_shared._device_states = {
+                "binary_sensor.a1": DeviceState(entity_id="binary_sensor.a1"),
+                "binary_sensor.shared": DeviceState(entity_id="binary_sensor.shared"),
+            }
+
+        mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_shared": coord_shared}
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined,
+            "Dup",
+            "dup",
+            [coord_a, coord_shared],
+            ["entry_a", "entry_shared"],
+        )
+        entities = sensor.extra_state_attributes["entities"]
+        assert entities.count("binary_sensor.a1") == 1, (
+            "duplicate entity_id in entities list"
+        )
+        assert set(entities) == {
+            "binary_sensor.a1",
+            "binary_sensor.a2",
+            "binary_sensor.shared",
+        }
 
     def test_attributes_battery_powered_via_device_states(
         self, mock_hass, combined_entry, coordinators
