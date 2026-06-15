@@ -224,6 +224,52 @@ class TestCombinedSensorBase:
         sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
         assert len(sensor._active_coordinators()) == 2
 
+    def test_available_true_when_at_least_one_coordinator_loaded(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """available returns True when at least one coordinator is active."""
+        mock_hass.data[DOMAIN] = {"entry_a": coordinators[0]}
+        sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.available is True
+
+    def test_available_false_when_all_coordinators_unloaded(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """available returns False when no coordinator is in hass.data."""
+        mock_hass.data[DOMAIN] = {}
+        sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.available is False
+
+    def test_available_false_when_hass_data_has_non_coordinator_value(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """available returns False when hass.data entry is not an EntityAvailabilityCoordinator."""
+        mock_hass.data[DOMAIN] = {"entry_a": "not_a_coordinator", "entry_b": object()}
+        sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.available is False
+
+    def test_missing_groups_uses_isinstance_check(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """missing_groups flags entries whose hass.data value is not a coordinator."""
+        # entry_a has a non-coordinator value — should be flagged as missing
+        mock_hass.data[DOMAIN] = {
+            "entry_a": "not_a_coordinator",
+            "entry_b": coordinators[1],
+        }
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            coordinators,
+            ["entry_a", "entry_b"],
+        )
+        attrs = sensor.extra_state_attributes
+        assert "missing_groups" in attrs
+        assert "entry_a" in attrs["missing_groups"]
+        assert "entry_b" not in attrs["missing_groups"]
+
 
 # ---------------------------------------------------------------------------
 # CombinedGroupSensor

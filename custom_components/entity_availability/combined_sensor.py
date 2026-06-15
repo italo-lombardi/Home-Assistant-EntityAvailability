@@ -133,13 +133,32 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
 
     def _active_coordinators(self) -> list[EntityAvailabilityCoordinator]:
         domain_data = self.hass.data.get(DOMAIN, {})
-        return [
+        active = [
             c
             for c in self._coordinators
             if isinstance(
                 domain_data.get(c.entry.entry_id), EntityAvailabilityCoordinator
             )
         ]
+        if len(active) != len(self._coordinators):
+            _LOGGER.debug(
+                "[%s] _active_coordinators: %d/%d active",
+                self.entity_id,
+                len(active),
+                len(self._coordinators),
+            )
+        return active
+
+    @property
+    def available(self) -> bool:
+        """Return False when all source coordinators have been unloaded."""
+        is_available = len(self._active_coordinators()) > 0
+        if not is_available:
+            _LOGGER.debug(
+                "[%s] unavailable: all source coordinators unloaded",
+                self.entity_id,
+            )
+        return is_available
 
 
 class CombinedGroupSensor(CombinedSensorBase):
@@ -252,12 +271,18 @@ class CombinedGroupSensor(CombinedSensorBase):
             "offline_entities": offline_entities,
             "low_battery_entities": low_battery_entities,
         }
+        domain_data = self.hass.data.get(DOMAIN, {})
         missing = [
             eid
             for eid in self._combined_entry_ids
-            if eid not in self.hass.data.get(DOMAIN, {})
+            if not isinstance(domain_data.get(eid), EntityAvailabilityCoordinator)
         ]
         if missing:
+            _LOGGER.debug(
+                "[%s] missing_groups detected: %s",
+                self.entity_id,
+                missing,
+            )
             attrs["missing_groups"] = missing
         return attrs
 

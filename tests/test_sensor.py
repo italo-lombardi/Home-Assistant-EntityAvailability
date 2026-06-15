@@ -510,6 +510,28 @@ class TestRecentlyOfflineSensor:
         )
         assert sensor.unique_id == "test_entry_id_recently_offline"
 
+    def test_extra_state_attributes_reuses_cached_devices_not_recomputed(
+        self, mock_coordinator, mock_hass
+    ):
+        """extra_state_attributes reads _cached_devices set by native_value, not a second _refresh_cache."""
+        mock_coordinator._device_states[
+            "binary_sensor.device_b"
+        ].recently_offline_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        sensor = RecentlyOfflineSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        # Drive native_value to populate _cached_devices
+        sensor.native_value
+        cached_before = sensor._cached_devices
+        # Poison the underlying data so a re-computation would return different results
+        for d in mock_coordinator._device_states.values():
+            d.recently_offline_at = None
+        # extra_state_attributes must reflect the already-cached result, not the poisoned state
+        attrs = sensor.extra_state_attributes
+        assert attrs["count"] == len(cached_before)
+        assert attrs["entities"] == [d.entity_id for d in cached_before]
+
 
 class TestRecentlyRecoveredSensor:
     """Tests for RecentlyRecoveredSensor."""
@@ -590,6 +612,28 @@ class TestRecentlyRecoveredSensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.unique_id == "test_entry_id_recently_recovered"
+
+    def test_extra_state_attributes_reuses_cached_devices_not_recomputed(
+        self, mock_coordinator, mock_hass
+    ):
+        """extra_state_attributes reads _cached_devices set by native_value, not a second _refresh_cache."""
+        mock_coordinator._device_states["binary_sensor.device_a"].last_recovery = (
+            datetime.now(timezone.utc) - timedelta(minutes=2)
+        )
+        sensor = RecentlyRecoveredSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        # Drive native_value to populate _cached_devices
+        sensor.native_value
+        cached_before = sensor._cached_devices
+        # Poison the underlying data so a re-computation would return different results
+        for d in mock_coordinator._device_states.values():
+            d.last_recovery = None
+        # extra_state_attributes must reflect the already-cached result, not the poisoned state
+        attrs = sensor.extra_state_attributes
+        assert attrs["count"] == len(cached_before)
+        assert attrs["entities"] == [d.entity_id for d in cached_before]
 
     def test_native_value_at_exactly_window_boundary(self, mock_coordinator, mock_hass):
         """Device recovered at exactly window_minutes*60 seconds ago should still show."""

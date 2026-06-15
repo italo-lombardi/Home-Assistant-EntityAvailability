@@ -483,6 +483,12 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
             and d.recently_offline_at is not None
             and (now - d.recently_offline_at).total_seconds() <= cutoff
         ]
+        _LOGGER.debug(
+            "[%s] RecentlyOfflineSensor cache refreshed: %d device(s) within %ss window",
+            self.entity_id,
+            len(self._cached_devices),
+            cutoff,
+        )
         return self._cached_devices
 
     def _friendly_name(self, entity_id: str) -> str:
@@ -505,7 +511,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return list of entity IDs that recently went offline."""
-        devices = self._refresh_cache()
+        devices = self._cached_devices
         return {
             "entities": [d.entity_id for d in devices],
             "count": len(devices),
@@ -549,6 +555,12 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
             and d.last_recovery is not None
             and (now - d.last_recovery).total_seconds() <= cutoff
         ]
+        _LOGGER.debug(
+            "[%s] RecentlyRecoveredSensor cache refreshed: %d device(s) within %ss window",
+            self.entity_id,
+            len(self._cached_devices),
+            cutoff,
+        )
         return self._cached_devices
 
     def _friendly_name(self, entity_id: str) -> str:
@@ -571,7 +583,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return list of entity IDs that recently recovered."""
-        devices = self._refresh_cache()
+        devices = self._cached_devices
         return {
             "entities": [d.entity_id for d in devices],
             "count": len(devices),
