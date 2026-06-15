@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.7] - TBD
+
+### Fixed
+- Combined sensor: `sensor.*_combined_summary` attributes now include an `entities` key (flat list of all monitored entity IDs across all source groups) — required for the Unsuppress All card action to work on combined group cards
+- Card: `show_actions` (Suppress All / Unsuppress All buttons) now rendered for combined group cards; previously the actions block was absent regardless of config
+- Card: `_getOfflineEntityIds()` now uses the combined-group entity prefix when the card is a combined group — Suppress All was silently suppressing nothing on combined cards
+
 ## [0.3.6] - 2026-06-08
 
 ### Changed
