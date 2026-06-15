@@ -1942,7 +1942,9 @@ async def test_debounced_refresh_callback_creates_task(
 
     # Now invoke the callback: entry removed from map and refresh scheduled
     with patch.object(coord, "async_request_refresh", new_callable=AsyncMock):
-        with patch.object(hass, "async_create_task") as mock_task:
+        with patch.object(
+            hass, "async_create_task", side_effect=lambda coro: coro.close()
+        ) as mock_task:
             captured_callbacks[0](None)  # simulate the timer firing
 
     assert "unknown" not in coord._debounce_cancel_map
