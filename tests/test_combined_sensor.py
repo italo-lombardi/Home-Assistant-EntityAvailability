@@ -294,6 +294,12 @@ class TestCombinedGroupSensor:
         assert "entry_a" in attrs["groups"]
         assert "entry_b" in attrs["groups"]
         assert attrs["groups"]["entry_a"]["name"] == "Group A"
+        assert "entities" in attrs
+        assert set(attrs["entities"]) == {
+            "binary_sensor.a1",
+            "binary_sensor.a2",
+            "binary_sensor.b1",
+        }
 
     def test_attributes_battery_powered_via_device_states(
         self, mock_hass, combined_entry, coordinators

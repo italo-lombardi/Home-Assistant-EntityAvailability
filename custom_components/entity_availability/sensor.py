@@ -472,7 +472,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
         return self.coordinator.recovery_window_minutes * 60
 
     def _refresh_cache(self) -> list:
-        """Compute and return devices that went offline within the recovery window."""
+        """Compute and return offline devices whose offline event is within the recovery window."""
         now = datetime.now(timezone.utc)
         cutoff = self._window_seconds()
         self._cached_devices = [
@@ -538,7 +538,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
         return self.coordinator.recovery_window_minutes * 60
 
     def _refresh_cache(self) -> list:
-        """Compute and return devices that went offline within the recovery window."""
+        """Compute and return online devices whose recovery event is within the recovery window."""
         now = datetime.now(timezone.utc)
         cutoff = self._window_seconds()
         self._cached_devices = [

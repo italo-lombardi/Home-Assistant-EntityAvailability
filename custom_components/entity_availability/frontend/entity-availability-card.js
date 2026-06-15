@@ -623,6 +623,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderStats(online, offline, lowBattery, suppressed)}
           ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
+          ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
     }
@@ -996,7 +997,10 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _getOfflineEntityIds() {
-    const prefix = `entity_availability_${this._config.group}`;
+    const isCombined = this._isCombinedGroup();
+    const prefix = isCombined
+      ? `entity_availability_combined_${this._config.group}`
+      : `entity_availability_${this._config.group}`;
     const entity = this._getEntity(`sensor.${prefix}_offline_entities`);
     if (!entity || !entity.attributes) return [];
     return entity.attributes.entities || [];
