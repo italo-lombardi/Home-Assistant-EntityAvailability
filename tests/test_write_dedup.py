@@ -511,6 +511,45 @@ def test_availability_sensor_dedup_catches_sub_percent_drift(
     )
 
 
+def test_availability_sensor_dedup_writes_on_integer_boundary(
+    mock_coordinator, mock_hass
+) -> None:
+    """Boundary-crossing drift writes once per crossing, suppresses everything else.
+
+    Confirms the quantization actually *flips* at the integer boundary —
+    a stronger guarantee than the steady-state test above. Without this,
+    a broken quantization (e.g. ``int(value)`` instead of ``round(value)``)
+    could silently dedup forever and pass the steady-state test.
+    """
+    sensor = AvailabilitySensor(
+        mock_coordinator, "Test Group", "test_group", "today", "eid"
+    )
+    sensor.hass = mock_hass
+    storage = mock_coordinator.availability_storage
+    tick = {"n": 0}
+
+    def _drifting(_eid, _window, _now):
+        # 0.83% per tick; 60 ticks → drift 99.0 → 99.5 (no crossing yet)
+        # 120 ticks → drift 99.0 → 100.0 (one crossing).
+        return 99.0 + (tick["n"] * 30 / 3600)
+
+    states_seen: set[int] = set()
+    with (
+        patch.object(storage, "get_availability", side_effect=_drifting),
+        patch.object(sensor, "async_write_ha_state") as write,
+    ):
+        for i in range(120):
+            tick["n"] = i
+            states_seen.add(sensor.native_value)
+            sensor._handle_coordinator_update()
+
+    assert write.call_count <= 3, (
+        f"too many writes across single boundary: {write.call_count}"
+    )
+    # Quantization must have flipped — both sides of the boundary appear.
+    assert {99, 100}.issubset(states_seen)
+
+
 def test_dedup_sensor_first_write_after_construction(mock_coordinator) -> None:
     """A freshly constructed concrete sensor writes on its first refresh."""
     sensor = OfflineCountSensor(mock_coordinator, "Test Group", "test_group", "eid")

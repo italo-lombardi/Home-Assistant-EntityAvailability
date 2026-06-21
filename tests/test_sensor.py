@@ -1242,3 +1242,48 @@ class TestAvailabilitySensorQuantization:
         assert write.call_count < 10, (
             f"dedup failed to suppress sub-percent drift: {write.call_count} writes"
         )
+
+    def test_dedup_with_boundary_crossings(self, mock_coordinator, mock_hass):
+        """Drift that crosses several integer boundaries still dedups most ticks.
+
+        Faster ramp (0.83% per tick = 30s/3600s, simulating a 1h-style window)
+        starts at 99.0 and crosses 100, then 100→101 etc. Each crossing
+        legitimately writes once; everything between crossings is suppressed.
+        Verifies the quantization actually flips correctly at the boundary
+        rather than silently failing the dedup.
+        """
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+
+        storage = mock_coordinator.availability_storage
+        tick = {"n": 0}
+        observed_states: list[int] = []
+
+        def _drifting(_eid, _window, _now):
+            return 99.0 + (tick["n"] * 30 / 3600)
+
+        # Capture the integer states actually published.
+        original = sensor._handle_coordinator_update
+
+        def _spy():
+            observed_states.append(sensor.native_value)
+            original()
+
+        with (
+            patch.object(storage, "get_availability", side_effect=_drifting),
+            patch.object(sensor, "async_write_ha_state") as write,
+        ):
+            for i in range(120):  # 120 ticks → drift 99.0 → 100.0 (1 crossing)
+                tick["n"] = i
+                _spy()
+
+        # Drift hits exactly 1 integer boundary (99 → 100) over 120 ticks.
+        # Allow up to 3 writes for the boundary plus the first publish.
+        assert write.call_count <= 3, (
+            f"too many writes across single boundary: {write.call_count}"
+        )
+        # Confirm quantization actually flipped — both 99 and 100 appeared.
+        assert 99 in observed_states
+        assert 100 in observed_states

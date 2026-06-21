@@ -127,7 +127,9 @@ class AvailabilityStorage:
         if total_time == 0:
             return None
 
-        return round((total_online / total_time) * 100, 1)
+        # Return raw float; AvailabilitySensor quantizes to whole percent for
+        # display and dedup. Storage-level rounding would be redundant.
+        return (total_online / total_time) * 100
 
     def get_entity_availability(
         self, entity_id: str, windows: list[str], now: datetime
