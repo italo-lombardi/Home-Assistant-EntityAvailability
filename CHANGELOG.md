@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.8] - TBD
+
+### Fixed
+- Sensor: `AvailabilitySensor.native_value` and the `per_device` attribute breakdown are now quantized to whole percent. Previously the rolling-window numerator grew by ~`SCAN_INTERVAL` seconds per coordinator tick, so the unrounded percentage drifted by tens of thousandths of a percent every tick — defeating `WriteDedupMixin` and producing one recorder row per tick on every `*_availability_today` sensor (~2880/day each). Whole-percent quantization keeps the published value stable across ticks; dedup now suppresses virtually every tick. Fixes v5.5 audit finding F-EA-1 (1.45M states rows over 50 days). Estimated DB write reduction: ~30× for `_today` sensors.
+
 ## [0.3.7] - TBD
 
 ### Fixed

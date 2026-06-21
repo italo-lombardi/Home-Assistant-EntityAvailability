@@ -1152,3 +1152,93 @@ async def test_sensor_setup_entry_slug_fallback(
     assert len(added) > 0
     for entity in added:
         assert "abcdef12" in entity.entity_id
+
+
+# ---------------------------------------------------------------------------
+# AvailabilitySensor — sub-percent drift quantization (v5.5 audit F-EA-1)
+# ---------------------------------------------------------------------------
+
+
+class TestAvailabilitySensorQuantization:
+    """``native_value`` and ``per_device`` are quantized to whole percent."""
+
+    def test_native_value_returns_integer(self, mock_coordinator, mock_hass):
+        """``native_value`` returns an integer (round to whole percent)."""
+        now = datetime.now(timezone.utc)
+        storage = mock_coordinator.availability_storage
+        for eid in mock_coordinator.monitored_entities:
+            for i in range(24):
+                storage.record_online(eid, 3600.0, now - timedelta(hours=i))
+
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        value = sensor.native_value
+        assert value == 100
+        assert isinstance(value, int)
+
+    def test_per_device_values_are_integers(self, mock_coordinator, mock_hass):
+        """``extra_state_attributes['per_device']`` values are int (not float)."""
+        now = datetime.now(timezone.utc)
+        storage = mock_coordinator.availability_storage
+        for eid in mock_coordinator.monitored_entities:
+            for i in range(24):
+                storage.record_online(eid, 3600.0, now - timedelta(hours=i))
+
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        per_device = sensor.extra_state_attributes["per_device"]
+        for eid, value in per_device.items():
+            assert value is None or isinstance(value, int), (
+                f"{eid} must be int after quantization, got {type(value).__name__}"
+            )
+
+    def test_per_device_preserves_none(self, mock_coordinator, mock_hass):
+        """Devices with no data still report ``None`` (not rounded to 0)."""
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        per_device = sensor.extra_state_attributes["per_device"]
+        for value in per_device.values():
+            assert value is None
+
+    def test_dedup_catches_sub_percent_drift(self, mock_coordinator, mock_hass):
+        """1000 ticks with sub-percent jitter must produce <10 state writes.
+
+        Reproduces v5.5 audit F-EA-1: rolling-window numerator drifts by
+        ~SCAN_INTERVAL/window each tick, defeating dedup if values aren't
+        quantized. After quantization, the rounded percentage stays put.
+        Simulates the unrounded float jitter directly on ``get_availability``
+        so the test is independent of bucket arithmetic.
+        """
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+
+        storage = mock_coordinator.availability_storage
+        tick = {"n": 0}
+
+        def _drifting(_eid, _window, _now):
+            # 30s/86400s ≈ 0.035% per-tick drift around 99.5% — the sub-percent
+            # jitter observed in the v5.5 DB sample. Same value within a tick
+            # so native_value and per_device agree; advances per tick caller.
+            return 99.5 + (tick["n"] * 30 / 86400)
+
+        with (
+            patch.object(storage, "get_availability", side_effect=_drifting),
+            patch.object(sensor, "async_write_ha_state") as write,
+        ):
+            for i in range(1000):
+                tick["n"] = i
+                sensor._handle_coordinator_update()
+
+        # Pre-fix: ~1000 writes (1 per tick). Post-fix: ≤ a handful as the
+        # rounded percentage occasionally crosses an integer boundary.
+        assert write.call_count < 10, (
+            f"dedup failed to suppress sub-percent drift: {write.call_count} writes"
+        )

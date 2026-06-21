@@ -475,6 +475,42 @@ def test_availability_sensor_dedup_skips_unchanged(mock_coordinator, mock_hass) 
     assert write.call_count == 1
 
 
+def test_availability_sensor_dedup_catches_sub_percent_drift(
+    mock_coordinator, mock_hass
+) -> None:
+    """v5.5 F-EA-1: sub-percent rolling-window drift must not defeat dedup.
+
+    Without quantization, ``native_value`` and the ``per_device`` attribute
+    floats drift on every coordinator tick (the in-progress 5-min bucket grows
+    by ``SCAN_INTERVAL`` seconds per tick), defeating ``WriteDedupMixin`` and
+    producing one recorder row per tick (~2880/day per ``_today`` sensor).
+
+    Quantizing both to whole percent collapses the per-tick noise so dedup
+    wins on virtually every tick.
+    """
+    sensor = AvailabilitySensor(
+        mock_coordinator, "Test Group", "test_group", "today", "eid"
+    )
+    sensor.hass = mock_hass
+    storage = mock_coordinator.availability_storage
+    tick = {"n": 0}
+
+    def _drifting(_eid, _window, _now):
+        return 99.5 + (tick["n"] * 30 / 86400)
+
+    with (
+        patch.object(storage, "get_availability", side_effect=_drifting),
+        patch.object(sensor, "async_write_ha_state") as write,
+    ):
+        for i in range(1000):
+            tick["n"] = i
+            sensor._handle_coordinator_update()
+
+    assert write.call_count < 10, (
+        f"sub-percent drift defeated dedup: {write.call_count}/1000 writes"
+    )
+
+
 def test_dedup_sensor_first_write_after_construction(mock_coordinator) -> None:
     """A freshly constructed concrete sensor writes on its first refresh."""
     sensor = OfflineCountSensor(mock_coordinator, "Test Group", "test_group", "eid")
