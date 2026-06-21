@@ -315,14 +315,8 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
-    def native_value(self) -> int | None:
-        """Return group availability %.
-
-        Quantized to whole percent so that sub-percent drift across coordinator
-        ticks (the rolling-window numerator grows by ~SCAN_INTERVAL seconds per
-        tick on every active bucket) does not defeat ``WriteDedupMixin`` and
-        produce a recorder row on every tick. See v5.5 audit finding F-EA-1.
-        """
+    def native_value(self) -> float | None:
+        """Return group availability % (1-decimal precision)."""
         now = datetime.now(timezone.utc)
         storage = self.coordinator.availability_storage
 
@@ -339,25 +333,26 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         if not values:
             return None
 
-        return round(sum(values) / len(values))
+        return round(sum(values) / len(values), 1)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return per-device availability breakdown.
+        """Return per-device availability breakdown (1-decimal precision).
 
-        Per-device values are quantized to whole percent for the same reason
-        ``native_value`` is — unrounded floats drift on every tick and would
-        defeat the attribute comparison in ``WriteDedupMixin._ea_should_write``.
+        Per-device values are rounded to 1 decimal to match ``native_value``.
+        Previously they were unrounded floats that drifted by ~0.035% on every
+        coordinator tick, defeating ``WriteDedupMixin`` even when the
+        group-level rounded value was stable (v5.5 audit finding F-EA-1).
         """
         now = datetime.now(timezone.utc)
         storage = self.coordinator.availability_storage
-        breakdown: dict[str, int | None] = {}
+        breakdown: dict[str, float | None] = {}
         for entity_id in self.coordinator.monitored_entities:
             device = self.coordinator.device_states.get(entity_id)
             if device and device.is_suppressed:
                 continue
             avail = storage.get_availability(entity_id, self._window, now)
-            breakdown[entity_id] = round(avail) if avail is not None else None
+            breakdown[entity_id] = round(avail, 1) if avail is not None else None
         return {"per_device": breakdown}
 
 

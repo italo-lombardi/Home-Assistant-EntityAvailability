@@ -478,15 +478,14 @@ def test_availability_sensor_dedup_skips_unchanged(mock_coordinator, mock_hass) 
 def test_availability_sensor_dedup_catches_sub_percent_drift(
     mock_coordinator, mock_hass
 ) -> None:
-    """v5.5 F-EA-1: sub-percent rolling-window drift must not defeat dedup.
+    """v5.5 F-EA-1: sub-0.1% rolling-window drift must not defeat dedup.
 
-    Without quantization, ``native_value`` and the ``per_device`` attribute
-    floats drift on every coordinator tick (the in-progress 5-min bucket grows
-    by ``SCAN_INTERVAL`` seconds per tick), defeating ``WriteDedupMixin`` and
-    producing one recorder row per tick (~2880/day per ``_today`` sensor).
-
-    Quantizing both to whole percent collapses the per-tick noise so dedup
-    wins on virtually every tick.
+    Pre-fix, ``extra_state_attributes['per_device']`` returned unrounded
+    floats that drifted on every coordinator tick, defeating
+    ``WriteDedupMixin`` and producing one recorder row per tick
+    (~2880/day per ``_today`` sensor). Post-fix the per_device values are
+    rounded to 1 decimal (matching ``native_value``); sub-0.1% drift
+    collapses below the rounding step so dedup wins on virtually every tick.
     """
     sensor = AvailabilitySensor(
         mock_coordinator, "Test Group", "test_group", "today", "eid"
@@ -507,19 +506,17 @@ def test_availability_sensor_dedup_catches_sub_percent_drift(
             sensor._handle_coordinator_update()
 
     assert write.call_count < 10, (
-        f"sub-percent drift defeated dedup: {write.call_count}/1000 writes"
+        f"sub-0.1% drift defeated dedup: {write.call_count}/1000 writes"
     )
 
 
-def test_availability_sensor_dedup_writes_on_integer_boundary(
+def test_availability_sensor_dedup_writes_on_decimal_boundary(
     mock_coordinator, mock_hass
 ) -> None:
-    """Boundary-crossing drift writes once per crossing, suppresses everything else.
+    """Drift crossing a 0.1% boundary writes once per crossing.
 
-    Confirms the quantization actually *flips* at the integer boundary —
-    a stronger guarantee than the steady-state test above. Without this,
-    a broken quantization (e.g. ``int(value)`` instead of ``round(value)``)
-    could silently dedup forever and pass the steady-state test.
+    Confirms the 1-decimal rounding actually flips at the boundary —
+    a stronger guarantee than the steady-state test above.
     """
     sensor = AvailabilitySensor(
         mock_coordinator, "Test Group", "test_group", "today", "eid"
@@ -529,25 +526,23 @@ def test_availability_sensor_dedup_writes_on_integer_boundary(
     tick = {"n": 0}
 
     def _drifting(_eid, _window, _now):
-        # 0.83% per tick; 60 ticks → drift 99.0 → 99.5 (no crossing yet)
-        # 120 ticks → drift 99.0 → 100.0 (one crossing).
-        return 99.0 + (tick["n"] * 30 / 3600)
+        # 0.01% per tick → 10 ticks per 0.1% boundary crossing.
+        return 99.00 + (tick["n"] * 0.01)
 
-    states_seen: set[int] = set()
+    states_seen: set[float] = set()
     with (
         patch.object(storage, "get_availability", side_effect=_drifting),
         patch.object(sensor, "async_write_ha_state") as write,
     ):
-        for i in range(120):
+        for i in range(20):
             tick["n"] = i
             states_seen.add(sensor.native_value)
             sensor._handle_coordinator_update()
 
-    assert write.call_count <= 3, (
-        f"too many writes across single boundary: {write.call_count}"
+    assert write.call_count <= 4, (
+        f"too many writes across 0.1% boundaries: {write.call_count}"
     )
-    # Quantization must have flipped — both sides of the boundary appear.
-    assert {99, 100}.issubset(states_seen)
+    assert {99.0, 99.1, 99.2}.issubset(states_seen)
 
 
 def test_dedup_sensor_first_write_after_construction(mock_coordinator) -> None:

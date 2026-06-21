@@ -1160,10 +1160,10 @@ async def test_sensor_setup_entry_slug_fallback(
 
 
 class TestAvailabilitySensorQuantization:
-    """``native_value`` and ``per_device`` are quantized to whole percent."""
+    """``native_value`` and ``per_device`` are quantized to 1 decimal."""
 
-    def test_native_value_returns_integer(self, mock_coordinator, mock_hass):
-        """``native_value`` returns an integer (round to whole percent)."""
+    def test_native_value_one_decimal(self, mock_coordinator, mock_hass):
+        """``native_value`` returns a 1-decimal float (public API unchanged)."""
         now = datetime.now(timezone.utc)
         storage = mock_coordinator.availability_storage
         for eid in mock_coordinator.monitored_entities:
@@ -1175,29 +1175,35 @@ class TestAvailabilitySensorQuantization:
         )
         sensor.hass = mock_hass
         value = sensor.native_value
-        assert value == 100
-        assert isinstance(value, int)
+        assert value == 100.0
+        assert isinstance(value, float)
 
-    def test_per_device_values_are_integers(self, mock_coordinator, mock_hass):
-        """``extra_state_attributes['per_device']`` values are int (not float)."""
-        now = datetime.now(timezone.utc)
-        storage = mock_coordinator.availability_storage
-        for eid in mock_coordinator.monitored_entities:
-            for i in range(24):
-                storage.record_online(eid, 3600.0, now - timedelta(hours=i))
+    def test_per_device_values_one_decimal(self, mock_coordinator, mock_hass):
+        """``extra_state_attributes['per_device']`` values rounded to 1 decimal.
 
+        Previously these were unrounded floats — drift on every tick defeated
+        ``WriteDedupMixin``. Must match ``native_value`` precision.
+        """
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
         )
         sensor.hass = mock_hass
-        per_device = sensor.extra_state_attributes["per_device"]
+
+        storage = mock_coordinator.availability_storage
+
+        def _drifty(_eid, _window, _now):
+            # Unrounded float typical of pre-fix storage behaviour.
+            return 99.84736821
+
+        with patch.object(storage, "get_availability", side_effect=_drifty):
+            per_device = sensor.extra_state_attributes["per_device"]
         for eid, value in per_device.items():
-            assert value is None or isinstance(value, int), (
-                f"{eid} must be int after quantization, got {type(value).__name__}"
+            assert value is None or value == 99.8, (
+                f"{eid} must be 1-decimal rounded, got {value!r}"
             )
 
     def test_per_device_preserves_none(self, mock_coordinator, mock_hass):
-        """Devices with no data still report ``None`` (not rounded to 0)."""
+        """Devices with no data still report ``None`` (not rounded to 0.0)."""
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
         )
@@ -1207,13 +1213,13 @@ class TestAvailabilitySensorQuantization:
             assert value is None
 
     def test_dedup_catches_sub_percent_drift(self, mock_coordinator, mock_hass):
-        """1000 ticks with sub-percent jitter must produce <10 state writes.
+        """1000 ticks with sub-0.1% jitter must produce <10 state writes.
 
         Reproduces v5.5 audit F-EA-1: rolling-window numerator drifts by
-        ~SCAN_INTERVAL/window each tick, defeating dedup if values aren't
-        quantized. After quantization, the rounded percentage stays put.
-        Simulates the unrounded float jitter directly on ``get_availability``
-        so the test is independent of bucket arithmetic.
+        ~SCAN_INTERVAL/window each tick. Pre-fix the unrounded per_device
+        floats moved on every tick, defeating dedup. Post-fix both
+        native_value and per_device are rounded to 1 decimal — sub-0.1%
+        drift collapses below the rounding step.
         """
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
@@ -1224,9 +1230,8 @@ class TestAvailabilitySensorQuantization:
         tick = {"n": 0}
 
         def _drifting(_eid, _window, _now):
-            # 30s/86400s ≈ 0.035% per-tick drift around 99.5% — the sub-percent
-            # jitter observed in the v5.5 DB sample. Same value within a tick
-            # so native_value and per_device agree; advances per tick caller.
+            # 30s/86400s ≈ 0.035% per-tick drift around 99.5% — below 0.1%
+            # rounding step so the published values stay flat.
             return 99.5 + (tick["n"] * 30 / 86400)
 
         with (
@@ -1237,20 +1242,16 @@ class TestAvailabilitySensorQuantization:
                 tick["n"] = i
                 sensor._handle_coordinator_update()
 
-        # Pre-fix: ~1000 writes (1 per tick). Post-fix: ≤ a handful as the
-        # rounded percentage occasionally crosses an integer boundary.
         assert write.call_count < 10, (
-            f"dedup failed to suppress sub-percent drift: {write.call_count} writes"
+            f"dedup failed to suppress sub-0.1% drift: {write.call_count} writes"
         )
 
     def test_dedup_with_boundary_crossings(self, mock_coordinator, mock_hass):
-        """Drift that crosses several integer boundaries still dedups most ticks.
+        """Drift across a 0.1% boundary writes once per crossing, suppresses rest.
 
-        Faster ramp (0.83% per tick = 30s/3600s, simulating a 1h-style window)
-        starts at 99.0 and crosses 100, then 100→101 etc. Each crossing
-        legitimately writes once; everything between crossings is suppressed.
-        Verifies the quantization actually flips correctly at the boundary
-        rather than silently failing the dedup.
+        Confirms the quantization actually *flips* at the 0.1% boundary —
+        a broken rounding (e.g. floor) could silently dedup forever and
+        pass the steady-state test above.
         """
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
@@ -1259,31 +1260,26 @@ class TestAvailabilitySensorQuantization:
 
         storage = mock_coordinator.availability_storage
         tick = {"n": 0}
-        observed_states: list[int] = []
+        observed: set[float] = set()
 
         def _drifting(_eid, _window, _now):
-            return 99.0 + (tick["n"] * 30 / 3600)
-
-        # Capture the integer states actually published.
-        original = sensor._handle_coordinator_update
-
-        def _spy():
-            observed_states.append(sensor.native_value)
-            original()
+            # 0.01% per tick → 10 ticks per 0.1% boundary crossing.
+            return 99.00 + (tick["n"] * 0.01)
 
         with (
             patch.object(storage, "get_availability", side_effect=_drifting),
             patch.object(sensor, "async_write_ha_state") as write,
         ):
-            for i in range(120):  # 120 ticks → drift 99.0 → 100.0 (1 crossing)
+            for i in range(20):  # drift 99.0 → 99.19 → 2 crossings
                 tick["n"] = i
-                _spy()
+                observed.add(sensor.native_value)
+                sensor._handle_coordinator_update()
 
-        # Drift hits exactly 1 integer boundary (99 → 100) over 120 ticks.
-        # Allow up to 3 writes for the boundary plus the first publish.
-        assert write.call_count <= 3, (
-            f"too many writes across single boundary: {write.call_count}"
+        # 2 boundary crossings + initial publish = ≤4 writes.
+        assert write.call_count <= 4, (
+            f"too many writes across 0.1% boundaries: {write.call_count}"
         )
-        # Confirm quantization actually flipped — both 99 and 100 appeared.
-        assert 99 in observed_states
-        assert 100 in observed_states
+        # Quantization must have flipped — both sides observed.
+        assert 99.0 in observed
+        assert 99.1 in observed
+        assert 99.2 in observed
