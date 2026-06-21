@@ -1220,6 +1220,8 @@ class TestAvailabilitySensorQuantization:
         floats moved on every tick, defeating dedup. Post-fix both
         native_value and per_device are rounded to 1 decimal — sub-0.1%
         drift collapses below the rounding step.
+
+        Boundary-flip behaviour is covered separately in test_write_dedup.py.
         """
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
@@ -1245,41 +1247,3 @@ class TestAvailabilitySensorQuantization:
         assert write.call_count < 10, (
             f"dedup failed to suppress sub-0.1% drift: {write.call_count} writes"
         )
-
-    def test_dedup_with_boundary_crossings(self, mock_coordinator, mock_hass):
-        """Drift across a 0.1% boundary writes once per crossing, suppresses rest.
-
-        Confirms the quantization actually *flips* at the 0.1% boundary —
-        a broken rounding (e.g. floor) could silently dedup forever and
-        pass the steady-state test above.
-        """
-        sensor = AvailabilitySensor(
-            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
-        )
-        sensor.hass = mock_hass
-
-        storage = mock_coordinator.availability_storage
-        tick = {"n": 0}
-        observed: set[float] = set()
-
-        def _drifting(_eid, _window, _now):
-            # 0.01% per tick → 10 ticks per 0.1% boundary crossing.
-            return 99.00 + (tick["n"] * 0.01)
-
-        with (
-            patch.object(storage, "get_availability", side_effect=_drifting),
-            patch.object(sensor, "async_write_ha_state") as write,
-        ):
-            for i in range(20):  # drift 99.0 → 99.19 → 2 crossings
-                tick["n"] = i
-                observed.add(sensor.native_value)
-                sensor._handle_coordinator_update()
-
-        # 2 boundary crossings + initial publish = ≤4 writes.
-        assert write.call_count <= 4, (
-            f"too many writes across 0.1% boundaries: {write.call_count}"
-        )
-        # Quantization must have flipped — both sides observed.
-        assert 99.0 in observed
-        assert 99.1 in observed
-        assert 99.2 in observed
