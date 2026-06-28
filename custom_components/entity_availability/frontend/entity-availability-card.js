@@ -3,7 +3,7 @@
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.3.7";
+const CARD_VERSION = "0.3.10";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -653,6 +653,7 @@ class EntityAvailabilityCard extends LitElement {
     const staleEntities = attrs.stale_entities || [];
     const offlineSince = attrs.offline_since || {};
     const lowBatteryEntities = attrs.low_battery_entities || [];
+    const displayNames = attrs.display_names || {};
 
     const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
@@ -671,7 +672,7 @@ class EntityAvailabilityCard extends LitElement {
         ${this._renderStats(online, offline, lowBattery, suppressed)}
         ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
-        ${this._config.show_entities ? this._renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities) : nothing}
+        ${this._config.show_entities ? this._renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames) : nothing}
         ${this._config.show_actions ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
@@ -736,10 +737,10 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities) {
+  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}) {
     if (entities.length === 0 && total === 0) return nothing;
 
-    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities);
+    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames);
     const filter = this._config.entity_filter || "all";
     const items = filter === "offline"
       ? allItems.filter((i) => i.isOffline || i.isStale || i.dotColor === "yellow")
@@ -854,10 +855,10 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = []) {
+  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}) {
     const items = entities.map((entityId) => {
       const state = this.hass.states[entityId];
-      const friendlyName = state?.attributes?.friendly_name || entityId.split(".").pop();
+      const friendlyName = displayNames[entityId] || state?.attributes?.friendly_name || entityId.split(".").pop();
       const offlineEntities = this._getOfflineEntityIds();
       const isOffline = offlineEntities.includes(entityId);
       const isStale = staleEntities.includes(entityId);

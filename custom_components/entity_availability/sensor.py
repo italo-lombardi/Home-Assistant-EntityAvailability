@@ -442,6 +442,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         ]
         low_battery = len(low_battery_entities)
 
+        use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
         return {
             "total_entities": total,
             "online": online,
@@ -451,6 +452,10 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "low_battery": low_battery,
             "low_battery_entities": low_battery_entities,
             "entities": list(self.coordinator.monitored_entities),
+            "display_names": {
+                eid: _resolve_display_name(self.hass, eid, use_device_names)
+                for eid in self.coordinator.monitored_entities
+            },
             "battery_levels": {
                 eid: d.battery_level
                 for eid, d in states.items()

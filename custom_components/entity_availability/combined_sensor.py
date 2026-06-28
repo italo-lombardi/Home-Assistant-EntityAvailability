@@ -272,6 +272,14 @@ class CombinedGroupSensor(CombinedSensorBase):
                 for eid in coord.monitored_entities
             )
         )
+        display_names: dict[str, str] = {}
+        for coord in self._active_coordinators():
+            use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+            for eid in coord.monitored_entities:
+                if eid not in display_names:
+                    display_names[eid] = _friendly_name(
+                        self.hass, eid, use_device_names
+                    )
         attrs: dict[str, Any] = {
             "total_entities": total,
             "online": online,
@@ -282,6 +290,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "battery_powered": battery_powered,
             "groups": groups,
             "entities": all_entities,
+            "display_names": display_names,
             "offline_entities": offline_entities,
             "low_battery_entities": low_battery_entities,
         }
