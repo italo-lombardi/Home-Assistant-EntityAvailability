@@ -11,6 +11,7 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -18,6 +19,7 @@ from .const import (
     CONF_BATTERY_ENTITY_MAP,
     CONF_COMBINED_GROUPS,
     CONF_GROUP_NAME,
+    CONF_USE_DEVICE_NAMES,
     DOMAIN,
 )
 from .coordinator import EntityAvailabilityCoordinator
@@ -77,7 +79,17 @@ def _device_info(entry_id: str, group_name: str) -> DeviceInfo:
     )
 
 
-def _friendly_name(hass: HomeAssistant, entity_id: str) -> str:
+def _friendly_name(
+    hass: HomeAssistant, entity_id: str, use_device_names: bool = False
+) -> str:
+    if use_device_names:
+        ent_reg = er.async_get(hass)
+        entry = ent_reg.async_get(entity_id)
+        if entry and entry.device_id:
+            dev_reg = dr.async_get(hass)
+            device = dev_reg.async_get(entry.device_id)
+            if device and (device.name_by_user or device.name):
+                return device.name_by_user or device.name
     state = hass.states.get(entity_id)
     if state and state.attributes.get("friendly_name"):
         return state.attributes["friendly_name"]
@@ -306,9 +318,13 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> str:
+        coords = self._active_coordinators()
+        use_device_names = (
+            coords[0].entry.data.get(CONF_USE_DEVICE_NAMES, False) if coords else False
+        )
         offline = [
-            _friendly_name(self.hass, d.entity_id)
-            for coord in self._active_coordinators()
+            _friendly_name(self.hass, d.entity_id, use_device_names)
+            for coord in coords
             for d in coord.device_states.values()
             if d.is_offline and not d.is_suppressed
         ]
@@ -351,9 +367,13 @@ class CombinedLowBatterySensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> str:
+        coords = self._active_coordinators()
+        use_device_names = (
+            coords[0].entry.data.get(CONF_USE_DEVICE_NAMES, False) if coords else False
+        )
         low = [
-            f"{_friendly_name(self.hass, d.entity_id)} ({d.battery_level}%)"
-            for coord in self._active_coordinators()
+            f"{_friendly_name(self.hass, d.entity_id, use_device_names)} ({d.battery_level}%)"
+            for coord in coords
             for d in coord.device_states.values()
             if d.is_degraded and not d.is_suppressed and d.battery_level is not None
         ]
@@ -443,7 +463,13 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
         devices = self._matching_devices()
         if not devices:
             return "None"
-        result = ", ".join(_friendly_name(self.hass, d.entity_id) for d in devices)
+        coords = self._active_coordinators()
+        use_device_names = (
+            coords[0].entry.data.get(CONF_USE_DEVICE_NAMES, False) if coords else False
+        )
+        result = ", ".join(
+            _friendly_name(self.hass, d.entity_id, use_device_names) for d in devices
+        )
         return (
             result[: MAX_STATE_LENGTH - 3] + "..."
             if len(result) > MAX_STATE_LENGTH - 3
@@ -494,7 +520,13 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
         devices = self._matching_devices()
         if not devices:
             return "None"
-        result = ", ".join(_friendly_name(self.hass, d.entity_id) for d in devices)
+        coords = self._active_coordinators()
+        use_device_names = (
+            coords[0].entry.data.get(CONF_USE_DEVICE_NAMES, False) if coords else False
+        )
+        result = ", ".join(
+            _friendly_name(self.hass, d.entity_id, use_device_names) for d in devices
+        )
         return (
             result[: MAX_STATE_LENGTH - 3] + "..."
             if len(result) > MAX_STATE_LENGTH - 3

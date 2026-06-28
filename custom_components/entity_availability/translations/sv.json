@@ -44,12 +44,14 @@
         "data": {
           "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
           "availability_windows": "Tillgänglighetsspårningsfönster",
-          "recovery_window": "Återhämtningsfönster"
+          "recovery_window": "Återhämtningsfönster",
+          "use_device_names": "Visa enhetsnamn"
         },
         "data_description": {
           "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte. Använd entiteter som rapporterar batteri som procent eller stöder tillståndet 'low'.",
           "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
-          "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång."
+          "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
+          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet."
         }
       },
       "battery_mapping": {
@@ -79,7 +81,8 @@
           "staleness_threshold": "Inaktivitetsgräns (minuter, 0 = inaktiverad)",
           "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
           "availability_windows": "Tillgänglighetsspårningsfönster",
-          "recovery_window": "Återhämtningsfönster (minuter)"
+          "recovery_window": "Återhämtningsfönster (minuter)",
+          "use_device_names": "Visa enhetsnamn"
         },
         "data_description": {
           "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Om en entitet inte har ändrat tillstånd på detta antal minuter markeras den som försämrad. Ställ in 0 för att inaktivera.",
           "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte.",
           "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
-          "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång."
+          "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
+          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet."
         }
       },
       "combined_init": {

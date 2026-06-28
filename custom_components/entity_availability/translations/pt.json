@@ -44,12 +44,14 @@
         "data": {
           "battery_threshold": "Limiar de bateria fraca (%, 0 = desativado)",
           "availability_windows": "Janelas de rastreio de disponibilidade",
-          "recovery_window": "Janela de recuperação"
+          "recovery_window": "Janela de recuperação",
+          "use_device_names": "Mostrar nomes de dispositivo"
         },
         "data_description": {
           "battery_threshold": "Sinaliza entidades cuja bateria fica abaixo desta percentagem. O estado 'low' também é detetado automaticamente. Entidades baseadas em volts não são suportadas. Use entidades que reportem a bateria como percentagem ou suportem o estado 'low'.",
           "availability_windows": "Janelas de tempo para o acompanhamento do histórico de disponibilidade do grupo (ex. hoje, 3d, 7d).",
-          "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado."
+          "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado.",
+          "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo."
         }
       },
       "battery_mapping": {
@@ -79,7 +81,8 @@
           "staleness_threshold": "Limiar de inatividade (minutos, 0 = desativado)",
           "battery_threshold": "Limiar de bateria fraca (%, 0 = desativado)",
           "availability_windows": "Janelas de rastreio de disponibilidade",
-          "recovery_window": "Janela de recuperação (minutos)"
+          "recovery_window": "Janela de recuperação (minutos)",
+          "use_device_names": "Mostrar nomes de dispositivo"
         },
         "data_description": {
           "bad_states": "Estados de entidade que indicam que uma entidade está offline (ex. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Se uma entidade não mudou de estado durante este número de minutos, é marcada como degradada. Defina 0 para desativar.",
           "battery_threshold": "Sinaliza entidades cuja bateria fica abaixo desta percentagem. O estado 'low' também é detetado automaticamente. Entidades baseadas em volts não são suportadas.",
           "availability_windows": "Janelas de tempo para o acompanhamento do histórico de disponibilidade do grupo (ex. hoje, 3d, 7d).",
-          "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado."
+          "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado.",
+          "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo."
         }
       },
       "combined_init": {

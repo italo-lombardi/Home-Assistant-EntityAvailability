@@ -40,8 +40,11 @@ from .storage import AvailabilityStorage
 
 _LOGGER = logging.getLogger(__name__)
 
-# Debounce state changes - wait this long before processing
-_STATE_CHANGE_DEBOUNCE = 2  # seconds
+# Coalesces rapid same-entity event bursts before triggering a coordinator refresh.
+# 0.5s covers real protocol flap windows (Zigbee/Z-Wave/WiFi all settle within 1s)
+# without adding perceptible latency. False-alarm filtering is handled separately
+# by the cooldown setting, so debounce only needs to batch burst events.
+_STATE_CHANGE_DEBOUNCE = 0.5  # seconds
 
 # Save storage every N updates (5 min = 10 updates at 30s interval)
 _SAVE_INTERVAL_UPDATES = 10

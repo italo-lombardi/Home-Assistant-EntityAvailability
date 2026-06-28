@@ -44,10 +44,12 @@
         "data": {
           "battery_threshold": "Grænse for lavt batteri (%, 0 = deaktiveret)",
           "availability_windows": "Tilgængelighedssporingsvinduer",
-          "recovery_window": "Genoprettelsesvindue"
+          "recovery_window": "Genoprettelsesvindue",
+          "use_device_names": "Vis enhedsnavne"
         },
         "data_description": {
           "battery_threshold": "Markerer entiteter, hvis batteri falder under denne procentdel. Tilstanden 'low' registreres også automatisk. Volt-baserede entiteter understøttes ikke. Brug entiteter, der rapporterer batteri som procent eller understøtter tilstanden 'low'.",
+          "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
           "availability_windows": "Tidsvinduer til sporing af gruppens tilgængelighed (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift."
         }
@@ -79,7 +81,8 @@
           "staleness_threshold": "Inaktivitetstærskel (minutter, 0 = deaktiveret)",
           "battery_threshold": "Grænse for lavt batteri (%, 0 = deaktiveret)",
           "availability_windows": "Tilgængelighedssporingsvinduer",
-          "recovery_window": "Genoprettelsesvindue (minutter)"
+          "recovery_window": "Genoprettelsesvindue (minutter)",
+          "use_device_names": "Vis enhedsnavne"
         },
         "data_description": {
           "bad_states": "Entitetstilstande, der indikerer, at en entitet er offline (f.eks. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Hvis en entitet ikke har skiftet tilstand i dette antal minutter, markeres den som forringet. Sæt til 0 for at deaktivere.",
           "battery_threshold": "Markér entiteter, hvis batteri falder under denne procentdel. Tilstanden 'low' registreres også automatisk. Volt-baserede entiteter understøttes ikke.",
           "availability_windows": "Tidsvinduer til sporing af gruppens tilgængelighed (f.eks. i dag, 3d, 7d).",
-          "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift."
+          "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift.",
+          "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed."
         }
       },
       "combined_init": {

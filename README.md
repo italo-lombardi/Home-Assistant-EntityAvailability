@@ -24,6 +24,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Battery monitoring** -- auto-detect or manually map battery entities; supports numeric (%) and text states (`low`)
 - **Degraded entity detection** -- flag entities with low battery or stale data
 - **Recently offline / recovered sensors** -- track which entities went offline or recovered within a configurable time window
+- **Device name display** -- optionally show the HA device name instead of entity friendly name in offline/recovered sensor states
 - **Indefinite suppression** -- suppress an entity with no expiry via `suppress_indefinitely`
 - **Maintenance/suppression mode** -- temporarily exclude entities from monitoring
 - **Custom Lovelace card** -- traffic-light status display with at-a-glance health overview
@@ -92,6 +93,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Low battery threshold (%) | `20` | Battery level below which an entity is considered degraded (0 = disabled) |
 | Availability tracking windows | `today`, `7d` | Which time windows to create availability sensors for |
 | Recovery window (minutes) | `5` | How long entities remain visible in the recently-offline and recently-recovered sensors after the event |
+| Show device names | `off` | When enabled, offline/recovered sensor states show the HA device name (e.g. "Entrance Smoke Detector") instead of the entity friendly name. Falls back to friendly name for entities not linked to an HA device (helpers, template sensors) |
 
 ![Step 4: Advanced Settings](assets/03_advanced_settings.png)
 

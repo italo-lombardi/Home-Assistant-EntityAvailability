@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers import entity_registry as er, device_registry as dr
 
 from .const import (
     CONF_AVAILABILITY_WINDOWS,
@@ -20,6 +21,7 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BATTERY_THRESHOLD,
     DOMAIN,
@@ -31,6 +33,26 @@ from .write_dedup import DedupCoordinatorSensor
 _LOGGER = logging.getLogger(__name__)
 
 MAX_STATE_LENGTH = 255
+
+
+def _resolve_display_name(
+    hass: HomeAssistant, entity_id: str, use_device_names: bool = False
+) -> str:
+    """Return a display name for entity_id.
+
+    If use_device_names is True, prefer the device name from the device registry.
+    Falls back to friendly_name state attribute, then to an entity_id slug.
+    """
+    if use_device_names:
+        entry = er.async_get(hass).async_get(entity_id)
+        if entry and entry.device_id:
+            device = dr.async_get(hass).async_get(entry.device_id)
+            if device and (device.name_by_user or device.name):
+                return device.name_by_user or device.name
+    state = hass.states.get(entity_id)
+    if state and state.attributes.get("friendly_name"):
+        return state.attributes["friendly_name"]
+    return entity_id.split(".")[-1].replace("_", " ").title()
 
 
 async def async_setup_entry(
@@ -174,7 +196,11 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
     def native_value(self) -> str:
         """Return comma-separated offline device names."""
         offline = [
-            self._friendly_name(d.entity_id)
+            _resolve_display_name(
+                self.hass,
+                d.entity_id,
+                self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+            )
             for d in self.coordinator.device_states.values()
             if d.is_offline and not d.is_suppressed
         ]
@@ -194,13 +220,6 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
             if d.is_offline and not d.is_suppressed
         ]
         return {"entities": offline, "count": len(offline)}
-
-    def _friendly_name(self, entity_id: str) -> str:
-        """Get friendly name for an entity."""
-        state = self.hass.states.get(entity_id)
-        if state and state.attributes.get("friendly_name"):
-            return state.attributes["friendly_name"]
-        return entity_id.split(".")[-1].replace("_", " ").title()
 
 
 class DegradedDevicesSensor(DedupCoordinatorSensor):
@@ -249,11 +268,11 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
 
     def _format_device(self, device) -> str:
         """Format device name with battery level."""
-        state = self.hass.states.get(device.entity_id)
-        if state and state.attributes.get("friendly_name"):
-            name = state.attributes["friendly_name"]
-        else:
-            name = device.entity_id.split(".")[-1].replace("_", " ").title()
+        name = _resolve_display_name(
+            self.hass,
+            device.entity_id,
+            self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+        )
         return f"{name} ({device.battery_level}%)"
 
 
@@ -497,19 +516,17 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
         )
         return self._cached_devices
 
-    def _friendly_name(self, entity_id: str) -> str:
-        state = self.hass.states.get(entity_id)
-        if state and state.attributes.get("friendly_name"):
-            return state.attributes["friendly_name"]
-        return entity_id.split(".")[-1].replace("_", " ").title()
-
     @property
     def native_value(self) -> str:
         """Return comma-separated friendly names of recently offline entities."""
         devices = self._refresh_cache()
         if not devices:
             return "None"
-        result = ", ".join(self._friendly_name(d.entity_id) for d in devices)
+        use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        result = ", ".join(
+            _resolve_display_name(self.hass, d.entity_id, use_device_names)
+            for d in devices
+        )
         if len(result) > MAX_STATE_LENGTH - 3:
             result = result[: MAX_STATE_LENGTH - 3] + "..."
         return result
@@ -569,19 +586,17 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
         )
         return self._cached_devices
 
-    def _friendly_name(self, entity_id: str) -> str:
-        state = self.hass.states.get(entity_id)
-        if state and state.attributes.get("friendly_name"):
-            return state.attributes["friendly_name"]
-        return entity_id.split(".")[-1].replace("_", " ").title()
-
     @property
     def native_value(self) -> str:
         """Return comma-separated friendly names of recently recovered entities."""
         devices = self._refresh_cache()
         if not devices:
             return "None"
-        result = ", ".join(self._friendly_name(d.entity_id) for d in devices)
+        use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        result = ", ".join(
+            _resolve_display_name(self.hass, d.entity_id, use_device_names)
+            for d in devices
+        )
         if len(result) > MAX_STATE_LENGTH - 3:
             result = result[: MAX_STATE_LENGTH - 3] + "..."
         return result

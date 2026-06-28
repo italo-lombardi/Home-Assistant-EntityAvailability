@@ -44,12 +44,14 @@
         "data": {
           "battery_threshold": "Soglia batteria scarica (%, 0 = disabilitato)",
           "availability_windows": "Finestre di tracciamento disponibilità",
-          "recovery_window": "Finestra di recupero"
+          "recovery_window": "Finestra di recupero",
+          "use_device_names": "Mostra nomi dispositivo"
         },
         "data_description": {
           "battery_threshold": "Segnala le entità la cui batteria scende al di sotto di questa percentuale. Lo stato 'low' viene rilevato automaticamente. Le entità basate su volt non sono supportate. Usa entità che riportano la batteria come percentuale o supportano lo stato 'low'.",
           "availability_windows": "Finestre temporali per il monitoraggio della disponibilità del gruppo (es. today, 3d, 7d).",
-          "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato."
+          "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
+          "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo."
         }
       },
       "battery_mapping": {
@@ -79,7 +81,8 @@
           "staleness_threshold": "Soglia di inattività (minuti, 0 = disabilitato)",
           "battery_threshold": "Soglia batteria scarica (%, 0 = disabilitato)",
           "availability_windows": "Finestre di tracciamento disponibilità",
-          "recovery_window": "Finestra di recupero (minuti)"
+          "recovery_window": "Finestra di recupero (minuti)",
+          "use_device_names": "Mostra nomi dispositivo"
         },
         "data_description": {
           "bad_states": "Stati delle entità che indicano che un'entità è offline (es. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Se un'entità non ha cambiato stato per questo numero di minuti, viene contrassegnata come degradata. Imposta 0 per disabilitare.",
           "battery_threshold": "Segnala le entità la cui batteria scende al di sotto di questa percentuale. Lo stato 'low' viene rilevato automaticamente. Le entità basate su volt non sono supportate.",
           "availability_windows": "Finestre temporali per il monitoraggio della disponibilità del gruppo (es. today, 3d, 7d).",
-          "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato."
+          "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
+          "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo."
         }
       },
       "combined_init": {

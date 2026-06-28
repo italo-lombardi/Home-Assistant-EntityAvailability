@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-06-28
+
+### Added
+- **Device name display** (`use_device_names`) — new toggle in Advanced Settings. When enabled, offline/recovered sensor states show the HA device name (e.g. "Entrance Smoke Detector") instead of the entity friendly name (e.g. "Smoke Detector Density"). Applies to `Offline Entities`, `Recently Offline`, `Recently Recovered`, and `Low Battery` sensors, including their combined-group counterparts. Falls back to entity friendly name for entities not linked to an HA device (helpers, template sensors, virtual entities). Opt-in, default off — existing groups are unaffected.
+
+### Changed
+- Coordinator: state-change debounce reduced from 2 s to 0.5 s. The debounce coalesces rapid same-entity event bursts before triggering a coordinator refresh; false-alarm filtering is handled separately by the cooldown setting. 0.5 s fully absorbs real protocol flap windows (Zigbee/Z-Wave/WiFi all settle within 1 s) while cutting offline-detection latency by 75 %.
+
 ## [0.3.8] - 2026-06-21
 
 ### Fixed

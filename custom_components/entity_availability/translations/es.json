@@ -44,12 +44,14 @@
         "data": {
           "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
           "availability_windows": "Ventanas de seguimiento de disponibilidad",
-          "recovery_window": "Ventana de recuperación"
+          "recovery_window": "Ventana de recuperación",
+          "use_device_names": "Mostrar nombres de dispositivo"
         },
         "data_description": {
           "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles. Utilice entidades que reporten la batería como porcentaje o admitan el estado 'low'.",
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
-          "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado."
+          "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
+          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa."
         }
       },
       "battery_mapping": {
@@ -79,7 +81,8 @@
           "staleness_threshold": "Umbral de obsolescencia (minutos, 0 = desactivado)",
           "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
           "availability_windows": "Ventanas de seguimiento de disponibilidad",
-          "recovery_window": "Ventana de recuperación (minutos)"
+          "recovery_window": "Ventana de recuperación (minutos)",
+          "use_device_names": "Mostrar nombres de dispositivo"
         },
         "data_description": {
           "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, se marca como degradada. Establezca 0 para deshabilitar.",
           "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles.",
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
-          "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado."
+          "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
+          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa."
         }
       },
       "combined_init": {

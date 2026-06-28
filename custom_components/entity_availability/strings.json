@@ -29,11 +29,13 @@
         "data": {
           "battery_threshold": "Low battery threshold (%, 0 = disabled)",
           "availability_windows": "Availability tracking windows",
-          "recovery_window": "Recovery window"
+          "recovery_window": "Recovery window",
+          "use_device_names": "Show device names"
         },
         "data_description": {
           "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
-          "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition."
+          "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
+          "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device."
         }
       },
       "battery_mapping": {
@@ -61,11 +63,13 @@
           "staleness_threshold": "Staleness threshold (minutes, 0 = disabled)",
           "battery_threshold": "Low battery threshold (%, 0 = disabled)",
           "availability_windows": "Availability tracking windows",
-          "recovery_window": "Recovery window (minutes)"
+          "recovery_window": "Recovery window (minutes)",
+          "use_device_names": "Show device names"
         },
         "data_description": {
           "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
-          "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition."
+          "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
+          "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device."
         }
       },
       "battery_mapping": {

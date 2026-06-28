@@ -44,12 +44,14 @@
         "data": {
           "battery_threshold": "Niedriger Batterieschwellenwert (%, 0 = deaktiviert)",
           "availability_windows": "Verfügbarkeits-Tracking-Zeiträume",
-          "recovery_window": "Wiederherstellungsfenster"
+          "recovery_window": "Wiederherstellungsfenster",
+          "use_device_names": "Gerätenamen anzeigen"
         },
         "data_description": {
           "battery_threshold": "Markiert Entitäten, deren Batterie unter diesen Prozentwert fällt. Der Zustand 'low' wird automatisch erkannt. Volt-basierte Entitäten werden nicht unterstützt.",
           "availability_windows": "Zeitfenster zur Verfolgung der Gruppenverfügbarkeit (z. B. heute, 3d, 7d).",
-          "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt."
+          "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
+          "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen."
         }
       },
       "battery_mapping": {
@@ -79,7 +81,8 @@
           "staleness_threshold": "Veralterungsschwelle (Minuten, 0 = deaktiviert)",
           "battery_threshold": "Niedriger Batterieschwellenwert (%, 0 = deaktiviert)",
           "availability_windows": "Verfügbarkeits-Tracking-Zeiträume",
-          "recovery_window": "Wiederherstellungsfenster (Minuten)"
+          "recovery_window": "Wiederherstellungsfenster (Minuten)",
+          "use_device_names": "Gerätenamen anzeigen"
         },
         "data_description": {
           "bad_states": "Entitätszustände, die anzeigen, dass eine Entität offline ist (z. B. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Wenn eine Entität sich für diese Anzahl von Minuten nicht geändert hat, wird sie als beeinträchtigt markiert. Auf 0 setzen zum Deaktivieren.",
           "battery_threshold": "Markiert Entitäten, deren Batterie unter diesen Prozentwert fällt. Der Zustand 'low' wird automatisch erkannt. Volt-basierte Entitäten werden nicht unterstützt.",
           "availability_windows": "Zeitfenster zur Verfolgung der Gruppenverfügbarkeit (z. B. heute, 3d, 7d).",
-          "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt."
+          "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
+          "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen."
         }
       },
       "combined_init": {

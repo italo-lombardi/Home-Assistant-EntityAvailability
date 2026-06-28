@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -1247,3 +1247,436 @@ class TestAvailabilitySensorQuantization:
         assert write.call_count < 10, (
             f"dedup failed to suppress sub-0.1% drift: {write.call_count} writes"
         )
+
+
+# ---------------------------------------------------------------------------
+# _resolve_display_name — unit tests
+# ---------------------------------------------------------------------------
+
+
+from custom_components.entity_availability.sensor import _resolve_display_name  # noqa: E402
+from custom_components.entity_availability.const import CONF_USE_DEVICE_NAMES  # noqa: E402
+
+
+class TestResolveDisplayName:
+    """Unit tests for the module-level _resolve_display_name helper."""
+
+    def test_returns_entity_friendly_name_by_default(self, mock_hass):
+        """use_device_names=False returns hass.states friendly_name."""
+        result = _resolve_display_name(mock_hass, "binary_sensor.device_a", False)
+        assert result == "Device A"
+
+    def test_returns_entity_slug_when_no_state(self, mock_hass):
+        """No state object falls back to entity_id slug."""
+        mock_hass.states.async_remove("binary_sensor.device_a")
+        result = _resolve_display_name(mock_hass, "binary_sensor.device_a", False)
+        assert result == "Device A"
+
+    def test_returns_entity_slug_when_no_friendly_name(self, mock_hass):
+        """State exists but no friendly_name attr falls back to slug."""
+        mock_hass.states.async_set("binary_sensor.device_a", "on", {})
+        result = _resolve_display_name(mock_hass, "binary_sensor.device_a", False)
+        assert result == "Device A"
+
+    def test_returns_device_name_when_use_device_names_true(self, mock_hass):
+        """use_device_names=True returns device.name from device registry."""
+        mock_entry = MagicMock()
+        mock_entry.device_id = "device_abc123"
+        mock_device = MagicMock()
+        mock_device.name_by_user = None
+        mock_device.name = "Test Device"
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+        mock_dr = MagicMock()
+        mock_dr.async_get.return_value = mock_device
+
+        with (
+            patch(
+                "custom_components.entity_availability.sensor.er.async_get",
+                return_value=mock_er,
+            ),
+            patch(
+                "custom_components.entity_availability.sensor.dr.async_get",
+                return_value=mock_dr,
+            ),
+        ):
+            result = _resolve_display_name(mock_hass, "binary_sensor.device_a", True)
+        assert result == "Test Device"
+
+    def test_returns_device_name_by_user_preferred_over_name(self, mock_hass):
+        """device.name_by_user takes priority over device.name."""
+        mock_entry = MagicMock()
+        mock_entry.device_id = "device_abc123"
+        mock_device = MagicMock()
+        mock_device.name_by_user = "User Preferred Name"
+        mock_device.name = "Hardware Name"
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+        mock_dr = MagicMock()
+        mock_dr.async_get.return_value = mock_device
+
+        with (
+            patch(
+                "custom_components.entity_availability.sensor.er.async_get",
+                return_value=mock_er,
+            ),
+            patch(
+                "custom_components.entity_availability.sensor.dr.async_get",
+                return_value=mock_dr,
+            ),
+        ):
+            result = _resolve_display_name(mock_hass, "binary_sensor.device_a", True)
+        assert result == "User Preferred Name"
+
+    def test_falls_back_to_friendly_name_when_no_device_id(self, mock_hass):
+        """Entity has no device_id → falls back to friendly_name."""
+        mock_entry = MagicMock()
+        mock_entry.device_id = None
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+
+        with patch(
+            "custom_components.entity_availability.sensor.er.async_get",
+            return_value=mock_er,
+        ):
+            result = _resolve_display_name(mock_hass, "binary_sensor.device_a", True)
+        assert result == "Device A"
+
+    def test_falls_back_to_friendly_name_when_device_not_found(self, mock_hass):
+        """dr.async_get returns None → friendly_name fallback."""
+        mock_entry = MagicMock()
+        mock_entry.device_id = "device_abc123"
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+        mock_dr = MagicMock()
+        mock_dr.async_get.return_value = None
+
+        with (
+            patch(
+                "custom_components.entity_availability.sensor.er.async_get",
+                return_value=mock_er,
+            ),
+            patch(
+                "custom_components.entity_availability.sensor.dr.async_get",
+                return_value=mock_dr,
+            ),
+        ):
+            result = _resolve_display_name(mock_hass, "binary_sensor.device_a", True)
+        assert result == "Device A"
+
+    def test_falls_back_to_friendly_name_when_device_has_no_name(self, mock_hass):
+        """Device exists but name and name_by_user both None → fallback."""
+        mock_entry = MagicMock()
+        mock_entry.device_id = "device_abc123"
+        mock_device = MagicMock()
+        mock_device.name_by_user = None
+        mock_device.name = None
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+        mock_dr = MagicMock()
+        mock_dr.async_get.return_value = mock_device
+
+        with (
+            patch(
+                "custom_components.entity_availability.sensor.er.async_get",
+                return_value=mock_er,
+            ),
+            patch(
+                "custom_components.entity_availability.sensor.dr.async_get",
+                return_value=mock_dr,
+            ),
+        ):
+            result = _resolve_display_name(mock_hass, "binary_sensor.device_a", True)
+        assert result == "Device A"
+
+    def test_falls_back_when_entity_not_in_registry(self, mock_hass):
+        """er.async_get returns None → friendly_name fallback."""
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = None
+
+        with patch(
+            "custom_components.entity_availability.sensor.er.async_get",
+            return_value=mock_er,
+        ):
+            result = _resolve_display_name(mock_hass, "binary_sensor.device_a", True)
+        assert result == "Device A"
+
+
+# ---------------------------------------------------------------------------
+# OfflineDevicesSensor — use_device_names integration
+# ---------------------------------------------------------------------------
+
+
+class TestOfflineDevicesSensorWithDeviceNames:
+    """Test OfflineDevicesSensor respects use_device_names coordinator flag."""
+
+    def _make_coordinator(self, mock_hass, mock_config_entry, use_device_names: bool):
+        config = dict(mock_config_entry.data)
+        config[CONF_USE_DEVICE_NAMES] = use_device_names
+        entry = MockConfigEntry(
+            version=1,
+            domain=mock_config_entry.domain,
+            title=mock_config_entry.title,
+            data=config,
+            entry_id="dn_offline_entry",
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._device_states = {
+            "binary_sensor.device_b": DeviceState(
+                entity_id="binary_sensor.device_b",
+                is_offline=True,
+                offline_since=datetime.now(timezone.utc) - timedelta(minutes=5),
+            ),
+        }
+        return coord
+
+    def test_uses_device_name_when_flag_set(self, mock_hass, mock_config_entry):
+        """use_device_names=True in entry.data → device name appears in native_value."""
+        coord = self._make_coordinator(mock_hass, mock_config_entry, True)
+
+        mock_entry = MagicMock()
+        mock_entry.device_id = "device_abc123"
+        mock_device = MagicMock()
+        mock_device.name_by_user = None
+        mock_device.name = "Test Device"
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+        mock_dr = MagicMock()
+        mock_dr.async_get.return_value = mock_device
+
+        sensor = OfflineDevicesSensor(
+            coord, "Test Group", "test_group", "dn_offline_entry"
+        )
+        sensor.hass = mock_hass
+
+        with (
+            patch(
+                "custom_components.entity_availability.sensor.er.async_get",
+                return_value=mock_er,
+            ),
+            patch(
+                "custom_components.entity_availability.sensor.dr.async_get",
+                return_value=mock_dr,
+            ),
+        ):
+            value = sensor.native_value
+
+        assert "Test Device" in value
+
+    def test_uses_friendly_name_when_flag_false(self, mock_hass, mock_config_entry):
+        """use_device_names=False → friendly_name used (regression guard)."""
+        coord = self._make_coordinator(mock_hass, mock_config_entry, False)
+        sensor = OfflineDevicesSensor(
+            coord, "Test Group", "test_group", "dn_offline_entry"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == "Device B"
+
+    def test_falls_back_to_friendly_name_for_entity_without_device(
+        self, mock_hass, mock_config_entry
+    ):
+        """use_device_names=True but entity has no device_id → friendly_name."""
+        coord = self._make_coordinator(mock_hass, mock_config_entry, True)
+
+        mock_entry = MagicMock()
+        mock_entry.device_id = None
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+
+        sensor = OfflineDevicesSensor(
+            coord, "Test Group", "test_group", "dn_offline_entry"
+        )
+        sensor.hass = mock_hass
+
+        with patch(
+            "custom_components.entity_availability.sensor.er.async_get",
+            return_value=mock_er,
+        ):
+            value = sensor.native_value
+
+        assert value == "Device B"
+
+
+# ---------------------------------------------------------------------------
+# RecentlyOfflineSensor — use_device_names integration
+# ---------------------------------------------------------------------------
+
+
+class TestRecentlyOfflineSensorWithDeviceNames:
+    """Test RecentlyOfflineSensor respects use_device_names coordinator flag."""
+
+    def _make_coordinator(self, mock_hass, mock_config_entry, use_device_names: bool):
+        config = dict(mock_config_entry.data)
+        config[CONF_USE_DEVICE_NAMES] = use_device_names
+        entry = MockConfigEntry(
+            version=1,
+            domain=mock_config_entry.domain,
+            title=mock_config_entry.title,
+            data=config,
+            entry_id="dn_recent_offline_entry",
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._device_states = {
+            "binary_sensor.device_b": DeviceState(
+                entity_id="binary_sensor.device_b",
+                is_offline=True,
+                recently_offline_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            ),
+        }
+        return coord
+
+    def test_uses_device_name_when_flag_set(self, mock_hass, mock_config_entry):
+        """use_device_names=True → device name appears in native_value."""
+        coord = self._make_coordinator(mock_hass, mock_config_entry, True)
+
+        mock_entry = MagicMock()
+        mock_entry.device_id = "device_abc123"
+        mock_device = MagicMock()
+        mock_device.name_by_user = None
+        mock_device.name = "Test Device"
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+        mock_dr = MagicMock()
+        mock_dr.async_get.return_value = mock_device
+
+        sensor = RecentlyOfflineSensor(
+            coord, "Test Group", "test_group", "dn_recent_offline_entry"
+        )
+        sensor.hass = mock_hass
+
+        with (
+            patch(
+                "custom_components.entity_availability.sensor.er.async_get",
+                return_value=mock_er,
+            ),
+            patch(
+                "custom_components.entity_availability.sensor.dr.async_get",
+                return_value=mock_dr,
+            ),
+        ):
+            value = sensor.native_value
+
+        assert "Test Device" in value
+
+    def test_falls_back_gracefully_when_no_device(self, mock_hass, mock_config_entry):
+        """use_device_names=True but no device found → friendly_name fallback."""
+        coord = self._make_coordinator(mock_hass, mock_config_entry, True)
+
+        mock_entry = MagicMock()
+        mock_entry.device_id = None
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+
+        sensor = RecentlyOfflineSensor(
+            coord, "Test Group", "test_group", "dn_recent_offline_entry"
+        )
+        sensor.hass = mock_hass
+
+        with patch(
+            "custom_components.entity_availability.sensor.er.async_get",
+            return_value=mock_er,
+        ):
+            value = sensor.native_value
+
+        assert value == "Device B"
+
+
+# ---------------------------------------------------------------------------
+# RecentlyRecoveredSensor — use_device_names integration
+# ---------------------------------------------------------------------------
+
+
+class TestRecentlyRecoveredSensorWithDeviceNames:
+    """Test RecentlyRecoveredSensor respects use_device_names coordinator flag."""
+
+    def _make_coordinator(self, mock_hass, mock_config_entry, use_device_names: bool):
+        config = dict(mock_config_entry.data)
+        config[CONF_USE_DEVICE_NAMES] = use_device_names
+        entry = MockConfigEntry(
+            version=1,
+            domain=mock_config_entry.domain,
+            title=mock_config_entry.title,
+            data=config,
+            entry_id="dn_recent_recovered_entry",
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._device_states = {
+            "binary_sensor.device_a": DeviceState(
+                entity_id="binary_sensor.device_a",
+                is_offline=False,
+                last_recovery=datetime.now(timezone.utc) - timedelta(minutes=2),
+            ),
+        }
+        return coord
+
+    def test_uses_device_name_when_flag_set(self, mock_hass, mock_config_entry):
+        """use_device_names=True → device name appears in native_value."""
+        coord = self._make_coordinator(mock_hass, mock_config_entry, True)
+
+        mock_entry = MagicMock()
+        mock_entry.device_id = "device_abc123"
+        mock_device = MagicMock()
+        mock_device.name_by_user = None
+        mock_device.name = "Test Device"
+
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+        mock_dr = MagicMock()
+        mock_dr.async_get.return_value = mock_device
+
+        sensor = RecentlyRecoveredSensor(
+            coord, "Test Group", "test_group", "dn_recent_recovered_entry"
+        )
+        sensor.hass = mock_hass
+
+        with (
+            patch(
+                "custom_components.entity_availability.sensor.er.async_get",
+                return_value=mock_er,
+            ),
+            patch(
+                "custom_components.entity_availability.sensor.dr.async_get",
+                return_value=mock_dr,
+            ),
+        ):
+            value = sensor.native_value
+
+        assert "Test Device" in value
+
+    def test_falls_back_gracefully_when_no_device(self, mock_hass, mock_config_entry):
+        """use_device_names=True but no device found → friendly_name fallback."""
+        coord = self._make_coordinator(mock_hass, mock_config_entry, True)
+
+        mock_entry = MagicMock()
+        mock_entry.device_id = None
+        mock_er = MagicMock()
+        mock_er.async_get.return_value = mock_entry
+
+        sensor = RecentlyRecoveredSensor(
+            coord, "Test Group", "test_group", "dn_recent_recovered_entry"
+        )
+        sensor.hass = mock_hass
+
+        with patch(
+            "custom_components.entity_availability.sensor.er.async_get",
+            return_value=mock_er,
+        ):
+            value = sensor.native_value
+
+        assert value == "Device A"

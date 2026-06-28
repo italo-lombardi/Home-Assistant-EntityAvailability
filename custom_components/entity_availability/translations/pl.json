@@ -44,12 +44,14 @@
         "data": {
           "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
           "availability_windows": "Okna śledzenia dostępności",
-          "recovery_window": "Okno odzyskiwania"
+          "recovery_window": "Okno odzyskiwania",
+          "use_device_names": "Pokaż nazwy urządzeń"
         },
         "data_description": {
           "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane. Używaj encji raportujących poziom baterii w procentach lub obsługujących stan 'low'.",
           "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
-          "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu."
+          "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
+          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji."
         }
       },
       "battery_mapping": {
@@ -79,7 +81,8 @@
           "staleness_threshold": "Próg nieaktywności (minuty, 0 = wyłączony)",
           "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
           "availability_windows": "Okna śledzenia dostępności",
-          "recovery_window": "Okno odzyskiwania (minuty)"
+          "recovery_window": "Okno odzyskiwania (minuty)",
+          "use_device_names": "Pokaż nazwy urządzeń"
         },
         "data_description": {
           "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, jest oznaczana jako zdegradowana. Ustaw 0, aby wyłączyć.",
           "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane.",
           "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
-          "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu."
+          "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
+          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji."
         }
       },
       "combined_init": {

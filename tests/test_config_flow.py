@@ -22,10 +22,12 @@ from custom_components.entity_availability.const import (
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
     CONF_STALENESS_THRESHOLD,
+    CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
     DEFAULT_COOLDOWN,
     DEFAULT_STALENESS_THRESHOLD,
+    DEFAULT_USE_DEVICE_NAMES,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
@@ -882,3 +884,212 @@ async def test_battery_auto_detection_registry_success_options_flow(
 
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "battery_mapping"
+
+
+# ---------------------------------------------------------------------------
+# use_device_names config flow
+# ---------------------------------------------------------------------------
+
+
+async def test_advanced_step_includes_use_device_names_field(
+    hass: HomeAssistant,
+) -> None:
+    """Advanced step schema exposes the use_device_names field."""
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "UDN Group", ["binary_sensor.test"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "advanced"
+    schema_keys = {
+        k.schema if hasattr(k, "schema") else k for k in result["data_schema"].schema
+    }
+    assert CONF_USE_DEVICE_NAMES in schema_keys
+
+
+async def test_advanced_step_stores_use_device_names_true(
+    hass: HomeAssistant,
+) -> None:
+    """Submitting advanced step with use_device_names=True persists the value."""
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "UDN True Group", ["binary_sensor.test"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_USE_DEVICE_NAMES: True,
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_USE_DEVICE_NAMES] is True
+
+
+async def test_advanced_step_defaults_use_device_names_false(
+    hass: HomeAssistant,
+) -> None:
+    """Omitting use_device_names from advanced step defaults it to False."""
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "UDN Default Group", ["binary_sensor.test"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                # CONF_USE_DEVICE_NAMES intentionally omitted
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"].get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES) is False
+
+
+async def test_options_flow_includes_use_device_names(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Options flow init step schema includes use_device_names field."""
+    mock_config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+    schema_keys = {
+        k.schema if hasattr(k, "schema") else k for k in result["data_schema"].schema
+    }
+    assert CONF_USE_DEVICE_NAMES in schema_keys
+
+
+async def test_options_flow_updates_use_device_names(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Submitting options flow with use_device_names=True updates config entry data."""
+    mock_config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            CONF_USE_DEVICE_NAMES: True,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert mock_config_entry.data[CONF_USE_DEVICE_NAMES] is True
+
+
+class TestUseDeviceNamesConfigFlow:
+    """Tests for use_device_names option in config flow."""
+
+    async def test_advanced_step_defaults_use_device_names_false(
+        self, hass, mock_config_entry
+    ):
+        """Test that use_device_names defaults to False if not submitted."""
+        from custom_components.entity_availability.const import (
+            DEFAULT_USE_DEVICE_NAMES,
+        )
+
+        assert DEFAULT_USE_DEVICE_NAMES is False
+
+    async def test_use_device_names_in_options_flow(self, hass):
+        """Test use_device_names flag survives options flow round-trip."""
+        from custom_components.entity_availability.const import (
+            CONF_USE_DEVICE_NAMES,
+            CONF_GROUP_NAME,
+            CONF_ENTITIES,
+            CONF_BAD_STATES,
+            CONF_COOLDOWN,
+            CONF_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD,
+            CONF_AVAILABILITY_WINDOWS,
+            CONF_BATTERY_ENTITY_MAP,
+            CONF_RECOVERY_WINDOW,
+            DEFAULT_BAD_STATES,
+            DEFAULT_COOLDOWN,
+            DEFAULT_STALENESS_THRESHOLD,
+            DEFAULT_AVAILABILITY_WINDOWS,
+            DEFAULT_RECOVERY_WINDOW,
+            DOMAIN,
+            ENTRY_TYPE_GROUP,
+            CONF_ENTRY_TYPE,
+        )
+        from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+        entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Test",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Test",
+                CONF_ENTITIES: ["binary_sensor.test"],
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_BATTERY_ENTITY_MAP: {},
+                CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
+                CONF_USE_DEVICE_NAMES: False,
+            },
+            entry_id="test_options_entry",
+        )
+        entry.add_to_hass(hass)
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        assert result["type"] == "form"
+        schema_keys = [str(k) for k in result["data_schema"].schema.keys()]
+        assert any("use_device_names" in k for k in schema_keys)

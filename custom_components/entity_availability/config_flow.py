@@ -30,12 +30,14 @@ from .const import (
     CONF_GROUP_NAME,
     CONF_RECOVERY_WINDOW,
     CONF_STALENESS_THRESHOLD,
+    CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_STALENESS_THRESHOLD,
+    DEFAULT_USE_DEVICE_NAMES,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
@@ -232,6 +234,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_AVAILABILITY_WINDOWS
             ]
             self._data[CONF_RECOVERY_WINDOW] = user_input[CONF_RECOVERY_WINDOW]
+            self._data[CONF_USE_DEVICE_NAMES] = user_input.get(
+                CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
+            )
 
             if self._data[CONF_BATTERY_THRESHOLD] > 0:
                 return await self.async_step_battery_mapping()
@@ -266,6 +271,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                         min=1, max=60, step=1, unit_of_measurement="minutes"
                     )
                 ),
+                vol.Optional(
+                    CONF_USE_DEVICE_NAMES, default=DEFAULT_USE_DEVICE_NAMES
+                ): selector.BooleanSelector(),
             }
         )
 
@@ -424,6 +432,12 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                         min=1, max=60, step=1, unit_of_measurement="minutes"
                     )
                 ),
+                vol.Optional(
+                    CONF_USE_DEVICE_NAMES,
+                    default=current.get(
+                        CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
+                    ),
+                ): selector.BooleanSelector(),
             }
         )
 

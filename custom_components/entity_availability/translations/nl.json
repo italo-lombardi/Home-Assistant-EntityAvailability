@@ -44,12 +44,14 @@
         "data": {
           "battery_threshold": "Drempel lage batterij (%, 0 = uitgeschakeld)",
           "availability_windows": "Beschikbaarheid-trackingvensters",
-          "recovery_window": "Herstelvenster"
+          "recovery_window": "Herstelvenster",
+          "use_device_names": "Apparaatnamen tonen"
         },
         "data_description": {
           "battery_threshold": "Markeert entiteiten waarvan de batterij onder dit percentage daalt. De staat 'low' wordt ook automatisch gedetecteerd. Volt-gebaseerde entiteiten worden niet ondersteund. Gebruik entiteiten die de batterij als percentage rapporteren of de staat 'low' ondersteunen.",
           "availability_windows": "Tijdvensters voor het bijhouden van de beschikbaarheidsgeschiedenis van de groep (bijv. vandaag, 3d, 7d).",
-          "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging."
+          "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
+          "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld."
         }
       },
       "battery_mapping": {
@@ -79,7 +81,8 @@
           "staleness_threshold": "Inactiviteitsdrempel (minuten, 0 = uitgeschakeld)",
           "battery_threshold": "Drempel lage batterij (%, 0 = uitgeschakeld)",
           "availability_windows": "Beschikbaarheid-trackingvensters",
-          "recovery_window": "Herstelvenster (minuten)"
+          "recovery_window": "Herstelvenster (minuten)",
+          "use_device_names": "Apparaatnamen tonen"
         },
         "data_description": {
           "bad_states": "Entiteitsstatussen die aangeven dat een entiteit offline is (bijv. unavailable, unknown).",
@@ -87,7 +90,8 @@
           "staleness_threshold": "Als een entiteit dit aantal minuten niet van staat is veranderd, wordt deze gemarkeerd als verslechterd. Stel in op 0 om uit te schakelen.",
           "battery_threshold": "Markeert entiteiten waarvan de batterij onder dit percentage daalt. De staat 'low' wordt ook automatisch gedetecteerd. Volt-gebaseerde entiteiten worden niet ondersteund.",
           "availability_windows": "Tijdvensters voor het bijhouden van de beschikbaarheidsgeschiedenis van de groep (bijv. vandaag, 3d, 7d).",
-          "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging."
+          "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
+          "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld."
         }
       },
       "combined_init": {

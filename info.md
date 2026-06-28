@@ -12,6 +12,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - Battery monitoring with entity mapping — auto-detects battery sensors, user confirms/overrides per entity
 - Low Battery Count sensor — numeric count for easy automation triggers
 - Battery entities that report `low` (text) are supported in addition to numeric percentages
+- Device name display — optionally show the HA device name instead of entity friendly name in offline/recovered sensor states
 - Degraded entity detection — flag entities with low battery or stale data
 - Group Summary sensor — total, online, offline, suppressed, battery_powered, low_battery counts + full entity list
 - Maintenance/suppression mode — suppress individual entities or entire groups

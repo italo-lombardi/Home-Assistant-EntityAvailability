@@ -29,6 +29,7 @@ from custom_components.entity_availability.const import (
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
@@ -1229,3 +1230,168 @@ async def test_combined_sensor_slug_fallback(
     assert len(added) > 0
     for entity in added:
         assert "abcdef12" in entity.entity_id
+
+
+# ---------------------------------------------------------------------------
+# CombinedOfflineEntitiesSensor — use_device_names feature
+# ---------------------------------------------------------------------------
+
+
+class TestCombinedOfflineEntitiesSensorWithDeviceNames:
+    """Tests for CombinedOfflineEntitiesSensor use_device_names behaviour."""
+
+    def _sensor(self, hass, entry, coordinators):
+        return CombinedOfflineEntitiesSensor(
+            hass,
+            entry,
+            "Combined",
+            "combined",
+            coordinators,
+            [c.entry.entry_id for c in coordinators],
+        )
+
+    def test_uses_device_name_from_first_active_coordinator(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When use_device_names=True, device name from registry is used."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        # Set use_device_names=True on the first coordinator's entry
+        coordinators[0].entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group A",
+            data={**coordinators[0].entry.data, CONF_USE_DEVICE_NAMES: True},
+            entry_id="entry_a",
+        )
+
+        ent_reg_mock = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "dev_abc"
+        ent_reg_mock.async_get.return_value = ent_entry
+
+        dev_reg_mock = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "My Smart Sensor"
+        dev_reg_mock.async_get.return_value = device
+
+        with (
+            patch(
+                "custom_components.entity_availability.combined_sensor.er.async_get",
+                return_value=ent_reg_mock,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.dr.async_get",
+                return_value=dev_reg_mock,
+            ),
+        ):
+            sensor = self._sensor(mock_hass, combined_entry, coordinators)
+            value = sensor.native_value
+
+        assert "My Smart Sensor" in value
+
+    def test_falls_back_when_use_device_names_false(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When use_device_names=False, friendly_name from state is used (regression)."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0].entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group A",
+            data={**coordinators[0].entry.data, CONF_USE_DEVICE_NAMES: False},
+            entry_id="entry_a",
+        )
+        mock_hass.states.async_set(
+            "binary_sensor.a2", "unavailable", {"friendly_name": "Fallback Name"}
+        )
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert "Fallback Name" in sensor.native_value
+
+    def test_handles_empty_coordinators_gracefully(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """No crash when _active_coordinators() returns empty list."""
+        # No entries loaded — all coordinators inactive
+        mock_hass.data[DOMAIN] = {}
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        # native_value should not raise; offline list will be empty
+        assert sensor.native_value == "None"
+
+
+# ---------------------------------------------------------------------------
+# CombinedRecentlyOfflineSensor — use_device_names feature
+# ---------------------------------------------------------------------------
+
+
+class TestCombinedRecentlyOfflineSensorWithDeviceNames:
+    """Tests for CombinedRecentlyOfflineSensor use_device_names behaviour."""
+
+    def test_uses_device_name_when_flag_set(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When use_device_names=True, device registry name appears in native_value."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0].entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group A",
+            data={**coordinators[0].entry.data, CONF_USE_DEVICE_NAMES: True},
+            entry_id="entry_a",
+        )
+        coordinators[0]._device_states["binary_sensor.a2"].recently_offline_at = (
+            _NOW - timedelta(minutes=1)
+        )
+
+        ent_reg_mock = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "dev_xyz"
+        ent_reg_mock.async_get.return_value = ent_entry
+
+        dev_reg_mock = MagicMock()
+        device = MagicMock()
+        device.name_by_user = "Living Room Sensor"
+        device.name = "sensor"
+        dev_reg_mock.async_get.return_value = device
+
+        sensor = _make_recently_offline_sensor(mock_hass, combined_entry, coordinators)
+
+        with (
+            patch(
+                "custom_components.entity_availability.combined_sensor.er.async_get",
+                return_value=ent_reg_mock,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.dr.async_get",
+                return_value=dev_reg_mock,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+
+        assert "Living Room Sensor" in value
+
+    def test_falls_back_when_no_coordinators(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """No crash and returns 'None' when _active_coordinators() is empty."""
+        mock_hass.data[DOMAIN] = {}
+        sensor = _make_recently_offline_sensor(mock_hass, combined_entry, coordinators)
+        with patch(
+            "custom_components.entity_availability.combined_sensor.datetime"
+        ) as mock_dt:
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+        assert value == "None"

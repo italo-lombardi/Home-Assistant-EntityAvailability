@@ -11,6 +11,7 @@ CONF_STALENESS_THRESHOLD = "staleness_threshold"
 CONF_BATTERY_THRESHOLD = "battery_threshold"
 CONF_BATTERY_ENTITY_MAP = "battery_entity_map"
 CONF_AVAILABILITY_WINDOWS = "availability_windows"
+CONF_USE_DEVICE_NAMES = "use_device_names"
 
 # Entry types
 CONF_ENTRY_TYPE = "entry_type"
@@ -25,6 +26,7 @@ DEFAULT_COOLDOWN = 60  # seconds
 DEFAULT_STALENESS_THRESHOLD = 0  # disabled
 DEFAULT_BATTERY_THRESHOLD = 20  # percent
 DEFAULT_AVAILABILITY_WINDOWS = ["today", "7d"]
+DEFAULT_USE_DEVICE_NAMES = False
 AVAILABLE_WINDOWS = ["today", "3d", "5d", "7d"]
 
 # Storage
