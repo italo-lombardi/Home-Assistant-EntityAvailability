@@ -17,6 +17,7 @@ from custom_components.entity_availability.combined_sensor import (
     CombinedGroupSensor,
     CombinedLowBatteryCountSensor,
     CombinedLowBatterySensor,
+    CombinedOfflineCountSensor,
     CombinedOfflineEntitiesSensor,
     CombinedRecentlyOfflineSensor,
     CombinedRecentlyRecoveredSensor,
@@ -290,39 +291,38 @@ class TestCombinedGroupSensor:
             [c.entry.entry_id for c in coordinators],
         )
 
-    def test_native_value_sums_offline(self, mock_hass, combined_entry, coordinators):
-        """native_value is the total count of unsuppressed offline devices across groups."""
+    def test_native_value_total_entities(self, mock_hass, combined_entry, coordinators):
+        """native_value is the total entity count across groups (2 + 1 = 3)."""
         mock_hass.data[DOMAIN] = {
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
-        # a2 is offline, all others online
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
-        assert sensor.native_value == 1
+        assert sensor.native_value == 3
 
-    def test_native_value_suppressed_excluded(
+    def test_native_value_suppressed_not_excluded(
         self, mock_hass, combined_entry, coordinators
     ):
-        """Suppressed offline devices are not counted."""
+        """Suppressed devices do not affect total entity count."""
         mock_hass.data[DOMAIN] = {
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
         coordinators[0]._device_states["binary_sensor.a2"].is_suppressed = True
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
-        assert sensor.native_value == 0
+        assert sensor.native_value == 3
 
     def test_native_value_multiple_groups(
         self, mock_hass, combined_entry, coordinators
     ):
-        """Offline devices from multiple groups are summed."""
+        """Total entity count sums across groups regardless of offline state."""
         mock_hass.data[DOMAIN] = {
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
         coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
-        assert sensor.native_value == 2
+        assert sensor.native_value == 3
 
     def test_attributes_breakdown(self, mock_hass, combined_entry, coordinators):
         """extra_state_attributes has groups, totals and offline_entities."""
@@ -492,6 +492,72 @@ class TestCombinedGroupSensor:
         mock_hass.data[DOMAIN] = {}
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.unique_id == "combined_1_combined_summary"
+
+
+# ---------------------------------------------------------------------------
+# CombinedOfflineCountSensor
+# ---------------------------------------------------------------------------
+
+
+class TestCombinedOfflineCountSensor:
+    """Tests for CombinedOfflineCountSensor."""
+
+    def _sensor(self, hass, entry, coordinators):
+        return CombinedOfflineCountSensor(
+            hass,
+            entry,
+            "Combined",
+            "combined",
+            coordinators,
+            [c.entry.entry_id for c in coordinators],
+        )
+
+    def test_native_value_sums_offline(self, mock_hass, combined_entry, coordinators):
+        """native_value counts unsuppressed offline devices across groups."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.native_value == 1
+
+    def test_native_value_suppressed_excluded(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Suppressed offline devices not counted."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0]._device_states["binary_sensor.a2"].is_suppressed = True
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.native_value == 0
+
+    def test_attributes(self, mock_hass, combined_entry, coordinators):
+        """extra_state_attributes has entities list and count."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 1
+        assert "binary_sensor.a2" in attrs["entities"]
+
+    def test_entity_id(self, mock_hass, combined_entry, coordinators):
+        """entity_id uses combined slug."""
+        mock_hass.data[DOMAIN] = {}
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert (
+            sensor.entity_id
+            == "sensor.entity_availability_combined_combined_offline_count"
+        )
+
+    def test_unique_id(self, mock_hass, combined_entry, coordinators):
+        """unique_id uses entry_id + suffix."""
+        mock_hass.data[DOMAIN] = {}
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.unique_id == "combined_1_combined_offline_count"
 
 
 # ---------------------------------------------------------------------------
@@ -760,8 +826,9 @@ class TestAsyncSetupEntry:
             added.extend(entities)
 
         await async_setup_entry(mock_hass, combined_entry, _fake_add)
-        assert len(added) == 6
+        assert len(added) == 7
         types = {type(s) for s in added}
+        assert CombinedOfflineCountSensor in types
         assert CombinedRecentlyOfflineSensor in types
         assert CombinedRecentlyRecoveredSensor in types
 

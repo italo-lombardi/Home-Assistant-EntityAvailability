@@ -51,6 +51,9 @@ async def async_setup_entry(
             CombinedGroupSensor(
                 hass, entry, group_name, group_slug, coordinators, combined_entry_ids
             ),
+            CombinedOfflineCountSensor(
+                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+            ),
             CombinedOfflineEntitiesSensor(
                 hass, entry, group_name, group_slug, coordinators, combined_entry_ids
             ),
@@ -176,7 +179,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
 
 
 class CombinedGroupSensor(CombinedSensorBase):
-    """Sensor aggregating offline count across multiple groups."""
+    """Sensor showing total entity count across multiple groups."""
 
     _attr_icon = "mdi:format-list-group"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -196,10 +199,7 @@ class CombinedGroupSensor(CombinedSensorBase):
     @property
     def native_value(self) -> int:
         return sum(
-            1
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
+            len(coord.monitored_entities) for coord in self._active_coordinators()
         )
 
     @property
@@ -299,6 +299,44 @@ class CombinedGroupSensor(CombinedSensorBase):
             )
             attrs["missing_groups"] = missing
         return attrs
+
+
+class CombinedOfflineCountSensor(CombinedSensorBase):
+    """Sensor showing count of offline devices across all included groups."""
+
+    _attr_icon = "mdi:alert-circle"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(
+        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+    ):
+        super().__init__(
+            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+        )
+        self._attr_unique_id = f"{entry.entry_id}_combined_offline_count"
+        self.entity_id = (
+            f"sensor.entity_availability_combined_{self._group_slug}_offline_count"
+        )
+        self._attr_name = "Offline Count"
+
+    @property
+    def native_value(self) -> int:
+        return sum(
+            1
+            for coord in self._active_coordinators()
+            for d in coord.device_states.values()
+            if d.is_offline and not d.is_suppressed
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        offline = [
+            d.entity_id
+            for coord in self._active_coordinators()
+            for d in coord.device_states.values()
+            if d.is_offline and not d.is_suppressed
+        ]
+        return {"entities": offline, "count": len(offline)}
 
 
 class CombinedOfflineEntitiesSensor(CombinedSensorBase):
