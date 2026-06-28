@@ -533,6 +533,18 @@ class TestCombinedOfflineCountSensor:
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.native_value == 0
 
+    def test_native_value_multiple_groups(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Offline count sums across all groups."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.native_value == 2
+
     def test_attributes(self, mock_hass, combined_entry, coordinators):
         """extra_state_attributes has entities list and count."""
         mock_hass.data[DOMAIN] = {
