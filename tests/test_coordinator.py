@@ -2143,3 +2143,778 @@ async def test_battery_from_device_registry_skips_self_entity(
 
     # Despite the self-entry being in the list, the battery is still found
     assert result == 65
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: unsuppress_entity when entity NOT in _device_states (line 130)
+# ---------------------------------------------------------------------------
+
+
+async def test_unsuppress_entity_not_in_device_states(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """unsuppress_entity is a no-op when entity has no device_state entry."""
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    # Inject a suppression entry with no matching device_state
+    coord._suppressed["binary_sensor.phantom"] = None
+    # Should not raise, should just pop from _suppressed
+    coord.unsuppress_entity("binary_sensor.phantom")
+    assert "binary_sensor.phantom" not in coord._suppressed
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage returns None (line 170)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_returns_none(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_async_load_storage is a no-op when store returns None."""
+    hass = mock_hass
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=None)
+
+    await coord._async_load_storage()
+
+    # Nothing should have been populated
+    assert coord._suppressed == {}
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage suppress entry with None until (line 178)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_restores_indefinite_suppression_branch(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Indefinite suppression (until=None) is restored from storage."""
+    hass = mock_hass
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {
+            "binary_sensor.device_a": None,
+        },
+        "device_states": {},
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    assert "binary_sensor.device_a" in coord._suppressed
+    assert coord._suppressed["binary_sensor.device_a"] is None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage device_state entity not in _entities (line 223/248)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_ignores_device_state_for_unknown_entity(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """device_states entries for entities not in _entities are ignored."""
+    hass = mock_hass
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.not_monitored": {"is_offline": True},
+        },
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    assert "binary_sensor.not_monitored" not in coord._device_states
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage tz-aware offline_since (line 182/212)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_device_state_tz_aware_offline_since(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """offline_since with tzinfo is not double-localised."""
+    hass = mock_hass
+
+    ts = datetime.now(timezone.utc) - timedelta(hours=1)
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": True,
+                "offline_since": ts.isoformat(),
+            },
+        },
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    device = coord._device_states.get("binary_sensor.device_a")
+    assert device is not None
+    assert device.offline_since is not None
+    assert device.offline_since.tzinfo is not None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage tz-aware cooldown_start (line 204/222)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_device_state_tz_aware_cooldown_start(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """cooldown_start with tzinfo is not double-localised."""
+    hass = mock_hass
+
+    ts = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": False,
+                "cooldown_start": ts.isoformat(),
+            },
+        },
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    device = coord._device_states.get("binary_sensor.device_a")
+    assert device is not None
+    assert device.cooldown_start is not None
+    assert device.cooldown_start.tzinfo is not None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_save_storage skips entity not in _entities (line 257)
+# ---------------------------------------------------------------------------
+
+
+async def test_save_storage_skips_entity_not_in_entities(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_async_save_storage skips device_states entries not in _entities."""
+    hass = mock_hass
+
+    from custom_components.entity_availability.models import DeviceState
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_save = AsyncMock()
+
+    # Inject a device_state for an entity NOT in _entities
+    phantom = DeviceState(entity_id="binary_sensor.phantom")
+    phantom.is_offline = True
+    coord._device_states["binary_sensor.phantom"] = phantom
+
+    await coord._async_save_storage()
+
+    saved = coord._store.async_save.call_args[0][0]
+    assert "binary_sensor.phantom" not in saved.get("device_states", {})
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _setup_state_listeners when _unsub_state_change is None (line 296)
+# ---------------------------------------------------------------------------
+
+
+def test_setup_state_listeners_no_existing_unsub(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_setup_state_listeners with no prior listener does not call None."""
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+    assert coord._unsub_state_change is None
+
+    with patch(
+        "custom_components.entity_availability.coordinator.async_track_state_change_event",
+        return_value=lambda: None,
+    ):
+        # Should not raise
+        coord._setup_state_listeners()
+
+    assert coord._unsub_state_change is not None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_update_data below save threshold (line 479)
+# ---------------------------------------------------------------------------
+
+
+async def test_update_count_below_save_threshold_does_not_save(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Storage is NOT saved when _update_count is below _SAVE_INTERVAL_UPDATES."""
+    hass = mock_hass
+
+    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
+
+    save_calls = []
+
+    async def counting_save():
+        save_calls.append(True)
+
+    with patch.object(
+        EntityAvailabilityCoordinator,
+        "_async_save_storage",
+        side_effect=counting_save,
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        # Set count just below threshold
+        coord._update_count = _SAVE_INTERVAL_UPDATES - 2
+        await coord._async_update_data()
+
+    # count incremented to threshold-1 — no save triggered
+    assert len(save_calls) == 0
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: cooldown elapsed + startup grace period still active (line 450)
+# ---------------------------------------------------------------------------
+
+
+async def test_cooldown_elapsed_but_grace_period_active(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Cooldown elapsed but startup grace blocks the offline transition."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        # Still within startup grace
+        coord._startup_time = datetime.now(timezone.utc)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        # Backdate cooldown_start past cooldown threshold
+        backdate = datetime.now(timezone.utc) - timedelta(seconds=DEFAULT_COOLDOWN + 10)
+        device_a.cooldown_start = backdate
+
+        await coord._async_update_data()
+
+    # Grace active — should NOT have gone offline
+    assert device_a.is_offline is False
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _get_battery_from_device_registry — battery state unavailable (line 626->619)
+# ---------------------------------------------------------------------------
+
+
+async def test_battery_from_device_registry_unavailable_state(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Registry battery entity found but state is unavailable — loop continues, returns None."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", "on")
+    hass.states.async_set("sensor.device_a_bat", STATE_UNAVAILABLE)
+
+    mock_ent_entry = MagicMock()
+    mock_ent_entry.device_id = "dev_1"
+
+    mock_bat_entry = MagicMock()
+    mock_bat_entry.entity_id = "sensor.device_a_bat"
+    mock_bat_entry.original_device_class = "battery"
+    mock_bat_entry.device_class = "battery"
+
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_get"
+        ) as mock_er,
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_entries_for_device"
+        ) as mock_entries,
+    ):
+        mock_ent_reg = MagicMock()
+        mock_ent_reg.async_get.return_value = mock_ent_entry
+        mock_er.return_value = mock_ent_reg
+        mock_entries.return_value = [mock_bat_entry]
+
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        result = coord._get_battery_from_device_registry("binary_sensor.device_a")
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _get_battery_from_device_registry — battery state parse returns None (line 632)
+# ---------------------------------------------------------------------------
+
+
+async def test_battery_from_device_registry_parse_returns_none(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Registry battery entity found but state is unparseable — returns None."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", "on")
+    hass.states.async_set("sensor.device_a_bat", "not_a_number")
+
+    mock_ent_entry = MagicMock()
+    mock_ent_entry.device_id = "dev_1"
+
+    mock_bat_entry = MagicMock()
+    mock_bat_entry.entity_id = "sensor.device_a_bat"
+    mock_bat_entry.original_device_class = "battery"
+    mock_bat_entry.device_class = "battery"
+
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_get"
+        ) as mock_er,
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_entries_for_device"
+        ) as mock_entries,
+    ):
+        mock_ent_reg = MagicMock()
+        mock_ent_reg.async_get.return_value = mock_ent_entry
+        mock_er.return_value = mock_ent_reg
+        mock_entries.return_value = [mock_bat_entry]
+
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        result = coord._get_battery_from_device_registry("binary_sensor.device_a")
+
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage — suppressed entry with timed until (178->182)
+# already covered by test_load_storage_restores_future_timed_suppression above,
+# but 178->182 specifically means until_str IS non-None → enter the else branch.
+# This test ensures a naive (no tz) future timestamp hits line 192 (tz replace).
+# The existing test_load_storage_restores_naive_timed_suppression covers 192 already
+# but let's add a tz-aware path to cover 182->204 (tzinfo not None → skip replace).
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_suppressed_timed_tz_aware(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Timed suppression with tz-aware timestamp — tzinfo branch (line 192) skipped.
+
+    Covers: 178->182 (non-None until_str → parse) and 182->204 (tzinfo present → no replace).
+    """
+    hass = mock_hass
+    future_ts = datetime.now(timezone.utc) + timedelta(hours=3)
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {
+            "binary_sensor.device_a": future_ts.isoformat(),  # tz-aware ISO string
+        },
+        "device_states": {},
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    assert "binary_sensor.device_a" in coord._suppressed
+    assert coord._suppressed["binary_sensor.device_a"] is not None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage — stored dict has no device_states key (204->exit)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_no_device_states_key(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Stored data without device_states key — branch at 204 exits without iterating.
+
+    Covers: 204->exit (no device_states key → if block skipped entirely).
+    """
+    hass = mock_hass
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        # no "device_states" key
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    assert coord._device_states == {}
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_save_storage all entities in _entities (257->254)
+# The continue branch fires when entity NOT in _entities.
+# The non-continue branch (257->254 means loop continues to next entity after condition)
+# is when ALL entities are in _entities — the continue never fires but loop body runs.
+# ---------------------------------------------------------------------------
+
+
+async def test_save_storage_all_entities_saved(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """All device_states entities are in _entities — no continue skip, all saved.
+
+    Covers: 257->254 (loop continues after full body executes, no skip).
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_save = AsyncMock()
+    coord._last_update = None
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        await coord._async_update_data()
+
+    # Real save — all _device_states entities are in _entities, none skipped
+    await EntityAvailabilityCoordinator._async_save_storage(coord)
+
+    # Verify save was called with device_states data
+    coord._store.async_save.assert_called_once()
+    saved = coord._store.async_save.call_args[0][0]
+    assert "device_states" in saved
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_update_data save threshold reached (479->483)
+# Normal save path — counter reaches threshold and save succeeds.
+# ---------------------------------------------------------------------------
+
+
+async def test_update_data_save_triggered_on_threshold(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Storage save triggered when _update_count reaches _SAVE_INTERVAL_UPDATES.
+
+    Covers: 479->483 (threshold reached → save called — success path, no exception).
+    """
+    hass = mock_hass
+
+    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
+
+    save_calls = []
+
+    async def real_counting_save(self_inner=None):
+        save_calls.append(True)
+
+    with patch.object(
+        EntityAvailabilityCoordinator,
+        "_async_save_storage",
+        side_effect=real_counting_save,
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        # Pre-fill count to one below threshold
+        coord._update_count = _SAVE_INTERVAL_UPDATES - 1
+        await coord._async_update_data()
+
+    # threshold reached → save was called
+    assert len(save_calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _get_battery_level guessed entity — state absent (584->598)
+# ---------------------------------------------------------------------------
+
+
+async def test_battery_guessed_entity_state_absent(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Guessed sensor.<slug>_battery has no state — returns None (line 598).
+
+    Covers: 584->598 (guessed entity not in hass.states → bat_state is None → skip return).
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", "on")
+    # No sensor.device_a_battery state set
+
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_get"
+        ) as mock_er,
+    ):
+        mock_ent_reg = MagicMock()
+        mock_ent_reg.async_get.return_value = None  # no registry entry
+        mock_er.return_value = mock_ent_reg
+
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    # No battery found — should be None
+    assert coord.device_states["binary_sensor.device_a"].battery_level is None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: cooldown elapsed in grace — in_grace True (450->492)
+# Already covered by test_cooldown_elapsed_but_grace_period_active above.
+# Adding explicit assertion on recently_offline_at to confirm in_grace branch.
+# ---------------------------------------------------------------------------
+
+
+async def test_cooldown_elapsed_grace_does_not_set_recently_offline(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Grace period active when cooldown elapses — in_grace branch taken, no offline mark.
+
+    Covers: 450->492 confirming the elif in_grace branch sets no recently_offline_at.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._startup_time = datetime.now(timezone.utc)  # still in grace
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        backdate = datetime.now(timezone.utc) - timedelta(seconds=DEFAULT_COOLDOWN + 10)
+        device_a.cooldown_start = backdate
+
+        await coord._async_update_data()
+
+    assert device_a.is_offline is False
+    assert device_a.recently_offline_at is None
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage — no 'availability' key (178->182)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_no_availability_key(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Stored data with no 'availability' key — availability block skipped (178->182)."""
+    hass = mock_hass
+
+    stored_data = {
+        # no 'availability' key
+        "suppressed": {},
+        "device_states": {},
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    # No crash, availability storage not overwritten
+    assert coord._suppressed == {}
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_load_storage — no 'suppressed' key (182->204)
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_no_suppressed_key(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Stored data with no 'suppressed' key — suppressed block skipped (182->204)."""
+    hass = mock_hass
+
+    stored_data = {
+        "availability": {},
+        # no 'suppressed' key
+        "device_states": {},
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    assert coord._suppressed == {}
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: cooldown elapsed, device already offline, not in grace (450->492)
+# elif in_grace: → False path (device IS offline, no grace, no state change)
+# ---------------------------------------------------------------------------
+
+
+async def test_cooldown_elapsed_device_already_offline_no_transition(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Cooldown elapsed, device already offline, not in grace — elif in_grace False (450->492)."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._startup_time = datetime.now(timezone.utc) - timedelta(
+            seconds=STARTUP_GRACE_PERIOD + 10
+        )
+        coord._last_update = None
+
+        # First update: sets cooldown_start
+        await coord._async_update_data()
+        device_a = coord.device_states["binary_sensor.device_a"]
+
+        # Force offline via expired cooldown
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(
+            seconds=DEFAULT_COOLDOWN + 10
+        )
+        await coord._async_update_data()
+        assert device_a.is_offline is True
+
+        # Second offline update: cooldown_start set again (device still bad state)
+        # In this update device.is_offline=True so 'not device.is_offline' is False
+        # and in_grace is also False → elif in_grace is False → 450->492 path taken
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(
+            seconds=DEFAULT_COOLDOWN + 10
+        )
+        await coord._async_update_data()
+
+    assert device_a.is_offline is True
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _async_update_data save triggered (479->483) — already offline path
+# (479->483 means threshold reached and save is called — already tested, but let's confirm
+# the specific normal success path without the side_effect override)
+# ---------------------------------------------------------------------------
+
+
+async def test_update_data_save_triggered_success_path(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Save triggered on threshold — no exception, _update_count resets to 0.
+
+    Covers: 479->483 (threshold reached → save → no exception → count reset).
+    """
+    hass = mock_hass
+
+    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ) as mock_save:
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        coord._update_count = _SAVE_INTERVAL_UPDATES - 1
+        await coord._async_update_data()
+
+    mock_save.assert_called()
+    assert coord._update_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: recovery with no offline_since (479->483 False path)
+# ---------------------------------------------------------------------------
+
+
+async def test_device_recovery_with_no_offline_since(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Device recovers but offline_since is None — downtime_seconds not updated (479->483).
+
+    Covers: 479->483 (if device.offline_since: → False).
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._startup_time = datetime.now(timezone.utc) - timedelta(
+            seconds=STARTUP_GRACE_PERIOD + 10
+        )
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        # Force offline without offline_since
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(
+            seconds=DEFAULT_COOLDOWN + 10
+        )
+        await coord._async_update_data()
+        assert device_a.is_offline is True
+
+        # Clear offline_since before recovery
+        device_a.offline_since = None
+
+        # Bring online
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        await coord._async_update_data()
+
+    assert device_a.is_offline is False
+    assert (
+        device_a.last_downtime_seconds is None
+    )  # not updated when offline_since was None

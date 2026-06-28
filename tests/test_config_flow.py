@@ -1083,3 +1083,422 @@ class TestUseDeviceNamesConfigFlow:
         assert result["type"] == "form"
         schema_keys = [str(k) for k in result["data_schema"].schema.keys()]
         assert any("use_device_names" in k for k in schema_keys)
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _detect_battery_entity config flow (lines 320->328, 323->320, 329->334)
+# ---------------------------------------------------------------------------
+
+
+async def test_detect_battery_entity_device_has_no_battery_entity(
+    hass: HomeAssistant,
+) -> None:
+    """Device registry entry exists but has no battery-class entity — falls to guessed name path.
+
+    Covers: 320->328 (loop exhausted with no battery entity),
+            323->320 (self-entity skipped via continue).
+    Guessed name also absent so _detect_battery_entity returns "".
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_self_entry = MagicMock()
+    mock_self_entry.entity_id = "binary_sensor.no_bat_device"
+    mock_self_entry.original_device_class = None
+    mock_self_entry.device_class = None
+
+    mock_sibling = MagicMock()
+    mock_sibling.entity_id = "sensor.no_bat_device_temperature"
+    mock_sibling.original_device_class = "temperature"
+    mock_sibling.device_class = "temperature"
+
+    mock_reg_entry = MagicMock()
+    mock_reg_entry.device_id = "dev_no_bat"
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = mock_reg_entry
+
+    # No guessed battery state
+    with (
+        patch(
+            "custom_components.entity_availability.config_flow.er.async_get",
+            return_value=mock_ent_reg,
+        ),
+        patch(
+            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            return_value=[mock_self_entry, mock_sibling],
+        ),
+    ):
+        result = await _init_flow(hass)
+        result = await _step_group(
+            hass, result["flow_id"], "NoBat Group", ["binary_sensor.no_bat_device"]
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            },
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"
+
+
+async def test_detect_battery_entity_guessed_name_found_in_config_flow(
+    hass: HomeAssistant,
+) -> None:
+    """Guessed sensor.<slug>_battery is found in state — returned by _detect_battery_entity.
+
+    Covers: 329->334 branch where guessed entity EXISTS and is returned.
+    Uses no registry entry so loop is skipped entirely.
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = None  # no registry entry
+
+    hass.states.async_set("sensor.motion_sensor_battery", "42")
+
+    with patch(
+        "custom_components.entity_availability.config_flow.er.async_get",
+        return_value=mock_ent_reg,
+    ):
+        result = await _init_flow(hass)
+        result = await _step_group(
+            hass, result["flow_id"], "Motion Group", ["binary_sensor.motion_sensor"]
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            },
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: options flow _detect_battery_entity (lines 474->476, 502->507)
+# ---------------------------------------------------------------------------
+
+
+async def test_options_flow_detect_battery_entity_no_existing_map(
+    hass: HomeAssistant,
+    mock_config_entry,
+) -> None:
+    """Options flow calls _detect_battery_entity when no existing map default.
+
+    Covers: 474->476 (empty existing_map triggers _detect_battery_entity call),
+            502->507 (guessed battery state found in options flow variant).
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = None  # no registry entry
+
+    mock_config_entry.add_to_hass(hass)
+    hass.states.async_set("sensor.device_a_battery", "77")
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    with (
+        patch(
+            "custom_components.entity_availability.config_flow.er.async_get",
+            return_value=mock_ent_reg,
+        ),
+    ):
+        result = await hass.config_entries.options.async_init(
+            mock_config_entry.entry_id
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_ENTITIES: ["binary_sensor.device_a"],
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"
+
+
+async def test_detect_battery_entity_no_device_id_no_guessed_state(
+    hass: HomeAssistant,
+) -> None:
+    """No device_id and no guessed battery state — _detect_battery_entity returns ''.
+
+    Covers: 329->334 (guessed entity absent → fall through to return '').
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = None  # no registry entry
+
+    # Do NOT set sensor.no_bat_sensor_battery state
+
+    with patch(
+        "custom_components.entity_availability.config_flow.er.async_get",
+        return_value=mock_ent_reg,
+    ):
+        result = await _init_flow(hass)
+        result = await _step_group(
+            hass, result["flow_id"], "No Bat Group", ["sensor.no_bat_sensor"]
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            },
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"
+
+
+async def test_options_flow_detect_battery_no_guessed_state(
+    hass: HomeAssistant,
+    mock_config_entry,
+) -> None:
+    """Options flow: no existing map, no guessed battery state — returns ''.
+
+    Covers: 474->476 (empty map → detect called) and 502->507 (no guessed state → return '').
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = None  # no registry entry
+
+    mock_config_entry.add_to_hass(hass)
+    # Do NOT set sensor.device_a_battery state
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    with patch(
+        "custom_components.entity_availability.config_flow.er.async_get",
+        return_value=mock_ent_reg,
+    ):
+        result = await hass.config_entries.options.async_init(
+            mock_config_entry.entry_id
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_ENTITIES: ["binary_sensor.device_a"],
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"
+
+
+async def test_detect_battery_entity_guessed_state_absent_returns_empty(
+    hass: HomeAssistant,
+) -> None:
+    """_detect_battery_entity returns '' when no guessed battery state found.
+
+    Covers: 329->334 (guessed entity absent → condition False → return '').
+    Entity has device_id but device loop finds no battery class.
+    No guessed battery state in hass.states.
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_sibling = MagicMock()
+    mock_sibling.entity_id = "sensor.door_lock_temperature"
+    mock_sibling.original_device_class = "temperature"
+    mock_sibling.device_class = "temperature"
+
+    mock_reg_entry = MagicMock()
+    mock_reg_entry.device_id = "dev_door"
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = mock_reg_entry
+
+    # No guessed state (sensor.door_lock_battery not set)
+    with (
+        patch(
+            "custom_components.entity_availability.config_flow.er.async_get",
+            return_value=mock_ent_reg,
+        ),
+        patch(
+            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            return_value=[mock_sibling],
+        ),
+    ):
+        result = await _init_flow(hass)
+        result = await _step_group(
+            hass, result["flow_id"], "Door Group", ["lock.door_lock"]
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            },
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"
+
+
+async def test_options_flow_existing_map_default_skips_detect(
+    hass: HomeAssistant,
+    mock_config_entry,
+) -> None:
+    """Options flow: entity has existing map default — _detect_battery_entity skipped.
+
+    Covers: 474->476 (default exists → if not default is False → skip detect call).
+    """
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.entity_availability.const import (
+        CONF_RECOVERY_WINDOW,
+        DEFAULT_RECOVERY_WINDOW,
+    )
+
+    # Create entry with populated CONF_BATTERY_ENTITY_MAP
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Test",
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            CONF_BATTERY_ENTITY_MAP: {
+                "binary_sensor.device_a": "sensor.device_a_battery"
+            },
+            CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
+            CONF_USE_DEVICE_NAMES: False,
+        },
+        entry_id="test_existing_map",
+    )
+    entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+        },
+    )
+
+    # Should reach battery_mapping without calling _detect_battery_entity
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"
+
+
+async def test_options_flow_no_guessed_state_returns_empty(
+    hass: HomeAssistant,
+    mock_config_entry,
+) -> None:
+    """Options flow: _detect_battery_entity returns '' — guessed state absent.
+
+    Covers: 502->507 (guessed entity absent → condition False → return '').
+    """
+    from unittest.mock import MagicMock, patch
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = None  # no registry entry
+
+    mock_config_entry.add_to_hass(hass)
+    # No guessed battery state
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    with patch(
+        "custom_components.entity_availability.config_flow.er.async_get",
+        return_value=mock_ent_reg,
+    ):
+        result = await hass.config_entries.options.async_init(
+            mock_config_entry.entry_id
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_ENTITIES: ["binary_sensor.device_a"],
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "battery_mapping"

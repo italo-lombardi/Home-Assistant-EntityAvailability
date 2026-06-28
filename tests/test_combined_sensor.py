@@ -1480,3 +1480,116 @@ class TestCombinedRecentlyOfflineSensorWithDeviceNames:
             mock_dt.now.return_value = _NOW
             value = sensor.native_value
         assert value == "None"
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: _friendly_name with use_device_names=True
+# line 93->98: entity has no device_id → fallback to friendly_name
+# line 96->98: device found but has no name → fallback to friendly_name
+# ---------------------------------------------------------------------------
+
+
+class TestFriendlyNameBranches:
+    """Branch coverage for _friendly_name fallback paths."""
+
+    def _make_offline_sensor(self, hass, entry, coordinators):
+        from custom_components.entity_availability.combined_sensor import (
+            CombinedOfflineEntitiesSensor,
+        )
+
+        return CombinedOfflineEntitiesSensor(
+            hass,
+            entry,
+            "Combined",
+            "combined",
+            coordinators,
+            [c.entry.entry_id for c in coordinators],
+        )
+
+    def test_use_device_names_entity_has_no_device_id(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """use_device_names=True but entity has no device_id — falls back to friendly_name.
+
+        Covers: line 93->98 (entry.device_id is None → skip device lookup).
+        """
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0].entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group A",
+            data={**coordinators[0].entry.data, CONF_USE_DEVICE_NAMES: True},
+            entry_id="entry_a",
+        )
+        mock_hass.states.async_set(
+            "binary_sensor.a2",
+            "unavailable",
+            {"friendly_name": "Friendly A2"},
+        )
+
+        ent_reg_mock = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = None  # no device_id → branch 93->98
+        ent_reg_mock.async_get.return_value = ent_entry
+
+        with patch(
+            "custom_components.entity_availability.combined_sensor.er.async_get",
+            return_value=ent_reg_mock,
+        ):
+            sensor = self._make_offline_sensor(mock_hass, combined_entry, coordinators)
+            value = sensor.native_value
+
+        assert "Friendly A2" in value
+
+    def test_use_device_names_device_has_no_name(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """use_device_names=True, entity has device_id but device has no name — fallback.
+
+        Covers: line 96->98 (device found but name_by_user and name both falsy).
+        """
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0].entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group A",
+            data={**coordinators[0].entry.data, CONF_USE_DEVICE_NAMES: True},
+            entry_id="entry_a",
+        )
+        mock_hass.states.async_set(
+            "binary_sensor.a2",
+            "unavailable",
+            {"friendly_name": "Friendly A2"},
+        )
+
+        ent_reg_mock = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "dev_nameless"
+        ent_reg_mock.async_get.return_value = ent_entry
+
+        dev_reg_mock = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = None  # no name → branch 96->98
+        dev_reg_mock.async_get.return_value = device
+
+        with (
+            patch(
+                "custom_components.entity_availability.combined_sensor.er.async_get",
+                return_value=ent_reg_mock,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.dr.async_get",
+                return_value=dev_reg_mock,
+            ),
+        ):
+            sensor = self._make_offline_sensor(mock_hass, combined_entry, coordinators)
+            value = sensor.native_value
+
+        assert "Friendly A2" in value

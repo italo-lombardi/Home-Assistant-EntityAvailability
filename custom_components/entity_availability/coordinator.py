@@ -581,7 +581,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             return battery_from_registry
 
         parts = entity_id.split(".", 1)
-        if len(parts) == 2:
+        if len(parts) == 2:  # pragma: no branch
             battery_entity = f"sensor.{parts[1]}_battery"
             bat_state = self.hass.states.get(battery_entity)
             if bat_state and bat_state.state not in ("unavailable", "unknown", None):

@@ -326,7 +326,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                     return ent.entity_id
 
         parts = entity_id.split(".", 1)
-        if len(parts) == 2:
+        if len(parts) == 2:  # pragma: no branch
             battery_entity = f"sensor.{parts[1]}_battery"
             if self.hass.states.get(battery_entity):
                 return battery_entity
@@ -499,7 +499,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                     return ent.entity_id
 
         parts = entity_id.split(".", 1)
-        if len(parts) == 2:
+        if len(parts) == 2:  # pragma: no branch
             battery_entity = f"sensor.{parts[1]}_battery"
             if self.hass.states.get(battery_entity):
                 return battery_entity

@@ -610,3 +610,100 @@ async def test_register_lovelace_resource_non_storage_first_url_update(
 
     # In-place URL update (line 146)
     assert existing["url"] == expected_url
+
+
+async def test_register_lovelace_resource_no_create_item_no_data_append(
+    mock_hass: HomeAssistant,
+) -> None:
+    """No async_create_item and no data.append — elif branch not taken, falls through to return.
+
+    Covers: line 133->137 (elif condition False — neither data attribute exists).
+    """
+    from custom_components.entity_availability import (
+        _async_register_lovelace_resource,
+    )
+
+    hass = mock_hass
+    version = "1.0.0"
+
+    # Mock with no async_create_item and no .data attribute
+    mock_resources = MagicMock(spec=[])  # empty spec — no attributes at all
+    mock_resources.loaded = True
+    mock_resources.async_load = AsyncMock()
+    mock_resources.async_items = MagicMock(return_value=[])
+
+    hass.data["lovelace"] = MagicMock()
+    hass.data["lovelace"].resources = mock_resources
+
+    # Should not raise
+    await _async_register_lovelace_resource(hass, version)
+
+
+async def test_register_lovelace_resource_single_existing_no_duplicate_loop(
+    mock_hass: HomeAssistant,
+) -> None:
+    """Single existing resource — duplicate loop body (line 141) is never entered.
+
+    Covers: line 141->140 (existing[1:] is empty — for-loop skipped entirely).
+    """
+    from custom_components.entity_availability import (
+        CARD_URL,
+        _async_register_lovelace_resource,
+        ResourceStorageCollection,
+    )
+
+    hass = mock_hass
+    version = "9.9.9"
+    old_url = f"{CARD_URL}?automatically-added&1.0.0"
+
+    mock_resources = MagicMock(spec=ResourceStorageCollection)
+    mock_resources.loaded = True
+    mock_resources.async_load = AsyncMock()
+    mock_resources.async_items.return_value = [{"id": "r1", "url": old_url}]
+    mock_resources.async_delete_item = AsyncMock()
+    mock_resources.async_update_item = AsyncMock()
+
+    hass.data["lovelace"] = MagicMock()
+    hass.data["lovelace"].resources = mock_resources
+
+    await _async_register_lovelace_resource(hass, version)
+
+    # No duplicate deletion — delete never called
+    mock_resources.async_delete_item.assert_not_called()
+    # URL was updated
+    mock_resources.async_update_item.assert_called_once()
+
+
+async def test_register_lovelace_resource_non_storage_duplicates_not_deleted(
+    mock_hass: HomeAssistant,
+) -> None:
+    """Non-storage collection with duplicates — isinstance False, duplicate not deleted.
+
+    Covers: line 141->140 (loop iterates but isinstance is False, no delete called).
+    """
+    from custom_components.entity_availability import (
+        CARD_URL,
+        _async_register_lovelace_resource,
+    )
+
+    hass = mock_hass
+    version = "5.0.0"
+    url = f"{CARD_URL}?automatically-added&{version}"
+
+    # Plain MagicMock (not spec=ResourceStorageCollection) → isinstance returns False
+    mock_resources = MagicMock()
+    mock_resources.loaded = True
+    mock_resources.async_load = AsyncMock()
+    mock_resources.async_items.return_value = [
+        {"id": "res_1", "url": url},
+        {"id": "res_2", "url": url},
+    ]
+    mock_resources.async_delete_item = AsyncMock()
+
+    hass.data["lovelace"] = MagicMock()
+    hass.data["lovelace"].resources = mock_resources
+
+    await _async_register_lovelace_resource(hass, version)
+
+    # isinstance check was False — no delete called
+    mock_resources.async_delete_item.assert_not_called()
