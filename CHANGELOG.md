@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-06-28
+
+### Added
+- **Combined group: Offline Count sensor** — new `Offline Count` sensor for combined groups, matching the classic group sensor composition. Reports count of unsuppressed offline devices across all included groups. Exposes `entities` and `count` attributes.
+
+### Fixed
+- **Combined group: Combined Summary** — `Combined Summary` was reporting offline count instead of total entity count, inconsistent with individual `Group Summary`. Now correctly reports total monitored entities across all included groups.
+
 ## [0.3.9] - 2026-06-28
 
 ### Added
