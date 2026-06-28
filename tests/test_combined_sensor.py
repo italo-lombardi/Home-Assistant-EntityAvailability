@@ -350,6 +350,12 @@ class TestCombinedGroupSensor:
         assert len(attrs["entities"]) == len(set(attrs["entities"])), (
             "entities must be deduplicated"
         )
+        assert "display_names" in attrs
+        assert set(attrs["display_names"].keys()) == {
+            "binary_sensor.a1",
+            "binary_sensor.a2",
+            "binary_sensor.b1",
+        }
 
     def test_attributes_entities_deduplicated(self, mock_hass, group_entry_a):
         """entities list has no duplicates when the same entity appears in two source groups."""

@@ -393,6 +393,12 @@ class TestGroupSummarySensor:
         assert attrs["suppressed"] == 0
         assert attrs["battery_powered"] == 1  # device_a has battery_level
         assert attrs["low_battery"] == 0
+        assert "display_names" in attrs
+        assert set(attrs["display_names"].keys()) == {
+            "binary_sensor.device_a",
+            "binary_sensor.device_b",
+            "binary_sensor.device_c",
+        }
 
     def test_attributes_online_excludes_unprocessed_entities(
         self, mock_coordinator, mock_hass
