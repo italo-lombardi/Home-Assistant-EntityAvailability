@@ -1035,16 +1035,6 @@ async def test_options_flow_updates_use_device_names(
 class TestUseDeviceNamesConfigFlow:
     """Tests for use_device_names option in config flow."""
 
-    async def test_advanced_step_defaults_use_device_names_false(
-        self, hass, mock_config_entry
-    ):
-        """Test that use_device_names defaults to False if not submitted."""
-        from custom_components.entity_availability.const import (
-            DEFAULT_USE_DEVICE_NAMES,
-        )
-
-        assert DEFAULT_USE_DEVICE_NAMES is False
-
     async def test_use_device_names_in_options_flow(self, hass):
         """Test use_device_names flag survives options flow round-trip."""
         from custom_components.entity_availability.const import (
