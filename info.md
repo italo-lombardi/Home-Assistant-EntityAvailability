@@ -14,6 +14,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - Battery entities that report `low` (text) are supported in addition to numeric percentages
 - Device name display — optionally show the HA device name instead of entity friendly name in offline/recovered sensor states
 - Area sensors — four sensors per group exposing which physical areas are affected: Affected Areas Count, Affected Areas, Areas Recently Offline, Areas Recently Recovered; area resolution follows entity → device → excluded; no new configuration required
+- Card: Affected Areas pill row — opt-in (`show_affected_areas: false` by default); shows offline area names as colored pills between stats and availability bars; named areas in red, unassigned entities as italic "Unassigned"; works for regular and combined groups
 - Degraded entity detection — flag entities with low battery or stale data
 - Group Summary sensor — total, online, offline, suppressed, battery_powered, low_battery counts + full entity list
 - Maintenance/suppression mode — suppress individual entities or entire groups

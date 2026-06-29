@@ -636,6 +636,7 @@ The card works with both regular groups and combined groups. It auto-detects the
 ```yaml
 type: custom:entity-availability-card
 group: security_devices
+show_affected_areas: false
 show_availability: true
 show_entities: true
 entities_expanded: false
@@ -658,6 +659,7 @@ availability_colors:
 |--------|---------|-------------|
 | `group` | (required) | Group slug (e.g., `security_devices`) — works for both regular and combined groups |
 | `title` | (auto from group) | Custom card title |
+| `show_affected_areas` | `false` | Show offline area names as pills between stats and availability bars (both regular and combined groups) |
 | `show_availability` | `true` | Show availability progress bars (regular groups only) |
 | `show_entities` | `true` | Show expandable entity list (regular) or group breakdown table (combined) |
 | `entities_expanded` | `false` | Start entity list / group breakdown expanded |
