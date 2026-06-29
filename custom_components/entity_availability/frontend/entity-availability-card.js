@@ -3,7 +3,7 @@
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.3.10";
+const CARD_VERSION = "0.3.11";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -500,6 +500,30 @@ const cardStyles = css`
   .compact .availability-section { padding: 6px 16px; }
   .compact .entity-section-header { padding: 6px 16px; }
   .compact .actions-section { padding: 4px 16px 8px; }
+
+  .affected-areas-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 16px 8px;
+    font-size: 13px;
+  }
+
+  .affected-areas-label {
+    color: var(--eac-text-secondary);
+    margin-right: 4px;
+    flex-shrink: 0;
+  }
+
+  .area-pill {
+    display: inline-block;
+    padding: 1px 7px;
+    border-radius: 10px;
+    background: rgba(244, 67, 54, 0.12);
+    font-size: 12px;
+    font-weight: 500;
+  }
 `;
 
 class EntityAvailabilityCard extends LitElement {
@@ -557,6 +581,7 @@ class EntityAvailabilityCard extends LitElement {
       sort_by: "status",
       entity_detail: "off",
       entity_filter: "all",
+      show_affected_areas: false,
       ...config,
     };
     // backwards compat: show_entity_tooltips: true → entity_detail: "tooltip"
@@ -621,6 +646,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
           ${this._renderStats(online, offline, lowBattery, suppressed)}
+          ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
@@ -670,6 +696,7 @@ class EntityAvailabilityCard extends LitElement {
         ${this._renderHeader(title, statusColor, statusText)}
         <div class="divider"></div>
         ${this._renderStats(online, offline, lowBattery, suppressed)}
+        ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
         ${this._config.show_entities ? this._renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames) : nothing}
@@ -855,6 +882,30 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
+  _renderAffectedAreas(prefix) {
+    const sensor = this._getEntity(`sensor.${prefix}_affected_areas`);
+    if (!sensor || sensor.state === "None" || sensor.state === "unavailable" || sensor.state === "unknown") {
+      return nothing;
+    }
+    const rawAreas = sensor.attributes?.areas ?? [];
+    if (rawAreas.length === 0) return nothing;
+
+    const named = rawAreas.filter((a) => a !== "(No Area)");
+    const hasUnassigned = rawAreas.includes("(No Area)");
+    const pills = [
+      ...named.map((a) => html`<span class="area-pill" style="color:var(--eac-red)">${a}</span>`),
+      ...(hasUnassigned ? [html`<span class="area-pill" style="font-style:italic;color:var(--eac-text-secondary)">${"Unassigned"}</span>`] : []),
+    ];
+
+    return html`
+      <div class="affected-areas-row">
+        <ha-icon icon="mdi:home-alert" style="color:var(--eac-red);--mdc-icon-size:16px;flex-shrink:0"></ha-icon>
+        <span class="affected-areas-label">Affected:</span>
+        ${pills}
+      </div>
+    `;
+  }
+
   _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}) {
     const items = entities.map((entityId) => {
       const state = this.hass.states[entityId];
@@ -1021,16 +1072,18 @@ class EntityAvailabilityCard extends LitElement {
     const group = this._config.group;
     if (this._isCombinedGroup()) {
       const prefix = `entity_availability_combined_${group}`;
-      return [
+      const ids = [
         `sensor.${prefix}_combined_summary`,
         `sensor.${prefix}_offline_entities`,
         `sensor.${prefix}_low_battery`,
         `sensor.${prefix}_low_battery_count`,
         `binary_sensor.${prefix}_any_offline`,
       ];
+      if (this._config.show_affected_areas) ids.push(`sensor.${prefix}_affected_areas`);
+      return ids;
     }
     const prefix = `entity_availability_${group}`;
-    return [
+    const ids = [
       `sensor.${prefix}_group_summary`,
       `sensor.${prefix}_offline_count`,
       `sensor.${prefix}_offline_entities`,
@@ -1041,6 +1094,8 @@ class EntityAvailabilityCard extends LitElement {
       `sensor.${prefix}_availability_7d`,
       `binary_sensor.${prefix}_any_offline`,
     ];
+    if (this._config.show_affected_areas) ids.push(`sensor.${prefix}_affected_areas`);
+    return ids;
   }
 
   _computeDuration(entityId) {
@@ -1333,6 +1388,16 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("show_entities", e.target.checked)}
             />
             Show Entity List
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_affected_areas === true}
+              @change=${(e) => this._updateConfig("show_affected_areas", e.target.checked)}
+            />
+            Show Affected Areas
           </label>
         </div>
         ${!this._isSelectedGroupCombined() ? html`
