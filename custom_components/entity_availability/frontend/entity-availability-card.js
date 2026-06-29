@@ -497,6 +497,7 @@ const cardStyles = css`
 
   .compact .card-header { padding: 12px 16px 8px; }
   .compact .stats-row { padding: 6px 16px; }
+  .compact .affected-areas-row { padding: 0 16px 6px; }
   .compact .availability-section { padding: 6px 16px; }
   .compact .entity-section-header { padding: 6px 16px; }
   .compact .actions-section { padding: 4px 16px 8px; }
