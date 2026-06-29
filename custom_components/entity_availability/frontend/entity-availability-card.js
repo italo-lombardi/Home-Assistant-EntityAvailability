@@ -1377,6 +1377,16 @@ class EntityAvailabilityCardEditor extends LitElement {
             placeholder="Custom card title"
           />
         </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_affected_areas === true}
+              @change=${(e) => this._updateConfig("show_affected_areas", e.target.checked)}
+            />
+            Show Affected Areas
+          </label>
+        </div>
         ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row checkbox">
           <label>
@@ -1397,16 +1407,6 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("show_entities", e.target.checked)}
             />
             Show Entity List
-          </label>
-        </div>
-        <div class="editor-row checkbox">
-          <label>
-            <input
-              type="checkbox"
-              .checked=${this._config.show_affected_areas === true}
-              @change=${(e) => this._updateConfig("show_affected_areas", e.target.checked)}
-            />
-            Show Affected Areas
           </label>
         </div>
         ${!this._isSelectedGroupCombined() ? html`
