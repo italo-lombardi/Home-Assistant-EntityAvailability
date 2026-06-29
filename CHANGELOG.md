@@ -20,17 +20,6 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - **Card: Affected Areas pill row** — new opt-in section in the Lovelace card. When `show_affected_areas: true` (off by default), a compact pill row appears between the stats and availability sections listing offline area names. Named areas render in red; entities with no area assigned appear as italic "Unassigned". Works identically for regular and combined groups. Toggle via the card editor "Show Affected Areas" checkbox.
 
-### Added
-- **Area sensors** — four new sensors per group and combined group exposing which physical areas are affected by offline entities:
-  - **Affected Areas Count** (`affected_areas_count`) — integer count of unique HA areas containing ≥1 offline, unsuppressed entity. Entities with no area assigned contribute under the reserved sentinel `(No Area)` so `offline_count > 0` always implies `affected_areas_count ≥ 1`.
-  - **Affected Areas** (`affected_areas`) — comma-separated sorted list of area names (including `(No Area)` when unassigned entities are offline). Attributes: `areas` (list), `count`, `unassigned_entities` (entity IDs with no area assigned).
-  - **Areas Recently Offline** (`affected_areas_recently_offline`) — areas where ≥1 entity went offline within the group's `recovery_window_minutes`. Attributes: `areas`, `count`, `window_minutes`.
-  - **Areas Recently Recovered** (`affected_areas_recently_recovered`) — areas where ALL non-suppressed entities are back online and the most recent recovery happened within `recovery_window_minutes`. Attributes: `areas`, `count`, `window_minutes`.
-  - All four sensors appear on combined groups as well, with area deduplication across source groups.
-  - Area resolution: entity `area_id` → device `area_id` → `(No Area)` sentinel. The `unassigned_entities` attribute on `Affected Areas` lists entity IDs with no area for diagnostics.
-  - No new configuration required — sensors appear automatically on update and reuse the group's existing `recovery_window_minutes` setting.
-  - Entities are excluded if suppressed, consistent with all other sensors.
-
 ## [0.3.10] - 2026-06-28
 
 ### Added
