@@ -524,6 +524,15 @@ const cardStyles = css`
     font-size: 12px;
     font-weight: 500;
   }
+
+  .area-pill--named {
+    color: var(--eac-red);
+  }
+
+  .area-pill--unassigned {
+    font-style: italic;
+    color: var(--eac-text-secondary);
+  }
 `;
 
 class EntityAvailabilityCard extends LitElement {
@@ -893,8 +902,8 @@ class EntityAvailabilityCard extends LitElement {
     const named = rawAreas.filter((a) => a !== "(No Area)");
     const hasUnassigned = rawAreas.includes("(No Area)");
     const pills = [
-      ...named.map((a) => html`<span class="area-pill" style="color:var(--eac-red)">${a}</span>`),
-      ...(hasUnassigned ? [html`<span class="area-pill" style="font-style:italic;color:var(--eac-text-secondary)">${"Unassigned"}</span>`] : []),
+      ...named.map((a) => html`<span class="area-pill area-pill--named">${a}</span>`),
+      ...(hasUnassigned ? [html`<span class="area-pill area-pill--unassigned">Unassigned</span>`] : []),
     ];
 
     return html`
