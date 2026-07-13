@@ -216,8 +216,8 @@ Use these sensors in automations to get the exact device name(s) at the moment o
 
 The availability % sensor tells you *how much* total downtime a group had. It does **not** tell you whether that was one long outage or lots of tiny ones. Two separate sensors answer two different questions:
 
-- **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the `Reliability (MTBF)` sensor, in hours.
-- **How long is each break?** → **MTTR** (Mean Time To Recovery) — the `Reliability (MTTR)` sensor, in minutes.
+- **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the `Mean Time Between Failures` sensor (`sensor..._reliability`), in hours.
+- **How long is each break?** → **MTTR** (Mean Time To Recovery) — the `Mean Time To Recovery` sensor (`sensor..._mttr`), in minutes.
 
 Both are **diagnostic** entities (grouped under the device's Diagnostic section, kept off the main dashboard) with `device_class: duration`, so Home Assistant renders them as durations and lets you convert units in the UI.
 
@@ -234,8 +234,8 @@ Both might show "98% available." The percentage hides the difference; MTBF/MTTR 
 
 | Entity / value | Meaning |
 |----------------|---------|
-| `Reliability (MTBF)` state (`h`) | Group-average uptime between failures, across entities that have failed at least once |
-| `Reliability (MTTR)` state (`min`) | Group-average outage length |
+| `Mean Time Between Failures` state (`h`) | Group-average uptime between failures, across entities that have failed at least once |
+| `Mean Time To Recovery` state (`min`) | Group-average outage length |
 | `total_offline_events` (attr on MTBF) | Total offline→recovery cycles since monitoring started (or since last `reset_statistics`) |
 | `per_device` (attr on MTBF) | `mtbf_hours`, `mttr_minutes`, `offline_events` for each entity individually |
 
@@ -438,278 +438,37 @@ automation:
 
 ## Automation Ideas
 
-### Notify when any entity goes offline
+Ready-to-adapt automations for every feature — bus events, offline/recovery, availability %, reliability (MTBF/MTTR), battery, affected areas, combined groups, and services — live in **[AUTOMATION_EXAMPLES.md](AUTOMATION_EXAMPLES.md)**.
+
+Two to get started:
 
 ```yaml
+# Notify when any monitored entity goes offline
 automation:
-  - alias: "Notify offline entity"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.entity_availability_security_devices_any_offline
-        to: "on"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Entity Offline"
-          message: >
-            {{ state_attr('sensor.entity_availability_security_devices_offline_entities', 'entities') | join(', ') }}
+  alias: EA - any entity offline
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: "{{ trigger.event.data.entity_id }} in {{ trigger.event.data.group }} went offline."
 ```
 
-### Notify when entity recovers
-
 ```yaml
+# Daily availability report
 automation:
-  - alias: "Notify entity recovery"
-    trigger:
-      - platform: state
-        entity_id: binary_sensor.entity_availability_security_devices_any_offline
-        from: "on"
-        to: "off"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "All Entities Online"
-          message: "All security devices are back online."
+  alias: EA - daily report
+  trigger:
+    - platform: time
+      at: "08:00:00"
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >
+          Today: {{ states('sensor.entity_availability_security_devices_availability_today') }}%
+          7-day: {{ states('sensor.entity_availability_security_devices_availability_7d') }}%
 ```
-
-### Notify which device just went offline
-
-Uses the `recently_offline` sensor's `entities` attribute to name the specific device at the moment it drops off.
-
-```yaml
-automation:
-  - alias: "Notify which device just went offline"
-    trigger:
-      - platform: state
-        entity_id: sensor.entity_availability_security_devices_recently_offline
-    condition:
-      - condition: template
-        value_template: "{{ trigger.to_state.state != 'None' and trigger.to_state.state != trigger.from_state.state }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Device Went Offline"
-          message: >
-            {{ trigger.to_state.state }} went offline.
-```
-
-You can also read the raw entity ID list from the attribute:
-
-```yaml
-{{ state_attr('sensor.entity_availability_security_devices_recently_offline', 'entities') | join(', ') }}
-```
-
-### Notify which device just recovered
-
-Uses the `recently_recovered` sensor's `entities` attribute to confirm the specific device that came back online.
-
-```yaml
-automation:
-  - alias: "Notify which device just recovered"
-    trigger:
-      - platform: state
-        entity_id: sensor.entity_availability_security_devices_recently_recovered
-    condition:
-      - condition: template
-        value_template: "{{ trigger.to_state.state != 'None' and trigger.to_state.state != trigger.from_state.state }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Device Recovered"
-          message: >
-            {{ trigger.to_state.state }} came back online.
-```
-
-> **Tip:** The `window_minutes` attribute on both sensors reflects the configured recovery window. Trigger on state changes of the sensor itself — any change means a new device joined or left the window.
-
-### Trigger on every offline change (combined groups)
-
-Using `binary_sensor.*_any_offline` only fires when the state changes from `off` to `on`. If the sensor is already `on` and another device goes offline, no trigger fires because the state does not change.
-
-Use `sensor.*_offline_count` instead — it fires on every count change, up or down:
-
-```yaml
-automation:
-  - alias: "Notify every offline change"
-    trigger:
-      - platform: state
-        entity_id: sensor.entity_availability_all_devices_offline_count
-    condition:
-      - condition: template
-        value_template: "{{ trigger.from_state.state != trigger.to_state.state }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Device Status Changed"
-          message: >
-            {{ trigger.to_state.state | int }} device(s) currently offline.
-```
-
-The `!=` condition fires on both increase (new offline device) and decrease (device recovered), so you can use a single automation to alert and auto-clear.
-
-For combined groups you can also read `low_battery` directly from the summary sensor attributes:
-
-```yaml
-{{ state_attr('sensor.entity_availability_all_devices_combined_summary', 'low_battery') | int(0) }}
-```
-
-This is equivalent to `states('sensor.entity_availability_all_devices_low_battery_count')`.
-
-You can also read `battery_powered` from the same sensor:
-
-```yaml
-{{ state_attr('sensor.entity_availability_all_devices_combined_summary', 'battery_powered') | int(0) }}
-```
-
-### Notify which device just went offline (combined group)
-
-Uses `sensor.*_recently_offline` on a combined group — fires each time a new device across any included group drops off.
-
-```yaml
-automation:
-  - alias: "Notify which device just went offline (all devices)"
-    trigger:
-      - platform: state
-        entity_id: sensor.entity_availability_all_devices_recently_offline
-    condition:
-      - condition: template
-        value_template: "{{ trigger.to_state.state != 'None' and trigger.to_state.state != trigger.from_state.state }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Device Went Offline"
-          message: >
-            {{ trigger.to_state.state }} went offline.
-```
-
-### Notify which device just recovered (combined group)
-
-```yaml
-automation:
-  - alias: "Notify which device just recovered (all devices)"
-    trigger:
-      - platform: state
-        entity_id: sensor.entity_availability_all_devices_recently_recovered
-    condition:
-      - condition: template
-        value_template: "{{ trigger.to_state.state != 'None' and trigger.to_state.state != trigger.from_state.state }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Device Recovered"
-          message: >
-            {{ trigger.to_state.state }} came back online.
-```
-
-### Daily availability report
-
-```yaml
-automation:
-  - alias: "Daily availability report"
-    trigger:
-      - platform: time
-        at: "08:00:00"
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Daily Availability"
-          message: >
-            Security: {{ states('sensor.entity_availability_security_devices_availability_today') }}%
-            Climate: {{ states('sensor.entity_availability_climate_devices_availability_today') }}%
-```
-
-### Suppress during planned maintenance
-
-```yaml
-automation:
-  - alias: "Suppress during firmware update"
-    trigger:
-      - platform: state
-        entity_id: update.front_door_lock_firmware
-        to: "on"
-    action:
-      - service: entity_availability.suppress
-        data:
-          entity_id: lock.front_door
-          duration: 30
-```
-
-### Alert on low battery
-
-```yaml
-automation:
-  - alias: "Low battery alert"
-    trigger:
-      - platform: numeric_state
-        entity_id: sensor.entity_availability_security_devices_low_battery_count
-        above: 0
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Low Battery Detected"
-          message: >
-            {{ states('sensor.entity_availability_security_devices_low_battery') }}
-```
-
-### Weekly reliability check
-
-```yaml
-automation:
-  - alias: "Weekly reliability check"
-    trigger:
-      - platform: time
-        at: "09:00:00"
-    condition:
-      - condition: time
-        weekday: mon
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Weekly Reliability Report"
-          message: >
-            7-day availability: {{ states('sensor.entity_availability_security_devices_availability_7d') }}%
-            Currently offline: {{ states('sensor.entity_availability_security_devices_offline_count') }}
-            Avg time between failures (MTBF): {{ states('sensor.entity_availability_security_devices_reliability') }} h
-            Avg outage length (MTTR): {{ states('sensor.entity_availability_security_devices_mttr') }} min
-            Total outages: {{ state_attr('sensor.entity_availability_security_devices_reliability', 'total_offline_events') }}
-```
-
-### Persistent notification with auto-clear
-
-Show a persistent notification when devices are offline and automatically dismiss it when all devices come back online:
-
-```yaml
-automation:
-  - alias: "Persistent offline notification"
-    trigger:
-      - platform: state
-        entity_id: sensor.entity_availability_all_devices_offline_count
-    condition:
-      - condition: template
-        value_template: "{{ trigger.from_state.state != trigger.to_state.state }}"
-    action:
-      - choose:
-          - conditions:
-              - condition: template
-                value_template: "{{ trigger.to_state.state | int(0) > 0 }}"
-            sequence:
-              - service: persistent_notification.create
-                data:
-                  notification_id: entity_availability_offline
-                  title: "Devices Offline"
-                  message: >
-                    {{ trigger.to_state.state }} device(s) offline:
-                    {{ states('sensor.entity_availability_all_devices_offline_entities') }}
-          - conditions:
-              - condition: template
-                value_template: "{{ trigger.to_state.state | int(0) == 0 }}"
-            sequence:
-              - service: persistent_notification.dismiss
-                data:
-                  notification_id: entity_availability_offline
-```
-
-Using a fixed `notification_id` ensures the same notification is updated (not duplicated) each time the count changes, and is automatically dismissed when everything comes back online.
 
 ---
 

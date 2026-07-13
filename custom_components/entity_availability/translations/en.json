@@ -157,6 +157,12 @@
       },
       "affected_areas_recently_recovered": {
         "name": "Areas Recently Recovered"
+      },
+      "reliability": {
+        "name": "Mean Time Between Failures"
+      },
+      "mttr": {
+        "name": "Mean Time To Recovery"
       }
     },
     "binary_sensor": {

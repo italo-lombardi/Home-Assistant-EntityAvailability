@@ -407,7 +407,7 @@ class ReliabilitySensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_reliability"
         self.entity_id = f"sensor.entity_availability_{group_slug}_reliability"
-        self._attr_name = "Reliability (MTBF)"
+        self._attr_name = "Mean Time Between Failures"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -469,7 +469,7 @@ class MTTRSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_mttr"
         self.entity_id = f"sensor.entity_availability_{group_slug}_mttr"
-        self._attr_name = "Reliability (MTTR)"
+        self._attr_name = "Mean Time To Recovery"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
