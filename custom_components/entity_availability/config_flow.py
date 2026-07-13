@@ -169,7 +169,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_GROUP_NAME): str,
-                    vol.Required(CONF_COMBINED_GROUPS): selector.SelectSelector(
+                    vol.Required(
+                        CONF_COMBINED_GROUPS, default=[]
+                    ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=group_options,
                             multiple=True,
