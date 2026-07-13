@@ -167,7 +167,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
     def reset_statistics(self, entity_ids: list[str] | None = None) -> None:
         """Clear availability buckets and reliability counters.
 
-        entity_ids=None resets every monitored entity in this group.
+        entity_ids=None resets every monitored entity in this group, including
+        suppressed ones — a group reset means "forget this group's history",
+        and suppression only gates alerting/averaging, not whether history exists.
         """
         targets = entity_ids if entity_ids is not None else list(self._entities)
         now = datetime.now(timezone.utc)
