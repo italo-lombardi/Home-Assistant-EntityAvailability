@@ -182,8 +182,7 @@ class CombinedGroupSensor(CombinedSensorBase):
     """Sensor showing total entity count across multiple groups."""
 
     _attr_icon = "mdi:format-list-group"
-    # No state_class: entity count only changes on group edit, so long-term
-    # statistics would be constant rows sampled every 5 min. Stays a valid state sensor.
+    # No state_class: see GroupSummarySensor.
 
     def __init__(
         self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
