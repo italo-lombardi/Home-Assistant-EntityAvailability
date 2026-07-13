@@ -382,7 +382,8 @@ class GroupSummarySensor(DedupCoordinatorSensor):
     """Sensor showing total entity count with detailed breakdown in attributes."""
 
     _attr_icon = "mdi:format-list-group"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    # No state_class: entity count only changes on group edit, so long-term
+    # statistics would be constant rows sampled every 5 min. Stays a valid state sensor.
     _attr_has_entity_name = True
 
     def __init__(
