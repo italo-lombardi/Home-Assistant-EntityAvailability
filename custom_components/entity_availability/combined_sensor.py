@@ -194,7 +194,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_combined_summary"
         )
-        self._attr_name = "Combined Summary"
+        self._attr_translation_key = "combined_summary"
 
     @property
     def native_value(self) -> int:
@@ -326,7 +326,7 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_offline_count"
         )
-        self._attr_name = "Offline Count"
+        self._attr_translation_key = "offline_count"
 
     @property
     def native_value(self) -> int:
@@ -363,7 +363,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_offline_entities"
         )
-        self._attr_name = "Offline Entities"
+        self._attr_translation_key = "offline_entities"
 
     @property
     def native_value(self) -> str:
@@ -413,7 +413,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_low_battery"
         )
-        self._attr_name = "Low Battery"
+        self._attr_translation_key = "low_battery"
 
     @property
     def native_value(self) -> str:
@@ -460,7 +460,7 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_low_battery_count"
         )
-        self._attr_name = "Low Battery Count"
+        self._attr_translation_key = "low_battery_count"
 
     @property
     def native_value(self) -> int:
@@ -488,7 +488,7 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_recently_offline"
         )
-        self._attr_name = "Recently Offline"
+        self._attr_translation_key = "recently_offline"
 
     def _matching_devices(self):
         now = datetime.now(timezone.utc)
@@ -546,7 +546,7 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_recently_recovered"
         )
-        self._attr_name = "Recently Recovered"
+        self._attr_translation_key = "recently_recovered"
 
     def _matching_devices(self):
         now = datetime.now(timezone.utc)
@@ -603,7 +603,7 @@ class CombinedAffectedAreasCountSensor(CombinedSensorBase):
         )
         self._attr_unique_id = f"{entry.entry_id}_combined_affected_areas_count"
         self.entity_id = f"sensor.entity_availability_combined_{self._group_slug}_affected_areas_count"
-        self._attr_name = "Affected Areas Count"
+        self._attr_translation_key = "affected_areas_count"
 
     @property
     def native_value(self) -> int:
@@ -632,7 +632,7 @@ class CombinedAffectedAreasSensor(CombinedSensorBase):
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_affected_areas"
         )
-        self._attr_name = "Affected Areas"
+        self._attr_translation_key = "affected_areas"
         self._cached_areas: list[str] = []
         self._cached_unassigned: list[str] = []
 
@@ -689,7 +689,7 @@ class CombinedAffectedAreasRecentlyOfflineSensor(CombinedSensorBase):
             f"{entry.entry_id}_combined_affected_areas_recently_offline"
         )
         self.entity_id = f"sensor.entity_availability_combined_{self._group_slug}_affected_areas_recently_offline"
-        self._attr_name = "Areas Recently Offline"
+        self._attr_translation_key = "affected_areas_recently_offline"
 
     def _matching_areas(self) -> list[str]:
         now = datetime.now(timezone.utc)
@@ -741,7 +741,7 @@ class CombinedAffectedAreasRecentlyRecoveredSensor(CombinedSensorBase):
             f"{entry.entry_id}_combined_affected_areas_recently_recovered"
         )
         self.entity_id = f"sensor.entity_availability_combined_{self._group_slug}_affected_areas_recently_recovered"
-        self._attr_name = "Areas Recently Recovered"
+        self._attr_translation_key = "affected_areas_recently_recovered"
 
     def _matching_areas(self) -> list[str]:
         now = datetime.now(timezone.utc)

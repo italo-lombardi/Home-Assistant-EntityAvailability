@@ -73,7 +73,7 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
         self.entity_id = (
             f"binary_sensor.entity_availability_combined_{group_slug}_any_offline"
         )
-        self._attr_name = "Any Offline"
+        self._attr_translation_key = "any_offline"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=f"Entity Availability - [Combined] {group_name}",

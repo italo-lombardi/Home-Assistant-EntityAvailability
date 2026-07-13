@@ -2351,7 +2351,7 @@ class TestReliabilitySensor:
         assert sensor.native_value is None
 
     def test_attributes(self, mock_coordinator):
-        """extra_state_attributes carries total events and per-device map."""
+        """extra_state_attributes carries total events and per-device MTBF only."""
         self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
         sensor = ReliabilitySensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
@@ -2359,9 +2359,11 @@ class TestReliabilitySensor:
         attrs = sensor.extra_state_attributes
         assert attrs["total_offline_events"] == 2
         assert "mttr_minutes" not in attrs  # MTTR is now its own sensor
-        assert attrs["per_device"]["binary_sensor.device_a"]["offline_events"] == 2
-        # per-device still exposes mttr for drill-down
-        assert attrs["per_device"]["binary_sensor.device_a"]["mttr_minutes"] == 30.0
+        dev_a = attrs["per_device"]["binary_sensor.device_a"]
+        assert dev_a["offline_events"] == 2
+        assert dev_a["mtbf_hours"] == 11.5
+        # per_device on the MTBF sensor exposes only MTBF, not MTTR
+        assert "mttr_minutes" not in dev_a
         # device_b/c have no events
         assert attrs["per_device"]["binary_sensor.device_b"]["mtbf_hours"] is None
 
@@ -2432,6 +2434,28 @@ class TestMTTRSensor:
         assert sensor.device_class == SensorDeviceClass.DURATION
         assert sensor.native_unit_of_measurement == "min"
         assert sensor.unique_id == "test_entry_id_mttr"
+
+    def test_attributes(self, mock_coordinator):
+        """per_device on MTTR exposes only MTTR (not MTBF)."""
+        self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["total_offline_events"] == 2
+        dev_a = attrs["per_device"]["binary_sensor.device_a"]
+        assert dev_a["mttr_minutes"] == 30.0
+        assert dev_a["offline_events"] == 2
+        assert "mtbf_hours" not in dev_a  # MTBF lives on its own sensor
+
+    def test_attributes_skip_suppressed(self, mock_coordinator):
+        """Suppressed entities omitted from MTTR per_device."""
+        mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_a" not in attrs["per_device"]
 
 
 class TestReliabilitySensorAttrSuppressed:

@@ -157,6 +157,12 @@
       },
       "affected_areas_recently_recovered": {
         "name": "Områder Nyligt Genoprettet"
+      },
+      "reliability": {
+        "name": "Gennemsnitlig tid mellem fejl"
+      },
+      "mttr": {
+        "name": "Gennemsnitlig genoprettelsestid"
       }
     },
     "binary_sensor": {

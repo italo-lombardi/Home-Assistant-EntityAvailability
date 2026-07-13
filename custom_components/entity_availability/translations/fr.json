@@ -157,6 +157,12 @@
       },
       "affected_areas_recently_recovered": {
         "name": "Zones Récemment Récupérées"
+      },
+      "reliability": {
+        "name": "Temps moyen entre pannes"
+      },
+      "mttr": {
+        "name": "Temps moyen de rétablissement"
       }
     },
     "binary_sensor": {

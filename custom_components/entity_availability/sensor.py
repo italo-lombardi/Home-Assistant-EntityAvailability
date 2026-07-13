@@ -149,7 +149,7 @@ class OfflineCountSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_offline_count"
         self.entity_id = f"sensor.entity_availability_{group_slug}_offline_count"
-        self._attr_name = "Offline Count"
+        self._attr_translation_key = "offline_count"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -195,7 +195,7 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_offline_entities"
         self.entity_id = f"sensor.entity_availability_{group_slug}_offline_entities"
-        self._attr_name = "Offline Entities"
+        self._attr_translation_key = "offline_entities"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -245,7 +245,7 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_low_battery"
         self.entity_id = f"sensor.entity_availability_{group_slug}_low_battery"
-        self._attr_name = "Low Battery"
+        self._attr_translation_key = "low_battery"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -300,7 +300,7 @@ class LowBatteryCountSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_low_battery_count"
         self.entity_id = f"sensor.entity_availability_{group_slug}_low_battery_count"
-        self._attr_name = "Low Battery Count"
+        self._attr_translation_key = "low_battery_count"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -336,7 +336,7 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         self.entity_id = (
             f"sensor.entity_availability_{group_slug}_availability_{window}"
         )
-        self._attr_name = f"Availability ({window})"
+        self._attr_translation_key = f"availability_{window}"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -407,7 +407,7 @@ class ReliabilitySensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_reliability"
         self.entity_id = f"sensor.entity_availability_{group_slug}_reliability"
-        self._attr_name = "Mean Time Between Failures"
+        self._attr_translation_key = "reliability"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -431,7 +431,7 @@ class ReliabilitySensor(DedupCoordinatorSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return per-device MTBF/MTTR breakdown and total event count."""
+        """Return per-device MTBF breakdown and total event count."""
         now = datetime.now(timezone.utc)
         per_device: dict[str, dict[str, Any]] = {}
         total_events = 0
@@ -440,7 +440,10 @@ class ReliabilitySensor(DedupCoordinatorSensor):
             if device and device.is_suppressed:
                 continue
             stats = self.coordinator.reliability_stats(entity_id, now)
-            per_device[entity_id] = stats
+            per_device[entity_id] = {
+                "mtbf_hours": stats["mtbf_hours"],
+                "offline_events": stats["offline_events"],
+            }
             total_events += stats["offline_events"]
         return {
             "total_offline_events": total_events,
@@ -469,7 +472,7 @@ class MTTRSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_mttr"
         self.entity_id = f"sensor.entity_availability_{group_slug}_mttr"
-        self._attr_name = "Mean Time To Recovery"
+        self._attr_translation_key = "mttr"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -491,6 +494,27 @@ class MTTRSensor(DedupCoordinatorSensor):
             return None
         return round(sum(values) / len(values), 1)
 
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return per-device MTTR breakdown and total event count."""
+        now = datetime.now(timezone.utc)
+        per_device: dict[str, dict[str, Any]] = {}
+        total_events = 0
+        for entity_id in self.coordinator.monitored_entities:
+            device = self.coordinator.device_states.get(entity_id)
+            if device and device.is_suppressed:
+                continue
+            stats = self.coordinator.reliability_stats(entity_id, now)
+            per_device[entity_id] = {
+                "mttr_minutes": stats["mttr_minutes"],
+                "offline_events": stats["offline_events"],
+            }
+            total_events += stats["offline_events"]
+        return {
+            "total_offline_events": total_events,
+            "per_device": per_device,
+        }
+
 
 class GroupSummarySensor(DedupCoordinatorSensor):
     """Sensor showing total entity count with detailed breakdown in attributes."""
@@ -511,7 +535,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_group_summary"
         self.entity_id = f"sensor.entity_availability_{group_slug}_group_summary"
-        self._attr_name = "Group Summary"
+        self._attr_translation_key = "group_summary"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -612,7 +636,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_recently_offline"
         self.entity_id = f"sensor.entity_availability_{group_slug}_recently_offline"
-        self._attr_name = "Recently Offline"
+        self._attr_translation_key = "recently_offline"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
         self._cached_devices: list = []
 
@@ -682,7 +706,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_recently_recovered"
         self.entity_id = f"sensor.entity_availability_{group_slug}_recently_recovered"
-        self._attr_name = "Recently Recovered"
+        self._attr_translation_key = "recently_recovered"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
         self._cached_devices: list = []
 
@@ -752,7 +776,7 @@ class AffectedAreasCountSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_affected_areas_count"
         self.entity_id = f"sensor.entity_availability_{group_slug}_affected_areas_count"
-        self._attr_name = "Affected Areas Count"
+        self._attr_translation_key = "affected_areas_count"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
@@ -781,7 +805,7 @@ class AffectedAreasSensor(DedupCoordinatorSensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_affected_areas"
         self.entity_id = f"sensor.entity_availability_{group_slug}_affected_areas"
-        self._attr_name = "Affected Areas"
+        self._attr_translation_key = "affected_areas"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
         self._cached_areas: list[str] = []
         self._cached_unassigned: list[str] = []
@@ -838,7 +862,7 @@ class AffectedAreasRecentlyOfflineSensor(DedupCoordinatorSensor):
         self.entity_id = (
             f"sensor.entity_availability_{group_slug}_affected_areas_recently_offline"
         )
-        self._attr_name = "Areas Recently Offline"
+        self._attr_translation_key = "affected_areas_recently_offline"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
         self._cached_areas: list[str] = []
 
@@ -896,7 +920,7 @@ class AffectedAreasRecentlyRecoveredSensor(DedupCoordinatorSensor):
         self.entity_id = (
             f"sensor.entity_availability_{group_slug}_affected_areas_recently_recovered"
         )
-        self._attr_name = "Areas Recently Recovered"
+        self._attr_translation_key = "affected_areas_recently_recovered"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
         self._cached_areas: list[str] = []
 

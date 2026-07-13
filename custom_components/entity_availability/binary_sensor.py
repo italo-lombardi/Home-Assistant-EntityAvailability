@@ -59,7 +59,7 @@ class AnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_any_offline"
         self.entity_id = f"binary_sensor.entity_availability_{group_slug}_any_offline"
-        self._attr_name = "Any Offline"
+        self._attr_translation_key = "any_offline"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry_id)},
             name=f"Entity Availability - {group_name}",

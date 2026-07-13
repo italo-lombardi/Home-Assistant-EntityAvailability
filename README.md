@@ -151,8 +151,8 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._availability_3d` | Sensor | Group availability % over 3 days | Per-entity availability breakdown |
 | `sensor..._availability_5d` | Sensor | Group availability % over 5 days | Per-entity availability breakdown |
 | `sensor..._availability_7d` | Sensor | Group availability % over 7 days | Per-entity availability breakdown |
-| `sensor..._reliability` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `mttr_minutes`, `offline_events`) |
-| `sensor..._mttr` | Sensor (Diagnostic) | Group mean MTTR in minutes (mean time to recovery / average outage length) | — |
+| `sensor..._reliability` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `offline_events`) |
+| `sensor..._mttr` | Sensor (Diagnostic) | Group mean MTTR in minutes (mean time to recovery / average outage length) | `total_offline_events`, `per_device` (`mttr_minutes`, `offline_events`) |
 | `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one entity is offline | offline_entities, offline_count |
 | `sensor..._affected_areas_count` | Sensor | Number of unique HA areas containing ≥1 offline, unsuppressed entity | — |
 | `sensor..._affected_areas` | Sensor | Comma-separated sorted list of affected area names (`"None"` when none) | `areas` (list), `count`, `unassigned_entities` (entity IDs with no area) |
@@ -236,10 +236,10 @@ Both might show "98% available." The percentage hides the difference; MTBF/MTTR 
 |----------------|---------|
 | `Mean Time Between Failures` state (`h`) | Group-average uptime between failures, across entities that have failed at least once |
 | `Mean Time To Recovery` state (`min`) | Group-average outage length |
-| `total_offline_events` (attr on MTBF) | Total offline→recovery cycles since monitoring started (or since last `reset_statistics`) |
-| `per_device` (attr on MTBF) | `mtbf_hours`, `mttr_minutes`, `offline_events` for each entity individually |
+| `total_offline_events` (attr on both) | Total offline→recovery cycles since monitoring started (or since last `reset_statistics`) |
+| `per_device` (attr on both) | Per-entity breakdown; each sensor exposes only its own metric — the MTBF sensor lists `mtbf_hours` + `offline_events`, the MTTR sensor lists `mttr_minutes` + `offline_events` |
 
-Each is its own sensor (rather than one sensor with attributes) so MTBF and MTTR can be charted, gauged, and triggered on independently. Why two units? MTBF is naturally hours-to-days, MTTR is seconds-to-minutes — each uses the scale that keeps its typical value human-readable (an MTTR shown in hours would read `0.008 h`). The per-device breakdown stays an attribute because it is a map, not a single chartable number.
+Each is its own sensor (rather than one sensor with attributes) so MTBF and MTTR can be charted, gauged, and triggered on independently. Why two units? MTBF is naturally hours-to-days, MTTR is seconds-to-minutes — each uses the scale that keeps its typical value human-readable (an MTTR shown in hours would read `0.008 h`). Each sensor carries its own per-device breakdown as an attribute (a map is not a single chartable number), so `sensor..._mttr`'s `per_device` answers "which device recovers slowest" without cross-referencing the MTBF sensor.
 
 **Notes:**
 

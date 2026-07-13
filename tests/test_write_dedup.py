@@ -768,7 +768,10 @@ async def test_combined_binary_sensor_remove_resets_cache(
 
     coord.async_add_listener = MagicMock(side_effect=_fake_add_listener)
     await sensor.async_added_to_hass()
-    captured[0]()
+    # Not added via the platform in this unit test, so stub the actual HA write
+    # (name resolution needs a platform); we only assert the dedup cache here.
+    with patch.object(sensor, "async_write_ha_state"):
+        captured[0]()
     assert sensor._ea_last_value is not _UNSET
     await sensor.async_will_remove_from_hass()
     assert sensor._ea_last_value is _UNSET
