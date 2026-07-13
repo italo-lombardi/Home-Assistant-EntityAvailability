@@ -7,8 +7,9 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from homeassistant.components.sensor import SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import Entity
@@ -76,6 +77,7 @@ async def async_setup_entry(
         RecentlyOfflineSensor(coordinator, group_name, group_slug, entry.entry_id),
         RecentlyRecoveredSensor(coordinator, group_name, group_slug, entry.entry_id),
         ReliabilitySensor(coordinator, group_name, group_slug, entry.entry_id),
+        MTTRSensor(coordinator, group_name, group_slug, entry.entry_id),
     ]
 
     entities.extend(
@@ -380,10 +382,16 @@ class AvailabilitySensor(DedupCoordinatorSensor):
 
 
 class ReliabilitySensor(DedupCoordinatorSensor):
-    """Sensor showing group MTBF (hours) with per-device MTBF/MTTR breakdown."""
+    """Sensor showing group mean MTBF (hours) with per-device breakdown.
+
+    MTBF (mean time between failures) answers "how often do devices break".
+    Companion :class:`MTTRSensor` answers "how long is each outage".
+    """
 
     _attr_icon = "mdi:chart-timeline-variant"
     _attr_native_unit_of_measurement = "h"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
     # No state_class: MTBF changes only on offline/recovery events, not on a
     # fixed cadence — see GroupSummarySensor.
     _attr_has_entity_name = True
@@ -423,10 +431,9 @@ class ReliabilitySensor(DedupCoordinatorSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return per-device MTBF/MTTR breakdown and group MTTR."""
+        """Return per-device MTBF/MTTR breakdown and total event count."""
         now = datetime.now(timezone.utc)
         per_device: dict[str, dict[str, Any]] = {}
-        mttrs: list[float] = []
         total_events = 0
         for entity_id in self.coordinator.monitored_entities:
             device = self.coordinator.device_states.get(entity_id)
@@ -435,13 +442,54 @@ class ReliabilitySensor(DedupCoordinatorSensor):
             stats = self.coordinator.reliability_stats(entity_id, now)
             per_device[entity_id] = stats
             total_events += stats["offline_events"]
-            if stats["mttr_minutes"] is not None:
-                mttrs.append(stats["mttr_minutes"])
         return {
-            "mttr_minutes": round(sum(mttrs) / len(mttrs), 1) if mttrs else None,
             "total_offline_events": total_events,
             "per_device": per_device,
         }
+
+
+class MTTRSensor(DedupCoordinatorSensor):
+    """Sensor showing group mean MTTR (minutes) — average outage length."""
+
+    _attr_icon = "mdi:timer-alert-outline"
+    _attr_native_unit_of_measurement = "min"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # No state_class: changes only on recovery events — see GroupSummarySensor.
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_mttr"
+        self.entity_id = f"sensor.entity_availability_{group_slug}_mttr"
+        self._attr_name = "Reliability (MTTR)"
+        self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+
+    @property
+    def native_value(self) -> float | None:
+        """Return group mean MTTR in minutes (avg over entities with data)."""
+        now = datetime.now(timezone.utc)
+        values = [
+            stats["mttr_minutes"]
+            for entity_id in self.coordinator.monitored_entities
+            if not (
+                (d := self.coordinator.device_states.get(entity_id)) and d.is_suppressed
+            )
+            and (stats := self.coordinator.reliability_stats(entity_id, now))[
+                "mttr_minutes"
+            ]
+            is not None
+        ]
+        if not values:
+            return None
+        return round(sum(values) / len(values), 1)
 
 
 class GroupSummarySensor(DedupCoordinatorSensor):

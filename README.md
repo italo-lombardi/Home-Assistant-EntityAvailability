@@ -23,7 +23,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Configurable bad states** -- define which states count as offline (`unavailable`, `unknown`, or custom)
 - **Cooldown timer** -- ignore brief blips before marking an entity offline
 - **Availability % sensors** -- track uptime over today, 3-day, 5-day, and 7-day windows
-- **Reliability (MTBF) sensor** -- flags devices that keep flaking out: shows how *often* each device breaks and how *long* each outage lasts, so a genuinely flaky device is distinguishable from one that had a single long outage at the same uptime %
+- **Reliability sensors (MTBF + MTTR)** -- flag devices that keep flaking out: separate diagnostic sensors for how *often* each device breaks (MTBF) and how *long* each outage lasts (MTTR), so a genuinely flaky device is distinguishable from one that had a single long outage at the same uptime %
 - **Bus events** -- fires `entity_availability_offline` / `entity_availability_recovered` on the HA event bus for use as native automation triggers
 - **Battery monitoring** -- auto-detect or manually map battery entities; supports numeric (%) and text states (`low`)
 - **Degraded entity detection** -- flag entities with low battery or stale data
@@ -151,7 +151,8 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._availability_3d` | Sensor | Group availability % over 3 days | Per-entity availability breakdown |
 | `sensor..._availability_5d` | Sensor | Group availability % over 5 days | Per-entity availability breakdown |
 | `sensor..._availability_7d` | Sensor | Group availability % over 7 days | Per-entity availability breakdown |
-| `sensor..._reliability` | Sensor | Group mean MTBF in hours (mean time between failures) | `mttr_minutes`, `total_offline_events`, `per_device` (`mtbf_hours`, `mttr_minutes`, `offline_events`) |
+| `sensor..._reliability` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `mttr_minutes`, `offline_events`) |
+| `sensor..._mttr` | Sensor (Diagnostic) | Group mean MTTR in minutes (mean time to recovery / average outage length) | — |
 | `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one entity is offline | offline_entities, offline_count |
 | `sensor..._affected_areas_count` | Sensor | Number of unique HA areas containing ≥1 offline, unsuppressed entity | — |
 | `sensor..._affected_areas` | Sensor | Comma-separated sorted list of affected area names (`"None"` when none) | `areas` (list), `count`, `unassigned_entities` (entity IDs with no area) |
@@ -209,14 +210,16 @@ The window length is controlled by the **Recovery window** setting in Advanced S
 
 Use these sensors in automations to get the exact device name(s) at the moment of an event — see the [Automation Ideas](#automation-ideas) section for examples.
 
-### Reliability (MTBF/MTTR) Sensor
+### Reliability (MTBF / MTTR) Sensors
 
-**In one line:** this sensor flags devices that keep flaking out, so you know what to fix or replace.
+**In one line:** these sensors flag devices that keep flaking out, so you know what to fix or replace.
 
-The availability % sensor tells you *how much* total downtime a group had. It does **not** tell you whether that was one long outage or lots of tiny ones. This sensor answers two different questions:
+The availability % sensor tells you *how much* total downtime a group had. It does **not** tell you whether that was one long outage or lots of tiny ones. Two separate sensors answer two different questions:
 
-- **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the sensor's state, in hours.
-- **How long is each break?** → **MTTR** (Mean Time To Recovery) — the `mttr_minutes` attribute.
+- **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the `Reliability (MTBF)` sensor, in hours.
+- **How long is each break?** → **MTTR** (Mean Time To Recovery) — the `Reliability (MTTR)` sensor, in minutes.
+
+Both are **diagnostic** entities (grouped under the device's Diagnostic section, kept off the main dashboard) with `device_class: duration`, so Home Assistant renders them as durations and lets you convert units in the UI.
 
 **Why it matters — two devices can look identical on %, but be very different:**
 
@@ -229,12 +232,14 @@ Both might show "98% available." The percentage hides the difference; MTBF/MTTR 
 
 **What you see:**
 
-| Value | Meaning |
-|-------|---------|
-| State (`h`) | Group-average MTBF — average uptime between failures, across entities that have failed at least once |
-| `mttr_minutes` | Group-average outage length |
-| `total_offline_events` | Total offline→recovery cycles since monitoring started (or since last `reset_statistics`) |
-| `per_device` | The same three numbers for each entity individually |
+| Entity / value | Meaning |
+|----------------|---------|
+| `Reliability (MTBF)` state (`h`) | Group-average uptime between failures, across entities that have failed at least once |
+| `Reliability (MTTR)` state (`min`) | Group-average outage length |
+| `total_offline_events` (attr on MTBF) | Total offline→recovery cycles since monitoring started (or since last `reset_statistics`) |
+| `per_device` (attr on MTBF) | `mtbf_hours`, `mttr_minutes`, `offline_events` for each entity individually |
+
+Each is its own sensor (rather than one sensor with attributes) so MTBF and MTTR can be charted, gauged, and triggered on independently. Why two units? MTBF is naturally hours-to-days, MTTR is seconds-to-minutes — each uses the scale that keeps its typical value human-readable (an MTTR shown in hours would read `0.008 h`). The per-device breakdown stays an attribute because it is a map, not a single chartable number.
 
 **Notes:**
 
@@ -665,7 +670,7 @@ automation:
             7-day availability: {{ states('sensor.entity_availability_security_devices_availability_7d') }}%
             Currently offline: {{ states('sensor.entity_availability_security_devices_offline_count') }}
             Avg time between failures (MTBF): {{ states('sensor.entity_availability_security_devices_reliability') }} h
-            Avg outage length (MTTR): {{ state_attr('sensor.entity_availability_security_devices_reliability', 'mttr_minutes') }} min
+            Avg outage length (MTTR): {{ states('sensor.entity_availability_security_devices_mttr') }} min
             Total outages: {{ state_attr('sensor.entity_availability_security_devices_reliability', 'total_offline_events') }}
 ```
 

@@ -7,7 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.const import STATE_UNAVAILABLE, EntityCategory
 from homeassistant.core import HomeAssistant
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -33,6 +34,7 @@ from custom_components.entity_availability.sensor import (
     GroupSummarySensor,
     LowBatteryCountSensor,
     MAX_STATE_LENGTH,
+    MTTRSensor,
     OfflineCountSensor,
     OfflineDevicesSensor,
     RecentlyOfflineSensor,
@@ -2349,27 +2351,87 @@ class TestReliabilitySensor:
         assert sensor.native_value is None
 
     def test_attributes(self, mock_coordinator):
-        """extra_state_attributes carries MTTR, total events, per-device map."""
+        """extra_state_attributes carries total events and per-device map."""
         self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
         sensor = ReliabilitySensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         attrs = sensor.extra_state_attributes
         assert attrs["total_offline_events"] == 2
-        # 3600s / 2 events / 60 = 30 min
-        assert attrs["mttr_minutes"] == 30.0
+        assert "mttr_minutes" not in attrs  # MTTR is now its own sensor
         assert attrs["per_device"]["binary_sensor.device_a"]["offline_events"] == 2
+        # per-device still exposes mttr for drill-down
+        assert attrs["per_device"]["binary_sensor.device_a"]["mttr_minutes"] == 30.0
         # device_b/c have no events
         assert attrs["per_device"]["binary_sensor.device_b"]["mtbf_hours"] is None
 
-    def test_attributes_mttr_none_when_no_events(self, mock_coordinator):
-        """Group MTTR is None when no entity has events."""
+    def test_attributes_zero_events(self, mock_coordinator):
+        """total_offline_events is 0 when no entity has events."""
         sensor = ReliabilitySensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         attrs = sensor.extra_state_attributes
-        assert attrs["mttr_minutes"] is None
         assert attrs["total_offline_events"] == 0
+
+    def test_diagnostic_and_device_class(self, mock_coordinator):
+        """MTBF sensor is diagnostic with duration device class, hours."""
+        sensor = ReliabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.entity_category == EntityCategory.DIAGNOSTIC
+        assert sensor.device_class == SensorDeviceClass.DURATION
+        assert sensor.native_unit_of_measurement == "h"
+
+
+class TestMTTRSensor:
+    """Tests for MTTRSensor."""
+
+    def _seed(self, coord, entity_id, events, total_offline_s, monitored_min_ago):
+        d = coord.device_states[entity_id]
+        d.offline_event_count = events
+        d.total_offline_seconds = total_offline_s
+        d.monitored_since = datetime.now(timezone.utc) - timedelta(
+            minutes=monitored_min_ago
+        )
+
+    def test_no_state_class(self, mock_coordinator):
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.state_class is None
+
+    def test_native_value_none_without_events(self, mock_coordinator):
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.native_value is None
+
+    def test_native_value_averages_mttr(self, mock_coordinator):
+        """native_value averages per-entity MTTR minutes."""
+        # 2 events, 3600s total offline → 1800s each → 30 min
+        self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.native_value == 30.0
+
+    def test_native_value_skips_suppressed(self, mock_coordinator):
+        self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
+        mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.native_value is None
+
+    def test_diagnostic_and_device_class(self, mock_coordinator):
+        """MTTR sensor is diagnostic with duration device class, minutes."""
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.entity_category == EntityCategory.DIAGNOSTIC
+        assert sensor.device_class == SensorDeviceClass.DURATION
+        assert sensor.native_unit_of_measurement == "min"
+        assert sensor.unique_id == "test_entry_id_mttr"
 
 
 class TestReliabilitySensorAttrSuppressed:
