@@ -225,9 +225,9 @@ automation:
       data:
         title: Weekly reliability
         message: >
-          MTBF: {{ states('sensor.entity_availability_security_devices_reliability') }} h
+          MTBF: {{ states('sensor.entity_availability_security_devices_mtbf') }} h
           MTTR: {{ states('sensor.entity_availability_security_devices_mttr') }} min
-          Total outages: {{ state_attr('sensor.entity_availability_security_devices_reliability',
+          Total outages: {{ state_attr('sensor.entity_availability_security_devices_mtbf',
              'total_offline_events') }}
 ```
 
@@ -238,7 +238,7 @@ automation:
   alias: EA — flaky group alert
   trigger:
     - platform: numeric_state
-      entity_id: sensor.entity_availability_security_devices_reliability
+      entity_id: sensor.entity_availability_security_devices_mtbf
       below: 6          # MTBF under 6 h — something keeps dropping
       for: "01:00:00"
   action:
@@ -247,7 +247,7 @@ automation:
         title: Flaky devices
         message: >
           Security group MTBF is only
-          {{ states('sensor.entity_availability_security_devices_reliability') }} h —
+          {{ states('sensor.entity_availability_security_devices_mtbf') }} h —
           check the per_device attribute for the culprit.
 ```
 
@@ -262,7 +262,7 @@ automation:
   action:
     - variables:
         per_device: >
-          {{ state_attr('sensor.entity_availability_security_devices_reliability', 'per_device') }}
+          {{ state_attr('sensor.entity_availability_security_devices_mtbf', 'per_device') }}
         worst: >
           {{ (per_device.items()
               | selectattr('1.mtbf_hours', 'ne', None)
@@ -340,6 +340,8 @@ automation:
 
 ## Services
 
+> **`group:` takes the group *name*** (e.g. `Security Devices`), not the entity-ID slug. From the UI action editor the group picker passes the config-entry ID automatically; in hand-written YAML use the exact group name as shown in Settings.
+
 ### Suppress during planned maintenance
 
 ```yaml
@@ -352,7 +354,7 @@ automation:
   action:
     - service: entity_availability.suppress
       data:
-        group: security_devices
+        group: Security Devices
         duration: 120        # minutes
     # ... do maintenance ...
 ```
@@ -371,10 +373,10 @@ automation:
   action:
     - service: entity_availability.unsuppress
       data:
-        group: security_devices
+        group: Security Devices
     - service: entity_availability.reset_statistics
       data:
-        group: security_devices
+        group: Security Devices
 ```
 
 ### Suppress a single flapping entity indefinitely

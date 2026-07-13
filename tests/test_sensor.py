@@ -39,7 +39,7 @@ from custom_components.entity_availability.sensor import (
     OfflineDevicesSensor,
     RecentlyOfflineSensor,
     RecentlyRecoveredSensor,
-    ReliabilitySensor,
+    MTBFSensor,
     async_setup_entry,
 )
 
@@ -2306,8 +2306,8 @@ class TestResolveAreaName:
         assert result is None
 
 
-class TestReliabilitySensor:
-    """Tests for ReliabilitySensor."""
+class TestMTBFSensor:
+    """Tests for MTBFSensor."""
 
     def _seed(self, coord, entity_id, events, total_offline_s, monitored_min_ago):
         """Set reliability counters on a device."""
@@ -2320,14 +2320,14 @@ class TestReliabilitySensor:
 
     def test_no_state_class(self, mock_coordinator):
         """MTBF fires on events, not on a cadence — must not generate statistics."""
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.state_class is None
 
     def test_native_value_none_without_events(self, mock_coordinator):
         """No offline events → native_value None."""
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.native_value is None
@@ -2336,7 +2336,7 @@ class TestReliabilitySensor:
         """native_value averages per-entity MTBF hours."""
         # 2 events over 24h monitored, 1h total offline → uptime 23h / 2 = 11.5h
         self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.native_value == 11.5
@@ -2345,7 +2345,7 @@ class TestReliabilitySensor:
         """Suppressed entities excluded from the average."""
         self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
         mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.native_value is None
@@ -2353,7 +2353,7 @@ class TestReliabilitySensor:
     def test_attributes(self, mock_coordinator):
         """extra_state_attributes carries total events and per-device MTBF only."""
         self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         attrs = sensor.extra_state_attributes
@@ -2369,7 +2369,7 @@ class TestReliabilitySensor:
 
     def test_attributes_zero_events(self, mock_coordinator):
         """total_offline_events is 0 when no entity has events."""
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         attrs = sensor.extra_state_attributes
@@ -2377,7 +2377,7 @@ class TestReliabilitySensor:
 
     def test_diagnostic_and_device_class(self, mock_coordinator):
         """MTBF sensor is diagnostic with duration device class, hours."""
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.entity_category == EntityCategory.DIAGNOSTIC
@@ -2458,13 +2458,13 @@ class TestMTTRSensor:
         assert "binary_sensor.device_a" not in attrs["per_device"]
 
 
-class TestReliabilitySensorAttrSuppressed:
-    """ReliabilitySensor attribute suppression skip."""
+class TestMTBFSensorAttrSuppressed:
+    """MTBFSensor attribute suppression skip."""
 
     def test_attributes_skip_suppressed(self, mock_coordinator):
         """Suppressed entities are omitted from per_device attrs."""
         mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
-        sensor = ReliabilitySensor(
+        sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         attrs = sensor.extra_state_attributes

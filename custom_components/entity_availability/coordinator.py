@@ -180,6 +180,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             device.total_offline_seconds = 0.0
             device.last_downtime_seconds = None
             device.monitored_since = now
+            # If offline right now, restart the downtime clock so the eventual
+            # recovery only accrues post-reset downtime — otherwise pre-reset
+            # time would be added against a zeroed counter and lost/skewed.
+            if device.is_offline and device.offline_since is not None:
+                device.offline_since = now
         _LOGGER.debug("[%s] Reset statistics for %s", self.group_name, targets)
         self._dirty = True
         if self.data is not None:

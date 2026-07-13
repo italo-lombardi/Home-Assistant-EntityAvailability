@@ -151,7 +151,7 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._availability_3d` | Sensor | Group availability % over 3 days | Per-entity availability breakdown |
 | `sensor..._availability_5d` | Sensor | Group availability % over 5 days | Per-entity availability breakdown |
 | `sensor..._availability_7d` | Sensor | Group availability % over 7 days | Per-entity availability breakdown |
-| `sensor..._reliability` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `offline_events`) |
+| `sensor..._mtbf` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `offline_events`) |
 | `sensor..._mttr` | Sensor (Diagnostic) | Group mean MTTR in minutes (mean time to recovery / average outage length) | `total_offline_events`, `per_device` (`mttr_minutes`, `offline_events`) |
 | `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one entity is offline | offline_entities, offline_count |
 | `sensor..._affected_areas_count` | Sensor | Number of unique HA areas containing ≥1 offline, unsuppressed entity | — |
@@ -216,7 +216,7 @@ Use these sensors in automations to get the exact device name(s) at the moment o
 
 The availability % sensor tells you *how much* total downtime a group had. It does **not** tell you whether that was one long outage or lots of tiny ones. Two separate sensors answer two different questions:
 
-- **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the `Mean Time Between Failures` sensor (`sensor..._reliability`), in hours.
+- **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the `Mean Time Between Failures` sensor (`sensor..._mtbf`), in hours.
 - **How long is each break?** → **MTTR** (Mean Time To Recovery) — the `Mean Time To Recovery` sensor (`sensor..._mttr`), in minutes.
 
 Both are **diagnostic** entities (grouped under the device's Diagnostic section, kept off the main dashboard) with `device_class: duration`, so Home Assistant renders them as durations and lets you convert units in the UI.
@@ -319,6 +319,8 @@ The integration samples each entity's state in the background. If online, that t
 
 ## Services
 
+> **`group:` takes the group *name*** (e.g. `Security Devices`), not the entity-ID slug. The UI action editor's group picker passes the config-entry ID automatically; in hand-written YAML, use the exact group name shown in Settings.
+
 ### `entity_availability.suppress`
 
 Temporarily exclude an entity (or all entities in a group) from monitoring and offline alerts.
@@ -335,7 +337,7 @@ data:
 # Suppress all entities in a group
 service: entity_availability.suppress
 data:
-  group: security_devices
+  group: Security Devices
   duration: 60
 ```
 
@@ -360,7 +362,7 @@ data:
 # Unsuppress all entities in a group
 service: entity_availability.unsuppress
 data:
-  group: security_devices
+  group: Security Devices
 ```
 
 ![Unsuppress Entity Action](assets/10_unsuppress_entity_action.png)
@@ -382,7 +384,7 @@ data:
 # Suppress all entities in a group indefinitely
 service: entity_availability.suppress_indefinitely
 data:
-  group: security_devices
+  group: Security Devices
 ```
 
 **Use case:** Decommissioned or long-term offline devices that you want to keep in the group without generating alerts. Because there is no expiry, remember to `unsuppress` when monitoring should resume.
@@ -402,7 +404,7 @@ data:
 # Reset every entity in a group
 service: entity_availability.reset_statistics
 data:
-  group: security_devices
+  group: Security Devices
 ```
 
 **Use case:** Run after planned maintenance (firmware flash, deliberate power-down) so a known outage does not permanently drag down the availability % or skew MTBF/MTTR.
@@ -488,7 +490,7 @@ The card works with both regular groups and combined groups. It auto-detects the
 
 ```yaml
 type: custom:entity-availability-card
-group: security_devices
+group: Security Devices
 show_affected_areas: false
 show_availability: true
 show_entities: true

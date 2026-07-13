@@ -3198,3 +3198,30 @@ def test_reset_statistics_skips_non_coordinator(
 
     coord.reset_statistics(["binary_sensor.device_a"])
     assert coord._device_states["binary_sensor.device_a"].offline_event_count == 0
+
+
+def test_reset_statistics_offline_entity_restarts_clock(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Resetting an offline entity restarts its downtime clock (no pre-reset accrual)."""
+    from custom_components.entity_availability.models import DeviceState
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    old = datetime.now(timezone.utc) - timedelta(hours=3)
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        is_offline=True,
+        offline_since=old,
+        offline_event_count=1,
+        total_offline_seconds=500.0,
+    )
+    coord.reset_statistics(["binary_sensor.device_a"])
+    d = coord._device_states["binary_sensor.device_a"]
+    assert d.is_offline is True  # still offline — not a fake recovery
+    assert d.total_offline_seconds == 0.0
+    assert d.offline_event_count == 0
+    assert d.offline_since is not None
+    assert d.offline_since > old  # clock restarted to ~now

@@ -76,7 +76,7 @@ async def async_setup_entry(
         GroupSummarySensor(coordinator, group_name, group_slug, entry.entry_id),
         RecentlyOfflineSensor(coordinator, group_name, group_slug, entry.entry_id),
         RecentlyRecoveredSensor(coordinator, group_name, group_slug, entry.entry_id),
-        ReliabilitySensor(coordinator, group_name, group_slug, entry.entry_id),
+        MTBFSensor(coordinator, group_name, group_slug, entry.entry_id),
         MTTRSensor(coordinator, group_name, group_slug, entry.entry_id),
     ]
 
@@ -381,7 +381,7 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         return {"per_device": breakdown}
 
 
-class ReliabilitySensor(DedupCoordinatorSensor):
+class MTBFSensor(DedupCoordinatorSensor):
     """Sensor showing group mean MTBF (hours) with per-device breakdown.
 
     MTBF (mean time between failures) answers "how often do devices break".
@@ -405,9 +405,9 @@ class ReliabilitySensor(DedupCoordinatorSensor):
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
-        self._attr_unique_id = f"{entry_id}_reliability"
-        self.entity_id = f"sensor.entity_availability_{group_slug}_reliability"
-        self._attr_translation_key = "reliability"
+        self._attr_unique_id = f"{entry_id}_mtbf"
+        self.entity_id = f"sensor.entity_availability_{group_slug}_mtbf"
+        self._attr_translation_key = "mtbf"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property

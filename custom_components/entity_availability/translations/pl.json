@@ -158,7 +158,7 @@
       "affected_areas_recently_recovered": {
         "name": "Obszary Niedawno Odzyskane"
       },
-      "reliability": {
+      "mtbf": {
         "name": "Średni czas między awariami"
       },
       "mttr": {
