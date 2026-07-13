@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.12] - 2026-07-13
+
+### Fixed
+- **Statistics bloat: group summary sensors** — `Group Summary` and `Combined Summary` sensors no longer declare `state_class: measurement`. Their value is an entity count that only changes when a group is edited, so the recorder was writing ~288 identical rows per day per group to `statistics_short_term` indefinitely. They remain valid state sensors (current count still shown); only long-term statistics generation stops. The availability-% sensors are unaffected — those are legitimate time-series statistics.
+
 ## [0.3.11] - 2026-06-29
 
 ### Added
