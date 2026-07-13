@@ -1,9 +1,9 @@
 /**
- * Entity Availability Card v0.3.7
+ * Entity Availability Card v0.3.12
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.3.11";
+const CARD_VERSION = "0.3.12";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -807,6 +807,9 @@ class EntityAvailabilityCard extends LitElement {
         ></ha-icon>
       </div>
       <div class="entity-list ${expanded ? "expanded" : "collapsed"}">
+        ${items.length === 0
+          ? nothing
+          : html`
         <div class="entity-legend">
           <span class="entity-legend-dot"></span>
           <span class="entity-legend-name">Entity</span>
@@ -830,7 +833,7 @@ class EntityAvailabilityCard extends LitElement {
                 : nothing}
             </div>
           `
-        )}
+        )}`}
       </div>
     `;
   }
