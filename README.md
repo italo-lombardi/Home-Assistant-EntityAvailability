@@ -23,7 +23,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Configurable bad states** -- define which states count as offline (`unavailable`, `unknown`, or custom)
 - **Cooldown timer** -- ignore brief blips before marking an entity offline
 - **Availability % sensors** -- track uptime over today, 3-day, 5-day, and 7-day windows
-- **Reliability (MTBF) sensor** -- mean time between failures and mean time to recovery per group, so flaky hardware (many short flaps) is distinguishable from a single long outage at the same uptime %
+- **Reliability (MTBF) sensor** -- flags devices that keep flaking out: shows how *often* each device breaks and how *long* each outage lasts, so a genuinely flaky device is distinguishable from one that had a single long outage at the same uptime %
 - **Bus events** -- fires `entity_availability_offline` / `entity_availability_recovered` on the HA event bus for use as native automation triggers
 - **Battery monitoring** -- auto-detect or manually map battery entities; supports numeric (%) and text states (`low`)
 - **Degraded entity detection** -- flag entities with low battery or stale data
@@ -208,6 +208,40 @@ These sensors keep a rolling record of activity within the configured recovery w
 The window length is controlled by the **Recovery window** setting in Advanced Settings (Step 4) and can be changed at any time via the Options flow.
 
 Use these sensors in automations to get the exact device name(s) at the moment of an event — see the [Automation Ideas](#automation-ideas) section for examples.
+
+### Reliability (MTBF/MTTR) Sensor
+
+**In one line:** this sensor flags devices that keep flaking out, so you know what to fix or replace.
+
+The availability % sensor tells you *how much* total downtime a group had. It does **not** tell you whether that was one long outage or lots of tiny ones. This sensor answers two different questions:
+
+- **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the sensor's state, in hours.
+- **How long is each break?** → **MTTR** (Mean Time To Recovery) — the `mttr_minutes` attribute.
+
+**Why it matters — two devices can look identical on %, but be very different:**
+
+| | Breaks how often | Down how long | Verdict |
+|---|---|---|---|
+| Good sensor, one battery swap | rarely (high MTBF) | a while (high MTTR) | fine |
+| Sensor with a dying radio | constantly (low MTBF) | seconds (low MTTR) | replace it |
+
+Both might show "98% available." The percentage hides the difference; MTBF/MTTR exposes it. **Low MTBF (breaks often) is the alarm bell** — even when the % still looks healthy.
+
+**What you see:**
+
+| Value | Meaning |
+|-------|---------|
+| State (`h`) | Group-average MTBF — average uptime between failures, across entities that have failed at least once |
+| `mttr_minutes` | Group-average outage length |
+| `total_offline_events` | Total offline→recovery cycles since monitoring started (or since last `reset_statistics`) |
+| `per_device` | The same three numbers for each entity individually |
+
+**Notes:**
+
+- Values stay empty until an entity has completed at least one full offline→recovery cycle. A device that has never failed shows `null` (you can't measure "time between failures" with zero failures) and is left out of the group average.
+- The counters are all-time and event-driven — no extra database or storage growth, and no long-term statistics generated.
+- Reset them any time with the [`reset_statistics`](#entity_availabilityreset_statistics) action (e.g. after planned maintenance).
+- The math, for reference: `MTBF hours = (time monitored − total downtime) / number of failures / 3600`; `MTTR minutes = total downtime / number of failures / 60`.
 
 ---
 
@@ -630,6 +664,9 @@ automation:
           message: >
             7-day availability: {{ states('sensor.entity_availability_security_devices_availability_7d') }}%
             Currently offline: {{ states('sensor.entity_availability_security_devices_offline_count') }}
+            Avg time between failures (MTBF): {{ states('sensor.entity_availability_security_devices_reliability') }} h
+            Avg outage length (MTTR): {{ state_attr('sensor.entity_availability_security_devices_reliability', 'mttr_minutes') }} min
+            Total outages: {{ state_attr('sensor.entity_availability_security_devices_reliability', 'total_offline_events') }}
 ```
 
 ### Persistent notification with auto-clear
