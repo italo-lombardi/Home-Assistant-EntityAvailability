@@ -503,6 +503,12 @@ class TestCombinedGroupSensor:
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.unique_id == "combined_1_combined_summary"
 
+    def test_no_state_class(self, mock_hass, combined_entry, coordinators):
+        """Count only changes on group edit — must not generate statistics."""
+        mock_hass.data[DOMAIN] = {}
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.state_class is None
+
 
 # ---------------------------------------------------------------------------
 # CombinedOfflineCountSensor

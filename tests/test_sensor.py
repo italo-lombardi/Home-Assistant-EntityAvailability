@@ -383,6 +383,13 @@ class TestGroupSummarySensor:
         sensor.hass = mock_hass
         assert sensor.native_value == 3
 
+    def test_no_state_class(self, mock_coordinator, mock_hass):
+        """Count only changes on group edit — must not generate statistics."""
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.state_class is None
+
     def test_attributes_breakdown(self, mock_coordinator, mock_hass):
         """Test extra attributes contain full breakdown."""
         mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 85
