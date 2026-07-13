@@ -45,6 +45,13 @@ STARTUP_GRACE_PERIOD = 60  # seconds
 CONF_RECOVERY_WINDOW = "recovery_window"
 DEFAULT_RECOVERY_WINDOW = 5  # minutes
 
+# Services
+SERVICE_RESET_STATISTICS = "reset_statistics"
+
+# Bus events fired on entity availability transitions
+EVENT_OFFLINE = "entity_availability_offline"
+EVENT_RECOVERED = "entity_availability_recovered"
+
 # Sentinel area name for entities with no HA area assigned.
 # Parentheses signal "not a real area" and avoid colliding with user-created area names.
 NO_AREA_SENTINEL = "(No Area)"

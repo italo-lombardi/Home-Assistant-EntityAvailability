@@ -579,3 +579,84 @@ async def test_suppress_updates_all_coordinators_sharing_entity(
 
     assert coord_a.device_states["binary_sensor.device_a"].is_suppressed is True
     assert coord_b.device_states["binary_sensor.device_a"].is_suppressed is True
+
+
+async def test_reset_statistics_by_entity(setup_services) -> None:
+    """reset_statistics service clears counters for one entity."""
+    hass, coord = setup_services
+    d = coord.device_states["binary_sensor.device_b"]
+    d.offline_event_count = 4
+    d.total_offline_seconds = 500.0
+
+    await hass.services.async_call(
+        DOMAIN,
+        "reset_statistics",
+        {ATTR_ENTITY_ID: "binary_sensor.device_b"},
+        blocking=True,
+    )
+    assert d.offline_event_count == 0
+    assert d.total_offline_seconds == 0.0
+
+
+async def test_reset_statistics_by_group(setup_services) -> None:
+    """reset_statistics service clears all entities in a group."""
+    hass, coord = setup_services
+    coord.device_states["binary_sensor.device_a"].offline_event_count = 2
+    coord.device_states["binary_sensor.device_b"].offline_event_count = 3
+
+    await hass.services.async_call(
+        DOMAIN,
+        "reset_statistics",
+        {ATTR_GROUP: "Test Group"},
+        blocking=True,
+    )
+    assert coord.device_states["binary_sensor.device_a"].offline_event_count == 0
+    assert coord.device_states["binary_sensor.device_b"].offline_event_count == 0
+
+
+async def test_reset_statistics_no_args(setup_services, caplog) -> None:
+    """reset_statistics with neither entity_id nor group warns and no-ops."""
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(DOMAIN, "reset_statistics", {}, blocking=True)
+    assert "Either entity_id or group" in caplog.text
+
+
+async def test_reset_statistics_unknown_group(setup_services, caplog) -> None:
+    """reset_statistics with unknown group warns."""
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN, "reset_statistics", {ATTR_GROUP: "Nope"}, blocking=True
+        )
+    assert "not found" in caplog.text
+
+
+async def test_reset_statistics_unknown_entity(setup_services, caplog) -> None:
+    """reset_statistics with unmonitored entity warns."""
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            "reset_statistics",
+            {ATTR_ENTITY_ID: "binary_sensor.nope"},
+            blocking=True,
+        )
+    assert "not found in any monitored group" in caplog.text
+
+
+async def test_reset_statistics_entity_path_skips_non_coordinator(
+    setup_services,
+) -> None:
+    """Entity-path reset loop skips non-coordinator hass.data values."""
+    hass, coord = setup_services
+    hass.data[DOMAIN]["_card_installed"] = True  # non-coordinator sentinel
+    coord.device_states["binary_sensor.device_b"].offline_event_count = 3
+
+    await hass.services.async_call(
+        DOMAIN,
+        "reset_statistics",
+        {ATTR_ENTITY_ID: "binary_sensor.device_b"},
+        blocking=True,
+    )
+    assert coord.device_states["binary_sensor.device_b"].offline_event_count == 0

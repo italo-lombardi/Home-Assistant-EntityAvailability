@@ -2918,3 +2918,283 @@ async def test_device_recovery_with_no_offline_since(
     assert (
         device_a.last_downtime_seconds is None
     )  # not updated when offline_since was None
+
+
+async def test_bus_events_fired_on_transitions(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """entity_availability_offline / _recovered fire on transitions."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    events: list = []
+    hass.bus.async_listen("entity_availability_offline", lambda e: events.append(e))
+    hass.bus.async_listen("entity_availability_recovered", lambda e: events.append(e))
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+        device_a = coord.device_states["binary_sensor.device_a"]
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=61)
+        await coord._async_update_data()
+        assert device_a.is_offline is True
+        assert device_a.offline_event_count == 1
+
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+    types = [e.event_type for e in events]
+    assert "entity_availability_offline" in types
+    assert "entity_availability_recovered" in types
+    offline_evt = next(
+        e for e in events if e.event_type == "entity_availability_offline"
+    )
+    assert offline_evt.data["entity_id"] == "binary_sensor.device_a"
+    assert offline_evt.data["group"] == "Test Group"
+    recovered_evt = next(
+        e for e in events if e.event_type == "entity_availability_recovered"
+    )
+    assert recovered_evt.data["downtime_seconds"] is not None
+
+
+async def test_counters_accumulate(mock_hass: HomeAssistant, mock_config_entry) -> None:
+    """total_offline_seconds accumulates across events."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+        device_a = coord.device_states["binary_sensor.device_a"]
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=61)
+        await coord._async_update_data()
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        await coord._async_update_data()
+        assert device_a.offline_event_count == 1
+        assert device_a.total_offline_seconds > 0
+
+
+def test_reliability_stats(mock_hass: HomeAssistant, mock_config_entry) -> None:
+    """reliability_stats computes MTBF/MTTR from counters."""
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    now = datetime.now(timezone.utc)
+    from custom_components.entity_availability.models import DeviceState
+
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        offline_event_count=2,
+        total_offline_seconds=3600.0,
+        monitored_since=now - timedelta(hours=24),
+    )
+    stats = coord.reliability_stats("binary_sensor.device_a", now)
+    assert stats["offline_events"] == 2
+    assert stats["mttr_minutes"] == 30.0
+    assert stats["mtbf_hours"] == 11.5
+
+
+def test_reliability_stats_no_events(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """No events → None stats."""
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    from custom_components.entity_availability.models import DeviceState
+
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a"
+    )
+    stats = coord.reliability_stats(
+        "binary_sensor.device_a", datetime.now(timezone.utc)
+    )
+    assert stats["mtbf_hours"] is None
+    assert stats["mttr_minutes"] is None
+    assert stats["offline_events"] == 0
+
+
+def test_reliability_stats_unknown_entity(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Unknown entity → zeroed stats, no crash."""
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    stats = coord.reliability_stats("binary_sensor.missing", datetime.now(timezone.utc))
+    assert stats["offline_events"] == 0
+
+
+def test_reliability_stats_no_monitored_since(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Events but no monitored_since anchor → uptime 0 → mtbf 0."""
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    from custom_components.entity_availability.models import DeviceState
+
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        offline_event_count=1,
+        total_offline_seconds=60.0,
+    )
+    stats = coord.reliability_stats(
+        "binary_sensor.device_a", datetime.now(timezone.utc)
+    )
+    assert stats["mtbf_hours"] == 0.0
+
+
+def test_reset_statistics(mock_hass: HomeAssistant, mock_config_entry) -> None:
+    """reset_statistics clears buckets and counters, marks dirty."""
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    from custom_components.entity_availability.models import DeviceState
+
+    now = datetime.now(timezone.utc)
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        offline_event_count=5,
+        total_offline_seconds=999.0,
+        last_downtime_seconds=10.0,
+    )
+    coord._availability_storage.record_online("binary_sensor.device_a", 30.0, now)
+    coord._dirty = False
+
+    coord.reset_statistics(["binary_sensor.device_a"])
+
+    d = coord._device_states["binary_sensor.device_a"]
+    assert d.offline_event_count == 0
+    assert d.total_offline_seconds == 0.0
+    assert d.last_downtime_seconds is None
+    assert d.monitored_since is not None
+    assert "binary_sensor.device_a" not in coord._availability_storage.buckets
+    assert coord._dirty is True
+
+
+def test_reset_statistics_all_with_data_refresh(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """reset_statistics(None) resets all and refreshes when data present."""
+    from custom_components.entity_availability.models import (
+        DeviceState,
+        EntityAvailabilityData,
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a", offline_event_count=3
+    )
+    coord.data = EntityAvailabilityData()
+    coord.reset_statistics(None)
+    assert coord._device_states["binary_sensor.device_a"].offline_event_count == 0
+
+
+def test_reset_statistics_missing_device(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """reset target with no DeviceState is skipped, no crash."""
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    coord.reset_statistics(["binary_sensor.device_a"])
+    assert coord._dirty is True
+
+
+async def test_load_storage_restores_reliability_counters(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """monitored_since (naive) + counters restored from storage."""
+    hass = mock_hass
+    naive_ms = (datetime.now(timezone.utc) - timedelta(hours=10)).replace(tzinfo=None)
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": False,
+                "monitored_since": naive_ms.isoformat(),
+                "offline_event_count": 7,
+                "total_offline_seconds": 123.0,
+            },
+        },
+    }
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    d = coord._device_states["binary_sensor.device_a"]
+    assert d.monitored_since is not None
+    assert d.monitored_since.tzinfo is not None
+    assert d.offline_event_count == 7
+    assert d.total_offline_seconds == 123.0
+
+
+async def test_load_storage_ignores_bad_monitored_since(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Invalid monitored_since string → None, no crash."""
+    hass = mock_hass
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": False,
+                "monitored_since": "not-a-date",
+                "offline_event_count": 1,
+            },
+        },
+    }
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    d = coord._device_states["binary_sensor.device_a"]
+    assert d.monitored_since is None
+    assert d.offline_event_count == 1
+
+
+def test_reset_statistics_skips_non_coordinator(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Non-coordinator values in hass.data are skipped during reset loop."""
+    from custom_components.entity_availability.models import DeviceState
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a", offline_event_count=2
+    )
+    coord.data = None
+    mock_hass.data.setdefault(DOMAIN, {})
+    mock_hass.data[DOMAIN]["_card_installed"] = True  # non-coordinator sentinel
+    mock_hass.data[DOMAIN][mock_config_entry.entry_id] = coord
+
+    coord.reset_statistics(["binary_sensor.device_a"])
+    assert coord._device_states["binary_sensor.device_a"].offline_event_count == 0

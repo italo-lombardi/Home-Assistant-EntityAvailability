@@ -23,6 +23,8 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Configurable bad states** -- define which states count as offline (`unavailable`, `unknown`, or custom)
 - **Cooldown timer** -- ignore brief blips before marking an entity offline
 - **Availability % sensors** -- track uptime over today, 3-day, 5-day, and 7-day windows
+- **Reliability (MTBF) sensor** -- mean time between failures and mean time to recovery per group, so flaky hardware (many short flaps) is distinguishable from a single long outage at the same uptime %
+- **Bus events** -- fires `entity_availability_offline` / `entity_availability_recovered` on the HA event bus for use as native automation triggers
 - **Battery monitoring** -- auto-detect or manually map battery entities; supports numeric (%) and text states (`low`)
 - **Degraded entity detection** -- flag entities with low battery or stale data
 - **Recently offline / recovered sensors** -- track which entities went offline or recovered within a configurable time window
@@ -149,6 +151,7 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._availability_3d` | Sensor | Group availability % over 3 days | Per-entity availability breakdown |
 | `sensor..._availability_5d` | Sensor | Group availability % over 5 days | Per-entity availability breakdown |
 | `sensor..._availability_7d` | Sensor | Group availability % over 7 days | Per-entity availability breakdown |
+| `sensor..._reliability` | Sensor | Group mean MTBF in hours (mean time between failures) | `mttr_minutes`, `total_offline_events`, `per_device` (`mtbf_hours`, `mttr_minutes`, `offline_events`) |
 | `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one entity is offline | offline_entities, offline_count |
 | `sensor..._affected_areas_count` | Sensor | Number of unique HA areas containing ≥1 offline, unsuppressed entity | — |
 | `sensor..._affected_areas` | Sensor | Comma-separated sorted list of affected area names (`"None"` when none) | `areas` (list), `count`, `unassigned_entities` (entity IDs with no area) |
@@ -344,6 +347,53 @@ data:
 ```
 
 **Use case:** Decommissioned or long-term offline devices that you want to keep in the group without generating alerts. Because there is no expiry, remember to `unsuppress` when monitoring should resume.
+
+### `entity_availability.reset_statistics`
+
+Clear availability history **and** reliability counters (MTBF/MTTR, offline-event count) for an entity or an entire group. Availability % windows and the Reliability sensor start accumulating fresh.
+
+```yaml
+# Reset a single entity
+service: entity_availability.reset_statistics
+data:
+  entity_id: sensor.living_room_temperature
+```
+
+```yaml
+# Reset every entity in a group
+service: entity_availability.reset_statistics
+data:
+  group: security_devices
+```
+
+**Use case:** Run after planned maintenance (firmware flash, deliberate power-down) so a known outage does not permanently drag down the availability % or skew MTBF/MTTR.
+
+---
+
+## Bus Events
+
+The integration fires two events on the Home Assistant event bus when a monitored entity crosses state (after its cooldown, and outside the 60 s startup grace period):
+
+| Event | Fired when | Data |
+|-------|-----------|------|
+| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `offline_since` |
+| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `downtime_seconds` |
+
+These are cleaner automation triggers than watching sensor attributes with templates:
+
+```yaml
+automation:
+  - alias: Alert on any monitored entity going offline
+    trigger:
+      - platform: event
+        event_type: entity_availability_offline
+    action:
+      - service: notify.mobile_app
+        data:
+          message: >-
+            {{ trigger.event.data.entity_id }} in
+            {{ trigger.event.data.group }} went offline.
+```
 
 ---
 

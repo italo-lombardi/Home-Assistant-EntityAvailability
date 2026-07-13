@@ -35,6 +35,14 @@ class AvailabilityStorage:
         """Return the buckets."""
         return self._buckets
 
+    def reset(self, entity_ids: list[str] | None = None) -> None:
+        """Drop availability buckets. entity_ids=None clears everything."""
+        if entity_ids is None:
+            self._buckets.clear()
+        else:
+            for eid in entity_ids:
+                self._buckets.pop(eid, None)
+
     def _get_interval_start(self, now: datetime) -> datetime:
         """Get the start of the current 5-minute interval."""
         minute = (now.minute // 5) * 5

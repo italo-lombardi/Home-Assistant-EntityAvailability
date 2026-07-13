@@ -25,6 +25,10 @@ class DeviceState:
     battery_level: int | None = None
     last_changed: datetime | None = None
     recently_offline_at: datetime | None = None
+    # Reliability counters (all-time, event-driven — feed MTBF/MTTR).
+    monitored_since: datetime | None = None
+    offline_event_count: int = 0
+    total_offline_seconds: float = 0.0
 
 
 @dataclass

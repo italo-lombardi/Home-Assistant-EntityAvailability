@@ -30,6 +30,8 @@ from .const import (
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_STALENESS_THRESHOLD,
+    EVENT_OFFLINE,
+    EVENT_RECOVERED,
     SCAN_INTERVAL,
     STARTUP_GRACE_PERIOD,
     STORAGE_KEY_PREFIX,
@@ -132,6 +134,56 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             self._device_states[entity_id].suppress_until = None
         self._suppressed.pop(entity_id, None)
         self._dirty = True
+
+    def reliability_stats(self, entity_id: str, now: datetime) -> dict[str, Any]:
+        """Return MTBF/MTTR reliability stats for an entity.
+
+        MTBF (hours) = observed uptime / number of offline events.
+        MTTR (minutes) = total offline time / number of offline events.
+        Both None until at least one full offline→recovery event exists.
+        """
+        device = self._device_states.get(entity_id)
+        if device is None or device.offline_event_count == 0:
+            return {
+                "mtbf_hours": None,
+                "mttr_minutes": None,
+                "offline_events": device.offline_event_count if device else 0,
+            }
+        uptime = 0.0
+        if device.monitored_since:
+            uptime = (
+                now - device.monitored_since
+            ).total_seconds() - device.total_offline_seconds
+        return {
+            "mtbf_hours": round(
+                max(uptime, 0.0) / device.offline_event_count / 3600, 1
+            ),
+            "mttr_minutes": round(
+                device.total_offline_seconds / device.offline_event_count / 60, 1
+            ),
+            "offline_events": device.offline_event_count,
+        }
+
+    def reset_statistics(self, entity_ids: list[str] | None = None) -> None:
+        """Clear availability buckets and reliability counters.
+
+        entity_ids=None resets every monitored entity in this group.
+        """
+        targets = entity_ids if entity_ids is not None else list(self._entities)
+        now = datetime.now(timezone.utc)
+        self._availability_storage.reset(entity_ids)
+        for eid in targets:
+            device = self._device_states.get(eid)
+            if device is None:
+                continue
+            device.offline_event_count = 0
+            device.total_offline_seconds = 0.0
+            device.last_downtime_seconds = None
+            device.monitored_since = now
+        _LOGGER.debug("[%s] Reset statistics for %s", self.group_name, targets)
+        self._dirty = True
+        if self.data is not None:
+            self.async_set_updated_data(self.data)
 
     async def async_config_entry_first_refresh(self) -> None:
         """Load stored data and do first refresh."""
@@ -245,6 +297,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                                 device.recently_offline_at = ts
                     except (ValueError, TypeError):
                         device.recently_offline_at = None
+                    try:
+                        raw_ms = ds.get("monitored_since")
+                        if raw_ms:
+                            ts = datetime.fromisoformat(raw_ms)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            device.monitored_since = ts
+                    except (ValueError, TypeError):
+                        device.monitored_since = None
+                    device.offline_event_count = ds.get("offline_event_count", 0)
+                    device.total_offline_seconds = ds.get("total_offline_seconds", 0.0)
                     if entity_id in self._entities:
                         self._device_states[entity_id] = device
 
@@ -258,6 +321,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.is_offline
                 or device.cooldown_start is not None
                 or device.recently_offline_at is not None
+                or device.offline_event_count > 0
+                or device.monitored_since is not None
             ):
                 device_states_data[entity_id] = {
                     "is_offline": device.is_offline,
@@ -270,6 +335,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     "recently_offline_at": device.recently_offline_at.isoformat()
                     if device.recently_offline_at
                     else None,
+                    "monitored_since": device.monitored_since.isoformat()
+                    if device.monitored_since
+                    else None,
+                    "offline_event_count": device.offline_event_count,
+                    "total_offline_seconds": device.total_offline_seconds,
                 }
         data = {
             "availability": self._availability_storage.to_dict(),
@@ -352,7 +422,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         for entity_id in self._entities:
             state = self.hass.states.get(entity_id)
             if entity_id not in self._device_states:
-                self._device_states[entity_id] = DeviceState(entity_id=entity_id)
+                self._device_states[entity_id] = DeviceState(
+                    entity_id=entity_id, monitored_since=now
+                )
 
             device = self._device_states[entity_id]
 
@@ -447,6 +519,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         device.is_offline = True
                         device.offline_since = device.cooldown_start
                         device.recently_offline_at = now
+                        device.offline_event_count += 1
+                        self.hass.bus.async_fire(
+                            EVENT_OFFLINE,
+                            {
+                                "entity_id": entity_id,
+                                "group": self.group_name,
+                                "offline_since": device.offline_since.isoformat()
+                                if device.offline_since
+                                else None,
+                            },
+                        )
                     elif in_grace:
                         _LOGGER.debug(
                             "[%s] %s cooldown elapsed but still in startup grace period",
@@ -480,9 +563,18 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         device.last_downtime_seconds = (
                             now - device.offline_since
                         ).total_seconds()
+                        device.total_offline_seconds += device.last_downtime_seconds
                     device.is_offline = False
                     device.offline_since = None
                     device.recently_offline_at = None
+                    self.hass.bus.async_fire(
+                        EVENT_RECOVERED,
+                        {
+                            "entity_id": entity_id,
+                            "group": self.group_name,
+                            "downtime_seconds": device.last_downtime_seconds,
+                        },
+                    )
                 device.cooldown_start = None
                 self._availability_storage.record_online(entity_id, elapsed, now)
 

@@ -61,3 +61,21 @@ unsuppress:
       selector:
         config_entry:
           integration: entity_availability
+
+reset_statistics:
+  name: Reset statistics
+  description: Clear availability history and reliability counters (MTBF/MTTR, offline event count) for an entity or entire group. Use after known maintenance so it does not skew the numbers.
+  fields:
+    entity_id:
+      name: Entity
+      description: The entity ID to reset. Optional if group is provided.
+      required: false
+      selector:
+        entity:
+    group:
+      name: Group
+      description: The group to reset. When provided without entity_id, statistics for all entities in the group are cleared.
+      required: false
+      selector:
+        config_entry:
+          integration: entity_availability

@@ -402,3 +402,30 @@ class TestFromDictOuterTypeError:
         bucket = storage._buckets["sensor.test"][0]
         assert bucket.interval_start.tzinfo is not None
         assert bucket.interval_start.tzinfo == timezone.utc
+
+
+class TestReset:
+    """Tests for AvailabilityStorage.reset."""
+
+    def test_reset_all(self, storage: AvailabilityStorage, now: datetime) -> None:
+        """reset(None) clears every entity's buckets."""
+        storage.record_online("sensor.a", 30.0, now)
+        storage.record_online("sensor.b", 30.0, now)
+        storage.reset(None)
+        assert storage.buckets == {}
+
+    def test_reset_specific(self, storage: AvailabilityStorage, now: datetime) -> None:
+        """reset([id]) clears only the named entity, leaves others."""
+        storage.record_online("sensor.a", 30.0, now)
+        storage.record_online("sensor.b", 30.0, now)
+        storage.reset(["sensor.a"])
+        assert "sensor.a" not in storage.buckets
+        assert "sensor.b" in storage.buckets
+
+    def test_reset_unknown_id_noop(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """reset of an id with no buckets is a no-op."""
+        storage.record_online("sensor.a", 30.0, now)
+        storage.reset(["sensor.missing"])
+        assert "sensor.a" in storage.buckets
