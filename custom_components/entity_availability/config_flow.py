@@ -30,6 +30,7 @@ from .const import (
     CONF_GROUP_NAME,
     CONF_RECOVERY_WINDOW,
     CONF_STALENESS_THRESHOLD,
+    CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
@@ -37,6 +38,7 @@ from .const import (
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_STALENESS_THRESHOLD,
+    DEFAULT_STALENESS_USE_LAST_UPDATED,
     DEFAULT_USE_DEVICE_NAMES,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
@@ -191,6 +193,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             self._data[CONF_BAD_STATES] = user_input[CONF_BAD_STATES]
             self._data[CONF_COOLDOWN] = user_input[CONF_COOLDOWN]
             self._data[CONF_STALENESS_THRESHOLD] = user_input[CONF_STALENESS_THRESHOLD]
+            self._data[CONF_STALENESS_USE_LAST_UPDATED] = user_input.get(
+                CONF_STALENESS_USE_LAST_UPDATED, DEFAULT_STALENESS_USE_LAST_UPDATED
+            )
             return await self.async_step_advanced()
 
         data_schema = vol.Schema(
@@ -218,6 +223,10 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                         min=0, max=1440, step=1, unit_of_measurement="minutes"
                     )
                 ),
+                vol.Optional(
+                    CONF_STALENESS_USE_LAST_UPDATED,
+                    default=DEFAULT_STALENESS_USE_LAST_UPDATED,
+                ): selector.BooleanSelector(),
             }
         )
 
@@ -405,6 +414,13 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                         min=0, max=1440, step=1, unit_of_measurement="minutes"
                     )
                 ),
+                vol.Optional(
+                    CONF_STALENESS_USE_LAST_UPDATED,
+                    default=current.get(
+                        CONF_STALENESS_USE_LAST_UPDATED,
+                        DEFAULT_STALENESS_USE_LAST_UPDATED,
+                    ),
+                ): selector.BooleanSelector(),
                 vol.Required(
                     CONF_BATTERY_THRESHOLD,
                     default=current.get(

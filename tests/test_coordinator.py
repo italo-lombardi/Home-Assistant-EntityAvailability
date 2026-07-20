@@ -16,6 +16,7 @@ from custom_components.entity_availability.const import (
     CONF_BATTERY_ENTITY_MAP,
     CONF_ENTITIES,
     CONF_STALENESS_THRESHOLD,
+    CONF_STALENESS_USE_LAST_UPDATED,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
     DEFAULT_COOLDOWN,
@@ -3225,6 +3226,71 @@ def test_reset_statistics_offline_entity_restarts_clock(
     assert d.offline_event_count == 0
     assert d.offline_since is not None
     assert d.offline_since > old  # clock restarted to ~now
+
+
+# ---------------------------------------------------------------------------
+# Staleness timestamp source (#24): last_changed (default) vs last_updated.
+# An entity that keeps reporting the same value has a stale last_changed but a
+# fresh last_updated; the chosen source decides whether it is flagged stale.
+# ---------------------------------------------------------------------------
+
+
+def _staleness_source_entry(mock_config_data, use_last_updated: bool):
+    data = dict(mock_config_data)
+    data[CONF_STALENESS_THRESHOLD] = 10
+    data[CONF_STALENESS_USE_LAST_UPDATED] = use_last_updated
+    return MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_staleness_source",
+        unique_id=f"{DOMAIN}_test_staleness_source",
+    )
+
+
+async def _run_staleness_source(hass, entry):
+    """Set device_a with old last_changed but fresh last_updated, run one cycle."""
+    now = datetime.now(timezone.utc)
+    old_changed = now - timedelta(minutes=15)  # value frozen 15 min (> 10 threshold)
+    fresh_updated = now - timedelta(minutes=1)  # but reported 1 min ago (< threshold)
+    hass.states.async_set(
+        "binary_sensor.device_a", STATE_ON, {"friendly_name": "Device A"}
+    )
+    hass.states._states["binary_sensor.device_a"] = State(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {"friendly_name": "Device A"},
+        last_changed=old_changed,
+        last_updated=fresh_updated,
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    return coord.device_states["binary_sensor.device_a"]
+
+
+async def test_staleness_uses_last_changed_by_default(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Default (last_changed): frozen value past threshold is stale even if still reporting."""
+    device_a = await _run_staleness_source(
+        mock_hass, _staleness_source_entry(mock_config_data, use_last_updated=False)
+    )
+    assert device_a.is_stale is True
+
+
+async def test_staleness_uses_last_updated_when_enabled(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """last_updated mode: a device still reporting (fresh last_updated) is NOT stale."""
+    device_a = await _run_staleness_source(
+        mock_hass, _staleness_source_entry(mock_config_data, use_last_updated=True)
+    )
+    assert device_a.is_stale is False
 
 
 # ---------------------------------------------------------------------------

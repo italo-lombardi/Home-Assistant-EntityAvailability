@@ -25,11 +25,13 @@ from .const import (
     CONF_ENTITIES,
     CONF_RECOVERY_WINDOW,
     CONF_STALENESS_THRESHOLD,
+    CONF_STALENESS_USE_LAST_UPDATED,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_STALENESS_THRESHOLD,
+    DEFAULT_STALENESS_USE_LAST_UPDATED,
     EVENT_OFFLINE,
     EVENT_RECOVERED,
     SCAN_INTERVAL,
@@ -74,6 +76,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._cooldown: int = entry.data.get(CONF_COOLDOWN, DEFAULT_COOLDOWN)
         self._staleness_threshold: int = entry.data.get(
             CONF_STALENESS_THRESHOLD, DEFAULT_STALENESS_THRESHOLD
+        )
+        self._staleness_use_last_updated: bool = entry.data.get(
+            CONF_STALENESS_USE_LAST_UPDATED, DEFAULT_STALENESS_USE_LAST_UPDATED
         )
         self._battery_threshold: int = entry.data.get(
             CONF_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD
@@ -476,23 +481,29 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 and device.battery_level < self._battery_threshold
             )
 
-            # Staleness check
+            # Staleness check. Uses last_updated when configured (advances on any
+            # state write, including unchanged-value reports); otherwise last_changed.
             is_stale = False
-            if self._staleness_threshold > 0 and state and state.last_changed:
-                last_changed = state.last_changed
-                if last_changed.tzinfo is None:
-                    last_changed = last_changed.replace(tzinfo=timezone.utc)
-                age = (now - last_changed).total_seconds() / 60
-                if age > self._staleness_threshold:
-                    is_stale = True
-                    _LOGGER.debug(
-                        "[%s] %s is stale: last changed %.1f min ago (threshold=%d min)",
-                        self.group_name,
-                        entity_id,
-                        age,
-                        self._staleness_threshold,
-                    )
+            if self._staleness_threshold > 0 and state:
                 device.last_changed = state.last_changed
+                stale_ts = (
+                    state.last_updated
+                    if self._staleness_use_last_updated
+                    else state.last_changed
+                )
+                if stale_ts:
+                    if stale_ts.tzinfo is None:
+                        stale_ts = stale_ts.replace(tzinfo=timezone.utc)
+                    age = (now - stale_ts).total_seconds() / 60
+                    if age > self._staleness_threshold:
+                        is_stale = True
+                        _LOGGER.debug(
+                            "[%s] %s is stale: last activity %.1f min ago (threshold=%d min)",
+                            self.group_name,
+                            entity_id,
+                            age,
+                            self._staleness_threshold,
+                        )
 
             # Cooldown logic
             if is_bad:
