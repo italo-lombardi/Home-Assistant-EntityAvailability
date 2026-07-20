@@ -87,6 +87,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | States considered offline | `unavailable`, `unknown` | States that mark an entity as offline |
 | Cooldown (seconds) | `60` | Time to wait before confirming an entity is offline |
 | Staleness threshold (minutes) | `0` (disabled) | Mark entity degraded if no state change in this time |
+| Count attribute updates as activity | `off` | When off, staleness uses `last_changed` (only main-state changes reset the timer). When on, it uses `last_updated`, so any update — including attribute-only changes and repeated same-value reports — resets it. Turn on for devices that report often but rarely change value. |
 
 ![Step 3: Monitoring Settings](assets/02_monitoring_settings.png)
 

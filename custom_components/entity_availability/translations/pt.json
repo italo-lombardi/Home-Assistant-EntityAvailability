@@ -30,12 +30,14 @@
         "data": {
           "bad_states": "Estados considerados offline",
           "cooldown": "Tempo de espera antes de marcar como offline",
-          "staleness_threshold": "Limiar de inatividade"
+          "staleness_threshold": "Limiar de inatividade",
+          "staleness_use_last_updated": "Contar atualizações de atributos como atividade"
         },
         "data_description": {
           "bad_states": "Estados da entidade que indicam que está offline (ex.: unavailable, unknown).",
           "cooldown": "Quanto tempo (em segundos) uma entidade deve permanecer num estado negativo antes de ser marcada como offline. Evita falsos alarmes de desconexões breves.",
-          "staleness_threshold": "Se uma entidade não mudou de estado durante este número de minutos, marcá-la como degradada. Isto deteta entidades que reportam 'disponível' mas que na verdade pararam de enviar dados. Defina como 0 para desativar."
+          "staleness_threshold": "Se uma entidade não mudou de estado durante este número de minutos, marcá-la como degradada. Isto deteta entidades que reportam 'disponível' mas que na verdade pararam de enviar dados. Defina como 0 para desativar.",
+          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos ou os relatórios repetidos com o mesmo valor — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável)."
         }
       },
       "advanced": {
@@ -82,7 +84,8 @@
           "battery_threshold": "Limiar de bateria fraca (%, 0 = desativado)",
           "availability_windows": "Janelas de rastreio de disponibilidade",
           "recovery_window": "Janela de recuperação (minutos)",
-          "use_device_names": "Mostrar nomes de dispositivo"
+          "use_device_names": "Mostrar nomes de dispositivo",
+          "staleness_use_last_updated": "Contar atualizações de atributos como atividade"
         },
         "data_description": {
           "bad_states": "Estados de entidade que indicam que uma entidade está offline (ex. unavailable, unknown).",
@@ -91,7 +94,8 @@
           "battery_threshold": "Sinaliza entidades cuja bateria fica abaixo desta percentagem. O estado 'low' também é detetado automaticamente. Entidades baseadas em volts não são suportadas.",
           "availability_windows": "Janelas de tempo para o acompanhamento do histórico de disponibilidade do grupo (ex. hoje, 3d, 7d).",
           "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado.",
-          "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo."
+          "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo.",
+          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos ou os relatórios repetidos com o mesmo valor — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável)."
         }
       },
       "combined_init": {

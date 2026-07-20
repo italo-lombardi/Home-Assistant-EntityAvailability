@@ -30,12 +30,14 @@
         "data": {
           "bad_states": "Tillstånd som anses offline",
           "cooldown": "Väntetid innan markering som offline",
-          "staleness_threshold": "Inaktivitetsgräns"
+          "staleness_threshold": "Inaktivitetsgräns",
+          "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet"
         },
         "data_description": {
           "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
           "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
-          "staleness_threshold": "Om en entitet inte har ändrat tillstånd under detta antal minuter, markera den som degraderad. Detta fångar entiteter som rapporterar 'tillgänglig' men som faktiskt har slutat skicka data. Ställ in på 0 för att inaktivera."
+          "staleness_threshold": "Om en entitet inte har ändrat tillstånd under detta antal minuter, markera den som degraderad. Detta fångar entiteter som rapporterar 'tillgänglig' men som faktiskt har slutat skicka data. Ställ in på 0 för att inaktivera.",
+          "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil)."
         }
       },
       "advanced": {
@@ -82,7 +84,8 @@
           "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
           "availability_windows": "Tillgänglighetsspårningsfönster",
           "recovery_window": "Återhämtningsfönster (minuter)",
-          "use_device_names": "Visa enhetsnamn"
+          "use_device_names": "Visa enhetsnamn",
+          "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet"
         },
         "data_description": {
           "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
@@ -91,7 +94,8 @@
           "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte.",
           "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
           "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
-          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet."
+          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
+          "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil)."
         }
       },
       "combined_init": {
