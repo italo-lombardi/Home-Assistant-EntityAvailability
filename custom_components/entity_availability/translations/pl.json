@@ -37,7 +37,7 @@
           "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
           "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom wywołanym krótkimi rozłączeniami.",
           "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, oznacz ją jako zdegradowaną. Wykrywa encje, które zgłaszają 'dostępność', ale przestały wysyłać dane. Ustaw na 0, aby wyłączyć.",
-          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
+          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
         }
       },
       "advanced": {
@@ -95,7 +95,7 @@
           "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
           "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
-          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
+          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
         }
       },
       "combined_init": {

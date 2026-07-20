@@ -37,7 +37,7 @@
           "bad_states": "Stati dell'entità che indicano che è offline (es. unavailable, unknown).",
           "cooldown": "Per quanto tempo (in secondi) un'entità deve rimanere in uno stato anomalo prima di essere contrassegnata come offline. Previene falsi allarmi da brevi disconnessioni.",
           "staleness_threshold": "Se un'entità non ha cambiato stato per questo numero di minuti, viene segnata come degradata. Questo rileva entità che risultano 'disponibili' ma hanno smesso di inviare dati. Imposta a 0 per disabilitare.",
-          "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile)."
+          "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi o le segnalazioni ripetute dello stesso valore — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile)."
         }
       },
       "advanced": {
@@ -95,7 +95,7 @@
           "availability_windows": "Finestre temporali per il monitoraggio della disponibilità del gruppo (es. today, 3d, 7d).",
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
           "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
-          "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile)."
+          "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi o le segnalazioni ripetute dello stesso valore — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile)."
         }
       },
       "combined_init": {

@@ -37,7 +37,7 @@
           "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
           "cooldown": "Cuánto tiempo (en segundos) debe permanecer una entidad en un estado malo antes de marcarla sin conexión. Previene falsas alarmas por desconexiones breves.",
           "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, marcarla como degradada. Esto detecta entidades que informan 'disponible' pero que en realidad han dejado de enviar datos. Establecer en 0 para desactivar.",
-          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable)."
+          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable)."
         }
       },
       "advanced": {
@@ -95,7 +95,7 @@
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
           "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
-          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable)."
+          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable)."
         }
       },
       "combined_init": {

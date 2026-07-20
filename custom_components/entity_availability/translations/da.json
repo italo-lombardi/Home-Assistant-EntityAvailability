@@ -37,7 +37,7 @@
           "bad_states": "Entitetstilstande der indikerer at en entitet er offline (f.eks. utilgængelig, ukendt).",
           "cooldown": "Hvor længe (i sekunder) en entitet skal forblive i en dårlig tilstand før den markeres som offline. Forhindrer falske alarmer fra korte afbrydelser.",
           "staleness_threshold": "Hvis en entitet ikke har ændret tilstand i dette antal minutter, markeres den som forringet. Dette opdager entiteter, der rapporterer 'tilgængelig', men faktisk er stoppet med at sende data. Sæt til 0 for at deaktivere.",
-          "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil)."
+          "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter eller gentagne rapporter med samme værdi — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil)."
         }
       },
       "advanced": {
@@ -95,7 +95,7 @@
           "availability_windows": "Tidsvinduer til sporing af gruppens tilgængelighed (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift.",
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
-          "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil)."
+          "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter eller gentagne rapporter med samme værdi — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil)."
         }
       },
       "combined_init": {

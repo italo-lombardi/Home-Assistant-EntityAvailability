@@ -37,7 +37,7 @@
           "bad_states": "Estados da entidade que indicam que está offline (ex.: unavailable, unknown).",
           "cooldown": "Quanto tempo (em segundos) uma entidade deve permanecer num estado negativo antes de ser marcada como offline. Evita falsos alarmes de desconexões breves.",
           "staleness_threshold": "Se uma entidade não mudou de estado durante este número de minutos, marcá-la como degradada. Isto deteta entidades que reportam 'disponível' mas que na verdade pararam de enviar dados. Defina como 0 para desativar.",
-          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável)."
+          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos ou os relatórios repetidos com o mesmo valor — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável)."
         }
       },
       "advanced": {
@@ -95,7 +95,7 @@
           "availability_windows": "Janelas de tempo para o acompanhamento do histórico de disponibilidade do grupo (ex. hoje, 3d, 7d).",
           "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado.",
           "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo.",
-          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável)."
+          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos ou os relatórios repetidos com o mesmo valor — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável)."
         }
       },
       "combined_init": {

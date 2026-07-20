@@ -22,7 +22,7 @@
           "bad_states": "Entity states that indicate an entity is offline (e.g., unavailable, unknown).",
           "cooldown": "How long (in seconds) an entity must stay in a bad state before it is marked offline. Prevents false alarms from brief disconnections.",
           "staleness_threshold": "If an entity hasn't changed state for this many minutes, mark it as degraded. This catches entities that report 'available' but have actually stopped sending data. Set to 0 to disable.",
-          "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
+          "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
         }
       },
       "advanced": {
@@ -73,7 +73,7 @@
           "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
           "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
           "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
-          "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
+          "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
         }
       },
       "battery_mapping": {

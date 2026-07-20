@@ -37,7 +37,7 @@
           "bad_states": "Entitetstilstander som indikerer at en entitet er offline (f.eks. utilgjengelig, ukjent).",
           "cooldown": "Hvor lenge (i sekunder) en entitet må forbli i en dårlig tilstand før den markeres som offline. Forhindrer falske alarmer fra korte avbrudd.",
           "staleness_threshold": "Hvis en entitet ikke har endret tilstand på dette antallet minutter, merk den som degradert. Dette fanger opp entiteter som rapporterer 'tilgjengelig' men som faktisk har sluttet å sende data. Sett til 0 for å deaktivere.",
-          "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil)."
+          "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil)."
         }
       },
       "advanced": {
@@ -95,7 +95,7 @@
           "availability_windows": "Tidsvinduer for sporing av gruppens tilgjengelighetshistorikk (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
           "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
-          "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil)."
+          "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil)."
         }
       },
       "combined_init": {
