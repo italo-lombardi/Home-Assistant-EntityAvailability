@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.13] - 2026-07-20
+
+### Fixed
+- **Stale entities miscounted as low battery** — stale entities whose battery was *above* the configured threshold were reported as low battery (e.g. a stale entity at 50% shown as low battery with a 40% threshold). The low-battery counters and lists used "degraded and has a battery reading" as a stand-in for "low battery", but degraded means low battery **or** stale, so any stale device with a battery reading was miscounted. Low battery is now tracked with an explicit `is_low_battery` flag set only when the battery is genuinely below threshold. Degraded status, staleness, offline/cooldown, and suppression are unchanged — this only corrects the low-battery count/list. Thanks to @dimatx for the fix.
+
 ## [0.3.12] - 2026-07-13
 
 ### Added
