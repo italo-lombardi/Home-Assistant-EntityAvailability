@@ -3225,3 +3225,107 @@ def test_reset_statistics_offline_entity_restarts_clock(
     assert d.offline_event_count == 0
     assert d.offline_since is not None
     assert d.offline_since > old  # clock restarted to ~now
+
+
+# ---------------------------------------------------------------------------
+# is_low_battery computation (regression for #25): the coordinator must set
+# is_low_battery only when battery is genuinely below threshold, independent
+# of staleness. These run _async_update_data() so they guard the computation
+# itself (the sensor-level tests only set the flag by hand).
+# ---------------------------------------------------------------------------
+
+
+def _staleness_entry(mock_config_data) -> MockConfigEntry:
+    """Config entry with a 10-minute staleness threshold."""
+    data = dict(mock_config_data)
+    data[CONF_STALENESS_THRESHOLD] = 10
+    return MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_low_battery",
+        unique_id=f"{DOMAIN}_test_low_battery",
+    )
+
+
+async def _run_update(hass, entry):
+    """Run one coordinator update cycle and return device_a's state."""
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    return coord.device_states["binary_sensor.device_a"]
+
+
+async def test_stale_healthy_battery_not_low_battery(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """#25: stale entity with battery above threshold is degraded but NOT low battery."""
+    hass = mock_hass
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=15)
+    hass.states.async_set(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {"friendly_name": "Device A", "battery_level": 50},
+    )
+    hass.states._states["binary_sensor.device_a"] = State(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {"friendly_name": "Device A", "battery_level": 50},
+        last_changed=old_time,
+        last_updated=old_time,
+    )
+
+    device_a = await _run_update(hass, _staleness_entry(mock_config_data))
+
+    assert device_a.battery_level == 50
+    assert device_a.is_stale is True
+    assert device_a.is_degraded is True
+    assert device_a.is_low_battery is False
+
+
+async def test_genuine_low_battery_sets_flag(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Battery below threshold: coordinator sets is_low_battery True."""
+    hass = mock_hass
+    hass.states.async_set(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {"friendly_name": "Device A", "battery_level": 5},
+    )
+
+    device_a = await _run_update(hass, mock_config_entry)
+
+    assert device_a.battery_level == 5
+    assert device_a.is_low_battery is True
+    assert device_a.is_degraded is True
+
+
+async def test_low_battery_and_stale_both_flagged(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Low battery AND stale: both flags set by the coordinator."""
+    hass = mock_hass
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=15)
+    hass.states.async_set(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {"friendly_name": "Device A", "battery_level": 5},
+    )
+    hass.states._states["binary_sensor.device_a"] = State(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {"friendly_name": "Device A", "battery_level": 5},
+        last_changed=old_time,
+        last_updated=old_time,
+    )
+
+    device_a = await _run_update(hass, _staleness_entry(mock_config_data))
+
+    assert device_a.is_stale is True
+    assert device_a.is_low_battery is True
+    assert device_a.is_degraded is True
