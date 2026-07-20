@@ -30,12 +30,14 @@
         "data": {
           "bad_states": "Stany uznawane za offline",
           "cooldown": "Czas oczekiwania przed oznaczeniem jako offline",
-          "staleness_threshold": "Próg nieaktywności"
+          "staleness_threshold": "Próg nieaktywności",
+          "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność"
         },
         "data_description": {
           "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
           "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom wywołanym krótkimi rozłączeniami.",
-          "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, oznacz ją jako zdegradowaną. Wykrywa encje, które zgłaszają 'dostępność', ale przestały wysyłać dane. Ustaw na 0, aby wyłączyć."
+          "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, oznacz ją jako zdegradowaną. Wykrywa encje, które zgłaszają 'dostępność', ale przestały wysyłać dane. Ustaw na 0, aby wyłączyć.",
+          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
         }
       },
       "advanced": {
@@ -82,7 +84,8 @@
           "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
           "availability_windows": "Okna śledzenia dostępności",
           "recovery_window": "Okno odzyskiwania (minuty)",
-          "use_device_names": "Pokaż nazwy urządzeń"
+          "use_device_names": "Pokaż nazwy urządzeń",
+          "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność"
         },
         "data_description": {
           "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
@@ -91,7 +94,8 @@
           "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane.",
           "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
-          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji."
+          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
+          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
         }
       },
       "combined_init": {

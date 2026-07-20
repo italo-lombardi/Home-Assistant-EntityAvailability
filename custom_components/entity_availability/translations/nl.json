@@ -30,12 +30,14 @@
         "data": {
           "bad_states": "Statussen die als offline worden beschouwd",
           "cooldown": "Wachttijd voordat offline wordt gemarkeerd",
-          "staleness_threshold": "Inactiviteitsdrempel"
+          "staleness_threshold": "Inactiviteitsdrempel",
+          "staleness_use_last_updated": "Attribuutupdates als activiteit tellen"
         },
         "data_description": {
           "bad_states": "Entiteitsstatussen die aangeven dat een entiteit offline is (bijv. unavailable, unknown).",
           "cooldown": "Hoe lang (in seconden) een entiteit in een slechte status moet blijven voordat deze als offline wordt gemarkeerd. Voorkomt vals alarm door korte onderbrekingen.",
-          "staleness_threshold": "Als een entiteit gedurende dit aantal minuten niet van status is veranderd, markeer deze als verslechterd. Dit detecteert entiteiten die 'beschikbaar' melden maar geen gegevens meer verzenden. Stel in op 0 om uit te schakelen."
+          "staleness_threshold": "Als een entiteit gedurende dit aantal minuten niet van status is veranderd, markeer deze als verslechterd. Dit detecteert entiteiten die 'beschikbaar' melden maar geen gegevens meer verzenden. Stel in op 0 om uit te schakelen.",
+          "staleness_use_last_updated": "Wanneer ingeschakeld, stelt elke update van de entiteit — inclusief wijzigingen aan alleen attributen — de inactiviteitstimer opnieuw in. Wanneer uitgeschakeld (standaard) telt alleen een wijziging in de hoofdstatus. Schakel dit in voor apparaten die vaak melden maar zelden van waarde veranderen (bijv. temperatuur of vermogen dat stabiel blijft)."
         }
       },
       "advanced": {
@@ -82,7 +84,8 @@
           "battery_threshold": "Drempel lage batterij (%, 0 = uitgeschakeld)",
           "availability_windows": "Beschikbaarheid-trackingvensters",
           "recovery_window": "Herstelvenster (minuten)",
-          "use_device_names": "Apparaatnamen tonen"
+          "use_device_names": "Apparaatnamen tonen",
+          "staleness_use_last_updated": "Attribuutupdates als activiteit tellen"
         },
         "data_description": {
           "bad_states": "Entiteitsstatussen die aangeven dat een entiteit offline is (bijv. unavailable, unknown).",
@@ -91,7 +94,8 @@
           "battery_threshold": "Markeert entiteiten waarvan de batterij onder dit percentage daalt. De staat 'low' wordt ook automatisch gedetecteerd. Volt-gebaseerde entiteiten worden niet ondersteund.",
           "availability_windows": "Tijdvensters voor het bijhouden van de beschikbaarheidsgeschiedenis van de groep (bijv. vandaag, 3d, 7d).",
           "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
-          "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld."
+          "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld.",
+          "staleness_use_last_updated": "Wanneer ingeschakeld, stelt elke update van de entiteit — inclusief wijzigingen aan alleen attributen — de inactiviteitstimer opnieuw in. Wanneer uitgeschakeld (standaard) telt alleen een wijziging in de hoofdstatus. Schakel dit in voor apparaten die vaak melden maar zelden van waarde veranderen (bijv. temperatuur of vermogen dat stabiel blijft)."
         }
       },
       "combined_init": {
