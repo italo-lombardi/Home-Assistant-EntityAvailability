@@ -456,6 +456,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             if device.is_suppressed:
                 device.is_degraded = False
                 device.is_stale = False
+                device.is_low_battery = False
                 _LOGGER.debug(
                     "[%s] Skipping suppressed entity %s (until=%s)",
                     self.group_name,
@@ -597,6 +598,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
             # Degraded = not offline but battery low or stale
             device.is_stale = is_stale
+            device.is_low_battery = (not device.is_offline) and battery_low
             device.is_degraded = (not device.is_offline) and (battery_low or is_stale)
 
         # Mark as dirty; save periodically (every ~5 min)

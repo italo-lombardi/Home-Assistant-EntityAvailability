@@ -719,7 +719,7 @@ class TestCombinedLowBatterySensor:
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
-        coordinators[0]._device_states["binary_sensor.a1"].is_degraded = True
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
         coordinators[0]._device_states["binary_sensor.a1"].battery_level = 12
         mock_hass.states.async_set(
             "binary_sensor.a1", STATE_ON, {"friendly_name": "Sensor A1"}
@@ -733,7 +733,7 @@ class TestCombinedLowBatterySensor:
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
-        coordinators[0]._device_states["binary_sensor.a1"].is_degraded = True
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
         coordinators[0]._device_states["binary_sensor.a1"].battery_level = 8
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         attrs = sensor.extra_state_attributes
@@ -776,9 +776,9 @@ class TestCombinedLowBatteryCountSensor:
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
-        coordinators[0]._device_states["binary_sensor.a1"].is_degraded = True
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
         coordinators[0]._device_states["binary_sensor.a1"].battery_level = 5
-        coordinators[1]._device_states["binary_sensor.b1"].is_degraded = True
+        coordinators[1]._device_states["binary_sensor.b1"].is_low_battery = True
         coordinators[1]._device_states["binary_sensor.b1"].battery_level = 10
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.native_value == 2
@@ -791,7 +791,7 @@ class TestCombinedLowBatteryCountSensor:
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
-        coordinators[0]._device_states["binary_sensor.a1"].is_degraded = True
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
         coordinators[0]._device_states["binary_sensor.a1"].battery_level = 5
         coordinators[0]._device_states["binary_sensor.a1"].is_suppressed = True
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
@@ -802,6 +802,59 @@ class TestCombinedLowBatteryCountSensor:
         mock_hass.data[DOMAIN] = {}
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.unique_id == "combined_1_combined_low_battery_count"
+
+
+# ---------------------------------------------------------------------------
+# Regression: stale entity with healthy battery must NOT appear as low battery
+# ---------------------------------------------------------------------------
+
+
+class TestStaleButHealthyBatteryNotLowBattery:
+    """Regression tests: stale entities with battery above threshold excluded from combined low-battery sensors."""
+
+    def test_stale_healthy_battery_not_counted_by_combined_low_battery_count(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Stale entity with battery above threshold is NOT counted as low battery in combined sensor."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        # Stale but healthy: is_degraded=True, is_stale=True, is_low_battery=False
+        coordinators[0]._device_states["binary_sensor.a1"].is_degraded = True
+        coordinators[0]._device_states["binary_sensor.a1"].is_stale = True
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = False
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 50
+        sensor = CombinedLowBatteryCountSensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            coordinators,
+            [c.entry.entry_id for c in coordinators],
+        )
+        assert sensor.native_value == 0
+
+    def test_genuine_low_battery_still_counted_by_combined_sensor(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Entity with battery genuinely below threshold IS counted as low battery in combined sensor."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0]._device_states["binary_sensor.a1"].is_degraded = True
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 15
+        sensor = CombinedLowBatteryCountSensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            coordinators,
+            [c.entry.entry_id for c in coordinators],
+        )
+        assert sensor.native_value == 1
 
 
 # ---------------------------------------------------------------------------

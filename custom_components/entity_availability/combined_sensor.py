@@ -225,7 +225,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             g_low_battery = sum(
                 1
                 for d in states.values()
-                if d.is_degraded and not d.is_suppressed and d.battery_level is not None
+                if d.is_low_battery and not d.is_suppressed
             )
             battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
             if battery_map:
@@ -251,7 +251,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             low_battery_entities += [
                 d.entity_id
                 for d in states.values()
-                if d.is_degraded and not d.is_suppressed and d.battery_level is not None
+                if d.is_low_battery and not d.is_suppressed
             ]
             gname = coord.group_name
             groups[coord.entry.entry_id] = {
@@ -422,7 +422,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
             f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
             for coord in coords
             for d in coord.device_states.values()
-            if d.is_degraded and not d.is_suppressed and d.battery_level is not None
+            if d.is_low_battery and not d.is_suppressed
         ]
         if not low:
             return "None"
@@ -439,7 +439,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
             d.entity_id: f"{d.battery_level}%"
             for coord in self._active_coordinators()
             for d in coord.device_states.values()
-            if d.is_degraded and not d.is_suppressed and d.battery_level is not None
+            if d.is_low_battery and not d.is_suppressed
         }
         return {"devices": devices, "count": len(devices)}
 
@@ -468,7 +468,7 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
             1
             for coord in self._active_coordinators()
             for d in coord.device_states.values()
-            if d.is_degraded and not d.is_suppressed and d.battery_level is not None
+            if d.is_low_battery and not d.is_suppressed
         )
 
 

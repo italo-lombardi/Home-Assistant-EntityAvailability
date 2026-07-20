@@ -16,6 +16,7 @@ class DeviceState:
     is_offline: bool = False
     is_degraded: bool = False
     is_stale: bool = False
+    is_low_battery: bool = False
     is_suppressed: bool = False
     suppress_until: datetime | None = None
     offline_since: datetime | None = None
