@@ -491,7 +491,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     if self._staleness_use_last_updated
                     else state.last_changed
                 )
-                if stale_ts:
+                if stale_ts:  # pragma: no branch
                     if stale_ts.tzinfo is None:
                         stale_ts = stale_ts.replace(tzinfo=timezone.utc)
                     age = (now - stale_ts).total_seconds() / 60

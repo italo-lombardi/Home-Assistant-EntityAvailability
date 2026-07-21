@@ -339,6 +339,54 @@ class TestCombinedGroupAnyOfflineBinarySensor:
         assert "entry_b" in sensor._subscribed_entry_ids
         assert coordinators[0] in active
 
+    async def test_source_group_reload_resubscribes(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When a source coordinator is replaced (group reload), combined re-subscribes."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+
+        unsub_calls = []
+        new_sub_calls = []
+
+        def _make_unsub(calls):
+            def _unsub():
+                calls.append(True)
+
+            return _unsub
+
+        coordinators[0].async_add_listener = lambda cb: _make_unsub(unsub_calls)
+        coordinators[1].async_add_listener = lambda cb: lambda: None
+
+        sensor = CombinedGroupAnyOfflineBinarySensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            ["entry_a", "entry_b"],
+        )
+        await sensor.async_added_to_hass()
+        assert "entry_a" in sensor._subscribed_entry_ids
+
+        # Simulate group A reload: old coordinator fires its unsub listeners
+        # (which evicts entry_a from _subscribed_entry_ids), then new coordinator
+        # object replaces it in hass.data
+        sensor._unsub_listeners[0]()  # fires the wrapped unsub → evicts entry_a
+        assert "entry_a" not in sensor._subscribed_entry_ids
+
+        new_coord = MagicMock(spec=coordinators[0].__class__)
+        new_coord.entry = coordinators[0].entry
+        new_coord.async_add_listener = lambda cb: (
+            new_sub_calls.append(cb) or (lambda: None)
+        )
+        mock_hass.data[DOMAIN]["entry_a"] = new_coord
+
+        sensor._active_coordinators()
+        assert "entry_a" in sensor._subscribed_entry_ids
+        assert len(new_sub_calls) == 1
+
     def test_available_false_when_all_coordinators_unloaded(
         self, mock_hass, combined_entry, coordinators
     ):

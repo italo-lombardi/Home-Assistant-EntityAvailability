@@ -263,6 +263,46 @@ class TestCombinedSensorBase:
         assert len(late_calls) == 1
         assert "entry_b" in sensor._subscribed_entry_ids
 
+    async def test_source_group_reload_resubscribes(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When a source coordinator is replaced (group reload), combined re-subscribes."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+
+        unsub_calls = []
+        new_sub_calls = []
+
+        def _make_unsub(calls):
+            def _unsub():
+                calls.append(True)
+
+            return _unsub
+
+        coordinators[0].async_add_listener = lambda cb: _make_unsub(unsub_calls)
+        coordinators[1].async_add_listener = lambda cb: lambda: None
+
+        sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+        assert "entry_a" in sensor._subscribed_entry_ids
+
+        # Simulate group A reload: old coordinator fires its unsub → evicts entry_a
+        sensor._unsub_listeners[0]()
+        assert "entry_a" not in sensor._subscribed_entry_ids
+
+        new_coord = MagicMock(spec=coordinators[0].__class__)
+        new_coord.entry = coordinators[0].entry
+        new_coord.async_add_listener = lambda cb: (
+            new_sub_calls.append(cb) or (lambda: None)
+        )
+        mock_hass.data[DOMAIN]["entry_a"] = new_coord
+
+        sensor._active_coordinators()
+        assert "entry_a" in sensor._subscribed_entry_ids
+        assert len(new_sub_calls) == 1
+
     def test_available_true_when_at_least_one_coordinator_loaded(
         self, mock_hass, combined_entry, coordinators
     ):
