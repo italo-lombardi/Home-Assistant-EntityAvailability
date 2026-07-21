@@ -385,7 +385,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         self._unsub_state_change = async_track_state_change_event(
             self.hass, self._entities, self._handle_state_change
-        )
+        ) if self._entities else None
 
     @callback
     def _handle_state_change(self, event: Event) -> None:

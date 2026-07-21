@@ -81,6 +81,7 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
             entry_type=DeviceEntryType.SERVICE,
         )
         self._unsub_listeners: list[Callable[[], None]] = []
+        self._subscribed_entry_ids: set[str] = set()
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to all included coordinators."""
@@ -90,10 +91,12 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
             if self._ea_should_write():
                 self.async_write_ha_state()
 
+        self._on_coordinator_update = _on_coordinator_update
         for coordinator in self._coordinators:
             self._unsub_listeners.append(
                 coordinator.async_add_listener(_on_coordinator_update)
             )
+            self._subscribed_entry_ids.add(coordinator.entry.entry_id)
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from coordinators."""
@@ -104,13 +107,19 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
 
     def _active_coordinators(self) -> list[EntityAvailabilityCoordinator]:
         domain_data = self.hass.data.get(DOMAIN, {})
-        return [
+        active = [
             c
-            for c in self._coordinators
-            if isinstance(
-                domain_data.get(c.entry.entry_id), EntityAvailabilityCoordinator
-            )
+            for eid in self._combined_entry_ids
+            if isinstance(c := domain_data.get(eid), EntityAvailabilityCoordinator)
         ]
+        for coord in active:
+            eid = coord.entry.entry_id
+            if eid not in self._subscribed_entry_ids and hasattr(self, "_on_coordinator_update"):
+                self._unsub_listeners.append(
+                    coord.async_add_listener(self._on_coordinator_update)
+                )
+                self._subscribed_entry_ids.add(eid)
+        return active
 
     @property
     def available(self) -> bool:

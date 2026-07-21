@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import (
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     OptionsFlow,
@@ -133,6 +134,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             e
             for e in self.hass.config_entries.async_entries(DOMAIN)
             if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
+            and e.state == ConfigEntryState.LOADED
         ]
 
         if len(existing_groups) < 2:
@@ -540,6 +542,7 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             e
             for e in self.hass.config_entries.async_entries(DOMAIN)
             if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
+            and e.state == ConfigEntryState.LOADED
         ]
 
         if user_input is not None:

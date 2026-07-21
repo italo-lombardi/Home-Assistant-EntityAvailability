@@ -43,14 +43,24 @@
       "battery_mapping": {
         "title": "Battery Entity Mapping",
         "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low')."
+      },
+      "combined": {
+        "title": "Create Combined Group",
+        "description": "Combine two or more existing groups into a single combined group.",
+        "data": {
+          "group_name": "Combined Group Name",
+          "combined_groups": "Groups to include"
+        }
       }
     },
     "error": {
       "empty_group_name": "Group name cannot be empty.",
-      "no_entities": "You must select at least one entity."
+      "no_entities": "You must select at least one entity.",
+      "not_enough_groups_selected": "You must select at least two groups."
     },
     "abort": {
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "not_enough_groups": "You need at least two existing groups before creating a combined group."
     }
   },
   "options": {
@@ -79,6 +89,14 @@
       "battery_mapping": {
         "title": "Battery Entity Mapping",
         "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries."
+      },
+      "combined_init": {
+        "title": "Edit Combined Group",
+        "description": "Modify the name and included groups for this combined group.",
+        "data": {
+          "group_name": "Combined Group Name",
+          "combined_groups": "Groups to include"
+        }
       }
     }
   },
