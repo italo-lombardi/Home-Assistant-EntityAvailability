@@ -230,6 +230,37 @@ class TestCombinedSensorBase:
         sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
         assert len(sensor._active_coordinators()) == 2
 
+    async def test_active_coordinators_late_subscribe(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """A coordinator absent at setup time is subscribed on first _active_coordinators() call."""
+        mock_hass.data[DOMAIN] = {"entry_a": coordinators[0]}
+
+        early_calls = []
+        late_calls = []
+        coordinators[0].async_add_listener = lambda cb: early_calls.append(cb) or (lambda: None)
+        coordinators[1].async_add_listener = lambda cb: late_calls.append(cb) or (lambda: None)
+
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            [coordinators[0]],
+            ["entry_a", "entry_b"],
+        )
+        await sensor.async_added_to_hass()
+        assert "entry_a" in sensor._subscribed_entry_ids
+        assert "entry_b" not in sensor._subscribed_entry_ids
+        assert len(early_calls) == 1
+
+        mock_hass.data[DOMAIN]["entry_b"] = coordinators[1]
+        active = sensor._active_coordinators()
+
+        assert len(active) == 2
+        assert len(late_calls) == 1
+        assert "entry_b" in sensor._subscribed_entry_ids
+
     def test_available_true_when_at_least_one_coordinator_loaded(
         self, mock_hass, combined_entry, coordinators
     ):

@@ -2381,6 +2381,28 @@ def test_setup_state_listeners_no_existing_unsub(
     assert coord._unsub_state_change is not None
 
 
+def test_setup_state_listeners_empty_entities_skips_track(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_setup_state_listeners does not call async_track_state_change_event when entity list is empty."""
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+    coord._entities = []
+
+    with patch(
+        "custom_components.entity_availability.coordinator.async_track_state_change_event",
+    ) as mock_track:
+        coord._setup_state_listeners()
+
+    mock_track.assert_not_called()
+    assert coord._unsub_state_change is None
+
+
 # ---------------------------------------------------------------------------
 # Branch coverage: _async_update_data below save threshold (line 479)
 # ---------------------------------------------------------------------------

@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
@@ -407,6 +408,7 @@ async def _create_group_entry(
         unique_id=f"{DOMAIN}_{name.lower().replace(' ', '_')}",
     )
     entry.add_to_hass(hass)
+    entry.mock_state(hass, ConfigEntryState.LOADED)
     return entry
 
 
@@ -525,6 +527,42 @@ async def test_step_combined_duplicate_prevention(hass: HomeAssistant) -> None:
     )
     assert result2["type"] == FlowResultType.ABORT
     assert result2["reason"] == "already_configured"
+
+
+async def test_step_combined_excludes_non_loaded_entries(hass: HomeAssistant) -> None:
+    """Group entries not in LOADED state are excluded from the combined selector."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    # Add a third entry in SETUP_ERROR state — must not appear as a valid option
+    entry_bad = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Bad Group",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Bad Group",
+            CONF_ENTITIES: ["binary_sensor.bad"],
+        },
+        entry_id="entry_bad",
+        unique_id=f"{DOMAIN}_bad_group",
+    )
+    entry_bad.add_to_hass(hass)
+    entry_bad.mock_state(hass, ConfigEntryState.SETUP_ERROR)
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "combined"
+    # The form schema options must only contain the two LOADED entries
+    option_values = [
+        o["value"]
+        for o in result["data_schema"].schema[CONF_COMBINED_GROUPS].config["options"]
+    ]
+    assert entry_a.entry_id in option_values
+    assert entry_b.entry_id in option_values
+    assert entry_bad.entry_id not in option_values
 
 
 async def test_combined_options_flow_shows_form(hass: HomeAssistant) -> None:
