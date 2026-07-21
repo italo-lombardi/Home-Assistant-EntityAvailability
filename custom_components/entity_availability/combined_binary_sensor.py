@@ -128,7 +128,6 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
                 and self._on_coordinator_update is not None
             ):
                 self._subscribe(eid, coord)
-                self._subscribed_entry_ids.add(eid)
         return active
 
     @property
