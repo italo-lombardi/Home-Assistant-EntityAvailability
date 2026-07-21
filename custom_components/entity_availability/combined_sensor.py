@@ -105,6 +105,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
     """Base class for combined group sensors — handles coordinator subscriptions."""
 
     _attr_has_entity_name = True
+    _on_coordinator_update: Callable[[], None] | None = None
 
     def _ea_current_value(self) -> Any:
         return self.native_value
@@ -121,7 +122,6 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         self.hass = hass
         self._entry = entry
         self._group_slug = group_slug
-        self._coordinators = coordinators
         self._subscribed_entry_ids: set[str] = set()
         self._combined_entry_ids = combined_entry_ids
         self._attr_device_info = _device_info(entry.entry_id, group_name)
@@ -137,11 +137,14 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                 self.async_write_ha_state()
 
         self._on_coordinator_update = _on_coordinator_update
-        for coordinator in self._coordinators:
-            self._unsub_listeners.append(
-                coordinator.async_add_listener(_on_coordinator_update)
-            )
-            self._subscribed_entry_ids.add(coordinator.entry.entry_id)
+        domain_data = self.hass.data.get(DOMAIN, {})
+        for eid in self._combined_entry_ids:
+            coord = domain_data.get(eid)
+            if isinstance(coord, EntityAvailabilityCoordinator):
+                self._unsub_listeners.append(
+                    coord.async_add_listener(_on_coordinator_update)
+                )
+                self._subscribed_entry_ids.add(eid)
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from all coordinators."""
@@ -160,12 +163,17 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         ]
         for coord in active:
             eid = coord.entry.entry_id
-            if eid not in self._subscribed_entry_ids and hasattr(self, "_on_coordinator_update"):
+            if (
+                eid not in self._subscribed_entry_ids
+                and self._on_coordinator_update is not None
+            ):
                 self._unsub_listeners.append(
                     coord.async_add_listener(self._on_coordinator_update)
                 )
                 self._subscribed_entry_ids.add(eid)
-                _LOGGER.debug("[%s] late-subscribed to coordinator %s", self.entity_id, eid)
+                _LOGGER.debug(
+                    "[%s] late-subscribed to coordinator %s", self.entity_id, eid
+                )
         if len(active) != len(self._combined_entry_ids):
             _LOGGER.debug(
                 "[%s] _active_coordinators: %d/%d active",
@@ -220,7 +228,8 @@ class CombinedGroupSensor(CombinedSensorBase):
         low_battery_entities: list[str] = []
         groups: dict[str, Any] = {}
 
-        for coord in self._active_coordinators():
+        active = self._active_coordinators()
+        for coord in active:
             states = coord.device_states
             g_total = len(coord.monitored_entities)
             g_offline = sum(
@@ -273,14 +282,10 @@ class CombinedGroupSensor(CombinedSensorBase):
             }
 
         all_entities = list(
-            dict.fromkeys(
-                eid
-                for coord in self._active_coordinators()
-                for eid in coord.monitored_entities
-            )
+            dict.fromkeys(eid for coord in active for eid in coord.monitored_entities)
         )
         display_names: dict[str, str] = {}
-        for coord in self._active_coordinators():
+        for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
             for eid in coord.monitored_entities:
                 if eid not in display_names:

@@ -312,16 +312,20 @@ class TestCombinedGroupAnyOfflineBinarySensor:
         # Mock async_add_listener on both coords to avoid lingering coordinator timers
         early_calls = []
         late_calls = []
-        coordinators[0].async_add_listener = lambda cb: early_calls.append(cb) or (lambda: None)
-        coordinators[1].async_add_listener = lambda cb: late_calls.append(cb) or (lambda: None)
+        coordinators[0].async_add_listener = lambda cb: (
+            early_calls.append(cb) or (lambda: None)
+        )
+        coordinators[1].async_add_listener = lambda cb: (
+            late_calls.append(cb) or (lambda: None)
+        )
 
         sensor = CombinedGroupAnyOfflineBinarySensor(
             mock_hass,
             combined_entry,
             "Combined",
             "combined",
-            [coordinators[0]],          # only coord_a at setup time
-            ["entry_a", "entry_b"],     # full desired set
+            [coordinators[0]],  # only coord_a at setup time
+            ["entry_a", "entry_b"],  # full desired set
         )
         await sensor.async_added_to_hass()
         assert "entry_a" in sensor._subscribed_entry_ids
@@ -335,7 +339,7 @@ class TestCombinedGroupAnyOfflineBinarySensor:
         assert len(active) == 2
         assert len(late_calls) == 1
         assert "entry_b" in sensor._subscribed_entry_ids
-        assert active[0] is coordinators[0]
+        assert coordinators[0] in active
 
     def test_available_false_when_all_coordinators_unloaded(
         self, mock_hass, combined_entry, coordinators

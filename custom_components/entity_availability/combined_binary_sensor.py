@@ -52,6 +52,7 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
     _attr_icon = "mdi:alert"
     _attr_has_entity_name = True
     _attr_should_poll = False
+    _on_coordinator_update: Callable[[], None] | None = None
 
     def _ea_current_value(self) -> Any:
         return self.is_on
@@ -67,7 +68,6 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
     ) -> None:
         self.hass = hass
         self._entry = entry
-        self._coordinators = coordinators
         self._combined_entry_ids = combined_entry_ids
         self._attr_unique_id = f"{entry.entry_id}_combined_any_offline"
         self.entity_id = (
@@ -92,11 +92,14 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
                 self.async_write_ha_state()
 
         self._on_coordinator_update = _on_coordinator_update
-        for coordinator in self._coordinators:
-            self._unsub_listeners.append(
-                coordinator.async_add_listener(_on_coordinator_update)
-            )
-            self._subscribed_entry_ids.add(coordinator.entry.entry_id)
+        domain_data = self.hass.data.get(DOMAIN, {})
+        for eid in self._combined_entry_ids:
+            coord = domain_data.get(eid)
+            if isinstance(coord, EntityAvailabilityCoordinator):
+                self._unsub_listeners.append(
+                    coord.async_add_listener(_on_coordinator_update)
+                )
+                self._subscribed_entry_ids.add(eid)
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from coordinators."""
@@ -114,7 +117,10 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
         ]
         for coord in active:
             eid = coord.entry.entry_id
-            if eid not in self._subscribed_entry_ids and hasattr(self, "_on_coordinator_update"):
+            if (
+                eid not in self._subscribed_entry_ids
+                and self._on_coordinator_update is not None
+            ):
                 self._unsub_listeners.append(
                     coord.async_add_listener(self._on_coordinator_update)
                 )

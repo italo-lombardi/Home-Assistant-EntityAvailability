@@ -217,7 +217,7 @@ class TestCombinedSensorBase:
         sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
         active = sensor._active_coordinators()
         assert len(active) == 1
-        assert active[0] is coordinators[0]
+        assert coordinators[0] in active
 
     def test_active_coordinators_returns_all_when_all_loaded(
         self, mock_hass, combined_entry, coordinators
@@ -238,8 +238,12 @@ class TestCombinedSensorBase:
 
         early_calls = []
         late_calls = []
-        coordinators[0].async_add_listener = lambda cb: early_calls.append(cb) or (lambda: None)
-        coordinators[1].async_add_listener = lambda cb: late_calls.append(cb) or (lambda: None)
+        coordinators[0].async_add_listener = lambda cb: (
+            early_calls.append(cb) or (lambda: None)
+        )
+        coordinators[1].async_add_listener = lambda cb: (
+            late_calls.append(cb) or (lambda: None)
+        )
 
         sensor = CombinedGroupSensor(
             mock_hass,
