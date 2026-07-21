@@ -2,11 +2,26 @@
   "config": {
     "step": {
       "user": {
+        "title": "Create Entry",
+        "description": "Monitor a group of entities, or combine existing groups.",
+        "data": {
+          "entry_type": "Type"
+        }
+      },
+      "group": {
         "title": "Create Entity Group",
         "description": "Create a group of entities to monitor for availability.",
         "data": {
           "group_name": "Group Name",
           "entities": "Entities to Monitor"
+        }
+      },
+      "combined": {
+        "title": "Create Combined Group",
+        "description": "Combine multiple groups into one view for automations and dashboards.",
+        "data": {
+          "group_name": "Combined Group Name",
+          "combined_groups": "Groups to Include"
         }
       },
       "monitoring": {
@@ -36,6 +51,7 @@
         },
         "data_description": {
           "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
+          "availability_windows": "Time windows for tracking group availability history (e.g. today, 3d, 7d).",
           "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
           "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device."
         }
@@ -47,10 +63,12 @@
     },
     "error": {
       "empty_group_name": "Group name cannot be empty.",
-      "no_entities": "You must select at least one entity."
+      "no_entities": "You must select at least one entity.",
+      "not_enough_groups_selected": "Select at least two groups to combine."
     },
     "abort": {
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "not_enough_groups": "You need at least two groups before creating a combined group."
     }
   },
   "options": {
@@ -70,15 +88,27 @@
           "staleness_use_last_updated": "Count attribute updates as activity"
         },
         "data_description": {
-          "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
+          "bad_states": "Entity states that indicate an entity is offline (e.g., unavailable, unknown).",
+          "cooldown": "How long (in seconds) an entity must stay in a bad state before it is marked offline. Prevents false alarms from brief disconnections.",
+          "staleness_threshold": "If an entity hasn't changed state for this many minutes, mark it as degraded. Set to 0 to disable.",
+          "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported.",
+          "availability_windows": "Time windows for tracking group availability history (e.g. today, 3d, 7d).",
           "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
           "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
           "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
         }
       },
+      "combined_init": {
+        "title": "Edit Combined Group",
+        "description": "Modify the combined group name and included groups.",
+        "data": {
+          "group_name": "Combined Group Name",
+          "combined_groups": "Groups to Include"
+        }
+      },
       "battery_mapping": {
         "title": "Battery Entity Mapping",
-        "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries."
+        "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low')."
       }
     }
   },
@@ -104,6 +134,9 @@
       },
       "recently_recovered": {
         "name": "Recently Recovered"
+      },
+      "combined_summary": {
+        "name": "Combined Summary"
       },
       "availability_today": {
         "name": "Availability (Today)"
@@ -134,9 +167,6 @@
       },
       "mttr": {
         "name": "Mean Time To Recovery"
-      },
-      "combined_summary": {
-        "name": "Combined Summary"
       }
     },
     "binary_sensor": {
@@ -145,6 +175,14 @@
       },
       "combined_any_offline": {
         "name": "Any Offline"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Monitor entities",
+        "combined_group": "Combine groups"
       }
     }
   }

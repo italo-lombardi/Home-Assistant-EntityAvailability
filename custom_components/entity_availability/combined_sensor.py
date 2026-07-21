@@ -43,44 +43,40 @@ async def async_setup_entry(
         group_slug = entry.entry_id[:8].lower()
     combined_entry_ids: list[str] = entry.data.get(CONF_COMBINED_GROUPS, [])
 
-    coordinators: list[EntityAvailabilityCoordinator] = [
-        hass.data[DOMAIN][eid] for eid in combined_entry_ids if eid in hass.data[DOMAIN]
-    ]
-
     async_add_entities(
         [
             CombinedGroupSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedOfflineCountSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedOfflineEntitiesSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedLowBatterySensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedLowBatteryCountSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedRecentlyOfflineSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedRecentlyRecoveredSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedAffectedAreasCountSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedAffectedAreasSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedAffectedAreasRecentlyOfflineSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
             CombinedAffectedAreasRecentlyRecoveredSensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             ),
         ]
     )
@@ -105,6 +101,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
     """Base class for combined group sensors — handles coordinator subscriptions."""
 
     _attr_has_entity_name = True
+    _on_coordinator_update: Callable[[], None] | None = None
 
     def _ea_current_value(self) -> Any:
         return self.native_value
@@ -115,13 +112,12 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         entry: ConfigEntry,
         group_name: str,
         group_slug: str,
-        coordinators: list[EntityAvailabilityCoordinator],
         combined_entry_ids: list[str],
     ) -> None:
         self.hass = hass
         self._entry = entry
         self._group_slug = group_slug
-        self._coordinators = coordinators
+        self._subscribed_entry_ids: set[str] = set()
         self._combined_entry_ids = combined_entry_ids
         self._attr_device_info = _device_info(entry.entry_id, group_name)
         self._unsub_listeners: list[Callable[[], None]] = []
@@ -135,10 +131,12 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             if self._ea_should_write():
                 self.async_write_ha_state()
 
-        for coordinator in self._coordinators:
-            self._unsub_listeners.append(
-                coordinator.async_add_listener(_on_coordinator_update)
-            )
+        self._on_coordinator_update = _on_coordinator_update
+        domain_data = self.hass.data.get(DOMAIN, {})
+        for eid in self._combined_entry_ids:
+            coord = domain_data.get(eid)
+            if isinstance(coord, EntityAvailabilityCoordinator):
+                self._subscribe(eid, coord)
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from all coordinators."""
@@ -148,21 +146,43 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         self._ea_reset_cache()
         await super().async_will_remove_from_hass()
 
+    def _subscribe(self, eid: str, coord: EntityAvailabilityCoordinator) -> None:
+        """Subscribe to a coordinator and evict eid on unsub (handles reload)."""
+
+        def _unsub_and_evict(raw_unsub: Callable[[], None]) -> Callable[[], None]:
+            def _unsub() -> None:
+                raw_unsub()
+                self._subscribed_entry_ids.discard(eid)
+
+            return _unsub
+
+        raw = coord.async_add_listener(self._on_coordinator_update)
+        self._unsub_listeners.append(_unsub_and_evict(raw))
+        self._subscribed_entry_ids.add(eid)
+
     def _active_coordinators(self) -> list[EntityAvailabilityCoordinator]:
         domain_data = self.hass.data.get(DOMAIN, {})
         active = [
             c
-            for c in self._coordinators
-            if isinstance(
-                domain_data.get(c.entry.entry_id), EntityAvailabilityCoordinator
-            )
+            for eid in self._combined_entry_ids
+            if isinstance(c := domain_data.get(eid), EntityAvailabilityCoordinator)
         ]
-        if len(active) != len(self._coordinators):
+        for coord in active:
+            eid = coord.entry.entry_id
+            if (
+                eid not in self._subscribed_entry_ids
+                and self._on_coordinator_update is not None
+            ):
+                self._subscribe(eid, coord)
+                _LOGGER.debug(
+                    "[%s] late-subscribed to coordinator %s", self.entity_id, eid
+                )
+        if len(active) != len(self._combined_entry_ids):
             _LOGGER.debug(
                 "[%s] _active_coordinators: %d/%d active",
                 self.entity_id,
                 len(active),
-                len(self._coordinators),
+                len(self._combined_entry_ids),
             )
         return active
 
@@ -184,12 +204,8 @@ class CombinedGroupSensor(CombinedSensorBase):
     _attr_icon = "mdi:format-list-group"
     # No state_class: see GroupSummarySensor.
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_summary"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_combined_summary"
@@ -211,7 +227,8 @@ class CombinedGroupSensor(CombinedSensorBase):
         low_battery_entities: list[str] = []
         groups: dict[str, Any] = {}
 
-        for coord in self._active_coordinators():
+        active = self._active_coordinators()
+        for coord in active:
             states = coord.device_states
             g_total = len(coord.monitored_entities)
             g_offline = sum(
@@ -264,14 +281,10 @@ class CombinedGroupSensor(CombinedSensorBase):
             }
 
         all_entities = list(
-            dict.fromkeys(
-                eid
-                for coord in self._active_coordinators()
-                for eid in coord.monitored_entities
-            )
+            dict.fromkeys(eid for coord in active for eid in coord.monitored_entities)
         )
         display_names: dict[str, str] = {}
-        for coord in self._active_coordinators():
+        for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
             for eid in coord.monitored_entities:
                 if eid not in display_names:
@@ -314,12 +327,8 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
     _attr_icon = "mdi:alert-circle"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_offline_count"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_offline_count"
@@ -351,12 +360,8 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
 
     _attr_icon = "mdi:devices"
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_offline_entities"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_offline_entities"
@@ -401,12 +406,8 @@ class CombinedLowBatterySensor(CombinedSensorBase):
 
     _attr_icon = "mdi:battery-alert"
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_low_battery"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_low_battery"
@@ -448,12 +449,8 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
     _attr_icon = "mdi:battery-alert-variant-outline"
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_low_battery_count"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_low_battery_count"
@@ -476,12 +473,8 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
     _attr_icon = "mdi:lan-disconnect"
     _attr_has_entity_name = True
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_recently_offline"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_recently_offline"
@@ -534,12 +527,8 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
     _attr_icon = "mdi:lan-connect"
     _attr_has_entity_name = True
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_recently_recovered"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_recently_recovered"
@@ -593,12 +582,8 @@ class CombinedAffectedAreasCountSensor(CombinedSensorBase):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_has_entity_name = True
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_affected_areas_count"
         self.entity_id = f"sensor.entity_availability_combined_{self._group_slug}_affected_areas_count"
         self._attr_translation_key = "affected_areas_count"
@@ -620,12 +605,8 @@ class CombinedAffectedAreasSensor(CombinedSensorBase):
     _attr_icon = "mdi:home-group"
     _attr_has_entity_name = True
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_affected_areas"
         self.entity_id = (
             f"sensor.entity_availability_combined_{self._group_slug}_affected_areas"
@@ -677,12 +658,8 @@ class CombinedAffectedAreasRecentlyOfflineSensor(CombinedSensorBase):
     _attr_icon = "mdi:home-clock"
     _attr_has_entity_name = True
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = (
             f"{entry.entry_id}_combined_affected_areas_recently_offline"
         )
@@ -729,12 +706,8 @@ class CombinedAffectedAreasRecentlyRecoveredSensor(CombinedSensorBase):
     _attr_icon = "mdi:home-heart"
     _attr_has_entity_name = True
 
-    def __init__(
-        self, hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-    ):
-        super().__init__(
-            hass, entry, group_name, group_slug, coordinators, combined_entry_ids
-        )
+    def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
+        super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = (
             f"{entry.entry_id}_combined_affected_areas_recently_recovered"
         )

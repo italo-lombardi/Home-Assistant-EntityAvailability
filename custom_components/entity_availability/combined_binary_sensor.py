@@ -32,14 +32,10 @@ async def async_setup_entry(
         group_slug = entry.entry_id[:8].lower()
     combined_entry_ids: list[str] = entry.data.get(CONF_COMBINED_GROUPS, [])
 
-    coordinators: list[EntityAvailabilityCoordinator] = [
-        hass.data[DOMAIN][eid] for eid in combined_entry_ids if eid in hass.data[DOMAIN]
-    ]
-
     async_add_entities(
         [
             CombinedGroupAnyOfflineBinarySensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             )
         ]
     )
@@ -52,6 +48,7 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
     _attr_icon = "mdi:alert"
     _attr_has_entity_name = True
     _attr_should_poll = False
+    _on_coordinator_update: Callable[[], None] | None = None
 
     def _ea_current_value(self) -> Any:
         return self.is_on
@@ -62,12 +59,10 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
         entry: ConfigEntry,
         group_name: str,
         group_slug: str,
-        coordinators: list[EntityAvailabilityCoordinator],
         combined_entry_ids: list[str],
     ) -> None:
         self.hass = hass
         self._entry = entry
-        self._coordinators = coordinators
         self._combined_entry_ids = combined_entry_ids
         self._attr_unique_id = f"{entry.entry_id}_combined_any_offline"
         self.entity_id = (
@@ -81,6 +76,7 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
             entry_type=DeviceEntryType.SERVICE,
         )
         self._unsub_listeners: list[Callable[[], None]] = []
+        self._subscribed_entry_ids: set[str] = set()
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to all included coordinators."""
@@ -90,10 +86,12 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
             if self._ea_should_write():
                 self.async_write_ha_state()
 
-        for coordinator in self._coordinators:
-            self._unsub_listeners.append(
-                coordinator.async_add_listener(_on_coordinator_update)
-            )
+        self._on_coordinator_update = _on_coordinator_update
+        domain_data = self.hass.data.get(DOMAIN, {})
+        for eid in self._combined_entry_ids:
+            coord = domain_data.get(eid)
+            if isinstance(coord, EntityAvailabilityCoordinator):
+                self._subscribe(eid, coord)
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from coordinators."""
@@ -102,15 +100,35 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
         self._unsub_listeners.clear()
         self._ea_reset_cache()
 
+    def _subscribe(self, eid: str, coord: EntityAvailabilityCoordinator) -> None:
+        """Subscribe to a coordinator and evict eid on unsub (handles reload)."""
+
+        def _unsub_and_evict(raw_unsub: Callable[[], None]) -> Callable[[], None]:
+            def _unsub() -> None:
+                raw_unsub()
+                self._subscribed_entry_ids.discard(eid)
+
+            return _unsub
+
+        raw = coord.async_add_listener(self._on_coordinator_update)
+        self._unsub_listeners.append(_unsub_and_evict(raw))
+        self._subscribed_entry_ids.add(eid)
+
     def _active_coordinators(self) -> list[EntityAvailabilityCoordinator]:
         domain_data = self.hass.data.get(DOMAIN, {})
-        return [
+        active = [
             c
-            for c in self._coordinators
-            if isinstance(
-                domain_data.get(c.entry.entry_id), EntityAvailabilityCoordinator
-            )
+            for eid in self._combined_entry_ids
+            if isinstance(c := domain_data.get(eid), EntityAvailabilityCoordinator)
         ]
+        for coord in active:
+            eid = coord.entry.entry_id
+            if (
+                eid not in self._subscribed_entry_ids
+                and self._on_coordinator_update is not None
+            ):
+                self._subscribe(eid, coord)
+        return active
 
     @property
     def available(self) -> bool:

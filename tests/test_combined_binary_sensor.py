@@ -134,7 +134,6 @@ class TestCombinedGroupAnyOfflineBinarySensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -301,7 +300,92 @@ class TestCombinedGroupAnyOfflineBinarySensor:
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         active = sensor._active_coordinators()
         assert len(active) == 1
-        assert active[0] is coordinators[0]
+
+    async def test_active_coordinators_late_subscribe(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """A coordinator absent at setup time is subscribed on first _active_coordinators() call."""
+        # Simulate boot: only entry_a loaded when combined entry is set up.
+        mock_hass.data[DOMAIN] = {"entry_a": coordinators[0]}
+
+        # Mock async_add_listener on both coords to avoid lingering coordinator timers
+        early_calls = []
+        late_calls = []
+        coordinators[0].async_add_listener = lambda cb: (
+            early_calls.append(cb) or (lambda: None)
+        )
+        coordinators[1].async_add_listener = lambda cb: (
+            late_calls.append(cb) or (lambda: None)
+        )
+
+        sensor = CombinedGroupAnyOfflineBinarySensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            ["entry_a", "entry_b"],  # full desired set
+        )
+        await sensor.async_added_to_hass()
+        assert "entry_a" in sensor._subscribed_entry_ids
+        assert "entry_b" not in sensor._subscribed_entry_ids
+        assert len(early_calls) == 1
+
+        # entry_b comes online later
+        mock_hass.data[DOMAIN]["entry_b"] = coordinators[1]
+        active = sensor._active_coordinators()
+
+        assert len(active) == 2
+        assert len(late_calls) == 1
+        assert "entry_b" in sensor._subscribed_entry_ids
+        assert coordinators[0] in active
+
+    async def test_source_group_reload_resubscribes(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When a source coordinator is replaced (group reload), combined re-subscribes."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+
+        unsub_calls = []
+        new_sub_calls = []
+
+        def _make_unsub(calls):
+            def _unsub():
+                calls.append(True)
+
+            return _unsub
+
+        coordinators[0].async_add_listener = lambda cb: _make_unsub(unsub_calls)
+        coordinators[1].async_add_listener = lambda cb: lambda: None
+
+        sensor = CombinedGroupAnyOfflineBinarySensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            ["entry_a", "entry_b"],
+        )
+        await sensor.async_added_to_hass()
+        assert "entry_a" in sensor._subscribed_entry_ids
+
+        # Simulate group A reload: old coordinator fires its unsub listeners
+        # (which evicts entry_a from _subscribed_entry_ids), then new coordinator
+        # object replaces it in hass.data
+        sensor._unsub_listeners[0]()  # fires the wrapped unsub → evicts entry_a
+        assert "entry_a" not in sensor._subscribed_entry_ids
+
+        new_coord = MagicMock(spec=coordinators[0].__class__)
+        new_coord.entry = coordinators[0].entry
+        new_coord.async_add_listener = lambda cb: (
+            new_sub_calls.append(cb) or (lambda: None)
+        )
+        mock_hass.data[DOMAIN]["entry_a"] = new_coord
+
+        sensor._active_coordinators()
+        assert "entry_a" in sensor._subscribed_entry_ids
+        assert len(new_sub_calls) == 1
 
     def test_available_false_when_all_coordinators_unloaded(
         self, mock_hass, combined_entry, coordinators
@@ -394,7 +478,6 @@ class TestCombinedBinarySensorCallbackFires:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 

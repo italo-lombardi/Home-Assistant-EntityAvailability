@@ -45,3 +45,4 @@ htmlcov/
 
 # Home Assistant config (development)
 config/
+cov.json

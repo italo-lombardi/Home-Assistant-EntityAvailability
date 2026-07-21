@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ## [0.3.13] - 2026-07-20
 
+### Fixed
+- **Combined group coordinator staleness** — combined sensors now resolve source coordinators from `hass.data` at every update instead of holding references captured at setup time. Coordinators that load after the combined entry (boot-order race) are automatically subscribed on first access (`_active_coordinators` late-subscribe path). `hasattr` guard replaced with a typed class-level `_on_coordinator_update: ... | None = None` annotation so the guard is safe even if properties are called before `async_added_to_hass`.
+- **Combined group config flow entry filter** — the "Groups to Include" selector in both the create and edit flows now only shows entries in `ConfigEntryState.LOADED` state, preventing partially-loaded or errored entries from appearing as valid options.
+- **`strings.json` out of sync** — `strings.json` was missing the `group` step, `selector.entry_type`, and `options` data descriptions introduced in 0.3.x. Synced to match `en.json`.
+
 ### Added
 - **Staleness timestamp source** — new per-group option *"Count attribute updates as activity"* (in Monitoring settings). When off (default, unchanged behavior) staleness is measured from `last_changed` — only a change in the entity's main state resets the timer. When on, staleness is measured from `last_updated`, so any update from the entity — including attribute-only changes and repeated same-value reports — counts as activity. Turn it on for devices that report frequently but rarely change value (e.g. a temperature or power sensor holding steady), which were previously flagged stale despite still reporting. Resolves #24.
 

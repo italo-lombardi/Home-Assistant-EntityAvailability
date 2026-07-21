@@ -159,7 +159,6 @@ class TestCombinedSensorBase:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -217,7 +216,7 @@ class TestCombinedSensorBase:
         sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
         active = sensor._active_coordinators()
         assert len(active) == 1
-        assert active[0] is coordinators[0]
+        assert coordinators[0] in active
 
     def test_active_coordinators_returns_all_when_all_loaded(
         self, mock_hass, combined_entry, coordinators
@@ -229,6 +228,80 @@ class TestCombinedSensorBase:
         }
         sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
         assert len(sensor._active_coordinators()) == 2
+
+    async def test_active_coordinators_late_subscribe(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """A coordinator absent at setup time is subscribed on first _active_coordinators() call."""
+        mock_hass.data[DOMAIN] = {"entry_a": coordinators[0]}
+
+        early_calls = []
+        late_calls = []
+        coordinators[0].async_add_listener = lambda cb: (
+            early_calls.append(cb) or (lambda: None)
+        )
+        coordinators[1].async_add_listener = lambda cb: (
+            late_calls.append(cb) or (lambda: None)
+        )
+
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Combined",
+            "combined",
+            ["entry_a", "entry_b"],
+        )
+        await sensor.async_added_to_hass()
+        assert "entry_a" in sensor._subscribed_entry_ids
+        assert "entry_b" not in sensor._subscribed_entry_ids
+        assert len(early_calls) == 1
+
+        mock_hass.data[DOMAIN]["entry_b"] = coordinators[1]
+        active = sensor._active_coordinators()
+
+        assert len(active) == 2
+        assert len(late_calls) == 1
+        assert "entry_b" in sensor._subscribed_entry_ids
+
+    async def test_source_group_reload_resubscribes(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When a source coordinator is replaced (group reload), combined re-subscribes."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+
+        unsub_calls = []
+        new_sub_calls = []
+
+        def _make_unsub(calls):
+            def _unsub():
+                calls.append(True)
+
+            return _unsub
+
+        coordinators[0].async_add_listener = lambda cb: _make_unsub(unsub_calls)
+        coordinators[1].async_add_listener = lambda cb: lambda: None
+
+        sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+        assert "entry_a" in sensor._subscribed_entry_ids
+
+        # Simulate group A reload: old coordinator fires its unsub → evicts entry_a
+        sensor._unsub_listeners[0]()
+        assert "entry_a" not in sensor._subscribed_entry_ids
+
+        new_coord = MagicMock(spec=coordinators[0].__class__)
+        new_coord.entry = coordinators[0].entry
+        new_coord.async_add_listener = lambda cb: (
+            new_sub_calls.append(cb) or (lambda: None)
+        )
+        mock_hass.data[DOMAIN]["entry_a"] = new_coord
+
+        sensor._active_coordinators()
+        assert "entry_a" in sensor._subscribed_entry_ids
+        assert len(new_sub_calls) == 1
 
     def test_available_true_when_at_least_one_coordinator_loaded(
         self, mock_hass, combined_entry, coordinators
@@ -268,7 +341,6 @@ class TestCombinedSensorBase:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             ["entry_a", "entry_b"],
         )
         attrs = sensor.extra_state_attributes
@@ -291,7 +363,6 @@ class TestCombinedGroupSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -390,7 +461,6 @@ class TestCombinedGroupSensor:
             combined,
             "Dup",
             "dup",
-            [coord_a, coord_shared],
             ["entry_a", "entry_shared"],
         )
         entities = sensor.extra_state_attributes["entities"]
@@ -468,7 +538,6 @@ class TestCombinedGroupSensor:
             combined_entry,
             "Combined",
             "combined",
-            [coord_a, coordinators[1]],
             ["entry_a", "entry_b"],
         )
         attrs = sensor.extra_state_attributes
@@ -524,7 +593,6 @@ class TestCombinedOfflineCountSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -602,7 +670,6 @@ class TestCombinedOfflineEntitiesSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -696,7 +763,6 @@ class TestCombinedLowBatterySensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -755,7 +821,6 @@ class TestCombinedLowBatteryCountSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -830,7 +895,6 @@ class TestStaleButHealthyBatteryNotLowBattery:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
         assert sensor.native_value == 0
@@ -851,7 +915,6 @@ class TestStaleButHealthyBatteryNotLowBattery:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
         assert sensor.native_value == 1
@@ -927,7 +990,6 @@ def _make_recently_offline_sensor(hass, entry, coordinators):
         entry,
         "Combined",
         "combined",
-        coordinators,
         [c.entry.entry_id for c in coordinators],
     )
 
@@ -938,7 +1000,6 @@ def _make_recently_recovered_sensor(hass, entry, coordinators):
         entry,
         "Combined",
         "combined",
-        coordinators,
         [c.entry.entry_id for c in coordinators],
     )
 
@@ -1288,7 +1349,6 @@ class TestCombinedSensorBaseCallbackFires:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1394,7 +1454,6 @@ class TestCombinedOfflineEntitiesSensorWithDeviceNames:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1565,7 +1624,6 @@ class TestFriendlyNameBranches:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1672,7 +1730,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1682,7 +1739,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1692,7 +1748,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1702,7 +1757,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 

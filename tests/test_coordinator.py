@@ -3395,3 +3395,90 @@ async def test_low_battery_and_stale_both_flagged(
     assert device_a.is_stale is True
     assert device_a.is_low_battery is True
     assert device_a.is_degraded is True
+
+
+# ---------------------------------------------------------------------------
+# Branch coverage: three missing coordinator branches
+# ---------------------------------------------------------------------------
+
+
+async def test_load_storage_aware_monitored_since_no_replace(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Aware monitored_since skips the tzinfo=UTC replace (316→318 False branch)."""
+    aware_ms = datetime.now(timezone.utc) - timedelta(hours=2)
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": False,
+                "monitored_since": aware_ms.isoformat(),
+                "offline_event_count": 1,
+                "total_offline_seconds": 60.0,
+            },
+        },
+    }
+    coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+    await coord._async_load_storage()
+    d = coord._device_states["binary_sensor.device_a"]
+    assert d.monitored_since is not None
+    assert d.monitored_since.tzinfo is not None
+
+
+async def test_save_storage_skips_clean_device(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Device with no interesting state is skipped in _async_save_storage (332→329 False branch)."""
+    from custom_components.entity_availability.models import DeviceState
+
+    coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=None)
+    coord._store.async_save = AsyncMock()
+    # Clean device: not offline, no cooldown, no recently_offline_at, no events, no monitored_since
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a"
+    )
+    await coord._async_save_storage()
+    saved = coord._store.async_save.call_args[0][0]
+    assert "binary_sensor.device_a" not in saved.get("device_states", {})
+
+
+async def test_staleness_skips_none_stale_ts(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """stale_ts=None skips staleness age check (494→509 False branch)."""
+    config = dict(mock_config_data)
+    config[CONF_STALENESS_THRESHOLD] = 10
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="test_entry_none_stale",
+        unique_id=f"{DOMAIN}_test_none_stale",
+    )
+    # State with last_changed=None → stale_ts will be None
+    state = State(
+        "binary_sensor.device_a",
+        "on",
+        {"friendly_name": "Device A"},
+        last_changed=None,
+        last_updated=None,
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_a", "on", {"friendly_name": "Device A"}
+    )
+    mock_hass.states._states["binary_sensor.device_a"] = state
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    device_a = coord.device_states["binary_sensor.device_a"]
+    assert device_a.is_stale is False
