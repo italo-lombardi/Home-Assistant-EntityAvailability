@@ -134,7 +134,6 @@ class TestCombinedGroupAnyOfflineBinarySensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -324,7 +323,6 @@ class TestCombinedGroupAnyOfflineBinarySensor:
             combined_entry,
             "Combined",
             "combined",
-            [coordinators[0]],  # only coord_a at setup time
             ["entry_a", "entry_b"],  # full desired set
         )
         await sensor.async_added_to_hass()
@@ -432,7 +430,6 @@ class TestCombinedBinarySensorCallbackFires:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 

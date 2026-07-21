@@ -32,14 +32,10 @@ async def async_setup_entry(
         group_slug = entry.entry_id[:8].lower()
     combined_entry_ids: list[str] = entry.data.get(CONF_COMBINED_GROUPS, [])
 
-    coordinators: list[EntityAvailabilityCoordinator] = [
-        hass.data[DOMAIN][eid] for eid in combined_entry_ids if eid in hass.data[DOMAIN]
-    ]
-
     async_add_entities(
         [
             CombinedGroupAnyOfflineBinarySensor(
-                hass, entry, group_name, group_slug, coordinators, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids
             )
         ]
     )
@@ -63,7 +59,6 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
         entry: ConfigEntry,
         group_name: str,
         group_slug: str,
-        coordinators: list[EntityAvailabilityCoordinator],
         combined_entry_ids: list[str],
     ) -> None:
         self.hass = hass

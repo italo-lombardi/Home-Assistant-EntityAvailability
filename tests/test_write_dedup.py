@@ -225,7 +225,6 @@ async def test_combined_sensor_dedup(
         combined_entry,
         "Combined",
         "combined",
-        [coord],
         [mock_config_entry.entry_id],
     )
 
@@ -281,7 +280,6 @@ async def test_combined_binary_sensor_dedup(
         combined_entry,
         "Combined",
         "combined",
-        [coord],
         [mock_config_entry.entry_id],
     )
 
@@ -669,7 +667,6 @@ async def test_each_combined_sensor_subclass_dedups(
         combined_entry,
         "Combined",
         "combined",
-        [coord],
         [mock_config_entry.entry_id],
     )
 
@@ -713,7 +710,6 @@ async def test_combined_sensor_listener_uses_self_after_revert(
         combined_entry,
         "Combined",
         "combined",
-        [coord],
         [mock_config_entry.entry_id],
     )
 
@@ -756,7 +752,6 @@ async def test_combined_binary_sensor_remove_resets_cache(
         combined_entry,
         "Combined",
         "combined",
-        [coord],
         [mock_config_entry.entry_id],
     )
 

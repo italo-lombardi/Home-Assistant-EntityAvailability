@@ -159,7 +159,6 @@ class TestCombinedSensorBase:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -250,7 +249,6 @@ class TestCombinedSensorBase:
             combined_entry,
             "Combined",
             "combined",
-            [coordinators[0]],
             ["entry_a", "entry_b"],
         )
         await sensor.async_added_to_hass()
@@ -303,7 +301,6 @@ class TestCombinedSensorBase:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             ["entry_a", "entry_b"],
         )
         attrs = sensor.extra_state_attributes
@@ -326,7 +323,6 @@ class TestCombinedGroupSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -425,7 +421,6 @@ class TestCombinedGroupSensor:
             combined,
             "Dup",
             "dup",
-            [coord_a, coord_shared],
             ["entry_a", "entry_shared"],
         )
         entities = sensor.extra_state_attributes["entities"]
@@ -503,7 +498,6 @@ class TestCombinedGroupSensor:
             combined_entry,
             "Combined",
             "combined",
-            [coord_a, coordinators[1]],
             ["entry_a", "entry_b"],
         )
         attrs = sensor.extra_state_attributes
@@ -559,7 +553,6 @@ class TestCombinedOfflineCountSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -637,7 +630,6 @@ class TestCombinedOfflineEntitiesSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -731,7 +723,6 @@ class TestCombinedLowBatterySensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -790,7 +781,6 @@ class TestCombinedLowBatteryCountSensor:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -865,7 +855,6 @@ class TestStaleButHealthyBatteryNotLowBattery:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
         assert sensor.native_value == 0
@@ -886,7 +875,6 @@ class TestStaleButHealthyBatteryNotLowBattery:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
         assert sensor.native_value == 1
@@ -962,7 +950,6 @@ def _make_recently_offline_sensor(hass, entry, coordinators):
         entry,
         "Combined",
         "combined",
-        coordinators,
         [c.entry.entry_id for c in coordinators],
     )
 
@@ -973,7 +960,6 @@ def _make_recently_recovered_sensor(hass, entry, coordinators):
         entry,
         "Combined",
         "combined",
-        coordinators,
         [c.entry.entry_id for c in coordinators],
     )
 
@@ -1323,7 +1309,6 @@ class TestCombinedSensorBaseCallbackFires:
             combined_entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1429,7 +1414,6 @@ class TestCombinedOfflineEntitiesSensorWithDeviceNames:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1600,7 +1584,6 @@ class TestFriendlyNameBranches:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1707,7 +1690,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1717,7 +1699,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1727,7 +1708,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
@@ -1737,7 +1717,6 @@ class TestCombinedAffectedAreasSensors:
             entry,
             "Combined",
             "combined",
-            coordinators,
             [c.entry.entry_id for c in coordinators],
         )
 
