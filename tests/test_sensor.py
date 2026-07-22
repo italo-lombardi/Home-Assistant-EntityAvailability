@@ -1391,7 +1391,7 @@ class TestAvailabilitySensorMinuteTruncation:
 
         assert all(t.second == 0 and t.microsecond == 0 for t in captured)
         # Both calls land on the same truncated minute
-        assert len({t for t in captured}) == 1
+        assert captured[0] == captured[-1]
 
 
 # ---------------------------------------------------------------------------
