@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from freezegun import freeze_time
+
 import pytest
 
 from homeassistant.components.sensor import SensorDeviceClass
@@ -1344,6 +1346,52 @@ class TestAvailabilitySensorQuantization:
         assert write.call_count < 10, (
             f"dedup failed to suppress sub-0.1% drift: {write.call_count} writes"
         )
+
+
+# ---------------------------------------------------------------------------
+# AvailabilitySensor — minute-resolution truncation
+# ---------------------------------------------------------------------------
+
+
+class TestAvailabilitySensorMinuteTruncation:
+    """``_truncated_now`` always returns second=0, microsecond=0."""
+
+    @freeze_time("2026-01-01 12:34:56.789012+00:00")
+    def test_truncated_now_strips_sub_minute(self, mock_coordinator, mock_hass):
+        """_truncated_now returns current minute with second=0, microsecond=0."""
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        now = sensor._truncated_now()
+        assert now.second == 0
+        assert now.microsecond == 0
+        assert now.hour == 12
+        assert now.minute == 34
+
+    @freeze_time("2026-01-01 12:34:56.789012+00:00")
+    def test_native_value_and_attrs_receive_same_truncated_now(
+        self, mock_coordinator, mock_hass
+    ):
+        """native_value and extra_state_attributes pass identical truncated now to storage."""
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        storage = mock_coordinator.availability_storage
+        captured = []
+
+        def _capture(_eid, _window, now):
+            captured.append(now)
+            return 100.0
+
+        with patch.object(storage, "get_availability", side_effect=_capture):
+            sensor.native_value
+            sensor.extra_state_attributes
+
+        assert all(t.second == 0 and t.microsecond == 0 for t in captured)
+        # Both calls land on the same truncated minute
+        assert captured[0] == captured[-1]
 
 
 # ---------------------------------------------------------------------------
