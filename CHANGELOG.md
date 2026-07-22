@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.3.13] - 2026-07-20
+## [0.3.13] - 2026-07-22
 
 ### Fixed
 - **Availability sensor recorder churn** — `AvailabilitySensor.native_value` and `extra_state_attributes` truncate `now` to minute resolution before computing the rolling window cutoff. Previously, sub-second precision advancing every 30s coordinator tick caused the computed % to drift fractionally on every update; even after 1-decimal rounding, high-churn groups wrote a new distinct value every ~35s (~2,400 writes/day per `_today` sensor, 821K total over 45 days across 17 groups). With minute truncation the cutoff moves at most once per minute, capping writes at 1,440/day per sensor. No user-visible impact: the 1-decimal display precision is preserved and the ≤59s window shift is smaller than the rounding resolution. - 2026-07-20
