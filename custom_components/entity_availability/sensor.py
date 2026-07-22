@@ -339,10 +339,14 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         self._attr_translation_key = f"availability_{window}"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
+    @staticmethod
+    def _truncated_now() -> datetime:
+        return datetime.now(timezone.utc).replace(second=0, microsecond=0)
+
     @property
     def native_value(self) -> float | None:
         """Return group availability % (1-decimal precision)."""
-        now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        now = self._truncated_now()
         storage = self.coordinator.availability_storage
 
         values: list[float] = []
@@ -369,7 +373,7 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         coordinator tick, defeating ``WriteDedupMixin`` even when the
         group-level rounded value was stable (v5.5 audit finding F-EA-1).
         """
-        now = datetime.now(timezone.utc).replace(second=0, microsecond=0)
+        now = self._truncated_now()
         storage = self.coordinator.availability_storage
         breakdown: dict[str, float | None] = {}
         for entity_id in self.coordinator.monitored_entities:
