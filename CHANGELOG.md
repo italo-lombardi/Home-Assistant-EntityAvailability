@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ## [0.3.13] - 2026-07-20
 
 ### Fixed
+- **Availability sensor recorder churn** — `AvailabilitySensor.native_value` and `extra_state_attributes` truncate `now` to minute resolution before computing the rolling window cutoff. Previously, sub-second precision advancing every 30s coordinator tick caused the computed % to drift fractionally on every update; even after 1-decimal rounding, high-churn groups wrote a new distinct value every ~35s (~2,400 writes/day per `_today` sensor, 821K total over 45 days across 17 groups). With minute truncation the cutoff moves at most once per minute, capping writes at 1,440/day per sensor. No user-visible impact: the 1-decimal display precision is preserved and the ≤59s window shift is smaller than the rounding resolution. - 2026-07-20
+
+### Fixed
 - **Combined group coordinator staleness** — combined sensors now resolve source coordinators from `hass.data` at every update instead of holding references captured at setup time. Coordinators that load after the combined entry (boot-order race) are automatically subscribed on first access (`_active_coordinators` late-subscribe path). `hasattr` guard replaced with a typed class-level `_on_coordinator_update: ... | None = None` annotation so the guard is safe even if properties are called before `async_added_to_hass`.
 - **Combined group config flow entry filter** — the "Groups to Include" selector in both the create and edit flows now only shows entries in `ConfigEntryState.LOADED` state, preventing partially-loaded or errored entries from appearing as valid options.
 - **`strings.json` out of sync** — `strings.json` was missing the `group` step, `selector.entry_type`, and `options` data descriptions introduced in 0.3.x. Synced to match `en.json`.
