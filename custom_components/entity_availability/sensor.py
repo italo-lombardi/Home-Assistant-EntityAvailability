@@ -609,8 +609,10 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             },
             "suppressed_until": {
                 eid: d.suppress_until.isoformat()
+                if d.suppress_until is not None
+                else None
                 for eid, d in states.items()
-                if d.is_suppressed and d.suppress_until is not None
+                if d.is_suppressed
             },
             "stale_entities": [
                 eid for eid, d in states.items() if d.is_stale and not d.is_suppressed

@@ -559,6 +559,32 @@ class TestGroupSummarySensor:
         assert attrs["suppressed"] == 1
         assert attrs["online"] == 1  # total(3) - offline(1) - suppressed(1) = 1
 
+    def test_suppressed_until_timed(self, mock_coordinator, mock_hass):
+        """Timed suppression appears in suppressed_until as ISO string."""
+        from datetime import datetime, timezone
+
+        until = datetime(2030, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+        mock_coordinator._device_states["binary_sensor.device_c"].is_suppressed = True
+        mock_coordinator._device_states["binary_sensor.device_c"].suppress_until = until
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["suppressed_until"]["binary_sensor.device_c"] == until.isoformat()
+
+    def test_suppressed_until_indefinite(self, mock_coordinator, mock_hass):
+        """Indefinite suppression appears in suppressed_until with None value."""
+        mock_coordinator._device_states["binary_sensor.device_c"].is_suppressed = True
+        mock_coordinator._device_states["binary_sensor.device_c"].suppress_until = None
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_c" in attrs["suppressed_until"]
+        assert attrs["suppressed_until"]["binary_sensor.device_c"] is None
+
     def test_attributes_low_battery_count(self, mock_coordinator, mock_hass):
         """Test low battery count in attributes."""
         mock_coordinator._device_states["binary_sensor.device_a"].is_low_battery = True

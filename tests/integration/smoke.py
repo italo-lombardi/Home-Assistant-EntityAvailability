@@ -590,6 +590,49 @@ for e in cfg['data']['entries']:
     )
 
     # ------------------------------------------------------------------
+    print(
+        "\n=== EC11: suppress_indefinitely + unsuppress round-trip ===",
+        flush=True,
+    )
+    restore_all(ctx)
+    indef_entity = ctx["entities"][1]
+    api(
+        "POST",
+        "/api/services/entity_availability/suppress_indefinitely",
+        {"entity_id": indef_entity, "group": ctx["title"]},
+    )
+    wait()
+    summary_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+    chk(
+        "EC11 suppressed=1 after suppress_indefinitely",
+        str(summary_attrs.get("suppressed")),
+        "1",
+    )
+    chk(
+        "EC11 suppressed_until[entity]=null (indefinite)",
+        summary_attrs.get("suppressed_until", {}).get(indef_entity),
+        None,
+    )
+    ss(indef_entity, "unavailable", {"friendly_name": "test"})
+    wait()
+    chk(
+        "EC11 offline_count=0 (indefinitely suppressed not counted)",
+        gs(f"{prefix}_offline_count").get("state"),
+        "0",
+    )
+    api(
+        "POST",
+        "/api/services/entity_availability/unsuppress",
+        {"entity_id": indef_entity, "group": ctx["title"]},
+    )
+    wait()
+    chk(
+        "EC11 suppressed=0 after unsuppress",
+        str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
+        "0",
+    )
+
+    # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)
     restore_all(ctx)
     print(

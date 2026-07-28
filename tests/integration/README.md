@@ -44,3 +44,4 @@ curl -s -X POST http://localhost:8123/auth/token \
 | EC8 | Combined: offline+low → low_battery drops, offline rises | #41 |
 | EC9 | Cleared battery map not re-suggested in options flow | #37 |
 | EC10 | Suppressed entity not counted in offline | core |
+| EC11 | suppress_indefinitely + unsuppress round-trip; suppressed_until=null for indefinite | #42 |
