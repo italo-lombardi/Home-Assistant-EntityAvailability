@@ -362,6 +362,11 @@ const cardStyles = css`
     text-align: right;
   }
 
+  .entity-legend-spacer {
+    width: 24px;
+    flex-shrink: 0;
+  }
+
   .entity-item {
     display: flex;
     align-items: center;
@@ -848,7 +853,7 @@ class EntityAvailabilityCard extends LitElement {
           <span class="entity-legend-name">Entity</span>
           <span class="entity-legend-status">State</span>
           ${hasBattery ? html`<span class="entity-legend-battery">Bat.</span>` : nothing}
-          ${this._config.show_suppress_toggle ? html`<span style="width:24px;flex-shrink:0"></span>` : nothing}
+          ${this._config.show_suppress_toggle ? html`<span class="entity-legend-spacer"></span>` : nothing}
         </div>
         ${items.map(
           (item) => html`
@@ -1059,7 +1064,7 @@ class EntityAvailabilityCard extends LitElement {
       { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) },
       { label: "Condition", value: suppressedUntil ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
-      suppressedUntil ? { label: "Suppressed", value: `until ${suppressedUntil}` } : null,
+      suppressedUntil ? { label: "Suppressed", value: suppressedUntil === "indefinitely" ? "Indefinitely" : `until ${suppressedUntil}` } : null,
     ].filter(Boolean);
   }
 
