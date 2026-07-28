@@ -404,10 +404,18 @@ data:
 Clear availability history **and** reliability counters (MTBF/MTTR, offline-event count) for an entity or an entire group. Availability % windows and the Reliability sensor start accumulating fresh.
 
 ```yaml
-# Reset a single entity
+# Reset a single entity (all groups that monitor it)
 service: entity_availability.reset_statistics
 data:
   entity_id: sensor.living_room_temperature
+```
+
+```yaml
+# Reset a single entity in a specific group only
+service: entity_availability.reset_statistics
+data:
+  entity_id: sensor.living_room_temperature
+  group: Security Devices
 ```
 
 ```yaml
