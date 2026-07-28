@@ -824,7 +824,7 @@ class EntityAvailabilityCard extends LitElement {
         </div>
         ${items.map(
           (item) => html`
-            <div class="entity-item" tabindex="0" role="button" @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") this._handleEntityClick(e, item.entityId); }}>
+            <div class="entity-item" tabindex="0" role="button" @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
               <div class="entity-dot ${item.dotColor}"></div>
               <span class="entity-name">${item.name}</span>
               <span class="entity-status">${item.status}</span>
