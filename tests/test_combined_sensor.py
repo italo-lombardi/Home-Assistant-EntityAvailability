@@ -806,6 +806,23 @@ class TestCombinedLowBatterySensor:
         assert attrs["count"] == 1
         assert attrs["devices"]["binary_sensor.a1"] == "8%"
 
+    def test_combined_low_battery_sensor_excludes_offline_devices(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Offline+low-battery device must not appear in native_value or extra_state_attributes."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 7
+        coordinators[0]._device_states["binary_sensor.a1"].is_offline = True
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.native_value == "None"
+        attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 0
+        assert "binary_sensor.a1" not in attrs["devices"]
+
 
 # ---------------------------------------------------------------------------
 # CombinedLowBatteryCountSensor
@@ -859,6 +876,20 @@ class TestCombinedLowBatteryCountSensor:
         coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
         coordinators[0]._device_states["binary_sensor.a1"].battery_level = 5
         coordinators[0]._device_states["binary_sensor.a1"].is_suppressed = True
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.native_value == 0
+
+    def test_combined_low_battery_count_excludes_offline_devices(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Offline+low-battery device must not be counted — it belongs in offline metrics."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 5
+        coordinators[0]._device_states["binary_sensor.a1"].is_offline = True
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.native_value == 0
 
