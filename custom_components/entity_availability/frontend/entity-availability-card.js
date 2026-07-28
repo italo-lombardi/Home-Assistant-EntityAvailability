@@ -1,9 +1,9 @@
 /**
- * Entity Availability Card v0.3.13
+ * Entity Availability Card v0.3.14
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.3.13";
+const CARD_VERSION = "0.3.14";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -365,6 +365,12 @@ const cardStyles = css`
     gap: 10px;
     position: relative;
     flex-wrap: wrap;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .entity-item:hover {
+    opacity: 0.8;
   }
 
   .entity-detail-inline {
@@ -818,7 +824,7 @@ class EntityAvailabilityCard extends LitElement {
         </div>
         ${items.map(
           (item) => html`
-            <div class="entity-item">
+            <div class="entity-item" tabindex="0" role="button" @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
               <div class="entity-dot ${item.dotColor}"></div>
               <span class="entity-name">${item.name}</span>
               <span class="entity-status">${item.status}</span>
@@ -1186,6 +1192,11 @@ class EntityAvailabilityCard extends LitElement {
 
   _toggleEntities() {
     this._entitiesExpanded = !this._entitiesExpanded;
+  }
+
+  _handleEntityClick(e, entityId) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
 
   async _handleSuppressAll(e) {
