@@ -114,7 +114,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            _LOGGER.warning("Entity %s not found in the specified group", entity_id)
 
     async def handle_suppress_indefinitely(call: ServiceCall) -> None:
         """Handle suppress_indefinitely service call."""
@@ -156,7 +156,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            _LOGGER.warning("Entity %s not found in the specified group", entity_id)
 
     async def handle_unsuppress(call: ServiceCall) -> None:
         """Handle unsuppress service call."""
@@ -198,7 +198,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            _LOGGER.warning("Entity %s not found in the specified group", entity_id)
 
     async def handle_reset_statistics(call: ServiceCall) -> None:
         """Handle reset_statistics service call."""
@@ -232,7 +232,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            _LOGGER.warning("Entity %s not found in the specified group", entity_id)
 
     hass.services.async_register(
         DOMAIN, SERVICE_SUPPRESS, handle_suppress, schema=SUPPRESS_SCHEMA
