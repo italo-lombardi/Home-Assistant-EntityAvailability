@@ -423,7 +423,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
             f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
             for coord in coords
             for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
         ]
         if not low:
             return "None"
@@ -440,7 +440,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
             d.entity_id: f"{d.battery_level}%"
             for coord in self._active_coordinators()
             for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
         }
         return {"devices": devices, "count": len(devices)}
 
@@ -465,7 +465,7 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
             1
             for coord in self._active_coordinators()
             for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
         )
 
 
