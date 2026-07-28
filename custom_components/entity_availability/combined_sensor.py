@@ -303,19 +303,21 @@ class CombinedGroupSensor(CombinedSensorBase):
             1 for d in merged_states.values() if d.is_stale and not d.is_suppressed
         )
         suppressed = sum(1 for d in merged_states.values() if d.is_suppressed)
-        # Dedup battery_powered: collect all mapped battery sensor IDs across groups
-        # into a set (battery_map path), or count via merged_states (battery_level path).
-        battery_sensor_ids: set[str] = set()
-        battery_level_eids: set[str] = set()
+        # Dedup battery_powered by collecting device entity_ids (not battery sensor ids).
+        # battery_map keys are device entity_ids; battery_level path is already keyed by eid.
+        # Using one set handles mixed-config groups without double-counting.
+        battery_powered_eids: set[str] = set()
         for coord in active:
             battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
             if battery_map:
-                battery_sensor_ids.update(sid for sid in battery_map.values() if sid)
+                battery_powered_eids.update(
+                    eid for eid, sid in battery_map.items() if sid
+                )
             else:
                 for eid, d in coord.device_states.items():
                     if d.battery_level is not None and not d.is_suppressed:
-                        battery_level_eids.add(eid)
-        battery_powered = len(battery_sensor_ids) + len(battery_level_eids)
+                        battery_powered_eids.add(eid)
+        battery_powered = len(battery_powered_eids)
         display_names: dict[str, str] = {}
         for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
