@@ -75,8 +75,19 @@ def ss(eid, state, attrs):
     return api("POST", f"/api/states/{eid}", {"state": state, "attributes": attrs})
 
 
-def wait(seconds=35):
+def wait(seconds=45):
     time.sleep(seconds)
+
+
+def wait_for(label, check_fn, expected, timeout=60, interval=5):
+    """Poll until check_fn() == expected or timeout."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        val = check_fn()
+        if str(val) == str(expected):
+            return val
+        time.sleep(interval)
+    return check_fn()
 
 
 # ---------------------------------------------------------------------------
@@ -338,8 +349,20 @@ def main():
     # ------------------------------------------------------------------
     print("=== EC1: entity unavailable → offline_count increments ===", flush=True)
     ss(ctx["entities"][0], "unavailable", {"friendly_name": "test"})
-    wait()
-    chk("offline_count=1", gs(f"{prefix}_offline_count").get("state"), "1")
+    chk(
+        "offline_count=1",
+        wait_for(
+            "offline_count",
+            lambda: gs(f"{prefix}_offline_count").get("state"),
+            "1",
+            timeout=90,
+        ),
+        "1",
+    )
+    if combined_prefix:
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+        chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
+        chk("EC1 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
     restore_all(ctx)
 
     # ------------------------------------------------------------------
@@ -356,8 +379,16 @@ def main():
             "unit_of_measurement": "%",
         },
     )
-    wait()
-    chk("low_battery_count=1", gs(f"{prefix}_low_battery_count").get("state"), "1")
+    chk(
+        "low_battery_count=1",
+        wait_for(
+            "low_battery_count",
+            lambda: gs(f"{prefix}_low_battery_count").get("state"),
+            "1",
+            timeout=90,
+        ),
+        "1",
+    )
     lb = gs(f"{prefix}_low_battery")
     chk("low_battery list count=1", lb.get("attributes", {}).get("count"), 1)
     chk(
@@ -376,6 +407,10 @@ def main():
         gs(f"{prefix}_offline_count").get("state"),
         "0",
     )
+    if combined_prefix:
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+        chk("EC4 combined low_battery=1", str(c_attrs.get("low_battery")), "1")
+        chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
 
     # ------------------------------------------------------------------
     print(
@@ -388,8 +423,16 @@ def main():
         "unavailable",
         {"friendly_name": "Test Battery", "device_class": "battery"},
     )
-    wait()
-    chk("offline_count=1", gs(f"{prefix}_offline_count").get("state"), "1")
+    chk(
+        "offline_count=1",
+        wait_for(
+            "offline_count",
+            lambda: gs(f"{prefix}_offline_count").get("state"),
+            "1",
+            timeout=90,
+        ),
+        "1",
+    )
     chk(
         "low_battery_count=0 (offline excluded)",
         gs(f"{prefix}_low_battery_count").get("state"),
@@ -407,6 +450,10 @@ def main():
         gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
         0,
     )
+    if combined_prefix:
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+        chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")
+        chk("EC5 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
 
     # ------------------------------------------------------------------
     print("\n=== EC6: battery replaced, back online → all clear ===", flush=True)
@@ -438,6 +485,10 @@ def main():
         str(gs_attrs.get("battery_levels", {}).get(battery_entity)),
         "90",
     )
+    if combined_prefix:
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+        chk("EC6 combined offline=0", str(c_attrs.get("offline")), "0")
+        chk("EC6 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
 
     # ------------------------------------------------------------------
     if combined_prefix:

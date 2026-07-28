@@ -4,11 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added
-- **Card: per-entity suppress toggle (opt-in)** — new card config key `show_suppress_toggle` (default `false`). When enabled, each entity row shows a bell-off icon button. Click suppresses the entity indefinitely; click the orange bell to unsuppress. Configurable from the card editor under "Show Per-Entity Suppress Toggle". Related to #34.
-
 ### Fixed
+- **Suppress/unsuppress services now group-scoped when `group` is provided with `entity_id`** — previously, calling `suppress`, `suppress_indefinitely`, or `unsuppress` with both `entity_id` and `group` would suppress/unsuppress the entity in **all groups** that monitor it. The `group` parameter is now respected: the action is scoped to that group's coordinator only. This affects the card's per-entity bell toggle, Suppress All, and Unsuppress All buttons — all now pass the card's configured group.
 - **`suppressed_until` attribute now includes indefinitely-suppressed entities** — previously, entities suppressed with no expiry were absent from the `suppressed_until` sensor attribute. They now appear with value `null` (Python `None`, JSON `null`), enabling automations and the card to correctly detect and display their suppressed state.
+
+### Added
+- **Card: per-entity suppress toggle (opt-in)** — new card config key `show_suppress_toggle` (default `false`). When enabled, each entity row shows a bell-off icon button. Click suppresses the entity indefinitely within the card's group; click the orange bell to unsuppress. Configurable from the card editor under "Show Per-Entity Suppress Toggle". Related to #34.
 
 ### Breaking Changes
 - **`suppressed_until` value for indefinite suppression is now `null`** — the attribute previously omitted indefinitely-suppressed entities entirely. They now appear with a `null` value. Automations or templates that test truthiness of the value (e.g. `if suppressed_until.get(entity_id)`) will now evaluate as `False` for indefinitely-suppressed entities even though they are suppressed. Use `entity_id in suppressed_until` (key-presence check) to correctly detect any suppressed entity regardless of type.

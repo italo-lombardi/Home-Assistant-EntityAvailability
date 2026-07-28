@@ -101,6 +101,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
+                continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.suppress_entity(entity_id, until)
                 coordinator.async_set_updated_data(coordinator.data)
@@ -137,6 +143,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
+                continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.suppress_entity(entity_id, until=None)
                 coordinator.async_set_updated_data(coordinator.data)
@@ -172,6 +184,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         found = False
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
+                continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
                 continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.unsuppress_entity(entity_id)

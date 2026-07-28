@@ -327,11 +327,20 @@ The integration samples each entity's state in the background. If online, that t
 Temporarily exclude an entity (or all entities in a group) from monitoring and offline alerts.
 
 ```yaml
-# Suppress a single entity
+# Suppress a single entity (all groups that monitor it)
 service: entity_availability.suppress
 data:
   entity_id: switch.garden_lights
   duration: 120  # minutes (default: 60, max: 10080)
+```
+
+```yaml
+# Suppress a single entity in a specific group only
+service: entity_availability.suppress
+data:
+  entity_id: switch.garden_lights
+  group: Security Devices
+  duration: 120
 ```
 
 ```yaml
@@ -342,7 +351,7 @@ data:
   duration: 60
 ```
 
-> **Group field:** In the Actions UI, the `group` field shows a dropdown of all Entity Availability config entries. In YAML automations you can use either the group name (e.g. `security_devices`) or the config entry ID — both are accepted.
+> **Group field:** When both `entity_id` and `group` are provided, the suppression is scoped to that group only — the entity remains monitored in any other groups it belongs to. When only `entity_id` is provided, the entity is suppressed in all groups that monitor it. In the Actions UI, the `group` field shows a dropdown of all Entity Availability config entries. In YAML automations you can use either the group name or the config entry ID.
 
 **Use case:** Suppress monitoring during planned maintenance, firmware updates, or known downtime.
 
@@ -520,7 +529,7 @@ availability_colors:
 | `show_entities` | `true` | Show expandable entity list (regular) or group breakdown table (combined) |
 | `entities_expanded` | `false` | Start entity list / group breakdown expanded |
 | `show_actions` | `false` | Show Suppress/Unsuppress All buttons (regular groups only). **Suppress All** suppresses only currently-offline entities for 60 minutes. To suppress online entities individually, use `show_suppress_toggle`. |
-| `show_suppress_toggle` | `false` | Show per-entity suppress/unsuppress icon button on each entity row. Click suppresses indefinitely; click the orange bell to unsuppress. (regular groups only) |
+| `show_suppress_toggle` | `false` | Show per-entity suppress/unsuppress icon button on each entity row. Click suppresses indefinitely within this card's group only; click the orange bell to unsuppress. (regular groups only) |
 | `entity_detail` | `"off"` | `"off"` / `"tooltip"` (hover to see details) / `"inline"` (always show details). In compact mode with inline, shows state + last-changed time. Timestamp states are formatted as readable dates. (regular groups only) |
 | `entity_filter` | `"all"` | Filter entity list: `"all"`, `"offline"` (problems only: offline/stale/low battery), `"online"` (healthy only). Section title and count update to reflect filter (e.g., "Offline Entities (2/6)"). (regular groups only) |
 | `compact` | `false` | Reduced padding mode |
