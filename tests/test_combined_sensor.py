@@ -696,6 +696,8 @@ class TestCombinedGroupSensor:
             attrs = sensor.extra_state_attributes
         assert attrs["groups"]["entry_a"]["entity_id"] is None
         assert any("entry_a" in r.message for r in caplog.records)
+
+    def test_unique_id(self, mock_hass, combined_entry, coordinators):
         """unique_id uses entry_id + suffix."""
         mock_hass.data[DOMAIN] = {}
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
