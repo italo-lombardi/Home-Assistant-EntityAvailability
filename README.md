@@ -519,7 +519,7 @@ availability_colors:
 | `show_availability` | `true` | Show availability progress bars (regular groups only) |
 | `show_entities` | `true` | Show expandable entity list (regular) or group breakdown table (combined) |
 | `entities_expanded` | `false` | Start entity list / group breakdown expanded |
-| `show_actions` | `false` | Show Suppress/Unsuppress All buttons (regular groups only) |
+| `show_actions` | `false` | Show Suppress/Unsuppress All buttons (regular groups only). **Suppress All** suppresses only currently-offline entities for 60 minutes. To suppress online entities individually, use `show_suppress_toggle`. |
 | `show_suppress_toggle` | `false` | Show per-entity suppress/unsuppress icon button on each entity row. Click suppresses indefinitely; click the orange bell to unsuppress. (regular groups only) |
 | `entity_detail` | `"off"` | `"off"` / `"tooltip"` (hover to see details) / `"inline"` (always show details). In compact mode with inline, shows state + last-changed time. Timestamp states are formatted as readable dates. (regular groups only) |
 | `entity_filter` | `"all"` | Filter entity list: `"all"`, `"offline"` (problems only: offline/stale/low battery), `"online"` (healthy only). Section title and count update to reflect filter (e.g., "Offline Entities (2/6)"). (regular groups only) |
