@@ -678,7 +678,24 @@ class TestCombinedGroupSensor:
         assert "missing_groups" in attrs
         assert "entry_b" in attrs["missing_groups"]
 
-    def test_unique_id(self, mock_hass, combined_entry, coordinators):
+    def test_groups_entity_id_none_when_summary_not_registered(
+        self, mock_hass, combined_entry, coordinators, caplog
+    ):
+        """groups[entry_id]['entity_id'] is None and a warning is logged when the group summary sensor is not in the entity registry."""
+        import logging
+
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        with caplog.at_level(
+            logging.WARNING,
+            logger="custom_components.entity_availability.combined_sensor",
+        ):
+            attrs = sensor.extra_state_attributes
+        assert attrs["groups"]["entry_a"]["entity_id"] is None
+        assert any("entry_a" in r.message for r in caplog.records)
         """unique_id uses entry_id + suffix."""
         mock_hass.data[DOMAIN] = {}
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
