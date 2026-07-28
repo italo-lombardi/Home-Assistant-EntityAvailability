@@ -240,7 +240,9 @@ class CombinedGroupSensor(CombinedSensorBase):
                 1 for d in states.values() if d.is_stale and not d.is_suppressed
             )
             g_low_battery = sum(
-                1 for d in states.values() if d.is_low_battery and not d.is_suppressed
+                1
+                for d in states.values()
+                if d.is_low_battery and not d.is_suppressed and not d.is_offline
             )
             battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
             if battery_map:
@@ -266,7 +268,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             low_battery_entities += [
                 d.entity_id
                 for d in states.values()
-                if d.is_low_battery and not d.is_suppressed
+                if d.is_low_battery and not d.is_suppressed and not d.is_offline
             ]
             gname = coord.group_name
             groups[coord.entry.entry_id] = {

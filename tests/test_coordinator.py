@@ -3400,9 +3400,11 @@ async def test_low_battery_and_stale_both_flagged(
 async def test_low_battery_flag_persists_when_device_goes_offline(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """#33: is_low_battery stays True after device goes offline.
+    """#33: is_low_battery stays True after device goes offline AND cooldown expires.
 
     Covers: battery_low computed before is_offline guard removed — flag persists.
+    Cycle 2 is still in cooldown (is_offline=False); Cycle 3 backdates cooldown_start
+    to force is_offline=True, which is when the old code would have cleared the flag.
     """
     hass = mock_hass
 
@@ -3421,10 +3423,21 @@ async def test_low_battery_flag_persists_when_device_goes_offline(
         await coord._async_update_data()
         assert coord.device_states["binary_sensor.device_a"].is_low_battery is True
 
-        # Cycle 2: device goes unavailable (flat battery → offline)
+        # Cycle 2: device goes unavailable — still in cooldown, is_offline=False
         hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
         await coord._async_update_data()
-        assert coord.device_states["binary_sensor.device_a"].is_low_battery is True
+        device = coord.device_states["binary_sensor.device_a"]
+        assert device.cooldown_start is not None
+        assert device.is_offline is False  # still in cooldown
+        assert device.is_low_battery is True
+
+        # Cycle 3: backdate cooldown_start to force is_offline=True — the bug
+        # manifests here: old code `(not True) and battery_low = False` clears flag
+        device.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=120)
+        await coord._async_update_data()
+        device = coord.device_states["binary_sensor.device_a"]
+        assert device.is_offline is True
+        assert device.is_low_battery is True  # must survive offline transition
 
 
 async def test_last_known_battery_level_retained_when_unavailable(
@@ -3455,6 +3468,40 @@ async def test_last_known_battery_level_retained_when_unavailable(
         hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
         await coord._async_update_data()
         assert coord.device_states["binary_sensor.device_a"].battery_level == 12
+
+
+async def test_battery_state_persisted_and_restored(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """battery_level and is_low_battery survive a storage save+load cycle."""
+    from custom_components.entity_availability.models import DeviceState
+
+    coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=None)
+    coord._store.async_save = AsyncMock()
+
+    device = DeviceState(entity_id="binary_sensor.device_a")
+    device.is_offline = True
+    device.is_low_battery = True
+    device.battery_level = 7
+    coord._device_states["binary_sensor.device_a"] = device
+
+    await coord._async_save_storage()
+    saved = coord._store.async_save.call_args[0][0]
+    ds = saved["device_states"]["binary_sensor.device_a"]
+    assert ds["battery_level"] == 7
+    assert ds["is_low_battery"] is True
+
+    # Restore into a fresh coordinator
+    coord2 = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    coord2._store = MagicMock()
+    coord2._store.async_load = AsyncMock(return_value=saved)
+    coord2._store.async_save = AsyncMock()
+    await coord2._async_load_storage()
+    d2 = coord2._device_states["binary_sensor.device_a"]
+    assert d2.battery_level == 7
+    assert d2.is_low_battery is True
 
 
 # ---------------------------------------------------------------------------

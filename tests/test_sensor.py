@@ -274,6 +274,7 @@ class TestLowBatteryCountSensor:
         mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 10
         mock_coordinator._device_states["binary_sensor.device_b"].is_low_battery = True
         mock_coordinator._device_states["binary_sensor.device_b"].battery_level = 5
+        mock_coordinator._device_states["binary_sensor.device_b"].is_offline = False
         sensor = LowBatteryCountSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
@@ -307,6 +308,17 @@ class TestLowBatteryCountSensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.unique_id == "test_entry_id_low_battery_count"
+
+    def test_excludes_offline_low_battery_device(self, mock_coordinator, mock_hass):
+        """Offline device with low battery must NOT be counted — it shows in offline metrics."""
+        mock_coordinator._device_states["binary_sensor.device_a"].is_low_battery = True
+        mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 5
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = True
+        sensor = LowBatteryCountSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == 0
 
 
 class TestStaleButHealthyBatteryNotLowBattery:

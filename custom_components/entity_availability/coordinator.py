@@ -320,6 +320,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         device.monitored_since = None
                     device.offline_event_count = ds.get("offline_event_count", 0)
                     device.total_offline_seconds = ds.get("total_offline_seconds", 0.0)
+                    device.battery_level = ds.get("battery_level")
+                    device.is_low_battery = ds.get("is_low_battery", False)
                     if entity_id in self._entities:
                         self._device_states[entity_id] = device
 
@@ -335,6 +337,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 or device.recently_offline_at is not None
                 or device.offline_event_count > 0
                 or device.monitored_since is not None
+                or device.is_low_battery
             ):
                 device_states_data[entity_id] = {
                     "is_offline": device.is_offline,
@@ -352,6 +355,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     else None,
                     "offline_event_count": device.offline_event_count,
                     "total_offline_seconds": device.total_offline_seconds,
+                    "battery_level": device.battery_level,
+                    "is_low_battery": device.is_low_battery,
                 }
         data = {
             "availability": self._availability_storage.to_dict(),
