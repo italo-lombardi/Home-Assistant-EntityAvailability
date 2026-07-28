@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Card: per-entity suppress toggle (opt-in)** — new card config key `show_suppress_toggle` (default `false`). When enabled, each entity row shows a bell-off icon button. Click suppresses the entity indefinitely; click the orange bell to unsuppress. Configurable from the card editor under "Show Per-Entity Suppress Toggle". Related to #34.
+
+### Fixed
+- **`suppressed_until` attribute now includes indefinitely-suppressed entities** — previously, entities suppressed with no expiry were absent from the `suppressed_until` sensor attribute. They now appear with value `"indefinite"`, enabling automations and the card to correctly detect and display their suppressed state.
+
 ## [0.3.14] - 2026-07-28
 
 ### Fixed

@@ -610,7 +610,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "suppressed_until": {
                 eid: d.suppress_until.isoformat()
                 if d.suppress_until is not None
-                else "indefinite"
+                else None
                 for eid, d in states.items()
                 if d.is_suppressed
             },
