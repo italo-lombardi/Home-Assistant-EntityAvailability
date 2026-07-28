@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.3.15] - 2026-07-28
+## [0.3.14] - 2026-07-28
 
 ### Fixed
 - **Suppress/unsuppress services now group-scoped when `group` is provided with `entity_id`** — previously, calling `suppress`, `suppress_indefinitely`, or `unsuppress` with both `entity_id` and `group` would suppress/unsuppress the entity in **all groups** that monitor it. The `group` parameter is now respected: the action is scoped to that group's coordinator only. This affects the card's per-entity bell toggle, Suppress All, and Unsuppress All buttons — all now pass the card's configured group.
@@ -11,23 +11,19 @@ All notable changes to this project will be documented in this file.
 - **Combined sensor `battery_powered` count deduplicated** — `battery_powered` was double-counted when the same entity appeared in multiple source groups. Now uses a set of unique entity IDs across all groups.
 - **Card: Space key no longer scrolls page on focused entity rows** — `preventDefault()` is now called on Space `keydown` to suppress browser scroll, while the click action still fires on `keyup` per WAI-ARIA spec.
 - **Card: entity click guard against missing entity ID** — `_handleEntityClick` returns early if `entityId` is not a non-empty string, preventing a malformed `hass-more-info` event.
-
-### Added
-- **Card: per-entity suppress toggle (opt-in)** — new card config key `show_suppress_toggle` (default `false`). When enabled, each entity row shows a bell-off icon button. Click suppresses the entity indefinitely within the card's group; click the orange bell to unsuppress. Configurable from the card editor under "Show Per-Entity Suppress Toggle". Related to #34.
-
-### Breaking Changes
-- **`suppressed_until` value for indefinite suppression is now `null`** — the attribute previously omitted indefinitely-suppressed entities entirely. They now appear with a `null` value. Automations or templates that test truthiness of the value (e.g. `if suppressed_until.get(entity_id)`) will now evaluate as `False` for indefinitely-suppressed entities even though they are suppressed. Use `entity_id in suppressed_until` (key-presence check) to correctly detect any suppressed entity regardless of type.
-
-## [0.3.14] - 2026-07-28
-
-### Fixed
 - **Battery mapping: cleared entries no longer re-populated** — explicitly clearing a battery entity mapping in the options flow now persists correctly. Previously, a cleared mapping (stored as `""`) was treated identically to "never configured", so auto-detection re-ran on the next visit and silently re-added the removed mapping. The options flow now distinguishes between an explicitly-cleared entry and one that was never set, so cleared mappings stay cleared. Resolves #38. Thanks to @dimatx for the fix.
 - **Low battery flag retained when device goes offline** — when a battery-powered device goes completely offline, its last-known battery level and low-battery flag are now preserved. Previously, the low-battery alert was silently cleared when the device became unavailable. Battery level and flag now persist across coordinator cycles and HA restarts. Offline+low-battery devices are counted under offline metrics only — not double-counted as both offline and low battery. Resolves #33.
 - **Combined sensor counts deduplicated across shared entities** — when the same entity belongs to multiple groups included in a combined sensor, offline and low-battery counts were summed per-group, causing double-counting. Counts are now derived from the deduplicated entity lists, matching the offline_entities and low_battery_entities attribute values.
 
+### Added
+- **Card: per-entity suppress toggle (opt-in)** — new card config key `show_suppress_toggle` (default `false`). When enabled, each entity row shows a bell-off icon button. Click suppresses the entity indefinitely within the card's group; click the orange bell to unsuppress. Configurable from the card editor under "Show Per-Entity Suppress Toggle". Related to #34.
+
 ### Changed
 - **Card: entity rows are now clickable** — clicking any entity row in the monitoring card opens the HA more-info dialog for that entity, providing quick access to state history, attributes, and device controls without leaving the dashboard. Keyboard navigation supported (Enter/Space). Resolves #36.
 - **Card: combined group rows are now clickable** — clicking a group row in the combined card's group breakdown opens the HA more-info dialog for that group's summary sensor.
+
+### Breaking Changes
+- **`suppressed_until` value for indefinite suppression is now `null`** — the attribute previously omitted indefinitely-suppressed entities entirely. They now appear with a `null` value. Automations or templates that test truthiness of the value (e.g. `if suppressed_until.get(entity_id)`) will now evaluate as `False` for indefinitely-suppressed entities even though they are suppressed. Use `entity_id in suppressed_until` (key-presence check) to correctly detect any suppressed entity regardless of type.
 
 ## [0.3.13] - 2026-07-22
 
