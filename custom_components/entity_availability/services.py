@@ -62,26 +62,13 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         return
 
     def _find_coordinator(group: str):
-        """Find coordinator by group name, slug, or config entry ID."""
-        group_slug = group.lower().replace(" ", "_")
+        """Find coordinator by group name or config entry ID."""
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
-            if (
-                coordinator.group_name == group
-                or coordinator.entry.entry_id == group
-                or coordinator.group_name.lower().replace(" ", "_") == group_slug
-            ):
+            if coordinator.group_name == group or coordinator.entry.entry_id == group:
                 return coordinator
         return None
-
-    def _matches_group(coordinator: EntityAvailabilityCoordinator, group: str) -> bool:
-        group_slug = group.lower().replace(" ", "_")
-        return (
-            coordinator.group_name == group
-            or coordinator.entry.entry_id == group
-            or coordinator.group_name.lower().replace(" ", "_") == group_slug
-        )
 
     async def handle_suppress(call: ServiceCall) -> None:
         """Handle suppress service call."""
@@ -114,7 +101,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
-            if group and not _matches_group(coordinator, group):
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
                 continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.suppress_entity(entity_id, until)
@@ -155,7 +146,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
-            if group and not _matches_group(coordinator, group):
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
                 continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.suppress_entity(entity_id, until=None)
@@ -196,7 +191,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
-            if group and not _matches_group(coordinator, group):
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
                 continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.unsuppress_entity(entity_id)
@@ -236,7 +235,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
-            if group and not _matches_group(coordinator, group):
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
                 continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.reset_statistics([entity_id])
