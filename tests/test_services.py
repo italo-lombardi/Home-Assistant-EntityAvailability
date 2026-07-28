@@ -127,7 +127,7 @@ async def test_suppress_entity_not_found_logs_warning(setup_services, caplog) ->
             blocking=True,
         )
 
-    assert "not found in the specified group" in caplog.text
+    assert "not found in any monitored group" in caplog.text
 
 
 async def test_unsuppress_entity_not_found_logs_warning(setup_services, caplog) -> None:
@@ -142,7 +142,7 @@ async def test_unsuppress_entity_not_found_logs_warning(setup_services, caplog) 
             blocking=True,
         )
 
-    assert "not found in the specified group" in caplog.text
+    assert "not found in any monitored group" in caplog.text
 
 
 async def test_services_registered_only_once(
@@ -260,7 +260,7 @@ async def test_suppress_indefinitely_unknown_entity_logs_warning(
             blocking=True,
         )
 
-    assert "not found in the specified group" in caplog.text
+    assert "not found in any monitored group" in caplog.text
 
 
 async def test_suppress_indefinitely_unknown_group_logs_warning(
@@ -642,7 +642,7 @@ async def test_reset_statistics_unknown_entity(setup_services, caplog) -> None:
             {ATTR_ENTITY_ID: "binary_sensor.nope"},
             blocking=True,
         )
-    assert "not found in the specified group" in caplog.text
+    assert "not found in any monitored group" in caplog.text
 
 
 async def test_suppress_with_group_scopes_to_that_group(
