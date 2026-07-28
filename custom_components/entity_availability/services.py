@@ -226,6 +226,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
+                continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.reset_statistics([entity_id])
                 _LOGGER.info("Reset statistics for %s", entity_id)

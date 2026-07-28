@@ -819,3 +819,61 @@ async def test_unsuppress_with_group_scopes_to_that_group(
     )
     assert coord_a.device_states["binary_sensor.device_a"].is_suppressed is False
     assert coord_b.device_states["binary_sensor.device_a"].is_suppressed is True
+
+
+async def test_reset_statistics_with_group_scopes_to_that_group(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """reset_statistics with entity_id+group only resets in the named group."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_rst_a",
+        unique_id=f"{DOMAIN}_entry_rst_a",
+    )
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_rst_b",
+        unique_id=f"{DOMAIN}_entry_rst_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_a._device_states["binary_sensor.device_a"].offline_event_count = 5
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_b._device_states["binary_sensor.device_a"].offline_event_count = 3
+        coord_b.data = None
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["entry_rst_a"] = coord_a
+    hass.data[DOMAIN]["entry_rst_b"] = coord_b
+    await async_setup_services(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        "reset_statistics",
+        {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "Group A"},
+        blocking=True,
+    )
+    assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
+    assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 3

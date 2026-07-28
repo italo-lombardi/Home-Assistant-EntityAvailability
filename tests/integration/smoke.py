@@ -79,7 +79,7 @@ def wait(seconds=45):
     time.sleep(seconds)
 
 
-def wait_for(label, check_fn, expected, timeout=60, interval=5):
+def wait_for(check_fn, expected, timeout=60, interval=5):
     """Poll until check_fn() == expected or timeout."""
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -352,7 +352,6 @@ def main():
     chk(
         "offline_count=1",
         wait_for(
-            "offline_count",
             lambda: gs(f"{prefix}_offline_count").get("state"),
             "1",
             timeout=90,
@@ -382,7 +381,6 @@ def main():
     chk(
         "low_battery_count=1",
         wait_for(
-            "low_battery_count",
             lambda: gs(f"{prefix}_low_battery_count").get("state"),
             "1",
             timeout=90,
@@ -426,7 +424,6 @@ def main():
     chk(
         "offline_count=1",
         wait_for(
-            "offline_count",
             lambda: gs(f"{prefix}_offline_count").get("state"),
             "1",
             timeout=90,
