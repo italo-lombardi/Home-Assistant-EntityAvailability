@@ -101,6 +101,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
+                continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.suppress_entity(entity_id, until)
                 coordinator.async_set_updated_data(coordinator.data)
@@ -108,7 +114,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            if group:
+                _LOGGER.warning("Entity %s not found in group %s", entity_id, group)
+            else:
+                _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
 
     async def handle_suppress_indefinitely(call: ServiceCall) -> None:
         """Handle suppress_indefinitely service call."""
@@ -137,6 +146,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
+                continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.suppress_entity(entity_id, until=None)
                 coordinator.async_set_updated_data(coordinator.data)
@@ -144,7 +159,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            if group:
+                _LOGGER.warning("Entity %s not found in group %s", entity_id, group)
+            else:
+                _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
 
     async def handle_unsuppress(call: ServiceCall) -> None:
         """Handle unsuppress service call."""
@@ -173,6 +191,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
+                continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.unsuppress_entity(entity_id)
                 coordinator.async_set_updated_data(coordinator.data)
@@ -180,7 +204,10 @@ async def async_setup_services(hass: HomeAssistant) -> None:
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            if group:
+                _LOGGER.warning("Entity %s not found in group %s", entity_id, group)
+            else:
+                _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
 
     async def handle_reset_statistics(call: ServiceCall) -> None:
         """Handle reset_statistics service call."""
@@ -208,13 +235,22 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue
+            if (
+                group
+                and coordinator.group_name != group
+                and coordinator.entry.entry_id != group
+            ):
+                continue
             if entity_id in coordinator.monitored_entities:
                 coordinator.reset_statistics([entity_id])
                 _LOGGER.info("Reset statistics for %s", entity_id)
                 found = True
 
         if not found:
-            _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
+            if group:
+                _LOGGER.warning("Entity %s not found in group %s", entity_id, group)
+            else:
+                _LOGGER.warning("Entity %s not found in any monitored group", entity_id)
 
     hass.services.async_register(
         DOMAIN, SERVICE_SUPPRESS, handle_suppress, schema=SUPPRESS_SCHEMA

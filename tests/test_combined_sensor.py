@@ -473,6 +473,46 @@ class TestCombinedGroupSensor:
             "binary_sensor.shared",
         }
 
+    def test_counts_deduplicated_when_entity_shared(self, mock_hass):
+        """Scalar counts (offline, online, total) are not doubled for shared entities."""
+        entry_a = _make_group_entry("entry_a", "Group A", ["binary_sensor.a1"])
+        shared_entry = _make_group_entry(
+            "entry_shared", "Shared Group", ["binary_sensor.a1", "binary_sensor.shared"]
+        )
+        combined = _make_combined_entry(
+            "combined_dup", "Dup", ["entry_a", "entry_shared"]
+        )
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", is_offline=True
+                ),
+            }
+            coord_shared = EntityAvailabilityCoordinator(mock_hass, shared_entry)
+            coord_shared._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", is_offline=True
+                ),
+                "binary_sensor.shared": DeviceState(entity_id="binary_sensor.shared"),
+            }
+
+        mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_shared": coord_shared}
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined,
+            "Dup",
+            "dup",
+            ["entry_a", "entry_shared"],
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["total_entities"] == 2, "a1 + shared, deduped"
+        assert attrs["offline"] == 1, "a1 shared across groups must count once"
+        assert attrs["online"] == 1, "shared entity online count must not double"
+
     def test_attributes_battery_powered_via_device_states(
         self, mock_hass, combined_entry, coordinators
     ):
@@ -557,6 +597,78 @@ class TestCombinedGroupSensor:
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.extra_state_attributes["battery_powered"] == 0
 
+    def test_battery_powered_deduplicated_via_device_states(
+        self, mock_hass, group_entry_a
+    ):
+        """battery_powered is 1 when same entity with battery_level appears in two groups."""
+        shared_entry = _make_group_entry(
+            "entry_shared", "Shared", ["binary_sensor.a1", "binary_sensor.shared"]
+        )
+        combined = _make_combined_entry(
+            "combined_bat", "Bat", ["entry_a", "entry_shared"]
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, group_entry_a)
+            coord_a._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", battery_level=80
+                ),
+            }
+            coord_shared = EntityAvailabilityCoordinator(mock_hass, shared_entry)
+            coord_shared._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", battery_level=80
+                ),
+                "binary_sensor.shared": DeviceState(entity_id="binary_sensor.shared"),
+            }
+        mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_shared": coord_shared}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "Bat", "bat", ["entry_a", "entry_shared"]
+        )
+        assert sensor.extra_state_attributes["battery_powered"] == 1
+
+    def test_battery_powered_deduplicated_mixed_config(self, mock_hass):
+        """battery_powered counts entity once when one group uses battery_map and another uses battery_level for the same device."""
+        entry_map = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group Map",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Group Map",
+                CONF_ENTITIES: ["binary_sensor.a1"],
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_BATTERY_ENTITY_MAP: {"binary_sensor.a1": "sensor.a1_bat"},
+            },
+            entry_id="entry_map",
+        )
+        entry_level = _make_group_entry(
+            "entry_level", "Group Level", ["binary_sensor.a1"]
+        )
+        combined = _make_combined_entry(
+            "combined_mix", "Mix", ["entry_map", "entry_level"]
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_map = EntityAvailabilityCoordinator(mock_hass, entry_map)
+            coord_map._device_states = {
+                "binary_sensor.a1": DeviceState(entity_id="binary_sensor.a1"),
+            }
+            coord_level = EntityAvailabilityCoordinator(mock_hass, entry_level)
+            coord_level._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", battery_level=75
+                ),
+            }
+        mock_hass.data[DOMAIN] = {"entry_map": coord_map, "entry_level": coord_level}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "Mix", "mix", ["entry_map", "entry_level"]
+        )
+        assert sensor.extra_state_attributes["battery_powered"] == 1
+
     def test_attributes_missing_groups(self, mock_hass, combined_entry, coordinators):
         """missing_groups attribute present when a source group is not in hass.data."""
         # Only load entry_a
@@ -565,6 +677,33 @@ class TestCombinedGroupSensor:
         attrs = sensor.extra_state_attributes
         assert "missing_groups" in attrs
         assert "entry_b" in attrs["missing_groups"]
+
+    def test_groups_entity_id_none_when_summary_not_registered(
+        self, mock_hass, combined_entry, coordinators, caplog
+    ):
+        """groups[entry_id]['entity_id'] is None and a warning is logged when the group summary sensor is not in the entity registry."""
+        import logging
+
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        registry_mock = MagicMock()
+        registry_mock.async_get_entity_id.return_value = None
+        with (
+            patch(
+                "custom_components.entity_availability.combined_sensor.er.async_get",
+                return_value=registry_mock,
+            ),
+            caplog.at_level(
+                logging.WARNING,
+                logger="custom_components.entity_availability.combined_sensor",
+            ),
+        ):
+            attrs = sensor.extra_state_attributes
+        assert attrs["groups"]["entry_a"]["entity_id"] is None
+        assert any("entry_a" in r.message for r in caplog.records)
 
     def test_unique_id(self, mock_hass, combined_entry, coordinators):
         """unique_id uses entry_id + suffix."""

@@ -645,18 +645,235 @@ async def test_reset_statistics_unknown_entity(setup_services, caplog) -> None:
     assert "not found in any monitored group" in caplog.text
 
 
-async def test_reset_statistics_entity_path_skips_non_coordinator(
-    setup_services,
+async def test_suppress_with_group_scopes_to_that_group(
+    mock_hass: HomeAssistant, mock_config_data
 ) -> None:
-    """Entity-path reset loop skips non-coordinator hass.data values."""
-    hass, coord = setup_services
-    hass.data[DOMAIN]["_card_installed"] = True  # non-coordinator sentinel
-    coord.device_states["binary_sensor.device_b"].offline_event_count = 3
+    """suppress with entity_id+group only suppresses in the named group."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_scope_a",
+        unique_id=f"{DOMAIN}_entry_scope_a",
+    )
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_scope_b",
+        unique_id=f"{DOMAIN}_entry_scope_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_b.data = None
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["entry_scope_a"] = coord_a
+    hass.data[DOMAIN]["entry_scope_b"] = coord_b
+    await async_setup_services(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SUPPRESS,
+        {
+            ATTR_ENTITY_ID: "binary_sensor.device_a",
+            ATTR_GROUP: "Group A",
+            ATTR_DURATION: 10,
+        },
+        blocking=True,
+    )
+    assert coord_a.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert coord_b.device_states["binary_sensor.device_a"].is_suppressed is False
+
+
+async def test_suppress_indefinitely_with_group_scopes_to_that_group(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """suppress_indefinitely with entity_id+group only suppresses in the named group."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_indef_a",
+        unique_id=f"{DOMAIN}_entry_indef_a",
+    )
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_indef_b",
+        unique_id=f"{DOMAIN}_entry_indef_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_b.data = None
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["entry_indef_a"] = coord_a
+    hass.data[DOMAIN]["entry_indef_b"] = coord_b
+    await async_setup_services(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_SUPPRESS_INDEFINITELY,
+        {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "Group A"},
+        blocking=True,
+    )
+    assert coord_a.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert coord_b.device_states["binary_sensor.device_a"].is_suppressed is False
+
+
+async def test_unsuppress_with_group_scopes_to_that_group(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """unsuppress with entity_id+group only unsuppresses in the named group."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_uns_a",
+        unique_id=f"{DOMAIN}_entry_uns_a",
+    )
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_uns_b",
+        unique_id=f"{DOMAIN}_entry_uns_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(
+                entity_id="binary_sensor.device_a", is_suppressed=True
+            )
+        }
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(
+                entity_id="binary_sensor.device_a", is_suppressed=True
+            )
+        }
+        coord_b.data = None
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["entry_uns_a"] = coord_a
+    hass.data[DOMAIN]["entry_uns_b"] = coord_b
+    await async_setup_services(hass)
+
+    await hass.services.async_call(
+        DOMAIN,
+        SERVICE_UNSUPPRESS,
+        {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "Group A"},
+        blocking=True,
+    )
+    assert coord_a.device_states["binary_sensor.device_a"].is_suppressed is False
+    assert coord_b.device_states["binary_sensor.device_a"].is_suppressed is True
+
+
+async def test_reset_statistics_with_group_scopes_to_that_group(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """reset_statistics with entity_id+group only resets in the named group."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_rst_a",
+        unique_id=f"{DOMAIN}_entry_rst_a",
+    )
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_rst_b",
+        unique_id=f"{DOMAIN}_entry_rst_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_a._device_states["binary_sensor.device_a"].offline_event_count = 5
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_b._device_states["binary_sensor.device_a"].offline_event_count = 3
+        coord_b.data = None
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["entry_rst_a"] = coord_a
+    hass.data[DOMAIN]["entry_rst_b"] = coord_b
+    await async_setup_services(hass)
 
     await hass.services.async_call(
         DOMAIN,
         "reset_statistics",
-        {ATTR_ENTITY_ID: "binary_sensor.device_b"},
+        {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "Group A"},
         blocking=True,
     )
-    assert coord.device_states["binary_sensor.device_b"].offline_event_count == 0
+    assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
+    assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 3

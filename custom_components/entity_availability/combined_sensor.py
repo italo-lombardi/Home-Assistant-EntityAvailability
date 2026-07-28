@@ -24,6 +24,7 @@ from .const import (
     NO_AREA_SENTINEL,
 )
 from .coordinator import EntityAvailabilityCoordinator
+from .models import DeviceState
 from .helpers import resolve_area_name, resolve_display_name
 from .write_dedup import WriteDedupMixin
 
@@ -221,14 +222,10 @@ class CombinedGroupSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        total = online = offline = stale = low_battery = suppressed = (
-            battery_powered
-        ) = 0
-        offline_entities: list[str] = []
-        low_battery_entities: list[str] = []
         groups: dict[str, Any] = {}
 
         active = self._active_coordinators()
+        registry = er.async_get(self.hass)
         for coord in active:
             states = coord.device_states
             g_total = len(coord.monitored_entities)
@@ -254,28 +251,14 @@ class CombinedGroupSensor(CombinedSensorBase):
                     for d in states.values()
                     if d.battery_level is not None and not d.is_suppressed
                 )
-            total += g_total
-            online += g_online
-            offline += g_offline
-            stale += g_stale
-            low_battery += g_low_battery
-            suppressed += g_suppressed
-            battery_powered += g_battery_powered
-            offline_entities += [
-                d.entity_id
-                for d in states.values()
-                if d.is_offline and not d.is_suppressed
-            ]
-            low_battery_entities += [
-                d.entity_id
-                for d in states.values()
-                if d.is_low_battery and not d.is_suppressed and not d.is_offline
-            ]
             gname = coord.group_name
-            registry = er.async_get(self.hass)
             gsummary = registry.async_get_entity_id(
                 "sensor", DOMAIN, f"{coord.entry.entry_id}_group_summary"
             )
+            if gsummary is None:
+                _LOGGER.warning(
+                    "Could not find group summary entity for %s", coord.entry.entry_id
+                )
             groups[coord.entry.entry_id] = {
                 "name": gname,
                 "entity_id": gsummary,
@@ -288,13 +271,53 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "battery_powered": g_battery_powered,
             }
 
+        # Build merged state map (first-wins for shared entities) to dedup all counts.
+        merged_states: dict[str, DeviceState] = {}
+        for coord in active:
+            for eid, d in coord.device_states.items():
+                if eid not in merged_states:
+                    merged_states[eid] = d
+
         all_entities = list(
             dict.fromkeys(eid for coord in active for eid in coord.monitored_entities)
         )
-        offline_entities = list(dict.fromkeys(offline_entities))
-        low_battery_entities = list(dict.fromkeys(low_battery_entities))
+        offline_entities = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_offline and not d.is_suppressed
+        ]
+        low_battery_entities = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
+        ]
+        total = len(all_entities)
         offline = len(offline_entities)
         low_battery = len(low_battery_entities)
+        online = sum(
+            1
+            for d in merged_states.values()
+            if not d.is_offline and not d.is_suppressed
+        )
+        stale = sum(
+            1 for d in merged_states.values() if d.is_stale and not d.is_suppressed
+        )
+        suppressed = sum(1 for d in merged_states.values() if d.is_suppressed)
+        # Dedup battery_powered by collecting device entity_ids (not battery sensor ids).
+        # battery_map keys are device entity_ids; battery_level path is already keyed by eid.
+        # Using one set handles mixed-config groups without double-counting.
+        battery_powered_eids: set[str] = set()
+        for coord in active:
+            battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
+            if battery_map:
+                battery_powered_eids.update(
+                    eid for eid, sid in battery_map.items() if sid
+                )
+            else:
+                for eid, d in coord.device_states.items():
+                    if d.battery_level is not None and not d.is_suppressed:
+                        battery_powered_eids.add(eid)
+        battery_powered = len(battery_powered_eids)
         display_names: dict[str, str] = {}
         for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
