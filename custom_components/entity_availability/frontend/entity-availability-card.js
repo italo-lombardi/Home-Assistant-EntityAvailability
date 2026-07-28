@@ -857,7 +857,7 @@ class EntityAvailabilityCard extends LitElement {
         </div>
         ${items.map(
           (item) => html`
-            <div class="entity-item" tabindex="0" role="button" @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { this._handleEntityClick(e, item.entityId); } }}>
+            <div class="entity-item" tabindex="0" role="button" @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
               <div class="entity-dot ${item.dotColor}"></div>
               <span class="entity-name">${item.name}</span>
               <span class="entity-status">${item.status}</span>
@@ -1238,25 +1238,27 @@ class EntityAvailabilityCard extends LitElement {
 
   _handleEntityClick(e, entityId) {
     e.stopPropagation();
-    if (typeof entityId !== "string" || !entityId) return;
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
 
   async _handleToggleSuppress(e, entityId, isSuppressed) {
     e.stopPropagation();
+    const group = this._config.group;
     if (isSuppressed) {
-      await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId });
+      await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId, group });
     } else {
-      await this.hass.callService("entity_availability", "suppress_indefinitely", { entity_id: entityId });
+      await this.hass.callService("entity_availability", "suppress_indefinitely", { entity_id: entityId, group });
     }
   }
 
   async _handleSuppressAll(e) {
     e.stopPropagation();
+    const group = this._config.group;
     const offlineIds = this._getOfflineEntityIds();
     for (const entityId of offlineIds) {
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
+        group,
         duration: 60,
       });
     }
@@ -1264,6 +1266,7 @@ class EntityAvailabilityCard extends LitElement {
 
   async _handleUnsuppressAll(e) {
     e.stopPropagation();
+    const group = this._config.group;
     const isCombined = this._isCombinedGroup();
     const prefix = isCombined
       ? `entity_availability_combined_${this._config.group}`
@@ -1276,6 +1279,7 @@ class EntityAvailabilityCard extends LitElement {
     for (const entityId of entities) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
+        group,
       });
     }
   }

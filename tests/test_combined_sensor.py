@@ -689,9 +689,17 @@ class TestCombinedGroupSensor:
             "entry_b": coordinators[1],
         }
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
-        with caplog.at_level(
-            logging.WARNING,
-            logger="custom_components.entity_availability.combined_sensor",
+        registry_mock = MagicMock()
+        registry_mock.async_get_entity_id.return_value = None
+        with (
+            patch(
+                "custom_components.entity_availability.combined_sensor.er.async_get",
+                return_value=registry_mock,
+            ),
+            caplog.at_level(
+                logging.WARNING,
+                logger="custom_components.entity_availability.combined_sensor",
+            ),
         ):
             attrs = sensor.extra_state_attributes
         assert attrs["groups"]["entry_a"]["entity_id"] is None
