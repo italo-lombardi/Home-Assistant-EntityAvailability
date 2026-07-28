@@ -46,3 +46,6 @@ htmlcov/
 # Home Assistant config (development)
 config/
 cov.json
+
+# Claude Code
+.claude/settings.local.json

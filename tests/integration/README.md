@@ -1,34 +1,35 @@
 # Integration smoke tests
 
-Live tests against the `serene_booth` devcontainer. Run after deploying changes.
+Live tests against a running Home Assistant devcontainer. Run after deploying changes.
+
+Replace `<container>` with your container name throughout.
 
 ## Quick run
 
 ```bash
 # 1. Deploy integration to container
 docker cp custom_components/entity_availability/. \
-  serene_booth:/workspaces/home-assistant-core/config/custom_components/entity_availability/
+  <container>:/workspaces/home-assistant-core/config/custom_components/entity_availability/
 
-# 2. Copy and run smoke tests
-docker cp tests/integration/smoke.py serene_booth:/tmp/smoke.py
-docker exec -e EA_SMOKE_TOKEN=<token> serene_booth \
-  /home/vscode/.local/ha-venv/bin/python3 /tmp/smoke.py
+# 2. Run smoke tests from the host
+EA_SMOKE_TOKEN=<access_token> python3 tests/integration/smoke.py
 ```
 
 ## Get a token
 
 ```bash
-docker exec serene_booth python3 -c "
+# Find a long-lived access token for your HA user:
+docker exec <container> python3 -c "
 import json
 auth = json.load(open('/workspaces/home-assistant-core/config/.storage/auth'))
-rt = next(t for t in auth['data']['refresh_tokens']
-          if t.get('user_id','').startswith('d67fce1b') and t.get('token_type')=='long_lived_access_token')
-print(rt['token'])
+for t in auth['data']['refresh_tokens']:
+    if t.get('token_type') == 'long_lived_access_token':
+        print(t['client_name'], t['token'])
 "
-# Then exchange for access token:
-docker exec serene_booth sh -c "curl -s -X POST http://localhost:8123/auth/token \
-  -d 'grant_type=refresh_token&refresh_token=<refresh_token>' | python3 -c \
-  'import json,sys; print(json.load(sys.stdin)[\"access_token\"])'"
+# Exchange the refresh token for a short-lived access token:
+curl -s -X POST http://localhost:8123/auth/token \
+  -d 'grant_type=refresh_token&refresh_token=<refresh_token>' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
 ```
 
 ## What is covered

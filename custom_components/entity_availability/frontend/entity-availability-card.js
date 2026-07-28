@@ -289,6 +289,10 @@ const cardStyles = css`
     font-size: 13px;
   }
 
+  .group-breakdown-row.clickable {
+    cursor: pointer;
+  }
+
   .group-breakdown-row:last-child {
     border-bottom: none;
   }
@@ -876,7 +880,8 @@ class EntityAvailabilityCard extends LitElement {
           <span style="text-align:center">Bat.</span>
         </div>
         ${entries.map(([, g]) => html`
-          <div class="group-breakdown-row">
+          <div class="group-breakdown-row ${g.entity_id ? "clickable" : ""}"
+               @click=${g.entity_id ? (e) => this._handleEntityClick(e, g.entity_id) : nothing}>
             <span class="group-breakdown-name">${g.name ?? ""}</span>
             <span class="group-breakdown-count online">${g.online ?? 0}</span>
             <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
