@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 
 import voluptuous as vol
@@ -61,27 +62,24 @@ async def async_setup_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_SUPPRESS):
         return
 
-    def _find_coordinator(group: str):
-        """Find coordinator by group name, slug, or config entry ID."""
-        group_slug = group.lower().replace(" ", "_")
-        for coordinator in hass.data.get(DOMAIN, {}).values():
-            if not isinstance(coordinator, EntityAvailabilityCoordinator):
-                continue
-            if (
-                coordinator.group_name == group
-                or coordinator.entry.entry_id == group
-                or coordinator.group_name.lower().replace(" ", "_") == group_slug
-            ):
-                return coordinator
-        return None
+    def _slug(name: str) -> str:
+        return re.sub(r"\s+", "_", name.lower())
 
     def _matches_group(coordinator: EntityAvailabilityCoordinator, group: str) -> bool:
-        group_slug = group.lower().replace(" ", "_")
         return (
             coordinator.group_name == group
             or coordinator.entry.entry_id == group
-            or coordinator.group_name.lower().replace(" ", "_") == group_slug
+            or _slug(coordinator.group_name) == _slug(group)
         )
+
+    def _find_coordinator(group: str):
+        """Find coordinator by group name, slug, or config entry ID."""
+        for coordinator in hass.data.get(DOMAIN, {}).values():
+            if not isinstance(coordinator, EntityAvailabilityCoordinator):
+                continue
+            if _matches_group(coordinator, group):
+                return coordinator
+        return None
 
     async def handle_suppress(call: ServiceCall) -> None:
         """Handle suppress service call."""

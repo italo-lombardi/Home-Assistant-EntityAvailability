@@ -901,6 +901,59 @@ async def test_suppress_with_group_slug_matches(setup_services, caplog) -> None:
     assert "not found" not in caplog.text
 
 
+async def test_suppress_by_group_slug_only(setup_services, caplog) -> None:
+    """suppress with group slug and no entity_id suppresses all entities in group."""
+    import logging
+
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS,
+            {ATTR_GROUP: "test_group", ATTR_DURATION: 10},
+            blocking=True,
+        )
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert coord.device_states["binary_sensor.device_b"].is_suppressed is True
+    assert "not found" not in caplog.text
+
+
+async def test_suppress_indefinitely_by_group_slug_only(setup_services, caplog) -> None:
+    """suppress_indefinitely with group slug and no entity_id suppresses all."""
+    import logging
+
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS_INDEFINITELY,
+            {ATTR_GROUP: "test_group"},
+            blocking=True,
+        )
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert coord.device_states["binary_sensor.device_a"].suppress_until is None
+    assert "not found" not in caplog.text
+
+
+async def test_unsuppress_by_group_slug_only(setup_services, caplog) -> None:
+    """unsuppress with group slug and no entity_id unsuppresses all."""
+    import logging
+
+    hass, coord = setup_services
+    coord.suppress_entity("binary_sensor.device_a", None)
+    coord.suppress_entity("binary_sensor.device_b", None)
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_UNSUPPRESS,
+            {ATTR_GROUP: "test_group"},
+            blocking=True,
+        )
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is False
+    assert coord.device_states["binary_sensor.device_b"].is_suppressed is False
+    assert "not found" not in caplog.text
+
+
 async def test_suppress_entity_not_in_specified_group_warns(
     setup_services, caplog
 ) -> None:
