@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-07-28
+
+### Fixed
+- **Battery mapping: cleared entries no longer re-populated** — explicitly clearing a battery entity mapping in the options flow now persists correctly. Previously, a cleared mapping (stored as `""`) was treated identically to "never configured", so auto-detection re-ran on the next visit and silently re-added the removed mapping. The options flow now distinguishes between an explicitly-cleared entry and one that was never set, so cleared mappings stay cleared. Resolves #38. Thanks to @dimatx for the fix.
+
 ## [0.3.13] - 2026-07-22
 
 ### Fixed
