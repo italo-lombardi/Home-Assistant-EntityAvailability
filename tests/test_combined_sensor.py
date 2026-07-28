@@ -473,6 +473,46 @@ class TestCombinedGroupSensor:
             "binary_sensor.shared",
         }
 
+    def test_counts_deduplicated_when_entity_shared(self, mock_hass):
+        """Scalar counts (offline, online, total) are not doubled for shared entities."""
+        entry_a = _make_group_entry("entry_a", "Group A", ["binary_sensor.a1"])
+        shared_entry = _make_group_entry(
+            "entry_shared", "Shared Group", ["binary_sensor.a1", "binary_sensor.shared"]
+        )
+        combined = _make_combined_entry(
+            "combined_dup", "Dup", ["entry_a", "entry_shared"]
+        )
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", is_offline=True
+                ),
+            }
+            coord_shared = EntityAvailabilityCoordinator(mock_hass, shared_entry)
+            coord_shared._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", is_offline=True
+                ),
+                "binary_sensor.shared": DeviceState(entity_id="binary_sensor.shared"),
+            }
+
+        mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_shared": coord_shared}
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined,
+            "Dup",
+            "dup",
+            ["entry_a", "entry_shared"],
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["total_entities"] == 2, "a1 + shared, deduped"
+        assert attrs["offline"] == 1, "a1 shared across groups must count once"
+        assert attrs["online"] == 1, "shared entity online count must not double"
+
     def test_attributes_battery_powered_via_device_states(
         self, mock_hass, combined_entry, coordinators
     ):
