@@ -320,6 +320,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         device.monitored_since = None
                     device.offline_event_count = ds.get("offline_event_count", 0)
                     device.total_offline_seconds = ds.get("total_offline_seconds", 0.0)
+                    device.battery_level = ds.get("battery_level")
+                    device.is_low_battery = ds.get("is_low_battery", False)
                     if entity_id in self._entities:
                         self._device_states[entity_id] = device
 
@@ -335,6 +337,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 or device.recently_offline_at is not None
                 or device.offline_event_count > 0
                 or device.monitored_since is not None
+                or device.is_low_battery
             ):
                 device_states_data[entity_id] = {
                     "is_offline": device.is_offline,
@@ -352,6 +355,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     else None,
                     "offline_event_count": device.offline_event_count,
                     "total_offline_seconds": device.total_offline_seconds,
+                    "battery_level": device.battery_level,
+                    "is_low_battery": device.is_low_battery,
                 }
         data = {
             "availability": self._availability_storage.to_dict(),
@@ -473,8 +478,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             # Determine if device is in a bad state
             is_bad = state is None or state.state in self._bad_states
 
-            # Battery check
-            device.battery_level = self._get_battery_level(entity_id)
+            # Battery check — retain last-known level when entity is unavailable
+            fresh_level = self._get_battery_level(entity_id)
+            if fresh_level is not None:
+                device.battery_level = fresh_level
             battery_low = (
                 self._battery_threshold > 0
                 and device.battery_level is not None
@@ -609,7 +616,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
             # Degraded = not offline but battery low or stale
             device.is_stale = is_stale
-            device.is_low_battery = (not device.is_offline) and battery_low
+            device.is_low_battery = battery_low
             device.is_degraded = (not device.is_offline) and (battery_low or is_stale)
 
         # Mark as dirty; save periodically (every ~5 min)

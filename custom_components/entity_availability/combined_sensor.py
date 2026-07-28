@@ -13,6 +13,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_BATTERY_ENTITY_MAP,
@@ -240,7 +241,9 @@ class CombinedGroupSensor(CombinedSensorBase):
                 1 for d in states.values() if d.is_stale and not d.is_suppressed
             )
             g_low_battery = sum(
-                1 for d in states.values() if d.is_low_battery and not d.is_suppressed
+                1
+                for d in states.values()
+                if d.is_low_battery and not d.is_suppressed and not d.is_offline
             )
             battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
             if battery_map:
@@ -266,11 +269,16 @@ class CombinedGroupSensor(CombinedSensorBase):
             low_battery_entities += [
                 d.entity_id
                 for d in states.values()
-                if d.is_low_battery and not d.is_suppressed
+                if d.is_low_battery and not d.is_suppressed and not d.is_offline
             ]
             gname = coord.group_name
+            registry = er.async_get(self.hass)
+            gsummary = registry.async_get_entity_id(
+                "sensor", DOMAIN, f"{coord.entry.entry_id}_group_summary"
+            )
             groups[coord.entry.entry_id] = {
                 "name": gname,
+                "entity_id": gsummary,
                 "total": g_total,
                 "online": g_online,
                 "offline": g_offline,
@@ -283,6 +291,10 @@ class CombinedGroupSensor(CombinedSensorBase):
         all_entities = list(
             dict.fromkeys(eid for coord in active for eid in coord.monitored_entities)
         )
+        offline_entities = list(dict.fromkeys(offline_entities))
+        low_battery_entities = list(dict.fromkeys(low_battery_entities))
+        offline = len(offline_entities)
+        low_battery = len(low_battery_entities)
         display_names: dict[str, str] = {}
         for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
@@ -337,11 +349,13 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> int:
-        return sum(
-            1
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
+        return len(
+            {
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
+            }
         )
 
     @property
@@ -421,7 +435,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
             f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
             for coord in coords
             for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
         ]
         if not low:
             return "None"
@@ -438,7 +452,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
             d.entity_id: f"{d.battery_level}%"
             for coord in self._active_coordinators()
             for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
         }
         return {"devices": devices, "count": len(devices)}
 
@@ -459,11 +473,13 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> int:
-        return sum(
-            1
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+        return len(
+            {
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_low_battery and not d.is_suppressed and not d.is_offline
+            }
         )
 
 

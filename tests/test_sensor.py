@@ -256,6 +256,34 @@ class TestDegradedDevicesSensor:
         assert attrs["count"] == 1
         assert attrs["devices"]["binary_sensor.device_a"] == "15%"
 
+    def test_excludes_offline_device_from_native_value(
+        self, mock_coordinator, mock_hass
+    ):
+        """Offline+low-battery device must not appear in native_value list."""
+        mock_coordinator._device_states["binary_sensor.device_a"].is_low_battery = True
+        mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 8
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = True
+        sensor = DegradedDevicesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == "None"
+
+    def test_excludes_offline_device_from_extra_state_attributes(
+        self, mock_coordinator, mock_hass
+    ):
+        """Offline+low-battery device must not appear in extra_state_attributes devices map."""
+        mock_coordinator._device_states["binary_sensor.device_a"].is_low_battery = True
+        mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 8
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = True
+        sensor = DegradedDevicesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 0
+        assert "binary_sensor.device_a" not in attrs["devices"]
+
 
 class TestLowBatteryCountSensor:
     """Tests for LowBatteryCountSensor."""
@@ -274,6 +302,7 @@ class TestLowBatteryCountSensor:
         mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 10
         mock_coordinator._device_states["binary_sensor.device_b"].is_low_battery = True
         mock_coordinator._device_states["binary_sensor.device_b"].battery_level = 5
+        mock_coordinator._device_states["binary_sensor.device_b"].is_offline = False
         sensor = LowBatteryCountSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
@@ -307,6 +336,17 @@ class TestLowBatteryCountSensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.unique_id == "test_entry_id_low_battery_count"
+
+    def test_excludes_offline_low_battery_device(self, mock_coordinator, mock_hass):
+        """Offline device with low battery must NOT be counted — it shows in offline metrics."""
+        mock_coordinator._device_states["binary_sensor.device_a"].is_low_battery = True
+        mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 5
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = True
+        sensor = LowBatteryCountSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == 0
 
 
 class TestStaleButHealthyBatteryNotLowBattery:
@@ -530,6 +570,21 @@ class TestGroupSummarySensor:
         attrs = sensor.extra_state_attributes
         assert attrs["low_battery"] == 1
         assert attrs["battery_powered"] == 1
+
+    def test_excludes_offline_device_from_low_battery_group_summary(
+        self, mock_coordinator, mock_hass
+    ):
+        """Offline+low-battery device must be absent from low_battery_entities list."""
+        mock_coordinator._device_states["binary_sensor.device_a"].is_low_battery = True
+        mock_coordinator._device_states["binary_sensor.device_a"].battery_level = 10
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = True
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["low_battery"] == 0
+        assert "binary_sensor.device_a" not in attrs["low_battery_entities"]
 
     def test_unique_id(self, mock_coordinator, mock_hass):
         """Test unique_id format."""

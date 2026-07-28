@@ -254,7 +254,7 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
         low_bat = [
             self._format_device(d)
             for d in self.coordinator.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
         ]
         if not low_bat:
             return "None"
@@ -268,7 +268,7 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
         """Return per-device battery details."""
         devices: dict[str, Any] = {}
         for d in self.coordinator.device_states.values():
-            if d.is_low_battery and not d.is_suppressed:
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline:
                 devices[d.entity_id] = f"{d.battery_level}%"
         return {"devices": devices, "count": len(devices)}
 
@@ -309,7 +309,7 @@ class LowBatteryCountSensor(DedupCoordinatorSensor):
         return sum(
             1
             for d in self.coordinator.device_states.values()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_offline
         )
 
 
@@ -584,6 +584,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             if states.get(eid)
             and states[eid].is_low_battery
             and not states[eid].is_suppressed
+            and not states[eid].is_offline
         ]
         low_battery = len(low_battery_entities)
 

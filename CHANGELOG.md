@@ -9,9 +9,11 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Battery mapping: cleared entries no longer re-populated** — explicitly clearing a battery entity mapping in the options flow now persists correctly. Previously, a cleared mapping (stored as `""`) was treated identically to "never configured", so auto-detection re-ran on the next visit and silently re-added the removed mapping. The options flow now distinguishes between an explicitly-cleared entry and one that was never set, so cleared mappings stay cleared. Resolves #38. Thanks to @dimatx for the fix.
 - **Low battery flag retained when device goes offline** — when a battery-powered device goes completely offline, its last-known battery level and low-battery flag are now preserved. Previously, the low-battery alert was silently cleared when the device became unavailable. Battery level and flag now persist across coordinator cycles and HA restarts. Offline+low-battery devices are counted under offline metrics only — not double-counted as both offline and low battery. Resolves #33.
+- **Combined sensor counts deduplicated across shared entities** — when the same entity belongs to multiple groups included in a combined sensor, offline and low-battery counts were summed per-group, causing double-counting. Counts are now derived from the deduplicated entity lists, matching the offline_entities and low_battery_entities attribute values.
 
 ### Changed
 - **Card: entity rows are now clickable** — clicking any entity row in the monitoring card opens the HA more-info dialog for that entity, providing quick access to state history, attributes, and device controls without leaving the dashboard. Keyboard navigation supported (Enter/Space). Resolves #36.
+- **Card: combined group rows are now clickable** — clicking a group row in the combined card's group breakdown opens the HA more-info dialog for that group's summary sensor.
 
 ## [0.3.13] - 2026-07-22
 
