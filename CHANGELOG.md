@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.15] - 2026-07-28
 
 ### Fixed
 - **Suppress/unsuppress services now group-scoped when `group` is provided with `entity_id`** — previously, calling `suppress`, `suppress_indefinitely`, or `unsuppress` with both `entity_id` and `group` would suppress/unsuppress the entity in **all groups** that monitor it. The `group` parameter is now respected: the action is scoped to that group's coordinator only. This affects the card's per-entity bell toggle, Suppress All, and Unsuppress All buttons — all now pass the card's configured group.
