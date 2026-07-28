@@ -3397,6 +3397,66 @@ async def test_low_battery_and_stale_both_flagged(
     assert device_a.is_degraded is True
 
 
+async def test_low_battery_flag_persists_when_device_goes_offline(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """#33: is_low_battery stays True after device goes offline.
+
+    Covers: battery_low computed before is_offline guard removed — flag persists.
+    """
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+
+        # Cycle 1: device online, battery below threshold
+        hass.states.async_set(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {"friendly_name": "Device A", "battery_level": 5},
+        )
+        await coord._async_update_data()
+        assert coord.device_states["binary_sensor.device_a"].is_low_battery is True
+
+        # Cycle 2: device goes unavailable (flat battery → offline)
+        hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+        await coord._async_update_data()
+        assert coord.device_states["binary_sensor.device_a"].is_low_battery is True
+
+
+async def test_last_known_battery_level_retained_when_unavailable(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """#33: battery_level is not overwritten when entity becomes unavailable.
+
+    Covers: fresh_level is None branch — device.battery_level left unchanged.
+    """
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+
+        # Cycle 1: device online, battery readable
+        hass.states.async_set(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {"friendly_name": "Device A", "battery_level": 12},
+        )
+        await coord._async_update_data()
+        assert coord.device_states["binary_sensor.device_a"].battery_level == 12
+
+        # Cycle 2: entity unavailable — last-known level retained
+        hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+        await coord._async_update_data()
+        assert coord.device_states["binary_sensor.device_a"].battery_level == 12
+
+
 # ---------------------------------------------------------------------------
 # Branch coverage: three missing coordinator branches
 # ---------------------------------------------------------------------------
