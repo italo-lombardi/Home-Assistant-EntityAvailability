@@ -365,6 +365,7 @@ const cardStyles = css`
     gap: 10px;
     position: relative;
     flex-wrap: wrap;
+    cursor: pointer;
   }
 
   .entity-detail-inline {
@@ -818,7 +819,7 @@ class EntityAvailabilityCard extends LitElement {
         </div>
         ${items.map(
           (item) => html`
-            <div class="entity-item">
+            <div class="entity-item" @click=${() => this._handleEntityClick(item.entityId)}>
               <div class="entity-dot ${item.dotColor}"></div>
               <span class="entity-name">${item.name}</span>
               <span class="entity-status">${item.status}</span>
@@ -1186,6 +1187,10 @@ class EntityAvailabilityCard extends LitElement {
 
   _toggleEntities() {
     this._entitiesExpanded = !this._entitiesExpanded;
+  }
+
+  _handleEntityClick(entityId) {
+    this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
 
   async _handleSuppressAll(e) {
