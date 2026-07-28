@@ -490,8 +490,9 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
 
         schema_dict: dict[Any, Any] = {}
         for entity_id in entities:
-            default = existing_map.get(entity_id, "")
-            if not default:
+            if entity_id in existing_map:
+                default = existing_map[entity_id]
+            else:
                 default = self._detect_battery_entity(entity_id)
             schema_dict[
                 vol.Optional(

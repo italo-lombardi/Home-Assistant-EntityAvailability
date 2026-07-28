@@ -1244,7 +1244,7 @@ async def test_options_flow_detect_battery_entity_no_existing_map(
 ) -> None:
     """Options flow calls _detect_battery_entity when no existing map default.
 
-    Covers: 474->476 (empty existing_map triggers _detect_battery_entity call),
+    Covers: 493->496 (entity absent from existing_map triggers detect call),
             502->507 (guessed battery state found in options flow variant).
     """
     from unittest.mock import MagicMock, patch
@@ -1335,7 +1335,8 @@ async def test_options_flow_detect_battery_no_guessed_state(
 ) -> None:
     """Options flow: no existing map, no guessed battery state — returns ''.
 
-    Covers: 474->476 (empty map → detect called) and 502->507 (no guessed state → return '').
+    Covers: 493->496 (entity absent from map → detect called) and 502->507
+            (no guessed state → return '').
     """
     from unittest.mock import MagicMock, patch
 
@@ -1438,7 +1439,7 @@ async def test_options_flow_existing_map_default_skips_detect(
 ) -> None:
     """Options flow: entity has existing map default — _detect_battery_entity skipped.
 
-    Covers: 474->476 (default exists → if not default is False → skip detect call).
+    Covers: 493->494 (entity present in existing_map → skip detect call).
     """
     from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -1540,3 +1541,103 @@ async def test_options_flow_no_guessed_state_returns_empty(
 
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "battery_mapping"
+
+
+# ---------------------------------------------------------------------------
+# Options flow: explicitly cleared battery mappings
+# ---------------------------------------------------------------------------
+
+
+def _schema_marker(data_schema, key: str):
+    """Return the schema marker for *key*, failing if it is missing."""
+    for marker in data_schema.schema:
+        if str(marker) == key:
+            return marker
+    raise AssertionError(f"{key} missing from schema: {list(data_schema.schema)}")
+
+
+async def _open_battery_mapping(hass: HomeAssistant, entry, entities: list[str]):
+    """Run the options init step for *entry* and return the battery_mapping form."""
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: entities,
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+        },
+    )
+    assert result["step_id"] == "battery_mapping"
+    return result
+
+
+async def test_options_flow_cleared_battery_map_not_repopulated(
+    hass: HomeAssistant,
+    mock_config_data,
+) -> None:
+    """An explicitly cleared battery mapping is not re-suggested nor re-added."""
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data={
+            **mock_config_data,
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_BATTERY_ENTITY_MAP: {"binary_sensor.device_a": ""},
+        },
+        entry_id="test_cleared_battery_map",
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set("sensor.device_a_battery", "77")
+
+    result = await _open_battery_mapping(hass, entry, ["binary_sensor.device_a"])
+
+    marker = _schema_marker(result["data_schema"], "binary_sensor.device_a")
+    assert not (marker.description or {}).get("suggested_value")
+
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert entry.data[CONF_BATTERY_ENTITY_MAP] == {"binary_sensor.device_a": ""}
+
+
+async def test_options_flow_entity_absent_from_map_is_detected(
+    hass: HomeAssistant,
+    mock_config_data,
+) -> None:
+    """Entities absent from the map are auto-detected; cleared ones are not."""
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data={
+            **mock_config_data,
+            CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_BATTERY_ENTITY_MAP: {"binary_sensor.device_a": ""},
+        },
+        entry_id="test_absent_battery_map",
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set("sensor.device_a_battery", "77")
+    hass.states.async_set("sensor.device_b_battery", "88")
+
+    result = await _open_battery_mapping(
+        hass, entry, ["binary_sensor.device_a", "binary_sensor.device_b"]
+    )
+
+    absent = _schema_marker(result["data_schema"], "binary_sensor.device_b")
+    assert absent.description == {"suggested_value": "sensor.device_b_battery"}
+
+    cleared = _schema_marker(result["data_schema"], "binary_sensor.device_a")
+    assert not (cleared.description or {}).get("suggested_value")
