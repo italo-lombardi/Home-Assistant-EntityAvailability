@@ -44,17 +44,23 @@ BASE = os.environ.get("EA_SMOKE_BASE_URL", "http://localhost:8123")
 GROUP_FILTER = os.environ.get("EA_SMOKE_GROUP", "Test Group")
 
 if not TOKEN:
-    sys.exit("Error: set EA_SMOKE_TOKEN to a valid HA access token.\nSee tests/integration/README.md for instructions.")
+    sys.exit(
+        "Error: set EA_SMOKE_TOKEN to a valid HA access token.\nSee tests/integration/README.md for instructions."
+    )
 
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
 
+
 def api(method, path, body=None):
     req = urllib.request.Request(
         BASE + path,
         data=json.dumps(body).encode() if body else None,
-        headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {TOKEN}",
+            "Content-Type": "application/json",
+        },
         method=method,
     )
     with urllib.request.urlopen(req) as r:
@@ -84,13 +90,17 @@ def chk(label, got, exp, note=""):
     ok = str(got) == str(exp)
     _passed += ok
     _failed += not ok
-    print(f"{'PASS' if ok else 'FAIL'} {label}: got={got} expected={exp} {note}", flush=True)
+    print(
+        f"{'PASS' if ok else 'FAIL'} {label}: got={got} expected={exp} {note}",
+        flush=True,
+    )
     return ok
 
 
 # ---------------------------------------------------------------------------
 # Discovery — no hardcoded IDs
 # ---------------------------------------------------------------------------
+
 
 def discover():
     """Return (entry_id, entities, battery_map, group_sensor_prefix, combined_entry_id)."""
@@ -99,13 +109,19 @@ def discover():
 
     # Find target group
     group = next(
-        (e for e in ea_entries if GROUP_FILTER.lower() in e["title"].lower()
-         and "combined" not in e["title"].lower()),
+        (
+            e
+            for e in ea_entries
+            if GROUP_FILTER.lower() in e["title"].lower()
+            and "combined" not in e["title"].lower()
+        ),
         None,
     )
     if not group:
         titles = [e["title"] for e in ea_entries]
-        sys.exit(f"No entity_availability entry matching '{GROUP_FILTER}' (found: {titles})")
+        sys.exit(
+            f"No entity_availability entry matching '{GROUP_FILTER}' (found: {titles})"
+        )
 
     entry_id = group["entry_id"]
     title = group["title"]
@@ -143,30 +159,32 @@ def discover():
     gs_state = gs(f"{prefix}_group_summary")
     attrs = gs_state.get("attributes", {})
     entities = attrs.get("entities", [])
-    battery_levels = attrs.get("battery_levels", {})
-
     if not entities:
         sys.exit(f"No entities found in group summary for {prefix}")
 
     print(f"Monitored entities ({len(entities)}): {entities}", flush=True)
 
     # Find any already-mapped battery entity
-    battery_entity = next(iter(battery_levels), None) if battery_levels else None
     mapped_battery_sensor = None
 
     # Read battery_entity_map from config storage to find a mapped battery
     import subprocess
+
     try:
-        raw = subprocess.check_output([
-            "python3", "-c",
-            f"""
+        raw = subprocess.check_output(
+            [
+                "python3",
+                "-c",
+                f"""
 import json
 cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
 for e in cfg['data']['entries']:
     if e['entry_id'] == '{entry_id}':
         print(json.dumps(e['data']))
-"""
-        ], text=True)
+""",
+            ],
+            text=True,
+        )
         data = json.loads(raw.strip())
         bmap = data.get("battery_entity_map", {})
         mapped_battery_sensor = next((v for v in bmap.values() if v), None)
@@ -198,7 +216,9 @@ for e in cfg['data']['entries']:
         "title": title,
         "entities": entities,
         "prefix": prefix,
-        "battery_threshold": data.get("battery_threshold", 20) if 'data' in dir() else 20,
+        "battery_threshold": data.get("battery_threshold", 20)
+        if "data" in dir()
+        else 20,
         "mapped_battery_entity": mapped_battery_entity,
         "mapped_battery_sensor": mapped_battery_sensor,
         "combined_prefix": combined_prefix,
@@ -209,10 +229,14 @@ for e in cfg['data']['entries']:
 # Setup: ensure a battery entity is mapped and battery sensor exists
 # ---------------------------------------------------------------------------
 
+
 def setup_battery(ctx):
     """If no battery mapping exists, configure one via options flow."""
     if ctx["mapped_battery_sensor"]:
-        print(f"Battery mapping already set: {ctx['mapped_battery_entity']} → {ctx['mapped_battery_sensor']}", flush=True)
+        print(
+            f"Battery mapping already set: {ctx['mapped_battery_entity']} → {ctx['mapped_battery_sensor']}",
+            flush=True,
+        )
         return
 
     # Pick first entity, derive battery sensor name
@@ -220,30 +244,45 @@ def setup_battery(ctx):
     suffix = target_entity.split(".")[-1]
     battery_sensor = f"sensor.{suffix}_battery"
 
-    print(f"=== SETUP: configuring battery mapping {target_entity} → {battery_sensor} ===", flush=True)
+    print(
+        f"=== SETUP: configuring battery mapping {target_entity} → {battery_sensor} ===",
+        flush=True,
+    )
 
-    ss(battery_sensor, "90", {
-        "friendly_name": "Test Battery",
-        "device_class": "battery",
-        "unit_of_measurement": "%",
-    })
+    ss(
+        battery_sensor,
+        "90",
+        {
+            "friendly_name": "Test Battery",
+            "device_class": "battery",
+            "unit_of_measurement": "%",
+        },
+    )
 
-    r = api("POST", "/api/config/config_entries/options/flow", {"handler": ctx["entry_id"]})
+    r = api(
+        "POST", "/api/config/config_entries/options/flow", {"handler": ctx["entry_id"]}
+    )
     fid = r["flow_id"]
-    r2 = api("POST", f"/api/config/config_entries/options/flow/{fid}", {
-        "entities": ctx["entities"],
-        "bad_states": ["unavailable", "unknown"],
-        "cooldown": 0,
-        "staleness_threshold": 0,
-        "battery_threshold": ctx["battery_threshold"],
-        "availability_windows": ["today", "7d"],
-        "use_device_names": False,
-        "staleness_use_last_updated": False,
-    })
+    r2 = api(
+        "POST",
+        f"/api/config/config_entries/options/flow/{fid}",
+        {
+            "entities": ctx["entities"],
+            "bad_states": ["unavailable", "unknown"],
+            "cooldown": 0,
+            "staleness_threshold": 0,
+            "battery_threshold": ctx["battery_threshold"],
+            "availability_windows": ["today", "7d"],
+            "use_device_names": False,
+            "staleness_use_last_updated": False,
+        },
+    )
     if r2.get("step_id") == "battery_mapping":
-        api("POST", f"/api/config/config_entries/options/flow/{fid}", {
-            target_entity: battery_sensor
-        })
+        api(
+            "POST",
+            f"/api/config/config_entries/options/flow/{fid}",
+            {target_entity: battery_sensor},
+        )
         ctx["mapped_battery_entity"] = target_entity
         ctx["mapped_battery_sensor"] = battery_sensor
         print(f"  Mapped {target_entity} → {battery_sensor}", flush=True)
@@ -254,16 +293,24 @@ def restore_all(ctx):
     for eid in ctx["entities"]:
         ss(eid, "on", {"friendly_name": eid.split(".")[-1]})
     if ctx["mapped_battery_sensor"]:
-        ss(ctx["mapped_battery_sensor"], "90", {
-            "friendly_name": "Test Battery",
-            "device_class": "battery",
-            "unit_of_measurement": "%",
-        })
+        ss(
+            ctx["mapped_battery_sensor"],
+            "90",
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
     try:
-        api("POST", "/api/services/entity_availability/unsuppress", {
-            "entity_id": ctx["entities"][0],
-            "group": ctx["title"],
-        })
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {
+                "entity_id": ctx["entities"][0],
+                "group": ctx["title"],
+            },
+        )
     except Exception:
         pass
     wait(35)
@@ -272,6 +319,7 @@ def restore_all(ctx):
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main():
     print("=== Entity Availability smoke tests ===\n", flush=True)
@@ -295,55 +343,153 @@ def main():
     restore_all(ctx)
 
     # ------------------------------------------------------------------
-    print("\n=== EC4: online + battery below threshold → low_battery_count=1 ===", flush=True)
-    ss(battery_sensor, low_val, {"friendly_name": "Test Battery", "device_class": "battery", "unit_of_measurement": "%"})
+    print(
+        "\n=== EC4: online + battery below threshold → low_battery_count=1 ===",
+        flush=True,
+    )
+    ss(
+        battery_sensor,
+        low_val,
+        {
+            "friendly_name": "Test Battery",
+            "device_class": "battery",
+            "unit_of_measurement": "%",
+        },
+    )
     wait()
     chk("low_battery_count=1", gs(f"{prefix}_low_battery_count").get("state"), "1")
     lb = gs(f"{prefix}_low_battery")
     chk("low_battery list count=1", lb.get("attributes", {}).get("count"), 1)
-    chk("low_battery state non-null", lb.get("state") not in ("None", "", "unavailable"), True, f"state={lb.get('state')!r}")
-    chk("low_battery devices has battery_entity", battery_entity in lb.get("attributes", {}).get("devices", {}), True)
-    chk("offline_count=0 (device online)", gs(f"{prefix}_offline_count").get("state"), "0")
+    chk(
+        "low_battery state non-null",
+        lb.get("state") not in ("None", "", "unavailable"),
+        True,
+        f"state={lb.get('state')!r}",
+    )
+    chk(
+        "low_battery devices has battery_entity",
+        battery_entity in lb.get("attributes", {}).get("devices", {}),
+        True,
+    )
+    chk(
+        "offline_count=0 (device online)",
+        gs(f"{prefix}_offline_count").get("state"),
+        "0",
+    )
 
     # ------------------------------------------------------------------
-    print("\n=== EC5: device+battery offline → offline=1, low_battery=0 (PR#41) ===", flush=True)
+    print(
+        "\n=== EC5: device+battery offline → offline=1, low_battery=0 (PR#41) ===",
+        flush=True,
+    )
     ss(battery_entity, "unavailable", {"friendly_name": "test"})
-    ss(battery_sensor, "unavailable", {"friendly_name": "Test Battery", "device_class": "battery"})
+    ss(
+        battery_sensor,
+        "unavailable",
+        {"friendly_name": "Test Battery", "device_class": "battery"},
+    )
     wait()
     chk("offline_count=1", gs(f"{prefix}_offline_count").get("state"), "1")
-    chk("low_battery_count=0 (offline excluded)", gs(f"{prefix}_low_battery_count").get("state"), "0")
+    chk(
+        "low_battery_count=0 (offline excluded)",
+        gs(f"{prefix}_low_battery_count").get("state"),
+        "0",
+    )
     gs_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
     chk("group_summary offline=1", str(gs_attrs.get("offline")), "1")
-    chk("group_summary low_battery=0 (no double-count)", str(gs_attrs.get("low_battery")), "0")
-    chk("low_battery list count=0", gs(f"{prefix}_low_battery").get("attributes", {}).get("count"), 0)
+    chk(
+        "group_summary low_battery=0 (no double-count)",
+        str(gs_attrs.get("low_battery")),
+        "0",
+    )
+    chk(
+        "low_battery list count=0",
+        gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
+        0,
+    )
 
     # ------------------------------------------------------------------
     print("\n=== EC6: battery replaced, back online → all clear ===", flush=True)
     ss(battery_entity, "on", {"friendly_name": "test"})
-    ss(battery_sensor, "90", {"friendly_name": "Test Battery", "device_class": "battery", "unit_of_measurement": "%"})
+    ss(
+        battery_sensor,
+        "90",
+        {
+            "friendly_name": "Test Battery",
+            "device_class": "battery",
+            "unit_of_measurement": "%",
+        },
+    )
     wait()
     chk("offline_count=0", gs(f"{prefix}_offline_count").get("state"), "0")
-    chk("low_battery_count=0 (battery 90%)", gs(f"{prefix}_low_battery_count").get("state"), "0")
+    chk(
+        "low_battery_count=0 (battery 90%)",
+        gs(f"{prefix}_low_battery_count").get("state"),
+        "0",
+    )
     gs_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
-    chk(f"online={len(ctx['entities'])}", str(gs_attrs.get("online")), str(len(ctx["entities"])))
-    chk("battery_levels updated to 90", str(gs_attrs.get("battery_levels", {}).get(battery_entity)), "90")
+    chk(
+        f"online={len(ctx['entities'])}",
+        str(gs_attrs.get("online")),
+        str(len(ctx["entities"])),
+    )
+    chk(
+        "battery_levels updated to 90",
+        str(gs_attrs.get("battery_levels", {}).get(battery_entity)),
+        "90",
+    )
 
     # ------------------------------------------------------------------
     if combined_prefix:
         b_coff = int(gs(f"{combined_prefix}_offline_count").get("state", "0"))
         b_clb = int(gs(f"{combined_prefix}_low_battery_count").get("state", "0"))
-        print(f"\n=== EC7+EC8: combined sensors (baseline offline={b_coff} low_battery={b_clb}) ===", flush=True)
+        print(
+            f"\n=== EC7+EC8: combined sensors (baseline offline={b_coff} low_battery={b_clb}) ===",
+            flush=True,
+        )
 
-        ss(battery_sensor, low_val, {"friendly_name": "Test Battery", "device_class": "battery", "unit_of_measurement": "%"})
+        ss(
+            battery_sensor,
+            low_val,
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
         wait()
-        chk("EC7 combined low_battery=base+1", int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")), b_clb + 1, f"(base={b_clb})")
-        chk("EC7 combined offline unchanged", int(gs(f"{combined_prefix}_offline_count").get("state", "0")), b_coff, f"(base={b_coff})")
+        chk(
+            "EC7 combined low_battery=base+1",
+            int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+            b_clb + 1,
+            f"(base={b_clb})",
+        )
+        chk(
+            "EC7 combined offline unchanged",
+            int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
+            b_coff,
+            f"(base={b_coff})",
+        )
 
         ss(battery_entity, "unavailable", {"friendly_name": "test"})
-        ss(battery_sensor, "unavailable", {"friendly_name": "Test Battery", "device_class": "battery"})
+        ss(
+            battery_sensor,
+            "unavailable",
+            {"friendly_name": "Test Battery", "device_class": "battery"},
+        )
         wait()
-        chk("EC8 combined low_battery=base (offline excluded)", int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")), b_clb, f"(base={b_clb})")
-        chk("EC8 combined offline=base+1", int(gs(f"{combined_prefix}_offline_count").get("state", "0")), b_coff + 1, f"(base={b_coff})")
+        chk(
+            "EC8 combined low_battery=base (offline excluded)",
+            int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+            b_clb,
+            f"(base={b_clb})",
+        )
+        chk(
+            "EC8 combined offline=base+1",
+            int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
+            b_coff + 1,
+            f"(base={b_coff})",
+        )
     else:
         print("\n=== EC7+EC8: skipped (no combined group found) ===", flush=True)
 
@@ -351,8 +497,13 @@ def main():
     print("\n=== EC9: PR#37 — cleared battery map not re-suggested ===", flush=True)
     # Find an entity with cleared ("") mapping
     import subprocess
+
     try:
-        raw = subprocess.check_output(["python3", "-c", f"""
+        raw = subprocess.check_output(
+            [
+                "python3",
+                "-c",
+                f"""
 import json
 cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
 for e in cfg['data']['entries']:
@@ -360,55 +511,95 @@ for e in cfg['data']['entries']:
         bmap = e['data'].get('battery_entity_map', {{}})
         cleared = [k for k, v in bmap.items() if v == '']
         print(json.dumps(cleared))
-"""], text=True).strip()
+""",
+            ],
+            text=True,
+        ).strip()
         cleared_entities = json.loads(raw)
     except Exception:
         cleared_entities = []
 
-    r = api("POST", "/api/config/config_entries/options/flow", {"handler": ctx["entry_id"]})
+    r = api(
+        "POST", "/api/config/config_entries/options/flow", {"handler": ctx["entry_id"]}
+    )
     fid = r["flow_id"]
-    r2 = api("POST", f"/api/config/config_entries/options/flow/{fid}", {
-        "entities": ctx["entities"],
-        "bad_states": ["unavailable", "unknown"],
-        "cooldown": 0,
-        "staleness_threshold": 0,
-        "battery_threshold": threshold,
-        "availability_windows": ["today", "7d"],
-        "use_device_names": False,
-        "staleness_use_last_updated": False,
-    })
+    r2 = api(
+        "POST",
+        f"/api/config/config_entries/options/flow/{fid}",
+        {
+            "entities": ctx["entities"],
+            "bad_states": ["unavailable", "unknown"],
+            "cooldown": 0,
+            "staleness_threshold": 0,
+            "battery_threshold": threshold,
+            "availability_windows": ["today", "7d"],
+            "use_device_names": False,
+            "staleness_use_last_updated": False,
+        },
+    )
     schema = r2.get("data_schema", [])
     if cleared_entities:
         c_eid = cleared_entities[0]
         c_field = next((f for f in schema if f.get("name") == c_eid), None)
         c_suggestion = (c_field or {}).get("description", {}).get("suggested_value", "")
-        chk("PR#37 cleared entity has no suggestion", c_suggestion, "", f"entity={c_eid} suggested={c_suggestion!r}")
+        chk(
+            "PR#37 cleared entity has no suggestion",
+            c_suggestion,
+            "",
+            f"entity={c_eid} suggested={c_suggestion!r}",
+        )
     else:
         print("  EC9: skipped (no cleared mappings found in config)", flush=True)
     # Confirm mapped entity still has suggestion
     m_field = next((f for f in schema if f.get("name") == battery_entity), None)
     m_suggestion = (m_field or {}).get("description", {}).get("suggested_value", "")
-    chk("PR#37 mapped entity retains suggestion", m_suggestion != "", True, f"entity={battery_entity} suggested={m_suggestion!r}")
+    chk(
+        "PR#37 mapped entity retains suggestion",
+        m_suggestion != "",
+        True,
+        f"entity={battery_entity} suggested={m_suggestion!r}",
+    )
     api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
 
     # ------------------------------------------------------------------
-    print("\n=== EC10: suppression — suppressed+unavailable not in offline ===", flush=True)
+    print(
+        "\n=== EC10: suppression — suppressed+unavailable not in offline ===",
+        flush=True,
+    )
     restore_all(ctx)
     suppressed_entity = ctx["entities"][0]
-    api("POST", "/api/services/entity_availability/suppress", {
-        "entity_id": suppressed_entity,
-        "group": ctx["title"],
-    })
+    api(
+        "POST",
+        "/api/services/entity_availability/suppress",
+        {
+            "entity_id": suppressed_entity,
+            "group": ctx["title"],
+        },
+    )
     ss(suppressed_entity, "unavailable", {"friendly_name": "test"})
     wait()
-    chk("offline_count=0 (suppressed not counted)", gs(f"{prefix}_offline_count").get("state"), "0")
-    chk("suppressed=1", str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")), "1")
+    chk(
+        "offline_count=0 (suppressed not counted)",
+        gs(f"{prefix}_offline_count").get("state"),
+        "0",
+    )
+    chk(
+        "suppressed=1",
+        str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
+        "1",
+    )
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)
     restore_all(ctx)
-    print(f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)", flush=True)
-    print(f"low_battery_count={gs(f'{prefix}_low_battery_count').get('state')} (expected 0)", flush=True)
+    print(
+        f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
+        flush=True,
+    )
+    print(
+        f"low_battery_count={gs(f'{prefix}_low_battery_count').get('state')} (expected 0)",
+        flush=True,
+    )
 
     # ------------------------------------------------------------------
     print(f"\n=== RESULTS: {_passed} passed, {_failed} failed ===", flush=True)
