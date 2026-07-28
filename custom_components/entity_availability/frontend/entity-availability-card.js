@@ -377,6 +377,27 @@ const cardStyles = css`
     opacity: 0.8;
   }
 
+  .entity-suppress-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    cursor: pointer;
+    color: var(--secondary-text-color);
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .entity-suppress-btn.suppressed {
+    color: var(--warning-color, #ff9800);
+  }
+
+  .entity-suppress-btn:hover {
+    background: var(--secondary-background-color);
+  }
+
   .entity-detail-inline {
     width: 100%;
     padding: 2px 0 6px 20px;
@@ -578,6 +599,7 @@ class EntityAvailabilityCard extends LitElement {
       show_entities: true,
       entities_expanded: false,
       show_actions: false,
+      show_suppress_toggle: false,
       compact: false,
     };
   }
@@ -597,6 +619,7 @@ class EntityAvailabilityCard extends LitElement {
       show_entities: true,
       entities_expanded: false,
       show_actions: false,
+      show_suppress_toggle: false,
       compact: false,
       sort_by: "status",
       entity_detail: "off",
@@ -825,6 +848,7 @@ class EntityAvailabilityCard extends LitElement {
           <span class="entity-legend-name">Entity</span>
           <span class="entity-legend-status">State</span>
           ${hasBattery ? html`<span class="entity-legend-battery">Bat.</span>` : nothing}
+          ${this._config.show_suppress_toggle ? html`<span style="width:24px;flex-shrink:0"></span>` : nothing}
         </div>
         ${items.map(
           (item) => html`
@@ -841,6 +865,12 @@ class EntityAvailabilityCard extends LitElement {
               ${this._config.entity_detail === "inline"
                 ? this._renderDetailInline(item, suppressedUntil)
                 : nothing}
+              ${this._config.show_suppress_toggle ? html`
+              <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
+                title="${item.isSuppressed ? "Unsuppress" : "Suppress indefinitely"}"
+                @click=${(e) => this._handleToggleSuppress(e, item.entityId, item.isSuppressed)}>
+                <ha-icon icon="${item.isSuppressed ? "mdi:bell-off" : "mdi:bell-off-outline"}" style="--mdc-icon-size:16px"></ha-icon>
+              </button>` : nothing}
             </div>
           `
         )}`}
@@ -1017,7 +1047,9 @@ class EntityAvailabilityCard extends LitElement {
     const areaName = areaId ? (this.hass.areas?.[areaId]?.name || null) : null;
 
     const suppressedUntilIso = suppressedUntilMap[item.entityId];
-    const suppressedUntil = suppressedUntilIso
+    const suppressedUntil = suppressedUntilIso === "indefinite"
+      ? "indefinitely"
+      : suppressedUntilIso
       ? this._formatFutureDate(suppressedUntilIso)
       : null;
 
@@ -1202,6 +1234,15 @@ class EntityAvailabilityCard extends LitElement {
   _handleEntityClick(e, entityId) {
     e.stopPropagation();
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
+  }
+
+  async _handleToggleSuppress(e, entityId, isSuppressed) {
+    e.stopPropagation();
+    if (isSuppressed) {
+      await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId });
+    } else {
+      await this.hass.callService("entity_availability", "suppress_indefinitely", { entity_id: entityId });
+    }
   }
 
   async _handleSuppressAll(e) {
@@ -1462,6 +1503,16 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("show_actions", e.target.checked)}
             />
             Show Suppress/Unsuppress Buttons
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_suppress_toggle === true}
+              @change=${(e) => this._updateConfig("show_suppress_toggle", e.target.checked)}
+            />
+            Show Per-Entity Suppress Toggle
           </label>
         </div>
         ` : nothing}
