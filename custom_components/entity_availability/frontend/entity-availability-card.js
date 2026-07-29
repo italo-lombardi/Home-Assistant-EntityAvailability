@@ -850,9 +850,6 @@ class EntityAvailabilityCard extends LitElement {
                 @click=${(e) => this._handleToggleSuppress(e, item.entityId, item.isSuppressed)}>
                 <ha-icon icon="${item.isSuppressed ? "mdi:bell-off" : "mdi:bell-off-outline"}" style="--mdc-icon-size:16px"></ha-icon>
               </button>` : nothing}
-              ${this._config.entity_detail === "tooltip"
-                ? this._renderTooltip(item, suppressedUntil)
-                : nothing}
               ${this._config.entity_detail === "inline"
                 ? this._renderDetailInline(item, suppressedUntil)
                 : nothing}
@@ -1046,11 +1043,6 @@ class EntityAvailabilityCard extends LitElement {
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
       suppressedUntil ? { label: "Suppressed", value: suppressedUntil === "indefinitely" ? "Indefinitely" : `until ${suppressedUntil}` } : null,
     ].filter(Boolean);
-  }
-
-  _renderTooltip(item, suppressedUntilMap) {
-    // Tooltip rendered into document.body on mouseenter — nothing in shadow DOM
-    return nothing;
   }
 
   _renderDetailInline(item, suppressedUntilMap) {
