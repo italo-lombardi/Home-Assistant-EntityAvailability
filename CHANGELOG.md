@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Bus events now carry `offline_count` and `offline_entities` in payload** — `entity_availability_offline` and `entity_availability_recovered` now include the number of non-suppressed offline entities in the group and their entity IDs at the moment of firing. For the offline event the newly-offline entity is included; for the recovered event it is already excluded. Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition. Events also now fire after all device state mutations in the update cycle complete, eliminating a race where the event could fire before `is_offline` was fully propagated. Resolves #46.
+
 ## [0.3.14] - 2026-07-28
 
 ### Fixed
