@@ -36,8 +36,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, core):
   EC17 PR#52: combined offline_entities list contains the offline entity
   EC18 PR#52: combined offline_count drops to baseline after recovery
   EC19 PR#53: combined config entry has non-empty entry_id (event payload source)
-  EC20 PR#53: individual group offline_count also rises when entity goes offline (fan-out parity)
-  EC21 PR#53: combined and individual group offline_entities agree on the offline entity
+  EC20 PR#53: individual group offline_count sensor rises when entity in combined group goes offline
+  EC21 PR#53: individual and combined offline_entities sensors both reflect the offline entity
 """
 
 import json
@@ -969,7 +969,9 @@ for e in cfg['data']['entries']:
         if combined_prefix:
             target = ctx["entities"][0]
             c_offline_eid = f"{combined_prefix}_offline_count"
+            c_entities_eid = f"{combined_prefix}_offline_entities"
             i_offline_eid = f"{prefix}_offline_count"
+            i_entities_eid = f"{prefix}_offline_entities"
 
             if ec_enabled(19):
                 # EC19: combined config entry has a non-empty entry_id
@@ -1008,9 +1010,13 @@ for e in cfg['data']['entries']:
                 if not ec_enabled(20):
                     ss(target, "unavailable", {"friendly_name": "smoke test device"})
                     wait()
-                # EC21: combined and individual offline_entities both contain the entity
-                c_entities = gs(c_offline_eid).get("attributes", {}).get("entities", [])
-                i_entities = gs(i_offline_eid).get("attributes", {}).get("entities", [])
+                # EC21: combined and individual offline_entities sensors both contain the entity
+                c_entities = (
+                    gs(c_entities_eid).get("attributes", {}).get("entities", [])
+                )
+                i_entities = (
+                    gs(i_entities_eid).get("attributes", {}).get("entities", [])
+                )
                 chk(
                     "EC21 individual offline_entities contains the offline entity",
                     target in i_entities,

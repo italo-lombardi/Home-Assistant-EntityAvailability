@@ -17,6 +17,11 @@ The integration fires two events on the Home Assistant event bus at each transit
 
 `offline_count` and `offline_entities` reflect the group's offline state at the moment the entity transitions. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition.
 
+**`offline_since`** is always an ISO timestamp string for individual group events. For combined group events it may be `null` if the coordinator has not yet recorded the transition time — guard with `| default(none)` before passing to `as_datetime()`:
+```yaml
+{{ as_local(as_datetime(trigger.event.data.offline_since | default(none))) if trigger.event.data.offline_since else "unknown" }}
+```
+
 **Combined groups fire the same events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
 
 ### Notify when any monitored entity goes offline

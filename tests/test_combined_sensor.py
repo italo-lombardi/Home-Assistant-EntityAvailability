@@ -118,6 +118,7 @@ def coordinator_a(mock_hass: HomeAssistant, group_entry_a: MockConfigEntry):
             "binary_sensor.a2": DeviceState(
                 entity_id="binary_sensor.a2",
                 is_offline=True,
+                offline_since=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
             ),
         }
     return coord
@@ -952,13 +953,15 @@ class TestCombinedGroupSensor:
 
         assert len(events) == 1
         data = events[0].data
-        # Same fields as individual group events
-        assert "entity_id" in data
-        assert "group" in data
-        assert "entry_id" in data
-        assert "offline_count" in data
-        assert "offline_entities" in data
-        assert "offline_since" in data
+        # Same fields as individual group events — values not just keys
+        assert data["entity_id"] == "binary_sensor.a2"
+        assert data["group"] == "Combined"
+        assert data["entry_id"] == "combined_1"
+        assert data["offline_count"] == 1
+        assert "binary_sensor.a2" in data["offline_entities"]
+        # offline_since must be a non-None ISO string (fixture sets it)
+        assert data["offline_since"] is not None
+        assert isinstance(data["offline_since"], str)
 
 
 # ---------------------------------------------------------------------------
