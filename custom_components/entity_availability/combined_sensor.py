@@ -21,8 +21,6 @@ from .const import (
     CONF_GROUP_NAME,
     CONF_USE_DEVICE_NAMES,
     DOMAIN,
-    EVENT_BATTERY_OK,
-    EVENT_LOW_BATTERY,
     EVENT_OFFLINE,
     EVENT_RECOVERED,
     NO_AREA_SENTINEL,
@@ -222,7 +220,6 @@ class CombinedGroupSensor(CombinedSensorBase):
         )
         self._attr_translation_key = "combined_summary"
         self._prev_offline_set: frozenset[str] = frozenset()
-        self._prev_low_battery_set: frozenset[str] = frozenset()
 
     def _make_update_callback(self) -> Callable[[], None]:
         """Return event-aware coordinator update callback."""
@@ -282,51 +279,6 @@ class CombinedGroupSensor(CombinedSensorBase):
                         },
                     )
 
-            current_lb = self._current_low_battery_set(coords)
-            prev_lb = self._prev_low_battery_set
-            self._prev_low_battery_set = current_lb
-
-            if current_lb != prev_lb:
-                if not (current != prev):
-                    # Build device_map if not already built above.
-                    device_map = {}
-                    for coord in coords:
-                        for d in coord.device_states.values():
-                            if d.entity_id not in device_map:
-                                device_map[d.entity_id] = d
-
-                group_name = self._entry.data.get(CONF_GROUP_NAME, "")
-                entry_id = self._entry.entry_id
-                low_battery_list = sorted(current_lb)
-                low_battery_count = len(current_lb)
-
-                for eid in sorted(current_lb - prev_lb):
-                    d = device_map.get(eid)
-                    self.hass.bus.async_fire(
-                        EVENT_LOW_BATTERY,
-                        {
-                            "entity_id": eid,
-                            "group": group_name,
-                            "entry_id": entry_id,
-                            "battery_level": d.battery_level if d else None,
-                            "low_battery_count": low_battery_count,
-                            "low_battery_entities": low_battery_list,
-                        },
-                    )
-                for eid in sorted(prev_lb - current_lb):
-                    d = device_map.get(eid)
-                    self.hass.bus.async_fire(
-                        EVENT_BATTERY_OK,
-                        {
-                            "entity_id": eid,
-                            "group": group_name,
-                            "entry_id": entry_id,
-                            "battery_level": d.battery_level if d else None,
-                            "low_battery_count": low_battery_count,
-                            "low_battery_entities": low_battery_list,
-                        },
-                    )
-
             if self._ea_should_write():
                 self.async_write_ha_state()
 
@@ -345,27 +297,12 @@ class CombinedGroupSensor(CombinedSensorBase):
             eid for eid, d in seen.items() if d.is_offline and not d.is_suppressed
         )
 
-    def _current_low_battery_set(
-        self, coords: list[EntityAvailabilityCoordinator]
-    ) -> frozenset[str]:
-        """Return deduplicated set of low-battery, non-suppressed entity IDs."""
-        seen: dict[str, Any] = {}
-        for coord in coords:
-            for d in coord.device_states.values():
-                if d.entity_id not in seen:
-                    seen[d.entity_id] = d
-        return frozenset(
-            eid for eid, d in seen.items() if d.is_low_battery and not d.is_suppressed
-        )
-
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
         # Prime _prev_offline_set using the same dedup logic as _on_update so the
         # two code paths can't diverge. Must happen after super() subscribes so
         # _active_coordinators() returns the full list.
-        coords = self._active_coordinators()
-        self._prev_offline_set = self._current_offline_set(coords)
-        self._prev_low_battery_set = self._current_low_battery_set(coords)
+        self._prev_offline_set = self._current_offline_set(self._active_coordinators())
 
     @property
     def native_value(self) -> int:

@@ -32,8 +32,6 @@ from .const import (
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_STALENESS_THRESHOLD,
     DEFAULT_STALENESS_USE_LAST_UPDATED,
-    EVENT_BATTERY_OK,
-    EVENT_LOW_BATTERY,
     EVENT_OFFLINE,
     EVENT_RECOVERED,
     SCAN_INTERVAL,
@@ -640,40 +638,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
             # Degraded = not offline but battery low or stale
             device.is_stale = is_stale
-            if battery_low and not device.is_low_battery:
-                device.is_low_battery = True
-                low_battery_ids = self._low_battery_entity_ids()
-                pending_events.append(
-                    (
-                        EVENT_LOW_BATTERY,
-                        {
-                            "entity_id": entity_id,
-                            "group": self.group_name,
-                            "entry_id": self.entry.entry_id,
-                            "battery_level": device.battery_level,
-                            "low_battery_count": len(low_battery_ids),
-                            "low_battery_entities": low_battery_ids,
-                        },
-                    )
-                )
-            elif not battery_low and device.is_low_battery:
-                device.is_low_battery = False
-                low_battery_ids = self._low_battery_entity_ids()
-                pending_events.append(
-                    (
-                        EVENT_BATTERY_OK,
-                        {
-                            "entity_id": entity_id,
-                            "group": self.group_name,
-                            "entry_id": self.entry.entry_id,
-                            "battery_level": device.battery_level,
-                            "low_battery_count": len(low_battery_ids),
-                            "low_battery_entities": low_battery_ids,
-                        },
-                    )
-                )
-            else:
-                device.is_low_battery = battery_low
+            device.is_low_battery = battery_low
             device.is_degraded = (not device.is_offline) and (battery_low or is_stale)
 
         # Mark as dirty; save periodically (every ~5 min)
@@ -707,14 +672,6 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             eid
             for eid, d in self._device_states.items()
             if d.is_offline and not d.is_suppressed
-        ]
-
-    def _low_battery_entity_ids(self) -> list[str]:
-        """Return entity_ids that are currently low-battery and not suppressed, in insertion order."""
-        return [
-            eid
-            for eid, d in self._device_states.items()
-            if d.is_low_battery and not d.is_suppressed
         ]
 
     def _get_battery_level(self, entity_id: str) -> int | None:
