@@ -66,11 +66,9 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         return re.sub(r"\s+", "_", name.lower())
 
     def _matches_group(coordinator: EntityAvailabilityCoordinator, group: str) -> bool:
-        return (
-            coordinator.group_name == group
-            or coordinator.entry.entry_id == group
-            or _slug(coordinator.group_name) == _slug(group)
-        )
+        return coordinator.entry.entry_id == group or _slug(
+            coordinator.group_name
+        ) == _slug(group)
 
     def _find_coordinator(group: str):
         """Find coordinator by group name, slug, or config entry ID."""

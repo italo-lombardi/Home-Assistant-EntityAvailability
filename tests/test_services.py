@@ -1065,17 +1065,76 @@ async def test_reset_statistics_with_group_slug(
         }
         coord_b._device_states["binary_sensor.device_a"].offline_event_count = 3
         coord_b.data = None
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["entry_slug_rst_a"] = coord_a
-    hass.data[DOMAIN]["entry_slug_rst_b"] = coord_b
-    await async_setup_services(hass)
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN]["entry_slug_rst_a"] = coord_a
+        hass.data[DOMAIN]["entry_slug_rst_b"] = coord_b
+        await async_setup_services(hass)
 
-    # Pass slug "group_a" — should match "Group A" only
-    await hass.services.async_call(
-        DOMAIN,
-        "reset_statistics",
-        {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "group_a"},
-        blocking=True,
+        # Pass slug "group_a" — should match "Group A" only
+        await hass.services.async_call(
+            DOMAIN,
+            "reset_statistics",
+            {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "group_a"},
+            blocking=True,
+        )
+        assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
+        assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 3
+
+
+async def test_reset_statistics_group_only_slug(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """reset_statistics with group-only slug (no entity_id) resets all in matched group only."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_grponly_a",
+        unique_id=f"{DOMAIN}_entry_grponly_a",
     )
-    assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
-    assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 3
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_grponly_b",
+        unique_id=f"{DOMAIN}_entry_grponly_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_a._device_states["binary_sensor.device_a"].offline_event_count = 7
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_b._device_states["binary_sensor.device_a"].offline_event_count = 4
+        coord_b.data = None
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN]["entry_grponly_a"] = coord_a
+        hass.data[DOMAIN]["entry_grponly_b"] = coord_b
+        await async_setup_services(hass)
+
+        # group-only call with slug — should reset Group A, not Group B
+        await hass.services.async_call(
+            DOMAIN,
+            "reset_statistics",
+            {ATTR_GROUP: "group_a"},
+            blocking=True,
+        )
+        assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
+        assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 4

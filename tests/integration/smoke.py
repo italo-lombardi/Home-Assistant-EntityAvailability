@@ -698,12 +698,12 @@ for e in cfg['data']['entries']:
             break
     if beta_prefix:
         shared_entity = ctx["entities"][0]  # kitchen_1 — in both Alpha and Beta
-        # Suppress in Alpha only (using slug)
-        alpha_slug = prefix.replace("sensor.entity_availability_", "")
+        # Suppress in Alpha only using the group title (exact match, no fragile string surgery)
+        alpha_title = ctx["title"]
         api(
             "POST",
             "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": shared_entity, "group": alpha_slug},
+            {"entity_id": shared_entity, "group": alpha_title},
         )
         wait()
         alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
@@ -722,7 +722,7 @@ for e in cfg['data']['entries']:
         api(
             "POST",
             "/api/services/entity_availability/unsuppress",
-            {"entity_id": shared_entity, "group": alpha_slug},
+            {"entity_id": shared_entity, "group": alpha_title},
         )
         wait()
         alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
