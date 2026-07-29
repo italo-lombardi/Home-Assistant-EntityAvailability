@@ -70,7 +70,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         return coordinator.entry.entry_id == group or coord_slug == _slug(group)
 
     def _find_coordinator(group: str):
-        """Find coordinator by group name, slug, or config entry ID."""
+        """Find coordinator by group name, slug, or config entry ID.
+
+        Returns the FIRST matching coordinator. If two groups share the same
+        slug (unlikely but possible), the first one wins.
+        """
         for coordinator in hass.data.get(DOMAIN, {}).values():
             if not isinstance(coordinator, EntityAvailabilityCoordinator):
                 continue

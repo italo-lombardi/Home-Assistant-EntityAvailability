@@ -688,16 +688,25 @@ for e in cfg['data']['entries']:
         flush=True,
     )
     restore_all(ctx)
-    # Find Beta group prefix (shares kitchen_1 with Alpha)
+    # Find a second group that also monitors kitchen_1 — use friendly_name matching
     all_states = api("GET", "/api/states")
     beta_prefix = None
+    alpha_entities = set(ctx["entities"])
     for s in all_states:
         eid = s["entity_id"]
-        if "entity_availability" in eid and "group_summary" in eid and "beta" in eid:
-            beta_prefix = eid.replace("_group_summary", "")
+        if "entity_availability" not in eid or "group_summary" not in eid:
+            continue
+        candidate_prefix = eid.replace("_group_summary", "")
+        if candidate_prefix == ctx["prefix"]:
+            continue  # skip Alpha itself
+        candidate_entities = set(s.get("attributes", {}).get("entities", []))
+        if alpha_entities & candidate_entities:  # shares at least one entity with Alpha
+            beta_prefix = candidate_prefix
             break
     if beta_prefix:
-        shared_entity = ctx["entities"][0]  # kitchen_1 — in both Alpha and Beta
+        shared_entity = ctx["entities"][
+            0
+        ]  # kitchen_1 — in both Alpha and the found group
         # Suppress in Alpha only using the group title (exact match, no fragile string surgery)
         alpha_title = ctx["title"]
         api(
@@ -732,11 +741,12 @@ for e in cfg['data']['entries']:
             "0",
         )
     else:
-        print(
-            "FAIL EC12: Beta group not found — cannot verify group scoping", flush=True
+        chk(
+            "EC12 second group found",
+            False,
+            True,
+            "(no group sharing entities with Alpha)",
         )
-        global _failed
-        _failed += 1
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)
