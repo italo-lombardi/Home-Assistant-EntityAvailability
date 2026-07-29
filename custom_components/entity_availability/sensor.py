@@ -590,6 +590,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
 
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
         return {
+            "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
             "online": online,
             "offline": offline,
