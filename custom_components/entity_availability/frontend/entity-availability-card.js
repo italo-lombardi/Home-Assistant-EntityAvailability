@@ -373,7 +373,6 @@ const cardStyles = css`
     padding: 5px 0;
     gap: 10px;
     position: relative;
-    flex-wrap: wrap;
     cursor: pointer;
     user-select: none;
   }

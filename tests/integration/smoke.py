@@ -27,6 +27,8 @@ What is tested (covers PRs #37, #41, core):
   EC8  combined group: offline+low → combined low_battery drops, offline rises
   EC9  PR#37: cleared battery map entry not re-suggested in options flow
   EC10 suppression: suppressed+unavailable entity not counted in offline
+  EC11 suppress_indefinitely + unsuppress round-trip; suppressed_until=null for indefinite
+  EC12 group-scoped suppress: entity in two groups, suppress in one, other unaffected
 """
 
 import json
@@ -679,6 +681,72 @@ for e in cfg['data']['entries']:
         str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
         "0",
     )
+
+    # ------------------------------------------------------------------
+    print(
+        "\n=== EC12: group-scoped suppress — entity in two groups ===",
+        flush=True,
+    )
+    restore_all(ctx)
+    # Find a second group that also monitors kitchen_1 — use friendly_name matching
+    all_states = api("GET", "/api/states")
+    beta_prefix = None
+    alpha_entities = set(ctx["entities"])
+    for s in all_states:
+        eid = s["entity_id"]
+        if "entity_availability" not in eid or "group_summary" not in eid:
+            continue
+        candidate_prefix = eid.replace("_group_summary", "")
+        if candidate_prefix == ctx["prefix"]:
+            continue  # skip Alpha itself
+        candidate_entities = set(s.get("attributes", {}).get("entities", []))
+        if alpha_entities & candidate_entities:  # shares at least one entity with Alpha
+            beta_prefix = candidate_prefix
+            break
+    if beta_prefix:
+        shared_entity = ctx["entities"][
+            0
+        ]  # kitchen_1 — in both Alpha and the found group
+        # Suppress in Alpha only using the group title (exact match, no fragile string surgery)
+        alpha_title = ctx["title"]
+        api(
+            "POST",
+            "/api/services/entity_availability/suppress_indefinitely",
+            {"entity_id": shared_entity, "group": alpha_title},
+        )
+        wait()
+        alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        beta_attrs = gs(f"{beta_prefix}_group_summary").get("attributes", {})
+        chk(
+            "EC12 suppressed=1 in Alpha",
+            str(alpha_attrs.get("suppressed")),
+            "1",
+        )
+        chk(
+            "EC12 suppressed=0 in Beta (group-scoped)",
+            str(beta_attrs.get("suppressed")),
+            "0",
+        )
+        # Unsuppress in Alpha only
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {"entity_id": shared_entity, "group": alpha_title},
+        )
+        wait()
+        alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        chk(
+            "EC12 suppressed=0 in Alpha after unsuppress",
+            str(alpha_attrs.get("suppressed")),
+            "0",
+        )
+    else:
+        chk(
+            "EC12 second group found",
+            False,
+            True,
+            "(no group sharing entities with Alpha)",
+        )
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)

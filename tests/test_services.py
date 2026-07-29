@@ -877,3 +877,283 @@ async def test_reset_statistics_with_group_scopes_to_that_group(
     )
     assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
     assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 3
+
+
+async def test_suppress_with_group_slug_matches(setup_services, caplog) -> None:
+    """suppress with slug form of group name (lowercase, spaces→underscores) resolves correctly."""
+
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS,
+            {
+                ATTR_ENTITY_ID: "binary_sensor.device_a",
+                ATTR_GROUP: "test_group",
+                ATTR_DURATION: 10,
+            },
+            blocking=True,
+        )
+    # coord group_name is "Test Group" (from mock_config_entry fixture)
+    # slug "test_group" should match — entity suppressed, no warning
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert "not found" not in caplog.text
+
+
+async def test_suppress_with_entry_id_matches(setup_services, caplog) -> None:
+    """suppress with entry_id (UUID) as group value matches correctly."""
+    hass, coord = setup_services
+    entry_id = list(hass.data[DOMAIN].keys())[0]
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS,
+            {
+                ATTR_ENTITY_ID: "binary_sensor.device_a",
+                ATTR_GROUP: entry_id,
+                ATTR_DURATION: 10,
+            },
+            blocking=True,
+        )
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert "not found" not in caplog.text
+
+
+async def test_suppress_by_group_slug_only(setup_services, caplog) -> None:
+    """suppress with group slug and no entity_id suppresses all entities in group."""
+
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS,
+            {ATTR_GROUP: "test_group", ATTR_DURATION: 10},
+            blocking=True,
+        )
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert coord.device_states["binary_sensor.device_b"].is_suppressed is True
+    assert "not found" not in caplog.text
+
+
+async def test_suppress_indefinitely_by_group_slug_only(setup_services, caplog) -> None:
+    """suppress_indefinitely with group slug and no entity_id suppresses all."""
+
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS_INDEFINITELY,
+            {ATTR_GROUP: "test_group"},
+            blocking=True,
+        )
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is True
+    assert coord.device_states["binary_sensor.device_a"].suppress_until is None
+    assert "not found" not in caplog.text
+
+
+async def test_unsuppress_by_group_slug_only(setup_services, caplog) -> None:
+    """unsuppress with group slug and no entity_id unsuppresses all."""
+
+    hass, coord = setup_services
+    coord.suppress_entity("binary_sensor.device_a", None)
+    coord.suppress_entity("binary_sensor.device_b", None)
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_UNSUPPRESS,
+            {ATTR_GROUP: "test_group"},
+            blocking=True,
+        )
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is False
+    assert coord.device_states["binary_sensor.device_b"].is_suppressed is False
+    assert "not found" not in caplog.text
+
+
+async def test_suppress_entity_not_in_specified_group_warns(
+    setup_services, caplog
+) -> None:
+    """suppress with entity_id+group warns when entity not in that group."""
+
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS,
+            {
+                ATTR_ENTITY_ID: "binary_sensor.device_a",
+                ATTR_GROUP: "Other Group",
+                ATTR_DURATION: 10,
+            },
+            blocking=True,
+        )
+    assert "not found in group" in caplog.text
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is False
+
+
+async def test_suppress_indefinitely_entity_not_in_group_warns(
+    setup_services, caplog
+) -> None:
+    """suppress_indefinitely with entity_id+group warns when entity not in that group."""
+
+    hass, coord = setup_services
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SUPPRESS_INDEFINITELY,
+            {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "Other Group"},
+            blocking=True,
+        )
+    assert "not found in group" in caplog.text
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is False
+
+
+async def test_unsuppress_entity_not_in_group_warns(setup_services, caplog) -> None:
+    """unsuppress with entity_id+group warns when entity not in that group."""
+
+    hass, coord = setup_services
+    coord.suppress_entity("binary_sensor.device_a", None)
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_UNSUPPRESS,
+            {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "Other Group"},
+            blocking=True,
+        )
+    assert "not found in group" in caplog.text
+    assert coord.device_states["binary_sensor.device_a"].is_suppressed is True
+
+
+async def test_reset_statistics_entity_not_in_group_warns(
+    setup_services, caplog
+) -> None:
+    """reset_statistics with entity_id+group warns when entity not in that group."""
+
+    hass, coord = setup_services
+    coord.device_states["binary_sensor.device_a"].offline_event_count = 5
+    with caplog.at_level(logging.WARNING):
+        await hass.services.async_call(
+            DOMAIN,
+            "reset_statistics",
+            {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "Other Group"},
+            blocking=True,
+        )
+    assert "not found in group" in caplog.text
+    assert coord.device_states["binary_sensor.device_a"].offline_event_count == 5
+
+
+async def test_reset_statistics_with_group_slug(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """reset_statistics with slug form of group name resets only the matching group."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_slug_rst_a",
+        unique_id=f"{DOMAIN}_entry_slug_rst_a",
+    )
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_slug_rst_b",
+        unique_id=f"{DOMAIN}_entry_slug_rst_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_a._device_states["binary_sensor.device_a"].offline_event_count = 5
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_b._device_states["binary_sensor.device_a"].offline_event_count = 3
+        coord_b.data = None
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN]["entry_slug_rst_a"] = coord_a
+        hass.data[DOMAIN]["entry_slug_rst_b"] = coord_b
+        await async_setup_services(hass)
+
+        # Pass slug "group_a" — should match "Group A" only
+        await hass.services.async_call(
+            DOMAIN,
+            "reset_statistics",
+            {ATTR_ENTITY_ID: "binary_sensor.device_a", ATTR_GROUP: "group_a"},
+            blocking=True,
+        )
+        assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
+        assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 3
+
+
+async def test_reset_statistics_group_only_slug(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """reset_statistics with group-only slug (no entity_id) resets all in matched group only."""
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+    from custom_components.entity_availability.const import CONF_ENTITIES
+
+    hass = mock_hass
+    config_a = dict(mock_config_data)
+    config_a[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group A",
+        data=config_a,
+        entry_id="entry_grponly_a",
+        unique_id=f"{DOMAIN}_entry_grponly_a",
+    )
+    config_b = dict(mock_config_data)
+    config_b[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group B",
+        data=config_b,
+        entry_id="entry_grponly_b",
+        unique_id=f"{DOMAIN}_entry_grponly_b",
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord_a = EntityAvailabilityCoordinator(hass, entry_a)
+        coord_a._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_a._device_states["binary_sensor.device_a"].offline_event_count = 7
+        coord_a.data = None
+        coord_b = EntityAvailabilityCoordinator(hass, entry_b)
+        coord_b._device_states = {
+            "binary_sensor.device_a": DeviceState(entity_id="binary_sensor.device_a")
+        }
+        coord_b._device_states["binary_sensor.device_a"].offline_event_count = 4
+        coord_b.data = None
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN]["entry_grponly_a"] = coord_a
+        hass.data[DOMAIN]["entry_grponly_b"] = coord_b
+        await async_setup_services(hass)
+
+        # group-only call with slug — should reset Group A, not Group B
+        await hass.services.async_call(
+            DOMAIN,
+            "reset_statistics",
+            {ATTR_GROUP: "group_a"},
+            blocking=True,
+        )
+        assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
+        assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 4
