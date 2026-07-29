@@ -1207,7 +1207,7 @@ class EntityAvailabilityCard extends LitElement {
     tt.className = "eac-global-tooltip";
     tt.style.cssText = `
       position:fixed;z-index:99999;
-      background:var(--card-background-color,var(--primary-background-color,#1c1c1e));
+      background:var(--ha-card-background,var(--card-background-color,var(--primary-background-color,#1c1c1e)));
       border:1px solid var(--divider-color,rgba(0,0,0,0.12));
       border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.25);
       padding:8px 10px;font-size:12px;
