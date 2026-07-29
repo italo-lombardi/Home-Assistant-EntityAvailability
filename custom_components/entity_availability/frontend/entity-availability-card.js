@@ -1230,13 +1230,13 @@ class EntityAvailabilityCard extends LitElement {
     });
     document.body.appendChild(tt);
     this._activeTooltip = tt;
-    tt.getBoundingClientRect();
+    tt.getBoundingClientRect(); // force reflow so offsetHeight/offsetWidth are populated
     const rect = e.currentTarget.getBoundingClientRect();
     const ttH = tt.offsetHeight;
     const ttW = tt.offsetWidth;
     const spaceBelow = window.innerHeight - rect.bottom;
     const top = spaceBelow >= ttH + 8 ? rect.bottom + 4 : rect.top - ttH - 4;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - ttW - 8));
+    const left = Math.max(8, Math.min(rect.left, Math.max(8, window.innerWidth - ttW - 8)));
     tt.style.left = `${left}px`;
     tt.style.top = `${top}px`;
   }
