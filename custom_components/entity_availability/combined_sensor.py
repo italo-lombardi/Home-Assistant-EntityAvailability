@@ -421,12 +421,14 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        offline = [
-            d.entity_id
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
-        ]
+        offline = list(
+            dict.fromkeys(
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
+            )
+        )
         return {"entities": offline, "count": len(offline)}
 
 
@@ -446,16 +448,18 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        offline = [
-            _friendly_name(
-                self.hass,
-                d.entity_id,
-                coord.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+        offline = list(
+            dict.fromkeys(
+                _friendly_name(
+                    self.hass,
+                    d.entity_id,
+                    coord.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+                )
+                for coord in coords
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
             )
-            for coord in coords
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
-        ]
+        )
         if not offline:
             return "None"
         result = ", ".join(offline)
@@ -467,12 +471,14 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        offline = [
-            d.entity_id
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
-        ]
+        offline = list(
+            dict.fromkeys(
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
+            )
+        )
         return {"entities": offline, "count": len(offline)}
 
 
