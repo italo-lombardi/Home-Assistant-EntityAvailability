@@ -906,13 +906,19 @@ for e in cfg['data']['entries']:
             f"sensor={c_offline_eid} baseline={baseline} after={after_offline}",
         )
 
-        # EC17: combined offline_entities contains the offline entity
+        # EC17: combined offline_entities contains the offline entity, no duplicates
         c_entities = gs(c_offline_eid).get("attributes", {}).get("entities", [])
         chk(
             "EC17 combined offline_entities contains the offline entity",
             target in c_entities,
             True,
             f"target={target} entities={c_entities}",
+        )
+        chk(
+            "EC17 combined offline_entities has no duplicates",
+            len(c_entities),
+            len(set(c_entities)),
+            f"entities={c_entities}",
         )
 
         # EC18: recovery → combined offline_count drops back to baseline
