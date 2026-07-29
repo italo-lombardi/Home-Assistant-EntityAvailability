@@ -370,13 +370,18 @@ const cardStyles = css`
 
   .entity-item {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+    flex-direction: column;
     padding: 5px 0;
-    gap: 10px;
     position: relative;
     cursor: pointer;
     user-select: none;
+  }
+
+  .entity-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
   }
 
   .entity-item:hover {
@@ -838,18 +843,20 @@ class EntityAvailabilityCard extends LitElement {
         ${items.map(
           (item) => html`
             <div class="entity-item" tabindex="0" role="button" @mouseenter=${(e) => this._positionTooltip(e, item, suppressedUntil)} @mouseleave=${() => this._hideTooltip()} @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
-              <div class="entity-dot ${item.dotColor}"></div>
-              <span class="entity-name">${item.name}</span>
-              <span class="entity-status">${item.status}</span>
-              ${hasBattery
-                ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
-                : nothing}
-              ${this._config.show_suppress_toggle ? html`
-              <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
-                title="${item.isSuppressed ? "Unsuppress" : "Suppress indefinitely"}"
-                @click=${(e) => this._handleToggleSuppress(e, item.entityId, item.isSuppressed)}>
-                <ha-icon icon="${item.isSuppressed ? "mdi:bell-off" : "mdi:bell-off-outline"}" style="--mdc-icon-size:16px"></ha-icon>
-              </button>` : nothing}
+              <div class="entity-item-row">
+                <div class="entity-dot ${item.dotColor}"></div>
+                <span class="entity-name">${item.name}</span>
+                <span class="entity-status">${item.status}</span>
+                ${hasBattery
+                  ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
+                  : nothing}
+                ${this._config.show_suppress_toggle ? html`
+                <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
+                  title="${item.isSuppressed ? "Unsuppress" : "Suppress indefinitely"}"
+                  @click=${(e) => this._handleToggleSuppress(e, item.entityId, item.isSuppressed)}>
+                  <ha-icon icon="${item.isSuppressed ? "mdi:bell-off" : "mdi:bell-off-outline"}" style="--mdc-icon-size:16px"></ha-icon>
+                </button>` : nothing}
+              </div>
               ${this._config.entity_detail === "inline"
                 ? this._renderDetailInline(item, suppressedUntil)
                 : nothing}
@@ -1260,12 +1267,18 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _resolveGroupId() {
+    return this._getGroupSummary()?.attributes?.entry_id || null;
+  }
+
+  _getGroupSummary() {
     const isCombined = this._isCombinedGroup();
     const prefix = isCombined
       ? `entity_availability_combined_${this._config.group}`
       : `entity_availability_${this._config.group}`;
-    const summary = this._getEntity(isCombined ? `sensor.${prefix}_combined_summary` : `sensor.${prefix}_group_summary`);
-    return summary?.attributes?.entry_id || null;
+    const sensorId = isCombined
+      ? `sensor.${prefix}_combined_summary`
+      : `sensor.${prefix}_group_summary`;
+    return this._getEntity(sensorId);
   }
 
   async _handleToggleSuppress(e, entityId, isSuppressed) {
@@ -1294,14 +1307,7 @@ class EntityAvailabilityCard extends LitElement {
   async _handleUnsuppressAll(e) {
     e.stopPropagation();
     const group = this._resolveGroupId();
-    const isCombined = this._isCombinedGroup();
-    const prefix = isCombined
-      ? `entity_availability_combined_${this._config.group}`
-      : `entity_availability_${this._config.group}`;
-    const summaryId = isCombined
-      ? `sensor.${prefix}_combined_summary`
-      : `sensor.${prefix}_group_summary`;
-    const summary = this._getEntity(summaryId);
+    const summary = this._getGroupSummary();
     const entities = summary?.attributes?.entities || [];
     for (const entityId of entities) {
       await this.hass.callService("entity_availability", "unsuppress", {
