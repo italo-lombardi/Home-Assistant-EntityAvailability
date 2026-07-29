@@ -732,7 +732,11 @@ for e in cfg['data']['entries']:
             "0",
         )
     else:
-        print("  EC12: skipped (no Beta group found)", flush=True)
+        print(
+            "FAIL EC12: Beta group not found — cannot verify group scoping", flush=True
+        )
+        global _failed
+        _failed += 1
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)
