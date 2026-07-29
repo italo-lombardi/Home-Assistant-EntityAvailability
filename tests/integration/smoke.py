@@ -392,8 +392,16 @@ def main():
         ),
         "1",
     )
+    chk(
+        "low_battery list count=1",
+        wait_for(
+            lambda: gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
+            1,
+            timeout=90,
+        ),
+        1,
+    )
     lb = gs(f"{prefix}_low_battery")
-    chk("low_battery list count=1", lb.get("attributes", {}).get("count"), 1)
     chk(
         "low_battery state non-null",
         lb.get("state") not in ("None", "", "unavailable"),
@@ -411,8 +419,17 @@ def main():
         "0",
     )
     if combined_prefix:
+        low_battery_val = wait_for(
+            lambda: (
+                gs(f"{combined_prefix}_combined_summary")
+                .get("attributes", {})
+                .get("low_battery")
+            ),
+            1,
+            timeout=90,
+        )
         c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-        chk("EC4 combined low_battery=1", str(c_attrs.get("low_battery")), "1")
+        chk("EC4 combined low_battery=1", low_battery_val, 1)
         chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
 
     # ------------------------------------------------------------------
@@ -806,18 +823,19 @@ for e in cfg['data']['entries']:
             {"entity_id": ec_target, "group": ctx["title"]},
         )
         # Poll until coordinator writes updated per_device (attr update on next tick)
-        deadline = time.time() + 90
-        per_device = {}
-        while time.time() < deadline:
-            per_device = gs(avail_eid).get("attributes", {}).get("per_device", {})
-            if ec_target in per_device:
-                break
-            time.sleep(3)
         chk(
             "EC14 suppressed entity present in per_device breakdown",
-            ec_target in per_device,
+            wait_for(
+                lambda: (
+                    ec_target
+                    in gs(avail_eid).get("attributes", {}).get("per_device", {})
+                ),
+                True,
+                timeout=90,
+                interval=3,
+            ),
             True,
-            f"sensor={avail_eid} target={ec_target} keys={list(per_device.keys())}",
+            f"sensor={avail_eid} target={ec_target} keys={list(gs(avail_eid).get('attributes', {}).get('per_device', {}).keys())}",
         )
         api(
             "POST",
