@@ -938,6 +938,10 @@ for e in cfg['data']['entries']:
                 )
 
             if ec_enabled(18):
+                # Ensure entity is offline before testing recovery (standalone path)
+                if not ec_enabled(16) and not ec_enabled(17):
+                    ss(target, "unavailable", {"friendly_name": "smoke test device"})
+                    wait()
                 # EC18: recovery → combined offline_count drops back to baseline
                 restore_all(ctx)
                 wait()
