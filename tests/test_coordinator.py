@@ -3232,7 +3232,9 @@ async def test_bus_events_low_battery_multi_entity_count(
         await hass.async_block_till_done()
 
         assert len(events) == 2
-        # First event: only device_a was low at fire time (device_b not yet set)
+        # Both battery levels set before the update; device_a fires first because
+        # _device_states preserves insertion order (device_a added first).
+        # When device_a's event fires, device_b's is_low_battery is not yet set.
         first = events[0]
         assert first.data["entity_id"] == "binary_sensor.device_a"
         assert first.data["low_battery_count"] == 1
