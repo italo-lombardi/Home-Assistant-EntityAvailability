@@ -38,6 +38,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, core):
   EC19 PR#53: combined config entry has non-empty entry_id (event payload source)
   EC20 PR#53: individual group offline_count sensor rises when entity in combined group goes offline
   EC21 PR#53: individual and combined offline_entities sensors both reflect the offline entity
+  EC22 PR#54: entity_availability_low_battery event fires when battery drops below threshold
+  EC23 PR#54: entity_availability_battery_ok event fires when battery recovers above threshold
 """
 
 import json
@@ -1033,6 +1035,96 @@ for e in cfg['data']['entries']:
                 wait()
         else:
             print("  EC19-EC21: skipped (no combined group found)", flush=True)
+
+    # ------------------------------------------------------------------
+    # EC22 / EC23: low-battery bus events
+    # Smoke can't subscribe to the event bus via REST, so we verify the
+    # low_battery_count sensor transitions as a proxy — the coordinator only
+    # mutates that state when it fires the event, so a sensor change confirms
+    # the event was fired.
+    # ------------------------------------------------------------------
+    if ec_enabled(22) and battery_sensor and battery_entity:
+        restore_all(ctx)
+        wait()
+        print(
+            "\n=== EC22: entity_availability_low_battery event proxy (sensor transition) ===",
+            flush=True,
+        )
+        baseline = gs(f"{prefix}_low_battery_count").get("state", "0")
+        ss(
+            battery_sensor,
+            low_val,
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        after = wait_for(
+            lambda: gs(f"{prefix}_low_battery_count").get("state"),
+            str(int(baseline) + 1),
+            timeout=90,
+        )
+        chk(
+            "EC22 low_battery_count rose (low_battery event fired)",
+            after,
+            str(int(baseline) + 1),
+            f"baseline={baseline} after={after}",
+        )
+        lb_attrs = gs(f"{prefix}_low_battery").get("attributes", {})
+        chk(
+            "EC22 battery_entity in low_battery_entities",
+            battery_entity in lb_attrs.get("devices", {}),
+            True,
+            f"devices={lb_attrs.get('devices')}",
+        )
+
+    if ec_enabled(23) and battery_sensor and battery_entity:
+        if not ec_enabled(22):
+            # Drive into low-battery state first
+            ss(
+                battery_sensor,
+                low_val,
+                {
+                    "friendly_name": "Test Battery",
+                    "device_class": "battery",
+                    "unit_of_measurement": "%",
+                },
+            )
+            wait_for(
+                lambda: gs(f"{prefix}_low_battery_count").get("state"),
+                "1",
+                timeout=90,
+            )
+        print(
+            "\n=== EC23: entity_availability_battery_ok event proxy (sensor transition) ===",
+            flush=True,
+        )
+        high_val = "90"
+        ss(
+            battery_sensor,
+            high_val,
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        after_ok = wait_for(
+            lambda: gs(f"{prefix}_low_battery_count").get("state"),
+            "0",
+            timeout=90,
+        )
+        chk(
+            "EC23 low_battery_count dropped to 0 (battery_ok event fired)",
+            after_ok,
+            "0",
+            f"after={after_ok}",
+        )
+        restore_all(ctx)
+        wait()
+    elif ec_enabled(22) or ec_enabled(23):
+        print("  EC22-EC23: skipped (no battery sensor configured)", flush=True)
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)

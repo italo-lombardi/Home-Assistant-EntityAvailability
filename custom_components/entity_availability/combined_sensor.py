@@ -237,132 +237,121 @@ class CombinedGroupSensor(CombinedSensorBase):
             prev = self._prev_offline_set
             self._prev_offline_set = current
 
-            if current != prev:
-                # Build device_map only when needed for per-entity payload fields.
-                device_map: dict[str, Any] = {}
-                for coord in coords:
-                    for d in coord.device_states.values():
-                        if d.entity_id not in device_map:
-                            device_map[d.entity_id] = d
-
-                group_name = self._entry.data.get(CONF_GROUP_NAME, "")
-                entry_id = self._entry.entry_id
-                offline_list = sorted(current)
-                offline_count = len(current)
-
-                for eid in sorted(current - prev):
-                    d = device_map.get(eid)
-                    self.hass.bus.async_fire(
-                        EVENT_OFFLINE,
-                        {
-                            "entity_id": eid,
-                            "group": group_name,
-                            "entry_id": entry_id,
-                            "offline_since": d.offline_since.isoformat()
-                            if d and d.offline_since
-                            else None,
-                            "offline_count": offline_count,
-                            "offline_entities": offline_list,
-                        },
-                    )
-                for eid in sorted(prev - current):
-                    # d may be None if the coordinator that owned this entity was
-                    # removed between ticks; fire the event with null downtime rather
-                    # than silently dropping it.
-                    d = device_map.get(eid)
-                    self.hass.bus.async_fire(
-                        EVENT_RECOVERED,
-                        {
-                            "entity_id": eid,
-                            "group": group_name,
-                            "entry_id": entry_id,
-                            "downtime_seconds": d.last_downtime_seconds if d else None,
-                            "offline_count": offline_count,
-                            "offline_entities": offline_list,
-                        },
-                    )
-
             current_lb = self._current_low_battery_set(coords)
             prev_lb = self._prev_low_battery_set
             self._prev_low_battery_set = current_lb
 
-            if current_lb != prev_lb:
-                if not (current != prev):
-                    # Build device_map if not already built above.
-                    device_map = {}
-                    for coord in coords:
-                        for d in coord.device_states.values():
-                            if d.entity_id not in device_map:
-                                device_map[d.entity_id] = d
-
+            if current != prev or current_lb != prev_lb:
+                device_map = self._build_device_map(coords)
                 group_name = self._entry.data.get(CONF_GROUP_NAME, "")
                 entry_id = self._entry.entry_id
-                low_battery_list = sorted(current_lb)
-                low_battery_count = len(current_lb)
 
-                for eid in sorted(current_lb - prev_lb):
-                    d = device_map.get(eid)
-                    self.hass.bus.async_fire(
-                        EVENT_LOW_BATTERY,
-                        {
-                            "entity_id": eid,
-                            "group": group_name,
-                            "entry_id": entry_id,
-                            "battery_level": d.battery_level if d else None,
-                            "low_battery_count": low_battery_count,
-                            "low_battery_entities": low_battery_list,
-                        },
-                    )
-                for eid in sorted(prev_lb - current_lb):
-                    d = device_map.get(eid)
-                    self.hass.bus.async_fire(
-                        EVENT_BATTERY_OK,
-                        {
-                            "entity_id": eid,
-                            "group": group_name,
-                            "entry_id": entry_id,
-                            "battery_level": d.battery_level if d else None,
-                            "low_battery_count": low_battery_count,
-                            "low_battery_entities": low_battery_list,
-                        },
-                    )
+                if current != prev:
+                    offline_list = sorted(current)
+                    offline_count = len(current)
+                    for eid in sorted(current - prev):
+                        d = device_map.get(eid)
+                        self.hass.bus.async_fire(
+                            EVENT_OFFLINE,
+                            {
+                                "entity_id": eid,
+                                "group": group_name,
+                                "entry_id": entry_id,
+                                "offline_since": d.offline_since.isoformat()
+                                if d and d.offline_since
+                                else None,
+                                "offline_count": offline_count,
+                                "offline_entities": offline_list,
+                            },
+                        )
+                    for eid in sorted(prev - current):
+                        # d may be None if the coordinator that owned this entity was
+                        # removed between ticks; fire the event with null downtime rather
+                        # than silently dropping it.
+                        d = device_map.get(eid)
+                        self.hass.bus.async_fire(
+                            EVENT_RECOVERED,
+                            {
+                                "entity_id": eid,
+                                "group": group_name,
+                                "entry_id": entry_id,
+                                "downtime_seconds": d.last_downtime_seconds
+                                if d
+                                else None,
+                                "offline_count": offline_count,
+                                "offline_entities": offline_list,
+                            },
+                        )
+
+                if current_lb != prev_lb:
+                    low_battery_list = sorted(current_lb)
+                    low_battery_count = len(current_lb)
+                    for eid in sorted(current_lb - prev_lb):
+                        d = device_map.get(eid)
+                        self.hass.bus.async_fire(
+                            EVENT_LOW_BATTERY,
+                            {
+                                "entity_id": eid,
+                                "group": group_name,
+                                "entry_id": entry_id,
+                                "battery_level": d.battery_level if d else None,
+                                "low_battery_count": low_battery_count,
+                                "low_battery_entities": low_battery_list,
+                            },
+                        )
+                    for eid in sorted(prev_lb - current_lb):
+                        d = device_map.get(eid)
+                        self.hass.bus.async_fire(
+                            EVENT_BATTERY_OK,
+                            {
+                                "entity_id": eid,
+                                "group": group_name,
+                                "entry_id": entry_id,
+                                "battery_level": d.battery_level if d else None,
+                                "low_battery_count": low_battery_count,
+                                "low_battery_entities": low_battery_list,
+                            },
+                        )
 
             if self._ea_should_write():
                 self.async_write_ha_state()
 
         return _on_update
 
+    @staticmethod
+    def _build_device_map(
+        coords: list[EntityAvailabilityCoordinator],
+    ) -> dict[str, Any]:
+        """Return first-wins dedup map of entity_id → DeviceState across coordinators."""
+        device_map: dict[str, Any] = {}
+        for coord in coords:
+            for d in coord.device_states.values():
+                if d.entity_id not in device_map:
+                    device_map[d.entity_id] = d
+        return device_map
+
     def _current_offline_set(
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
         """Return deduplicated set of offline, non-suppressed entity IDs."""
-        seen: dict[str, Any] = {}
-        for coord in coords:
-            for d in coord.device_states.values():
-                if d.entity_id not in seen:
-                    seen[d.entity_id] = d
+        dm = self._build_device_map(coords)
         return frozenset(
-            eid for eid, d in seen.items() if d.is_offline and not d.is_suppressed
+            eid for eid, d in dm.items() if d.is_offline and not d.is_suppressed
         )
 
     def _current_low_battery_set(
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
         """Return deduplicated set of low-battery, non-suppressed entity IDs."""
-        seen: dict[str, Any] = {}
-        for coord in coords:
-            for d in coord.device_states.values():
-                if d.entity_id not in seen:
-                    seen[d.entity_id] = d
+        dm = self._build_device_map(coords)
         return frozenset(
-            eid for eid, d in seen.items() if d.is_low_battery and not d.is_suppressed
+            eid for eid, d in dm.items() if d.is_low_battery and not d.is_suppressed
         )
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        # Prime _prev_offline_set using the same dedup logic as _on_update so the
-        # two code paths can't diverge. Must happen after super() subscribes so
-        # _active_coordinators() returns the full list.
+        # Prime both prev sets after super() subscribes so _active_coordinators()
+        # returns the full list — prevents spurious events on first tick.
         coords = self._active_coordinators()
         self._prev_offline_set = self._current_offline_set(coords)
         self._prev_low_battery_set = self._current_low_battery_set(coords)
