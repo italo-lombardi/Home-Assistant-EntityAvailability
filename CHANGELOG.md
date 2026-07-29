@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events** — previously only individual groups fired these events, making it impossible to trigger automations directly on a combined group's aggregate state. Combined groups now fire the same events with the same payload shape (`group`, `entry_id`, `offline_count`, `offline_entities`), so automation YAML is identical regardless of whether you're targeting a regular or combined group. Events fire only when the combined offline set actually changes; rapid coordinator updates from multiple member groups do not cause duplicate events.
+
 ### Fixed
 - **Suppress no longer affects historical availability %** — suppressing an entity previously removed it from the group availability average, causing the group % to jump immediately (e.g. 85% → 99% when suppressing an offline entity). Suppress now silences alerts and stops accumulating new offline time only. Historical buckets remain in the rolling window calculation; the group % improves naturally as offline buckets age out — not at suppression time. This matches the behaviour of Nagios, Datadog, and PagerDuty where suppress/mute never retroactively erases downtime history.
 - **Suppress no longer affects MTBF/MTTR** — reliability sensors now follow the same principle: suppressing an entity does not remove its historical outage events from the group MTBF/MTTR averages or per-device breakdowns. Suppress silences alerts; it does not rewrite reliability history.

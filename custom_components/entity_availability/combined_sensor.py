@@ -21,6 +21,8 @@ from .const import (
     CONF_GROUP_NAME,
     CONF_USE_DEVICE_NAMES,
     DOMAIN,
+    EVENT_OFFLINE,
+    EVENT_RECOVERED,
     NO_AREA_SENTINEL,
 )
 from .coordinator import EntityAvailabilityCoordinator
@@ -213,6 +215,42 @@ class CombinedGroupSensor(CombinedSensorBase):
             f"sensor.entity_availability_combined_{self._group_slug}_combined_summary"
         )
         self._attr_translation_key = "combined_summary"
+        self._prev_offline_set: frozenset[str] = frozenset()
+
+    async def async_added_to_hass(self) -> None:
+        await SensorEntity.async_added_to_hass(self)
+
+        @callback
+        def _on_update() -> None:
+            current = frozenset(
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
+            )
+            prev = self._prev_offline_set
+            self._prev_offline_set = current
+            if current != prev:
+                offline_list = sorted(current)
+                event = EVENT_OFFLINE if (current - prev) else EVENT_RECOVERED
+                self.hass.bus.async_fire(
+                    event,
+                    {
+                        "group": self._entry.data.get(CONF_GROUP_NAME, ""),
+                        "entry_id": self._entry.entry_id,
+                        "offline_count": len(current),
+                        "offline_entities": offline_list,
+                    },
+                )
+            if self._ea_should_write():
+                self.async_write_ha_state()
+
+        self._on_coordinator_update = _on_update
+        domain_data = self.hass.data.get(DOMAIN, {})
+        for eid in self._combined_entry_ids:
+            coord = domain_data.get(eid)
+            if isinstance(coord, EntityAvailabilityCoordinator):
+                self._subscribe(eid, coord)
 
     @property
     def native_value(self) -> int:
