@@ -18,7 +18,7 @@ The test auto-discovers the first entity_availability group whose title contains
 EA_SMOKE_GROUP, then discovers its monitored entities and battery entity map from
 the live sensor attributes — no hardcoded entity IDs, entry IDs, or device names.
 
-What is tested (covers PRs #37, #41, #50, core):
+What is tested (covers PRs #37, #41, #50, #52, core):
   EC1  entity goes unavailable → offline_count increments
   EC4  device online + battery below threshold → low_battery_count=1, list populated
   EC5  device+battery unavailable → offline=1, low_battery=0 (PR#41: no double-count)
@@ -32,6 +32,9 @@ What is tested (covers PRs #37, #41, #50, core):
   EC13 PR#50: suppressing offline entity does not change group availability %
   EC14 PR#50: suppressed entity still appears in per_device availability breakdown
   EC15 PR#50: unsuppressing restores identical group availability % (no drift)
+  EC16 PR#52: combined offline_count rises when member entity goes offline
+  EC17 PR#52: combined offline_entities list contains the offline entity
+  EC18 PR#52: combined offline_count drops to baseline after recovery
 """
 
 import json
@@ -47,6 +50,15 @@ import urllib.error
 TOKEN = os.environ.get("EA_SMOKE_TOKEN", "")
 BASE = os.environ.get("EA_SMOKE_BASE_URL", "http://localhost:8123")
 GROUP_FILTER = os.environ.get("EA_SMOKE_GROUP", "Test Group")
+# Comma-separated EC numbers to run, e.g. "16,17,18". Empty = run all.
+EC_FILTER: set[int] = {
+    int(x) for x in os.environ.get("EA_SMOKE_EC", "").split(",") if x.strip().isdigit()
+}
+
+
+def ec_enabled(n: int) -> bool:
+    return not EC_FILTER or n in EC_FILTER
+
 
 if not TOKEN:
     sys.exit(
@@ -879,6 +891,69 @@ for e in cfg['data']['entries']:
         )
     else:
         print("  EC15: skipped (no availability sensor found)", flush=True)
+
+    # ------------------------------------------------------------------
+    if ec_enabled(16) or ec_enabled(17) or ec_enabled(18):
+        print(
+            "\n=== EC16-EC18: PR#52 — combined group offline_count/entities reflect member state ===",
+            flush=True,
+        )
+        restore_all(ctx)
+        wait()
+        if combined_prefix:
+            target = ctx["entities"][0]
+            c_offline_eid = f"{combined_prefix}_offline_count"
+            baseline = int(gs(c_offline_eid).get("state", "0"))
+
+            if ec_enabled(16):
+                # EC16: member entity goes offline → combined offline_count rises
+                ss(target, "unavailable", {"friendly_name": "smoke test device"})
+                wait()
+                after_offline = int(gs(c_offline_eid).get("state", "0"))
+                chk(
+                    "EC16 combined offline_count rises when member entity goes offline",
+                    after_offline,
+                    baseline + 1,
+                    f"sensor={c_offline_eid} baseline={baseline} after={after_offline}",
+                )
+
+            if ec_enabled(17):
+                if not ec_enabled(16):
+                    # EC17 standalone: need to make entity offline first
+                    ss(target, "unavailable", {"friendly_name": "smoke test device"})
+                    wait()
+                # EC17: combined offline_entities contains the offline entity, no duplicates
+                c_entities = gs(c_offline_eid).get("attributes", {}).get("entities", [])
+                chk(
+                    "EC17 combined offline_entities contains the offline entity",
+                    target in c_entities,
+                    True,
+                    f"target={target} entities={c_entities}",
+                )
+                chk(
+                    "EC17 combined offline_entities has no duplicates",
+                    len(c_entities),
+                    len(set(c_entities)),
+                    f"entities={c_entities}",
+                )
+
+            if ec_enabled(18):
+                # Ensure entity is offline before testing recovery (standalone path)
+                if not ec_enabled(16) and not ec_enabled(17):
+                    ss(target, "unavailable", {"friendly_name": "smoke test device"})
+                    wait()
+                # EC18: recovery → combined offline_count drops back to baseline
+                restore_all(ctx)
+                wait()
+                after_recovery = int(gs(c_offline_eid).get("state", "0"))
+                chk(
+                    "EC18 combined offline_count returns to baseline after recovery",
+                    after_recovery,
+                    baseline,
+                    f"sensor={c_offline_eid} baseline={baseline} after_recovery={after_recovery}",
+                )
+        else:
+            print("  EC16-EC18: skipped (no combined group found)", flush=True)
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)

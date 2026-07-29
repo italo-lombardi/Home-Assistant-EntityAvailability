@@ -717,6 +717,188 @@ class TestCombinedGroupSensor:
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.state_class is None
 
+    def _setup_event_sensor(self, mock_hass, combined_entry, coordinators):
+        """Return (sensor, fired_cbs) with write stubbed and listeners captured."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        sensor.async_write_ha_state = lambda: None
+        fired_cbs = []
+
+        def _fake_add_listener(cb):
+            fired_cbs.append(cb)
+            return lambda: None
+
+        for coord in coordinators:
+            coord.async_add_listener = _fake_add_listener
+        return sensor, fired_cbs
+
+    async def test_fires_offline_event_when_entity_goes_offline(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """entity_availability_offline fires when offline set grows."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        # Override primed state to simulate a2 just going offline (was online before)
+        sensor._prev_offline_set = frozenset()
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+
+        # a2 is offline in fixture; prev=empty → current={a2}: fires OFFLINE
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        data = events[0].data
+        assert data["group"] == "Combined"
+        assert data["entry_id"] == "combined_1"
+        assert "binary_sensor.a2" in data["offline_entities"]
+        assert data["offline_count"] == 1
+
+    async def test_fires_recovered_event_when_offline_set_shrinks(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """entity_availability_recovered fires when offline set shrinks."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        # Override primed state: treat a2 as previously known offline
+        sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_recovered", lambda e: events.append(e)
+        )
+
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        data = events[0].data
+        assert data["offline_count"] == 0
+        assert data["offline_entities"] == []
+        assert data["recovered_entities"] == ["binary_sensor.a2"]
+
+    async def test_no_event_when_offline_set_unchanged(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """No event fires when coordinator updates but offline set is identical."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        # a2 offline in fixture; primed to {a2} — set unchanged, no events expected
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+        mock_hass.bus.async_listen(
+            "entity_availability_recovered", lambda e: events.append(e)
+        )
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert events == []
+
+    async def test_no_double_fire_across_two_member_coordinators(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Two different member coordinators updating with same net result fire once."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        # Override primed state to empty to simulate a2 just going offline
+        sensor._prev_offline_set = frozenset()
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+
+        # coordinator_a fires → empty → {a2}: event fires
+        fired_cbs[0]()
+        # coordinator_b fires → {a2} → {a2}: no change, no second event
+        fired_cbs[1]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+
+    async def test_fires_both_events_on_entity_swap(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Both offline and recovered fire when one entity goes offline and another recovers simultaneously."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        # Override primed state: a2 was offline, b1 was online
+        sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
+
+        offline_events = []
+        recovered_events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: offline_events.append(e)
+        )
+        mock_hass.bus.async_listen(
+            "entity_availability_recovered", lambda e: recovered_events.append(e)
+        )
+
+        # a2 comes back online, b1 goes offline — net swap
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(offline_events) == 1
+        assert len(recovered_events) == 1
+        assert offline_events[0].data["offline_entities"] == ["binary_sensor.b1"]
+        assert offline_events[0].data["newly_offline"] == ["binary_sensor.b1"]
+        assert recovered_events[0].data["offline_count"] == 1
+        assert recovered_events[0].data["recovered_entities"] == ["binary_sensor.a2"]
+
+    async def test_no_spurious_event_on_startup_for_pre_existing_offline(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """No event fires on first callback tick when offline entity was already offline before subscribe.
+
+        _prev_offline_set is primed from current state after subscribing, so a
+        pre-existing offline entity does not trigger a spurious OFFLINE event.
+        """
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        # a2 is already offline in fixture before async_added_to_hass
+        await sensor.async_added_to_hass()
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+        mock_hass.bus.async_listen(
+            "entity_availability_recovered", lambda e: events.append(e)
+        )
+
+        # First callback — offline set hasn't changed since priming
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert events == [], (
+            "Spurious event fired for pre-existing offline entity on startup"
+        )
+
 
 # ---------------------------------------------------------------------------
 # CombinedOfflineCountSensor

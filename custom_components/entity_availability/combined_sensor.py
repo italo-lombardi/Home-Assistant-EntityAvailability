@@ -21,6 +21,8 @@ from .const import (
     CONF_GROUP_NAME,
     CONF_USE_DEVICE_NAMES,
     DOMAIN,
+    EVENT_OFFLINE,
+    EVENT_RECOVERED,
     NO_AREA_SENTINEL,
 )
 from .coordinator import EntityAvailabilityCoordinator
@@ -127,18 +129,22 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
     async def async_added_to_hass(self) -> None:
         """Subscribe to all included coordinators."""
         await super().async_added_to_hass()
+        self._on_coordinator_update = self._make_update_callback()
+        domain_data = self.hass.data.get(DOMAIN, {})
+        for eid in self._combined_entry_ids:
+            coord = domain_data.get(eid)
+            if isinstance(coord, EntityAvailabilityCoordinator):
+                self._subscribe(eid, coord)
+
+    def _make_update_callback(self) -> Callable[[], None]:
+        """Return the coordinator update callback. Subclasses may override."""
 
         @callback
         def _on_coordinator_update() -> None:
             if self._ea_should_write():
                 self.async_write_ha_state()
 
-        self._on_coordinator_update = _on_coordinator_update
-        domain_data = self.hass.data.get(DOMAIN, {})
-        for eid in self._combined_entry_ids:
-            coord = domain_data.get(eid)
-            if isinstance(coord, EntityAvailabilityCoordinator):
-                self._subscribe(eid, coord)
+        return _on_coordinator_update
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from all coordinators."""
@@ -213,6 +219,61 @@ class CombinedGroupSensor(CombinedSensorBase):
             f"sensor.entity_availability_combined_{self._group_slug}_combined_summary"
         )
         self._attr_translation_key = "combined_summary"
+        self._prev_offline_set: frozenset[str] = frozenset()
+
+    def _make_update_callback(self) -> Callable[[], None]:
+        """Return event-aware coordinator update callback."""
+
+        @callback
+        def _on_update() -> None:
+            current = frozenset(
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
+            )
+            prev = self._prev_offline_set
+            self._prev_offline_set = current
+            if current != prev:
+                offline_list = sorted(current)
+                base = {
+                    "group": self._entry.data.get(CONF_GROUP_NAME, ""),
+                    "entry_id": self._entry.entry_id,
+                    "offline_count": len(current),
+                    "offline_entities": offline_list,
+                }
+                if current - prev:
+                    self.hass.bus.async_fire(
+                        EVENT_OFFLINE,
+                        {**base, "newly_offline": sorted(current - prev)},
+                    )
+                if prev - current:
+                    self.hass.bus.async_fire(
+                        EVENT_RECOVERED,
+                        {**base, "recovered_entities": sorted(prev - current)},
+                    )
+            if self._ea_should_write():
+                self.async_write_ha_state()
+
+        return _on_update
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # Prime after subscribing to avoid spurious events for pre-existing offline entities
+        active = [
+            c
+            for eid in self._combined_entry_ids
+            if isinstance(
+                c := self.hass.data.get(DOMAIN, {}).get(eid),
+                EntityAvailabilityCoordinator,
+            )
+        ]
+        self._prev_offline_set = frozenset(
+            d.entity_id
+            for coord in active
+            for d in coord.device_states.values()
+            if d.is_offline and not d.is_suppressed
+        )
 
     @property
     def native_value(self) -> int:
@@ -383,12 +444,14 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        offline = [
-            d.entity_id
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
-        ]
+        offline = list(
+            dict.fromkeys(
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
+            )
+        )
         return {"entities": offline, "count": len(offline)}
 
 
@@ -408,16 +471,18 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        offline = [
-            _friendly_name(
-                self.hass,
-                d.entity_id,
-                coord.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+        offline = list(
+            dict.fromkeys(
+                _friendly_name(
+                    self.hass,
+                    d.entity_id,
+                    coord.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+                )
+                for coord in coords
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
             )
-            for coord in coords
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
-        ]
+        )
         if not offline:
             return "None"
         result = ", ".join(offline)
@@ -429,12 +494,14 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        offline = [
-            d.entity_id
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
-        ]
+        offline = list(
+            dict.fromkeys(
+                d.entity_id
+                for coord in self._active_coordinators()
+                for d in coord.device_states.values()
+                if d.is_offline and not d.is_suppressed
+            )
+        )
         return {"entities": offline, "count": len(offline)}
 
 
@@ -454,12 +521,14 @@ class CombinedLowBatterySensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        low = [
-            f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
-            for coord in coords
-            for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed and not d.is_offline
-        ]
+        low = list(
+            dict.fromkeys(
+                f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
+                for coord in coords
+                for d in coord.device_states.values()
+                if d.is_low_battery and not d.is_suppressed and not d.is_offline
+            )
+        )
         if not low:
             return "None"
         result = ", ".join(low)
@@ -522,17 +591,20 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
 
     def _matching_devices(self):
         now = datetime.now(timezone.utc)
+        seen: set[str] = set()
         result = []
         for coord in self._active_coordinators():
             cutoff = coord.recovery_window_minutes * 60
-            result += [
-                (coord, d)
-                for d in coord.device_states.values()
-                if d.is_offline
-                and not d.is_suppressed
-                and d.recently_offline_at is not None
-                and (now - d.recently_offline_at).total_seconds() <= cutoff
-            ]
+            for d in coord.device_states.values():
+                if (
+                    d.is_offline
+                    and not d.is_suppressed
+                    and d.recently_offline_at is not None
+                    and (now - d.recently_offline_at).total_seconds() <= cutoff
+                    and d.entity_id not in seen
+                ):
+                    seen.add(d.entity_id)
+                    result.append((coord, d))
         return result
 
     @property
@@ -576,17 +648,20 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
 
     def _matching_devices(self):
         now = datetime.now(timezone.utc)
+        seen: set[str] = set()
         result = []
         for coord in self._active_coordinators():
             cutoff = coord.recovery_window_minutes * 60
-            result += [
-                (coord, d)
-                for d in coord.device_states.values()
-                if not d.is_offline
-                and not d.is_suppressed
-                and d.last_recovery is not None
-                and (now - d.last_recovery).total_seconds() <= cutoff
-            ]
+            for d in coord.device_states.values():
+                if (
+                    not d.is_offline
+                    and not d.is_suppressed
+                    and d.last_recovery is not None
+                    and (now - d.last_recovery).total_seconds() <= cutoff
+                    and d.entity_id not in seen
+                ):
+                    seen.add(d.entity_id)
+                    result.append((coord, d))
         return result
 
     @property
