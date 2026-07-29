@@ -757,6 +757,7 @@ class TestCombinedGroupSensor:
 
         assert len(events) == 1
         data = events[0].data
+        assert data["entity_id"] == "binary_sensor.a2"
         assert data["group"] == "Combined"
         assert data["entry_id"] == "combined_1"
         assert "binary_sensor.a2" in data["offline_entities"]
@@ -784,9 +785,9 @@ class TestCombinedGroupSensor:
 
         assert len(events) == 1
         data = events[0].data
+        assert data["entity_id"] == "binary_sensor.a2"
         assert data["offline_count"] == 0
         assert data["offline_entities"] == []
-        assert data["recovered_entities"] == ["binary_sensor.a2"]
 
     async def test_no_event_when_offline_set_unchanged(
         self, mock_hass, combined_entry, coordinators
@@ -864,10 +865,10 @@ class TestCombinedGroupSensor:
 
         assert len(offline_events) == 1
         assert len(recovered_events) == 1
+        assert offline_events[0].data["entity_id"] == "binary_sensor.b1"
         assert offline_events[0].data["offline_entities"] == ["binary_sensor.b1"]
-        assert offline_events[0].data["newly_offline"] == ["binary_sensor.b1"]
+        assert recovered_events[0].data["entity_id"] == "binary_sensor.a2"
         assert recovered_events[0].data["offline_count"] == 1
-        assert recovered_events[0].data["recovered_entities"] == ["binary_sensor.a2"]
 
     async def test_no_spurious_event_on_startup_for_pre_existing_offline(
         self, mock_hass, combined_entry, coordinators
@@ -898,6 +899,66 @@ class TestCombinedGroupSensor:
         assert events == [], (
             "Spurious event fired for pre-existing offline entity on startup"
         )
+
+    async def test_fan_out_two_entities_offline_simultaneously(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Two entities going offline in one tick fires two separate events."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_offline_set = frozenset()
+
+        # Make b1 also offline so both a2 and b1 are newly offline
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 2
+        entity_ids = {e.data["entity_id"] for e in events}
+        assert entity_ids == {"binary_sensor.a2", "binary_sensor.b1"}
+        # Each event carries the same aggregate snapshot
+        for e in events:
+            assert e.data["offline_count"] == 2
+            assert set(e.data["offline_entities"]) == {
+                "binary_sensor.a2",
+                "binary_sensor.b1",
+            }
+
+    async def test_combined_event_payload_matches_individual_group_shape(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Combined offline event has entity_id, group, entry_id, offline_count, offline_entities."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_offline_set = frozenset()
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        data = events[0].data
+        # Same fields as individual group events
+        assert "entity_id" in data
+        assert "group" in data
+        assert "entry_id" in data
+        assert "offline_count" in data
+        assert "offline_entities" in data
+        assert "offline_since" in data
 
 
 # ---------------------------------------------------------------------------

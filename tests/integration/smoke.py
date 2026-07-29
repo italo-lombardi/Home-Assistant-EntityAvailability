@@ -18,7 +18,7 @@ The test auto-discovers the first entity_availability group whose title contains
 EA_SMOKE_GROUP, then discovers its monitored entities and battery entity map from
 the live sensor attributes — no hardcoded entity IDs, entry IDs, or device names.
 
-What is tested (covers PRs #37, #41, #50, #52, core):
+What is tested (covers PRs #37, #41, #50, #52, #53, core):
   EC1  entity goes unavailable → offline_count increments
   EC4  device online + battery below threshold → low_battery_count=1, list populated
   EC5  device+battery unavailable → offline=1, low_battery=0 (PR#41: no double-count)
@@ -35,6 +35,9 @@ What is tested (covers PRs #37, #41, #50, #52, core):
   EC16 PR#52: combined offline_count rises when member entity goes offline
   EC17 PR#52: combined offline_entities list contains the offline entity
   EC18 PR#52: combined offline_count drops to baseline after recovery
+  EC19 PR#53: combined config entry has non-empty entry_id (event payload source)
+  EC20 PR#53: individual group offline_count also rises when entity goes offline (fan-out parity)
+  EC21 PR#53: combined and individual group offline_entities agree on the offline entity
 """
 
 import json
@@ -954,6 +957,76 @@ for e in cfg['data']['entries']:
                 )
         else:
             print("  EC16-EC18: skipped (no combined group found)", flush=True)
+
+    # ------------------------------------------------------------------
+    if ec_enabled(19) or ec_enabled(20) or ec_enabled(21):
+        print(
+            "\n=== EC19-EC21: PR#53 — event consistency: entry_id, fan-out parity ===",
+            flush=True,
+        )
+        restore_all(ctx)
+        wait()
+        if combined_prefix:
+            target = ctx["entities"][0]
+            c_offline_eid = f"{combined_prefix}_offline_count"
+            i_offline_eid = f"{prefix}_offline_count"
+
+            if ec_enabled(19):
+                # EC19: combined config entry has a non-empty entry_id
+                entries = api("GET", "/api/config/config_entries/entry")
+                combined_entry = next(
+                    (
+                        e
+                        for e in entries
+                        if e["domain"] == "entity_availability"
+                        and "combined" in e["title"].lower()
+                    ),
+                    None,
+                )
+                chk(
+                    "EC19 combined config entry has non-empty entry_id",
+                    bool(combined_entry and combined_entry.get("entry_id", "")),
+                    True,
+                    f"entry={combined_entry}",
+                )
+
+            if ec_enabled(20):
+                # EC20: individual group offline_count rises when entity goes offline
+                # (fan-out parity: both individual and combined track the same entity)
+                i_baseline = int(gs(i_offline_eid).get("state", "0"))
+                ss(target, "unavailable", {"friendly_name": "smoke test device"})
+                wait()
+                i_after = int(gs(i_offline_eid).get("state", "0"))
+                chk(
+                    "EC20 individual offline_count rises for entity in combined group",
+                    i_after,
+                    i_baseline + 1,
+                    f"sensor={i_offline_eid} baseline={i_baseline} after={i_after}",
+                )
+
+            if ec_enabled(21):
+                if not ec_enabled(20):
+                    ss(target, "unavailable", {"friendly_name": "smoke test device"})
+                    wait()
+                # EC21: combined and individual offline_entities both contain the entity
+                c_entities = gs(c_offline_eid).get("attributes", {}).get("entities", [])
+                i_entities = gs(i_offline_eid).get("attributes", {}).get("entities", [])
+                chk(
+                    "EC21 individual offline_entities contains the offline entity",
+                    target in i_entities,
+                    True,
+                    f"target={target} individual={i_entities}",
+                )
+                chk(
+                    "EC21 combined offline_entities contains the offline entity",
+                    target in c_entities,
+                    True,
+                    f"target={target} combined={c_entities}",
+                )
+                restore_all(ctx)
+                wait()
+        else:
+            print("  EC19-EC21: skipped (no combined group found)", flush=True)
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)

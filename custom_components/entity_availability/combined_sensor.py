@@ -226,32 +226,57 @@ class CombinedGroupSensor(CombinedSensorBase):
 
         @callback
         def _on_update() -> None:
+            coords = self._active_coordinators()
+            # Build a map of entity_id → device state (first coord wins on dupes)
+            device_map: dict[str, Any] = {}
+            for coord in coords:
+                for d in coord.device_states.values():
+                    if d.entity_id not in device_map:
+                        device_map[d.entity_id] = d
+
             current = frozenset(
-                d.entity_id
-                for coord in self._active_coordinators()
-                for d in coord.device_states.values()
+                eid
+                for eid, d in device_map.items()
                 if d.is_offline and not d.is_suppressed
             )
             prev = self._prev_offline_set
             self._prev_offline_set = current
+
             if current != prev:
+                group_name = self._entry.data.get(CONF_GROUP_NAME, "")
+                entry_id = self._entry.entry_id
                 offline_list = sorted(current)
-                base = {
-                    "group": self._entry.data.get(CONF_GROUP_NAME, ""),
-                    "entry_id": self._entry.entry_id,
-                    "offline_count": len(current),
-                    "offline_entities": offline_list,
-                }
-                if current - prev:
+                offline_count = len(current)
+
+                for eid in sorted(current - prev):
+                    d = device_map.get(eid)
                     self.hass.bus.async_fire(
                         EVENT_OFFLINE,
-                        {**base, "newly_offline": sorted(current - prev)},
+                        {
+                            "entity_id": eid,
+                            "group": group_name,
+                            "entry_id": entry_id,
+                            "offline_since": d.offline_since.isoformat()
+                            if d and d.offline_since
+                            else None,
+                            "offline_count": offline_count,
+                            "offline_entities": offline_list,
+                        },
                     )
-                if prev - current:
+                for eid in sorted(prev - current):
+                    d = device_map.get(eid)
                     self.hass.bus.async_fire(
                         EVENT_RECOVERED,
-                        {**base, "recovered_entities": sorted(prev - current)},
+                        {
+                            "entity_id": eid,
+                            "group": group_name,
+                            "entry_id": entry_id,
+                            "downtime_seconds": d.last_downtime_seconds if d else None,
+                            "offline_count": offline_count,
+                            "offline_entities": offline_list,
+                        },
                     )
+
             if self._ea_should_write():
                 self.async_write_ha_state()
 
