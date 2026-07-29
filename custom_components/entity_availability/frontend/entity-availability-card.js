@@ -1207,7 +1207,7 @@ class EntityAvailabilityCard extends LitElement {
     tt.className = "eac-global-tooltip";
     tt.style.cssText = `
       position:fixed;z-index:99999;
-      background:var(--card-background-color,#fff);
+      background:var(--card-background-color,var(--primary-background-color,#fafafa));
       border:1px solid var(--divider-color,rgba(0,0,0,0.12));
       border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.25);
       padding:8px 10px;font-size:12px;
@@ -1219,7 +1219,7 @@ class EntityAvailabilityCard extends LitElement {
       const row = document.createElement("div");
       row.style.cssText = "display:flex;gap:6px;padding:2px 0;";
       const label = document.createElement("span");
-      label.style.cssText = "color:var(--secondary-text-color,#727272);min-width:80px;";
+      label.style.cssText = "color:var(--secondary-text-color,var(--disabled-text-color,#757575));min-width:80px;";
       label.textContent = r.label;
       const value = document.createElement("span");
       value.style.cssText = "font-weight:500;";
@@ -1233,10 +1233,10 @@ class EntityAvailabilityCard extends LitElement {
     const rect = e.currentTarget.getBoundingClientRect();
     const ttH = tt.offsetHeight;
     const ttW = tt.offsetWidth;
-    const left = Math.min(rect.left, window.innerWidth - ttW - 8);
     const spaceBelow = window.innerHeight - rect.bottom;
     const top = spaceBelow >= ttH + 8 ? rect.bottom + 4 : rect.top - ttH - 4;
-    tt.style.left = `${Math.max(8, left)}px`;
+    const left = Math.min(Math.max(8, rect.left), window.innerWidth - ttW - 8);
+    tt.style.left = `${left}px`;
     tt.style.top = `${top}px`;
   }
 
@@ -1245,6 +1245,11 @@ class EntityAvailabilityCard extends LitElement {
       this._activeTooltip.remove();
       this._activeTooltip = null;
     }
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._hideTooltip();
   }
 
   _handleEntityClick(e, entityId) {
