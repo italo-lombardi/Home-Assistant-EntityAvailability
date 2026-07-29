@@ -15,7 +15,7 @@ The integration fires two events on the Home Assistant event bus at each transit
 | `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `offline_since`, `offline_count`, `offline_entities` |
 | `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `downtime_seconds`, `offline_count`, `offline_entities` |
 
-`offline_count` and `offline_entities` reflect the group's offline state at the moment the event fires (after coordinator data is fully updated). Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition that triggered the event.
+`offline_count` and `offline_entities` reflect the group's offline state at the moment the entity transitions (includes all entities that transitioned earlier in the same update cycle). Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition that triggered the event.
 
 ### Notify when any monitored entity goes offline
 

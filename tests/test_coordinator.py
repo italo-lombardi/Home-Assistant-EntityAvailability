@@ -3084,6 +3084,57 @@ async def test_bus_events_suppressed_entity_excluded(
         assert last_evt.data["offline_entities"] == ["binary_sensor.device_b"]
 
 
+async def test_suppressed_entity_clears_offline_while_suppressed(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """is_offline cleared silently when entity recovers while suppressed."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    events: list = []
+    hass.bus.async_listen("entity_availability_offline", lambda e: events.append(e))
+    hass.bus.async_listen("entity_availability_recovered", lambda e: events.append(e))
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+
+        # Step 1: entity goes offline
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=61)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert device_a.is_offline is True
+        events.clear()  # discard the offline event
+
+        # Step 2: suppress the entity
+        coord.suppress_entity("binary_sensor.device_a")
+        assert device_a.is_suppressed is True
+
+        # Step 3: entity recovers in HA while still suppressed
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+
+        # Step 4: coordinator update — suppressed, so loop continues early
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        # is_offline must be cleared silently — no event fired
+        assert device_a.is_offline is False
+        assert device_a.offline_since is None
+        assert device_a.cooldown_start is None
+        assert events == []
+
+        # Step 5: unsuppress — next update should not fire a spurious recovery
+        coord.unsuppress_entity("binary_sensor.device_a")
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert device_a.is_offline is False
+        assert events == []
+
+
 async def test_counters_accumulate(mock_hass: HomeAssistant, mock_config_entry) -> None:
     """total_offline_seconds accumulates across events."""
     hass = mock_hass

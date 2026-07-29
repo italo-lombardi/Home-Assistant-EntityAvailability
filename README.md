@@ -438,7 +438,7 @@ The integration fires two events on the Home Assistant event bus when a monitore
 | `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `offline_since`, `offline_count`, `offline_entities` |
 | `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `downtime_seconds`, `offline_count`, `offline_entities` |
 
-`offline_count` is the number of non-suppressed entities still offline at fire time. `offline_entities` is the list of their entity IDs. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is excluded (it is already back online).
+`offline_count` is the number of non-suppressed entities still offline at the moment the entity transitions (includes all entities that transitioned earlier in the same update cycle). `offline_entities` is the list of their entity IDs. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is excluded (it is already back online).
 
 These are cleaner automation triggers than watching sensor attributes with templates:
 

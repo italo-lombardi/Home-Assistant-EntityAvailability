@@ -469,6 +469,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.is_degraded = False
                 device.is_stale = False
                 device.is_low_battery = False
+                # Clear stale offline flag if entity recovered while suppressed;
+                # done silently — no event fires for a suppressed transition.
+                is_bad = state is None or state.state in self._bad_states
+                if not is_bad and device.is_offline:
+                    device.is_offline = False
+                    device.offline_since = None
+                    device.recently_offline_at = None
+                    device.cooldown_start = None
                 _LOGGER.debug(
                     "[%s] Skipping suppressed entity %s (until=%s)",
                     self.group_name,
@@ -645,8 +653,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             finally:
                 self._update_count = 0
 
-        for event_name, payload in pending_events:
-            self.hass.bus.async_fire(event_name, payload)
+        try:
+            for event_name, payload in pending_events:
+                self.hass.bus.async_fire(event_name, payload)
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("[%s] Failed to fire event", self.group_name, exc_info=True)
 
         return EntityAvailabilityData(
             devices=dict(self._device_states),
