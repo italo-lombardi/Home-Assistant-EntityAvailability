@@ -2,14 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
-
-### Fixed
-- **Bus events now carry `offline_count` and `offline_entities` in payload** — `entity_availability_offline` and `entity_availability_recovered` now include the number of non-suppressed offline entities in the group and their entity IDs at the moment of firing. For the offline event the newly-offline entity is included; for the recovered event it is already excluded. Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition. Events also now fire after all device state mutations in the update cycle complete, eliminating a race where the event could fire before `is_offline` was fully propagated. Resolves #46.
-
 ## [0.3.14] - 2026-07-28
 
 ### Fixed
+- **Bus events now carry `offline_count` and `offline_entities` in payload** — `entity_availability_offline` and `entity_availability_recovered` now include the number of non-suppressed offline entities in the group and their entity IDs at the moment of firing. For the offline event the newly-offline entity is included; for the recovered event it is already excluded. Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition. Events also now fire after all device state mutations in the update cycle complete, eliminating a race where the event could fire before `is_offline` was fully propagated. Resolves #46.
 - **Suppress/unsuppress services now group-scoped when `group` is provided with `entity_id`** — previously, calling `suppress`, `suppress_indefinitely`, or `unsuppress` with both `entity_id` and `group` would suppress/unsuppress the entity in **all groups** that monitor it. The `group` parameter is now respected: the action is scoped to that group's coordinator only. This affects the card's per-entity bell toggle, Suppress All, and Unsuppress All buttons — all now pass the card's configured group.
 - **`reset_statistics` service now group-scoped when `group` is provided with `entity_id`** — consistent with the other services, statistics are now reset only in the named group when both params are provided.
 - **`suppressed_until` attribute now includes indefinitely-suppressed entities** — previously, entities suppressed with no expiry were absent from the `suppressed_until` sensor attribute. They now appear with value `null` (Python `None`, JSON `null`), enabling automations and the card to correctly detect and display their suppressed state.
