@@ -786,6 +786,7 @@ class TestCombinedGroupSensor:
         data = events[0].data
         assert data["offline_count"] == 0
         assert data["offline_entities"] == []
+        assert data["recovered_entities"] == ["binary_sensor.a2"]
 
     async def test_no_event_when_offline_set_unchanged(
         self, mock_hass, combined_entry, coordinators

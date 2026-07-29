@@ -2,38 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.14] - 2026-07-30
 
 ### Added
-- **Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events** — previously only individual groups fired these events, making it impossible to trigger automations directly on a combined group's aggregate state. Combined groups now fire the same events with payload fields `group`, `entry_id`, `offline_count`, and `offline_entities` (current snapshot of all offline entities). `EVENT_OFFLINE` additionally includes `newly_offline` (entities that just went offline); `EVENT_RECOVERED` additionally includes `recovered_entities` (entities that just came back). Note: combined events omit `entity_id` (no single triggering entity). Both events can fire in the same update tick when one entity goes offline and another recovers simultaneously. Events fire only when the merged offline set changes; rapid coordinator updates from multiple member groups do not cause duplicate fires. Pre-existing offline entities at HA startup do not produce spurious events. Duplicate entities are deduplicated across all combined sensor outputs when the same entity appears in multiple member groups.
+- Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events with `group`, `entry_id`, `offline_count`, `offline_entities`, `newly_offline` (offline event), and `recovered_entities` (recovered event). Events fire only on set changes; no spurious fires on startup. Duplicate entities deduplicated across all combined sensor outputs.
+- Card: per-entity suppress toggle (`show_suppress_toggle`, opt-in, default `false`).
 
 ### Fixed
-- **Suppress no longer affects historical availability %** — suppressing an entity previously removed it from the group availability average, causing the group % to jump immediately (e.g. 85% → 99% when suppressing an offline entity). Suppress now silences alerts and stops accumulating new offline time only. Historical buckets remain in the rolling window calculation; the group % improves naturally as offline buckets age out — not at suppression time. This matches the behaviour of Nagios, Datadog, and PagerDuty where suppress/mute never retroactively erases downtime history.
-- **Suppress no longer affects MTBF/MTTR** — reliability sensors now follow the same principle: suppressing an entity does not remove its historical outage events from the group MTBF/MTTR averages or per-device breakdowns. Suppress silences alerts; it does not rewrite reliability history.
-
-## [0.3.14] - 2026-07-28
-
-### Fixed
-- **Bus events now carry `offline_count` and `offline_entities` in payload** — `entity_availability_offline` and `entity_availability_recovered` now include the number of non-suppressed offline entities in the group and their entity IDs at the moment of firing. For the offline event the newly-offline entity is included; for the recovered event it is already excluded. Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition. Events also now fire after all device state mutations in the update cycle complete, eliminating a race where the event could fire before `is_offline` was fully propagated. Resolves #46.
-- **Suppress/unsuppress services now group-scoped when `group` is provided with `entity_id`** — previously, calling `suppress`, `suppress_indefinitely`, or `unsuppress` with both `entity_id` and `group` would suppress/unsuppress the entity in **all groups** that monitor it. The `group` parameter is now respected: the action is scoped to that group's coordinator only. This affects the card's per-entity bell toggle, Suppress All, and Unsuppress All buttons — all now pass the card's configured group.
-- **`reset_statistics` service now group-scoped when `group` is provided with `entity_id`** — consistent with the other services, statistics are now reset only in the named group when both params are provided.
-- **`suppressed_until` attribute now includes indefinitely-suppressed entities** — previously, entities suppressed with no expiry were absent from the `suppressed_until` sensor attribute. They now appear with value `null` (Python `None`, JSON `null`), enabling automations and the card to correctly detect and display their suppressed state.
-- **Combined sensor `battery_powered` count deduplicated** — `battery_powered` was double-counted when the same entity appeared in multiple source groups. Now uses a set of unique entity IDs across all groups.
-- **Card: Space key no longer scrolls page on focused entity rows** — `preventDefault()` is now called on Space `keydown` to suppress browser scroll, while the click action still fires on `keyup` per WAI-ARIA spec.
-- **Card: entity click guard against missing entity ID** — `_handleEntityClick` returns early if `entityId` is not a non-empty string, preventing a malformed `hass-more-info` event.
-- **Battery mapping: cleared entries no longer re-populated** — explicitly clearing a battery entity mapping in the options flow now persists correctly. Previously, a cleared mapping (stored as `""`) was treated identically to "never configured", so auto-detection re-ran on the next visit and silently re-added the removed mapping. The options flow now distinguishes between an explicitly-cleared entry and one that was never set, so cleared mappings stay cleared. Resolves #38. Thanks to @dimatx for the fix.
-- **Low battery flag retained when device goes offline** — when a battery-powered device goes completely offline, its last-known battery level and low-battery flag are now preserved. Previously, the low-battery alert was silently cleared when the device became unavailable. Battery level and flag now persist across coordinator cycles and HA restarts. Offline+low-battery devices are counted under offline metrics only — not double-counted as both offline and low battery. Resolves #33.
-- **Combined sensor counts deduplicated across shared entities** — when the same entity belongs to multiple groups included in a combined sensor, offline and low-battery counts were summed per-group, causing double-counting. Counts are now derived from the deduplicated entity lists, matching the offline_entities and low_battery_entities attribute values.
-
-### Added
-- **Card: per-entity suppress toggle (opt-in)** — new card config key `show_suppress_toggle` (default `false`). When enabled, each entity row shows a bell-off icon button. Click suppresses the entity indefinitely within the card's group; click the orange bell to unsuppress. Configurable from the card editor under "Show Per-Entity Suppress Toggle". Related to #34.
+- Suppress no longer affects historical availability % or MTBF/MTTR — history is preserved, only new accumulation stops.
+- Bus events (`entity_availability_offline` / `entity_availability_recovered`) now include `offline_count` and `offline_entities` in the payload; events fire after all state mutations complete. Resolves #46.
+- Suppress/unsuppress/reset_statistics services now group-scoped when both `entity_id` and `group` are provided.
+- `suppressed_until` attribute now includes indefinitely-suppressed entities with value `null`.
+- Combined sensor counts and entity lists deduplicated when the same entity appears in multiple member groups.
+- Battery mapping: cleared entries no longer re-populated on next options flow visit. Resolves #38.
+- Low battery flag retained when device goes offline; offline+low-battery not double-counted. Resolves #33.
+- Card: Space key no longer scrolls page on focused entity rows; entity click guard against missing entity ID.
 
 ### Changed
-- **Card: entity rows are now clickable** — clicking any entity row in the monitoring card opens the HA more-info dialog for that entity, providing quick access to state history, attributes, and device controls without leaving the dashboard. Keyboard navigation supported (Enter/Space). Resolves #36.
-- **Card: combined group rows are now clickable** — clicking a group row in the combined card's group breakdown opens the HA more-info dialog for that group's summary sensor.
+- Card: entity rows and combined group rows are now clickable (opens more-info dialog). Resolves #36.
 
 ### Breaking Changes
-- **`suppressed_until` value for indefinite suppression is now `null`** — the attribute previously omitted indefinitely-suppressed entities entirely. They now appear with a `null` value. Automations or templates that test truthiness of the value (e.g. `if suppressed_until.get(entity_id)`) will now evaluate as `False` for indefinitely-suppressed entities even though they are suppressed. Use `entity_id in suppressed_until` (key-presence check) to correctly detect any suppressed entity regardless of type.
+- `suppressed_until` now includes indefinitely-suppressed entities as `null`. Templates using truthiness check (`if suppressed_until.get(entity_id)`) will evaluate `False` for indefinite suppression — use `entity_id in suppressed_until` instead.
 
 ## [0.3.13] - 2026-07-22
 
