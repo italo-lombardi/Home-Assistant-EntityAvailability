@@ -478,8 +478,10 @@ class TestAvailabilitySensor:
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
         )
         sensor.hass = mock_hass
-        # device_b and device_c have no data (None), device_a is suppressed but
-        # its 100% history is still included → group avg = 100.0
+        # device_b and device_c return None (no data) → skipped from avg.
+        # device_a is suppressed but its bucket is still read → value = 100.0.
+        # This is device_a's individual avg, not a 3-entity group avg — only one
+        # entity has data, the other two are excluded for lack of data, not suppression.
         assert sensor.native_value == 100.0
 
     def test_native_value_suppressed_offline_entity_still_counts(

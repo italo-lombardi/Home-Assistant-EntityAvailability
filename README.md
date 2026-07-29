@@ -277,7 +277,7 @@ For example, a combined group named "All Devices" produces the slug `all_devices
 | `sensor..._affected_areas_recently_offline` | Sensor | Areas where ≥1 entity went offline within the relevant source group's recovery window (`"None"` when none) | `areas` (list), `count` |
 | `sensor..._affected_areas_recently_recovered` | Sensor | Areas where all entities are back online and most recent recovery is within the relevant source group's recovery window (`"None"` when none) | `areas` (list), `count` |
 
-Suppressed entities are excluded from offline/alert counts in combined sensor states. Their availability history continues to count toward group availability averages, consistent with per-group behaviour.
+Suppressed entities are excluded from offline/alert counts in combined sensor states. Their availability history continues to count toward group availability averages.
 
 The `recently_offline` and `recently_recovered` sensors use each source group's own **Recovery window** setting — if groups have different windows, each group's devices are filtered by that group's window.
 

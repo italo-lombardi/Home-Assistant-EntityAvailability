@@ -18,7 +18,7 @@ The test auto-discovers the first entity_availability group whose title contains
 EA_SMOKE_GROUP, then discovers its monitored entities and battery entity map from
 the live sensor attributes — no hardcoded entity IDs, entry IDs, or device names.
 
-What is tested (covers PRs #37, #41, core):
+What is tested (covers PRs #37, #41, #50, core):
   EC1  entity goes unavailable → offline_count increments
   EC4  device online + battery below threshold → low_battery_count=1, list populated
   EC5  device+battery unavailable → offline=1, low_battery=0 (PR#41: no double-count)
@@ -29,6 +29,9 @@ What is tested (covers PRs #37, #41, core):
   EC10 suppression: suppressed+unavailable entity not counted in offline
   EC11 suppress_indefinitely + unsuppress round-trip; suppressed_until=null for indefinite
   EC12 group-scoped suppress: entity in two groups, suppress in one, other unaffected
+  EC13 PR#50: suppressing offline entity does not change group availability %
+  EC14 PR#50: suppressed entity still appears in per_device availability breakdown
+  EC15 PR#50: unsuppressing restores identical group availability % (no drift)
 """
 
 import json
@@ -747,6 +750,124 @@ for e in cfg['data']['entries']:
             True,
             "(no group sharing entities with Alpha)",
         )
+
+    # ------------------------------------------------------------------
+    print(
+        "\n=== EC13: suppress offline entity — availability % must not change ===",
+        flush=True,
+    )
+    restore_all(ctx)
+    wait()
+    # Read group availability before suppress — use today window if present, else first window
+    avail_states = [
+        s
+        for s in api("GET", "/api/states")
+        if s["entity_id"].startswith(prefix + "_availability")
+    ]
+    if avail_states:
+        avail_eid = avail_states[0]["entity_id"]
+        avail_before = gs(avail_eid).get("state")
+        # Make one entity offline so it has a non-trivial availability value
+        target = ctx["entities"][0]
+        ss(target, "unavailable", {"friendly_name": "test"})
+        wait()
+        avail_mid = gs(avail_eid).get("state")
+        # Now suppress that offline entity
+        api(
+            "POST",
+            "/api/services/entity_availability/suppress_indefinitely",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+        wait()
+        avail_after_suppress = gs(avail_eid).get("state")
+        chk(
+            "EC13 availability % unchanged after suppressing offline entity",
+            avail_after_suppress,
+            avail_mid,
+            f"sensor={avail_eid} before_offline={avail_before} after_offline={avail_mid} after_suppress={avail_after_suppress}",
+        )
+        # Unsuppress and confirm still same
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+    else:
+        print("  EC13: skipped (no availability sensor found)", flush=True)
+
+    # ------------------------------------------------------------------
+    print(
+        "\n=== EC14: suppressed entity appears in per_device availability breakdown ===",
+        flush=True,
+    )
+    restore_all(ctx)
+    wait()
+    avail_states = [
+        s
+        for s in api("GET", "/api/states")
+        if s["entity_id"].startswith(prefix + "_availability")
+    ]
+    if avail_states:
+        avail_eid = avail_states[0]["entity_id"]
+        target = ctx["entities"][0]
+        api(
+            "POST",
+            "/api/services/entity_availability/suppress_indefinitely",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+        wait()
+        per_device = gs(avail_eid).get("attributes", {}).get("per_device", {})
+        chk(
+            "EC14 suppressed entity present in per_device breakdown",
+            target in per_device,
+            True,
+            f"sensor={avail_eid} target={target} per_device_keys={list(per_device.keys())}",
+        )
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+    else:
+        print("  EC14: skipped (no availability sensor found)", flush=True)
+
+    # ------------------------------------------------------------------
+    print(
+        "\n=== EC15: unsuppress restores identical availability % (no drift) ===",
+        flush=True,
+    )
+    restore_all(ctx)
+    wait()
+    avail_states = [
+        s
+        for s in api("GET", "/api/states")
+        if s["entity_id"].startswith(prefix + "_availability")
+    ]
+    if avail_states:
+        avail_eid = avail_states[0]["entity_id"]
+        target = ctx["entities"][0]
+        avail_before = gs(avail_eid).get("state")
+        api(
+            "POST",
+            "/api/services/entity_availability/suppress_indefinitely",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+        wait()
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+        wait()
+        avail_after_roundtrip = gs(avail_eid).get("state")
+        chk(
+            "EC15 availability % identical after suppress+unsuppress round-trip",
+            avail_after_roundtrip,
+            avail_before,
+            f"sensor={avail_eid} before={avail_before} after_roundtrip={avail_after_roundtrip}",
+        )
+    else:
+        print("  EC15: skipped (no availability sensor found)", flush=True)
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)
