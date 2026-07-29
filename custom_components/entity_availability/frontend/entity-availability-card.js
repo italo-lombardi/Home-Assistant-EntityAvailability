@@ -82,6 +82,7 @@ const cardStyles = css`
     --eac-text-secondary: var(--secondary-text-color, #727272);
     --eac-divider: var(--divider-color, rgba(0, 0, 0, 0.12));
     --eac-bar-bg: var(--disabled-color, #bdbdbd);
+    --eac-card-bg: var(--ha-card-background, var(--card-background-color, var(--primary-background-color, #1c1c1e)));
   }
 
   ha-card {
@@ -369,12 +370,18 @@ const cardStyles = css`
 
   .entity-item {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     padding: 5px 0;
-    gap: 10px;
     position: relative;
     cursor: pointer;
     user-select: none;
+  }
+
+  .entity-item-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
   }
 
   .entity-item:hover {
@@ -404,6 +411,7 @@ const cardStyles = css`
 
   .entity-detail-inline {
     width: 100%;
+    flex-basis: 100%;
     padding: 2px 0 6px 20px;
     font-size: 12px;
     border-bottom: 1px solid var(--eac-divider);
@@ -412,28 +420,6 @@ const cardStyles = css`
 
   .entity-detail-inline .entity-tooltip-row {
     padding: 1px 0;
-  }
-
-  .entity-tooltip {
-    display: none;
-    position: absolute;
-    left: 0;
-    top: calc(100% + 4px);
-    z-index: 10;
-    background: var(--card-background-color, #fff);
-    border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    padding: 8px 10px;
-    font-size: 12px;
-    color: var(--primary-text-color, #212121);
-    white-space: nowrap;
-    pointer-events: none;
-    min-width: 200px;
-  }
-
-  .entity-item:hover .entity-tooltip {
-    display: block;
   }
 
   .entity-tooltip-row {
@@ -856,25 +842,24 @@ class EntityAvailabilityCard extends LitElement {
         </div>
         ${items.map(
           (item) => html`
-            <div class="entity-item" tabindex="0" role="button" @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
-              <div class="entity-dot ${item.dotColor}"></div>
-              <span class="entity-name">${item.name}</span>
-              <span class="entity-status">${item.status}</span>
-              ${hasBattery
-                ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
-                : nothing}
-              ${this._config.entity_detail === "tooltip"
-                ? this._renderTooltip(item, suppressedUntil)
-                : nothing}
+            <div class="entity-item" tabindex="0" role="button" @mouseenter=${(e) => this._positionTooltip(e, item, suppressedUntil)} @mouseleave=${() => this._hideTooltip()} @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
+              <div class="entity-item-row">
+                <div class="entity-dot ${item.dotColor}"></div>
+                <span class="entity-name">${item.name}</span>
+                <span class="entity-status">${item.status}</span>
+                ${hasBattery
+                  ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
+                  : nothing}
+                ${this._config.show_suppress_toggle ? html`
+                <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
+                  title="${item.isSuppressed ? "Unsuppress" : "Suppress indefinitely"}"
+                  @click=${(e) => this._handleToggleSuppress(e, item.entityId, item.isSuppressed)}>
+                  <ha-icon icon="${item.isSuppressed ? "mdi:bell-off" : "mdi:bell-off-outline"}" style="--mdc-icon-size:16px"></ha-icon>
+                </button>` : nothing}
+              </div>
               ${this._config.entity_detail === "inline"
                 ? this._renderDetailInline(item, suppressedUntil)
                 : nothing}
-              ${this._config.show_suppress_toggle ? html`
-              <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
-                title="${item.isSuppressed ? "Unsuppress" : "Suppress indefinitely"}"
-                @click=${(e) => this._handleToggleSuppress(e, item.entityId, item.isSuppressed)}>
-                <ha-icon icon="${item.isSuppressed ? "mdi:bell-off" : "mdi:bell-off-outline"}" style="--mdc-icon-size:16px"></ha-icon>
-              </button>` : nothing}
             </div>
           `
         )}`}
@@ -1067,20 +1052,6 @@ class EntityAvailabilityCard extends LitElement {
     ].filter(Boolean);
   }
 
-  _renderTooltip(item, suppressedUntilMap) {
-    const rows = this._buildDetailRows(item, suppressedUntilMap);
-    return html`
-      <div class="entity-tooltip">
-        ${rows.map((r) => html`
-          <div class="entity-tooltip-row">
-            <span class="entity-tooltip-label">${r.label}</span>
-            <span class="entity-tooltip-value">${r.value}</span>
-          </div>
-        `)}
-      </div>
-    `;
-  }
-
   _renderDetailInline(item, suppressedUntilMap) {
     const compact = this._config.compact === true;
     let rows;
@@ -1235,30 +1206,99 @@ class EntityAvailabilityCard extends LitElement {
     this._entitiesExpanded = !this._entitiesExpanded;
   }
 
+  _positionTooltip(e, item, suppressedUntilMap) {
+    if (this._config.entity_detail !== "tooltip") return;
+    this._hideTooltip();
+    const rows = this._buildDetailRows(item, suppressedUntilMap);
+    const tt = document.createElement("div");
+    tt.className = "eac-global-tooltip";
+    tt.style.cssText = `
+      position:fixed;z-index:99999;
+      background:var(--ha-card-background,var(--card-background-color,var(--primary-background-color,#1c1c1e)));
+      border:1px solid var(--divider-color,rgba(0,0,0,0.12));
+      border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.25);
+      padding:8px 10px;font-size:12px;
+      color:var(--primary-text-color,#212121);
+      white-space:nowrap;pointer-events:none;min-width:200px;
+      font-family:inherit;
+    `;
+    rows.forEach((r) => {
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:6px;padding:2px 0;";
+      const label = document.createElement("span");
+      label.style.cssText = "color:var(--secondary-text-color,var(--disabled-text-color,#757575));min-width:80px;";
+      label.textContent = r.label;
+      const value = document.createElement("span");
+      value.style.cssText = "font-weight:500;";
+      value.textContent = r.value;
+      row.appendChild(label);
+      row.appendChild(value);
+      tt.appendChild(row);
+    });
+    document.body.appendChild(tt);
+    this._activeTooltip = tt;
+    tt.getBoundingClientRect(); // force reflow so offsetHeight/offsetWidth are populated
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ttH = tt.offsetHeight;
+    const ttW = tt.offsetWidth;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= ttH + 8 ? rect.bottom + 4 : rect.top - ttH - 4;
+    const left = Math.max(8, Math.min(rect.left, Math.max(8, window.innerWidth - ttW - 8)));
+    tt.style.left = `${left}px`;
+    tt.style.top = `${top}px`;
+  }
+
+  _hideTooltip() {
+    if (this._activeTooltip) {
+      this._activeTooltip.remove();
+      this._activeTooltip = null;
+    }
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._hideTooltip();
+  }
+
   _handleEntityClick(e, entityId) {
     e.stopPropagation();
     if (typeof entityId !== "string" || !entityId) return;
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
 
+  _resolveGroupId() {
+    return this._getGroupSummary()?.attributes?.entry_id || null;
+  }
+
+  _getGroupSummary() {
+    const isCombined = this._isCombinedGroup();
+    const prefix = isCombined
+      ? `entity_availability_combined_${this._config.group}`
+      : `entity_availability_${this._config.group}`;
+    const sensorId = isCombined
+      ? `sensor.${prefix}_combined_summary`
+      : `sensor.${prefix}_group_summary`;
+    return this._getEntity(sensorId);
+  }
+
   async _handleToggleSuppress(e, entityId, isSuppressed) {
     e.stopPropagation();
-    const group = this._config.group;
+    const group = this._resolveGroupId();
     if (isSuppressed) {
-      await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId, group });
+      await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId, ...(group ? { group } : {}) });
     } else {
-      await this.hass.callService("entity_availability", "suppress_indefinitely", { entity_id: entityId, group });
+      await this.hass.callService("entity_availability", "suppress_indefinitely", { entity_id: entityId, ...(group ? { group } : {}) });
     }
   }
 
   async _handleSuppressAll(e) {
     e.stopPropagation();
-    const group = this._config.group;
+    const group = this._resolveGroupId();
     const offlineIds = this._getOfflineEntityIds();
     for (const entityId of offlineIds) {
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
-        group,
+        ...(group ? { group } : {}),
         duration: 60,
       });
     }
@@ -1266,20 +1306,13 @@ class EntityAvailabilityCard extends LitElement {
 
   async _handleUnsuppressAll(e) {
     e.stopPropagation();
-    const group = this._config.group;
-    const isCombined = this._isCombinedGroup();
-    const prefix = isCombined
-      ? `entity_availability_combined_${this._config.group}`
-      : `entity_availability_${this._config.group}`;
-    const summaryId = isCombined
-      ? `sensor.${prefix}_combined_summary`
-      : `sensor.${prefix}_group_summary`;
-    const summary = this._getEntity(summaryId);
+    const group = this._resolveGroupId();
+    const summary = this._getGroupSummary();
     const entities = summary?.attributes?.entities || [];
     for (const entityId of entities) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
-        group,
+        ...(group ? { group } : {}),
       });
     }
   }
@@ -1314,7 +1347,7 @@ class EntityAvailabilityCardEditor extends LitElement {
         border: 1px solid var(--divider-color, #ccc);
         border-radius: 4px;
         box-sizing: border-box;
-        background: var(--card-background-color, #fff);
+        background: var(--card-background-color, var(--primary-background-color, #fafafa));
         color: var(--primary-text-color, #212121);
       }
       .editor-row.checkbox label {
@@ -1346,7 +1379,7 @@ class EntityAvailabilityCardEditor extends LitElement {
         padding: 4px 6px;
         border: 1px solid var(--divider-color, #ccc);
         border-radius: 4px;
-        background: var(--card-background-color, #fff);
+        background: var(--card-background-color, var(--primary-background-color, #fafafa));
         color: var(--primary-text-color, #212121);
       }
       .threshold-section {
