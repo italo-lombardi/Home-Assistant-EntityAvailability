@@ -232,16 +232,16 @@ class CombinedGroupSensor(CombinedSensorBase):
             self._prev_offline_set = current
             if current != prev:
                 offline_list = sorted(current)
-                event = EVENT_OFFLINE if (current - prev) else EVENT_RECOVERED
-                self.hass.bus.async_fire(
-                    event,
-                    {
-                        "group": self._entry.data.get(CONF_GROUP_NAME, ""),
-                        "entry_id": self._entry.entry_id,
-                        "offline_count": len(current),
-                        "offline_entities": offline_list,
-                    },
-                )
+                payload = {
+                    "group": self._entry.data.get(CONF_GROUP_NAME, ""),
+                    "entry_id": self._entry.entry_id,
+                    "offline_count": len(current),
+                    "offline_entities": offline_list,
+                }
+                if current - prev:
+                    self.hass.bus.async_fire(EVENT_OFFLINE, payload)
+                if prev - current:
+                    self.hass.bus.async_fire(EVENT_RECOVERED, payload)
             if self._ea_should_write():
                 self.async_write_ha_state()
 

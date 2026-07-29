@@ -717,17 +717,14 @@ class TestCombinedGroupSensor:
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.state_class is None
 
-    async def test_fires_offline_event_when_entity_goes_offline(
-        self, mock_hass, combined_entry, coordinators
-    ):
-        """entity_availability_offline fires when offline set grows."""
+    def _setup_event_sensor(self, mock_hass, combined_entry, coordinators):
+        """Return (sensor, fired_cbs) with write stubbed and listeners captured."""
         mock_hass.data[DOMAIN] = {
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         sensor.async_write_ha_state = lambda: None
-
         fired_cbs = []
 
         def _fake_add_listener(cb):
@@ -736,7 +733,15 @@ class TestCombinedGroupSensor:
 
         for coord in coordinators:
             coord.async_add_listener = _fake_add_listener
+        return sensor, fired_cbs
 
+    async def test_fires_offline_event_when_entity_goes_offline(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """entity_availability_offline fires when offline set grows."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
         await sensor.async_added_to_hass()
 
         events = []
@@ -744,6 +749,7 @@ class TestCombinedGroupSensor:
             "entity_availability_offline", lambda e: events.append(e)
         )
 
+        # coordinator_a fixture has a2 offline; first callback sees empty→{a2}
         fired_cbs[0]()
         await mock_hass.async_block_till_done()
 
@@ -758,23 +764,10 @@ class TestCombinedGroupSensor:
         self, mock_hass, combined_entry, coordinators
     ):
         """entity_availability_recovered fires when offline set shrinks."""
-        mock_hass.data[DOMAIN] = {
-            "entry_a": coordinators[0],
-            "entry_b": coordinators[1],
-        }
-        sensor = self._sensor(mock_hass, combined_entry, coordinators)
-        sensor.async_write_ha_state = lambda: None
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
         sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
-
-        fired_cbs = []
-
-        def _fake_add_listener(cb):
-            fired_cbs.append(cb)
-            return lambda: None
-
-        for coord in coordinators:
-            coord.async_add_listener = _fake_add_listener
-
         await sensor.async_added_to_hass()
 
         events = []
@@ -795,23 +788,10 @@ class TestCombinedGroupSensor:
         self, mock_hass, combined_entry, coordinators
     ):
         """No event fires when coordinator updates but offline set is identical."""
-        mock_hass.data[DOMAIN] = {
-            "entry_a": coordinators[0],
-            "entry_b": coordinators[1],
-        }
-        sensor = self._sensor(mock_hass, combined_entry, coordinators)
-        sensor.async_write_ha_state = lambda: None
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
         sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
-
-        fired_cbs = []
-
-        def _fake_add_listener(cb):
-            fired_cbs.append(cb)
-            return lambda: None
-
-        for coord in coordinators:
-            coord.async_add_listener = _fake_add_listener
-
         await sensor.async_added_to_hass()
 
         events = []
@@ -827,26 +807,13 @@ class TestCombinedGroupSensor:
 
         assert events == []
 
-    async def test_second_coordinator_update_no_double_fire(
+    async def test_no_double_fire_across_two_member_coordinators(
         self, mock_hass, combined_entry, coordinators
     ):
-        """Two rapid coordinator updates with same result fire only one event."""
-        mock_hass.data[DOMAIN] = {
-            "entry_a": coordinators[0],
-            "entry_b": coordinators[1],
-        }
-        sensor = self._sensor(mock_hass, combined_entry, coordinators)
-        sensor.async_write_ha_state = lambda: None
-
-        fired_cbs = []
-
-        def _fake_add_listener(cb):
-            fired_cbs.append(cb)
-            return lambda: None
-
-        for coord in coordinators:
-            coord.async_add_listener = _fake_add_listener
-
+        """Two different member coordinators updating with same net result fire once."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
         await sensor.async_added_to_hass()
 
         events = []
@@ -854,11 +821,45 @@ class TestCombinedGroupSensor:
             "entity_availability_offline", lambda e: events.append(e)
         )
 
-        fired_cbs[0]()  # empty → {a2}: fires
-        fired_cbs[0]()  # {a2} → {a2}: no change
+        # coordinator_a fires → empty → {a2}: event fires
+        fired_cbs[0]()
+        # coordinator_b fires → {a2} → {a2}: no change, no second event
+        fired_cbs[1]()
         await mock_hass.async_block_till_done()
 
         assert len(events) == 1
+
+    async def test_fires_both_events_on_entity_swap(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Both offline and recovered fire when one entity goes offline and another recovers simultaneously."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        # prev: a2 was offline, b1 was online
+        sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
+        await sensor.async_added_to_hass()
+
+        offline_events = []
+        recovered_events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: offline_events.append(e)
+        )
+        mock_hass.bus.async_listen(
+            "entity_availability_recovered", lambda e: recovered_events.append(e)
+        )
+
+        # a2 comes back online, b1 goes offline — net swap
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(offline_events) == 1
+        assert len(recovered_events) == 1
+        assert offline_events[0].data["offline_entities"] == ["binary_sensor.b1"]
+        assert recovered_events[0].data["offline_count"] == 1
 
 
 # ---------------------------------------------------------------------------
