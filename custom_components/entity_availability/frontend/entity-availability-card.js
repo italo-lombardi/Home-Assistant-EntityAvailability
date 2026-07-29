@@ -82,7 +82,6 @@ const cardStyles = css`
     --eac-text-secondary: var(--secondary-text-color, #727272);
     --eac-divider: var(--divider-color, rgba(0, 0, 0, 0.12));
     --eac-bar-bg: var(--disabled-color, #bdbdbd);
-    --eac-card-bg: var(--ha-card-background, var(--card-background-color, var(--primary-background-color, #1c1c1e)));
   }
 
   ha-card {
@@ -371,7 +370,6 @@ const cardStyles = css`
   .entity-item {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
     padding: 5px 0;
     gap: 10px;
     position: relative;
@@ -406,7 +404,6 @@ const cardStyles = css`
 
   .entity-detail-inline {
     width: 100%;
-    flex-basis: 100%;
     padding: 2px 0 6px 20px;
     font-size: 12px;
     border-bottom: 1px solid var(--eac-divider);
@@ -415,6 +412,28 @@ const cardStyles = css`
 
   .entity-detail-inline .entity-tooltip-row {
     padding: 1px 0;
+  }
+
+  .entity-tooltip {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: calc(100% + 4px);
+    z-index: 10;
+    background: var(--card-background-color, #fff);
+    border: 1px solid var(--divider-color, rgba(0,0,0,0.12));
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--primary-text-color, #212121);
+    white-space: nowrap;
+    pointer-events: none;
+    min-width: 200px;
+  }
+
+  .entity-item:hover .entity-tooltip {
+    display: block;
   }
 
   .entity-tooltip-row {
@@ -837,12 +856,18 @@ class EntityAvailabilityCard extends LitElement {
         </div>
         ${items.map(
           (item) => html`
-            <div class="entity-item" tabindex="0" role="button" @mouseenter=${(e) => this._positionTooltip(e, item, suppressedUntil)} @mouseleave=${() => this._hideTooltip()} @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
+            <div class="entity-item" tabindex="0" role="button" @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
               <div class="entity-dot ${item.dotColor}"></div>
               <span class="entity-name">${item.name}</span>
               <span class="entity-status">${item.status}</span>
               ${hasBattery
                 ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
+                : nothing}
+              ${this._config.entity_detail === "tooltip"
+                ? this._renderTooltip(item, suppressedUntil)
+                : nothing}
+              ${this._config.entity_detail === "inline"
+                ? this._renderDetailInline(item, suppressedUntil)
                 : nothing}
               ${this._config.show_suppress_toggle ? html`
               <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
@@ -850,12 +875,6 @@ class EntityAvailabilityCard extends LitElement {
                 @click=${(e) => this._handleToggleSuppress(e, item.entityId, item.isSuppressed)}>
                 <ha-icon icon="${item.isSuppressed ? "mdi:bell-off" : "mdi:bell-off-outline"}" style="--mdc-icon-size:16px"></ha-icon>
               </button>` : nothing}
-              ${this._config.entity_detail === "tooltip"
-                ? this._renderTooltip(item, suppressedUntil)
-                : nothing}
-              ${this._config.entity_detail === "inline"
-                ? this._renderDetailInline(item, suppressedUntil)
-                : nothing}
             </div>
           `
         )}`}
@@ -1049,8 +1068,17 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _renderTooltip(item, suppressedUntilMap) {
-    // Tooltip rendered into document.body on mouseenter — nothing in shadow DOM
-    return nothing;
+    const rows = this._buildDetailRows(item, suppressedUntilMap);
+    return html`
+      <div class="entity-tooltip">
+        ${rows.map((r) => html`
+          <div class="entity-tooltip-row">
+            <span class="entity-tooltip-label">${r.label}</span>
+            <span class="entity-tooltip-value">${r.value}</span>
+          </div>
+        `)}
+      </div>
+    `;
   }
 
   _renderDetailInline(item, suppressedUntilMap) {
@@ -1207,72 +1235,15 @@ class EntityAvailabilityCard extends LitElement {
     this._entitiesExpanded = !this._entitiesExpanded;
   }
 
-  _positionTooltip(e, item, suppressedUntilMap) {
-    if (this._config.entity_detail !== "tooltip") return;
-    this._hideTooltip();
-    const rows = this._buildDetailRows(item, suppressedUntilMap);
-    const tt = document.createElement("div");
-    tt.className = "eac-global-tooltip";
-    tt.style.cssText = `
-      position:fixed;z-index:99999;
-      background:var(--card-background-color,#fff);
-      border:1px solid var(--divider-color,rgba(0,0,0,0.12));
-      border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.25);
-      padding:8px 10px;font-size:12px;
-      color:var(--primary-text-color,#212121);
-      white-space:nowrap;pointer-events:none;min-width:200px;
-      font-family:inherit;
-    `;
-    rows.forEach((r) => {
-      const row = document.createElement("div");
-      row.style.cssText = "display:flex;gap:6px;padding:2px 0;";
-      const label = document.createElement("span");
-      label.style.cssText = "color:var(--secondary-text-color,#727272);min-width:80px;";
-      label.textContent = r.label;
-      const value = document.createElement("span");
-      value.style.cssText = "font-weight:500;";
-      value.textContent = r.value;
-      row.appendChild(label);
-      row.appendChild(value);
-      tt.appendChild(row);
-    });
-    document.body.appendChild(tt);
-    this._activeTooltip = tt;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const ttH = tt.offsetHeight;
-    const ttW = tt.offsetWidth;
-    const left = Math.min(rect.left, window.innerWidth - ttW - 8);
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const top = spaceBelow >= ttH + 8 ? rect.bottom + 4 : rect.top - ttH - 4;
-    tt.style.left = `${Math.max(8, left)}px`;
-    tt.style.top = `${top}px`;
-  }
-
-  _hideTooltip() {
-    if (this._activeTooltip) {
-      this._activeTooltip.remove();
-      this._activeTooltip = null;
-    }
-  }
-
   _handleEntityClick(e, entityId) {
     e.stopPropagation();
     if (typeof entityId !== "string" || !entityId) return;
     this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId }, bubbles: true, composed: true }));
   }
 
-  _resolveGroupId() {
-    const isCombined = this._isCombinedGroup();
-    const prefix = isCombined
-      ? `entity_availability_combined_${this._config.group}`
-      : `entity_availability_${this._config.group}`;
-    const summary = this._getEntity(isCombined ? `sensor.${prefix}_combined_summary` : `sensor.${prefix}_group_summary`);
-    return summary?.attributes?.entry_id || this._config.group;
-  }
-
   async _handleToggleSuppress(e, entityId, isSuppressed) {
     e.stopPropagation();
-    const group = this._resolveGroupId();
+    const group = this._config.group;
     if (isSuppressed) {
       await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId, group });
     } else {
@@ -1282,7 +1253,7 @@ class EntityAvailabilityCard extends LitElement {
 
   async _handleSuppressAll(e) {
     e.stopPropagation();
-    const group = this._resolveGroupId();
+    const group = this._config.group;
     const offlineIds = this._getOfflineEntityIds();
     for (const entityId of offlineIds) {
       await this.hass.callService("entity_availability", "suppress", {
@@ -1295,7 +1266,7 @@ class EntityAvailabilityCard extends LitElement {
 
   async _handleUnsuppressAll(e) {
     e.stopPropagation();
-    const group = this._resolveGroupId();
+    const group = this._config.group;
     const isCombined = this._isCombinedGroup();
     const prefix = isCombined
       ? `entity_availability_combined_${this._config.group}`
@@ -1343,7 +1314,7 @@ class EntityAvailabilityCardEditor extends LitElement {
         border: 1px solid var(--divider-color, #ccc);
         border-radius: 4px;
         box-sizing: border-box;
-        background: var(--eac-card-bg);
+        background: var(--card-background-color, #fff);
         color: var(--primary-text-color, #212121);
       }
       .editor-row.checkbox label {
@@ -1375,7 +1346,7 @@ class EntityAvailabilityCardEditor extends LitElement {
         padding: 4px 6px;
         border: 1px solid var(--divider-color, #ccc);
         border-radius: 4px;
-        background: var(--eac-card-bg);
+        background: var(--card-background-color, #fff);
         color: var(--primary-text-color, #212121);
       }
       .threshold-section {
