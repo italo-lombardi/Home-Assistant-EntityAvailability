@@ -8,21 +8,25 @@ Ready-to-adapt automations for every feature. Replace `security_devices` with yo
 
 ## Bus events
 
-The integration fires two events on the Home Assistant event bus at each transition (after the group's cooldown, outside the 60 s startup grace period). These are the cleanest automation triggers — no template polling of sensor attributes.
+The integration fires four events on the Home Assistant event bus at each transition (after the group's cooldown, outside the 60 s startup grace period). These are the cleanest automation triggers — no template polling of sensor attributes.
 
 | Event | Fired when | Data |
 |-------|-----------|------|
 | `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities` |
 | `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities` |
+| `entity_availability_low_battery` | An entity's battery drops below threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
+| `entity_availability_battery_ok` | A low-battery entity's level rises above threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
 
 `offline_count` and `offline_entities` reflect the group's offline state at the moment the entity transitions. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition.
+
+`low_battery_count` and `low_battery_entities` follow the same snapshot rule: for `entity_availability_low_battery` the newly-low entity is included; for `entity_availability_battery_ok` it is already excluded.
 
 **`offline_since`** is always an ISO timestamp string for individual group events. For combined group events it may be `null` if the coordinator has not yet recorded the transition time — guard with `| default(none)` before passing to `as_datetime()`:
 ```yaml
 {{ as_local(as_datetime(trigger.event.data.offline_since | default(none))) if trigger.event.data.offline_since else "unknown" }}
 ```
 
-**Combined groups fire the same events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
+**Combined groups fire all four events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
 
 ### Notify when any monitored entity goes offline
 
@@ -158,6 +162,77 @@ automation:
         message: >
           {{ trigger.event.data.entity_id }} was offline for
           {{ (trigger.event.data.downtime_seconds | float / 60) | round }} minutes.
+```
+
+### Notify when a battery drops below threshold
+
+```yaml
+automation:
+  alias: EA — low battery alert
+  trigger:
+    - platform: event
+      event_type: entity_availability_low_battery
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Low battery ({{ trigger.event.data.low_battery_count }} device(s))"
+        message: >
+          {{ trigger.event.data.entity_id }} in {{ trigger.event.data.group }}
+          has {{ trigger.event.data.battery_level }}% battery.
+          {{ trigger.event.data.low_battery_count }} device(s) now low:
+          {{ trigger.event.data.low_battery_entities | join(', ') }}
+```
+
+### Notify only for a specific group's battery events
+
+```yaml
+automation:
+  alias: EA — security group low battery
+  trigger:
+    - platform: event
+      event_type: entity_availability_low_battery
+      event_data:
+        group: Security Devices
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: "Security device low battery: {{ trigger.event.data.entity_id }} at {{ trigger.event.data.battery_level }}%"
+```
+
+### Alert only when battery is critically low (below 10%)
+
+```yaml
+automation:
+  alias: EA — critical battery
+  trigger:
+    - platform: event
+      event_type: entity_availability_low_battery
+  condition:
+    - "{{ trigger.event.data.battery_level | int(100) < 10 }}"
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: Critical battery
+        message: >
+          {{ trigger.event.data.entity_id }} is at {{ trigger.event.data.battery_level }}% —
+          replace battery soon.
+```
+
+### Confirm battery replaced (battery_ok event)
+
+```yaml
+automation:
+  alias: EA — battery replaced
+  trigger:
+    - platform: event
+      event_type: entity_availability_battery_ok
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >
+          {{ trigger.event.data.entity_id }} battery OK
+          ({{ trigger.event.data.battery_level }}%).
+          {{ trigger.event.data.low_battery_count }} device(s) still low.
 ```
 
 ---

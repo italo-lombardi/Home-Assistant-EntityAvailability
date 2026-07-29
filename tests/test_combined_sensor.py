@@ -39,6 +39,8 @@ from custom_components.entity_availability.const import (
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
+    EVENT_BATTERY_OK,
+    EVENT_LOW_BATTERY,
 )
 from custom_components.entity_availability.coordinator import (
     EntityAvailabilityCoordinator,
@@ -962,6 +964,159 @@ class TestCombinedGroupSensor:
         # offline_since must be a non-None ISO string (fixture sets it)
         assert data["offline_since"] is not None
         assert isinstance(data["offline_since"], str)
+
+    async def test_fires_low_battery_event_when_entity_goes_low(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """entity_availability_low_battery fires when low-battery set grows."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_low_battery_set = frozenset()
+
+        events = []
+        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
+
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 8
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        data = events[0].data
+        assert data["entity_id"] == "binary_sensor.a1"
+        assert data["group"] == "Combined"
+        assert data["entry_id"] == "combined_1"
+        assert data["battery_level"] == 8
+        assert data["low_battery_count"] == 1
+        assert "binary_sensor.a1" in data["low_battery_entities"]
+
+    async def test_fires_battery_ok_event_when_entity_recovers(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """entity_availability_battery_ok fires when low-battery set shrinks."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_low_battery_set = frozenset(["binary_sensor.a1"])
+
+        events = []
+        mock_hass.bus.async_listen(EVENT_BATTERY_OK, lambda e: events.append(e))
+
+        # a1 no longer low battery
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = False
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 75
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        data = events[0].data
+        assert data["entity_id"] == "binary_sensor.a1"
+        assert data["battery_level"] == 75
+        assert data["low_battery_count"] == 0
+        assert data["low_battery_entities"] == []
+
+    async def test_no_low_battery_event_when_set_unchanged(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """No event fires when low-battery set is identical across ticks."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        # Prime to current state — set unchanged
+        sensor._prev_low_battery_set = frozenset(["binary_sensor.a1"])
+
+        events = []
+        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
+        mock_hass.bus.async_listen(EVENT_BATTERY_OK, lambda e: events.append(e))
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert events == []
+
+    async def test_no_spurious_low_battery_event_on_startup(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """No event fires on first tick when low-battery entity was already low before subscribe."""
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+
+        events = []
+        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert events == [], "Spurious low-battery event fired for pre-existing state"
+
+    async def test_fan_out_two_entities_low_battery_simultaneously(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Two entities going low in one tick fire two separate events."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_low_battery_set = frozenset()
+
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 5
+        coordinators[1]._device_states["binary_sensor.b1"].is_low_battery = True
+        coordinators[1]._device_states["binary_sensor.b1"].battery_level = 9
+
+        events = []
+        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 2
+        entity_ids = {e.data["entity_id"] for e in events}
+        assert entity_ids == {"binary_sensor.a1", "binary_sensor.b1"}
+        for e in events:
+            assert e.data["low_battery_count"] == 2
+            assert set(e.data["low_battery_entities"]) == {
+                "binary_sensor.a1",
+                "binary_sensor.b1",
+            }
+
+    async def test_low_battery_payload_matches_offline_shape(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Low-battery event has entity_id, group, entry_id, battery_level, low_battery_count, low_battery_entities."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_low_battery_set = frozenset()
+
+        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
+        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 12
+
+        events = []
+        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        data = events[0].data
+        assert set(data.keys()) >= {
+            "entity_id",
+            "group",
+            "entry_id",
+            "battery_level",
+            "low_battery_count",
+            "low_battery_entities",
+        }
 
 
 # ---------------------------------------------------------------------------
