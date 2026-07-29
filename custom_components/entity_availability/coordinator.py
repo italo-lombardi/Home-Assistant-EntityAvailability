@@ -436,6 +436,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # Maximum reasonable elapsed is 2x the scan interval
         elapsed = min(elapsed, SCAN_INTERVAL * 2)
 
+        pending_events: list[tuple[str, dict]] = []
+
         for entity_id in self._entities:
             state = self.hass.states.get(entity_id)
             if entity_id not in self._device_states:
@@ -467,6 +469,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.is_degraded = False
                 device.is_stale = False
                 device.is_low_battery = False
+                # Clear stale offline flag if entity recovered while suppressed;
+                # done silently — no event fires for a suppressed transition.
+                is_bad = state is None or state.state in self._bad_states
+                if not is_bad and device.is_offline:
+                    device.is_offline = False
+                    device.offline_since = None
+                    device.recently_offline_at = None
+                    device.cooldown_start = None
                 _LOGGER.debug(
                     "[%s] Skipping suppressed entity %s (until=%s)",
                     self.group_name,
@@ -546,15 +556,20 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         device.offline_since = device.cooldown_start
                         device.recently_offline_at = now
                         device.offline_event_count += 1
-                        self.hass.bus.async_fire(
-                            EVENT_OFFLINE,
-                            {
-                                "entity_id": entity_id,
-                                "group": self.group_name,
-                                "offline_since": device.offline_since.isoformat()
-                                if device.offline_since
-                                else None,
-                            },
+                        offline_ids = self._offline_entity_ids()
+                        pending_events.append(
+                            (
+                                EVENT_OFFLINE,
+                                {
+                                    "entity_id": entity_id,
+                                    "group": self.group_name,
+                                    "offline_since": device.offline_since.isoformat()
+                                    if device.offline_since
+                                    else None,
+                                    "offline_count": len(offline_ids),
+                                    "offline_entities": offline_ids,
+                                },
+                            )
                         )
                     elif in_grace:
                         _LOGGER.debug(
@@ -593,13 +608,18 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     device.is_offline = False
                     device.offline_since = None
                     device.recently_offline_at = None
-                    self.hass.bus.async_fire(
-                        EVENT_RECOVERED,
-                        {
-                            "entity_id": entity_id,
-                            "group": self.group_name,
-                            "downtime_seconds": device.last_downtime_seconds,
-                        },
+                    recovered_offline_ids = self._offline_entity_ids()
+                    pending_events.append(
+                        (
+                            EVENT_RECOVERED,
+                            {
+                                "entity_id": entity_id,
+                                "group": self.group_name,
+                                "downtime_seconds": device.last_downtime_seconds,
+                                "offline_count": len(recovered_offline_ids),
+                                "offline_entities": recovered_offline_ids,
+                            },
+                        )
                     )
                 device.cooldown_start = None
                 self._availability_storage.record_online(entity_id, elapsed, now)
@@ -633,10 +653,24 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             finally:
                 self._update_count = 0
 
+        try:
+            for event_name, payload in pending_events:
+                self.hass.bus.async_fire(event_name, payload)
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("[%s] Failed to fire event", self.group_name, exc_info=True)
+
         return EntityAvailabilityData(
             devices=dict(self._device_states),
             buckets=dict(self._availability_storage.buckets),
         )
+
+    def _offline_entity_ids(self) -> list[str]:
+        """Return entity_ids that are currently offline and not suppressed, in insertion order."""
+        return [
+            eid
+            for eid, d in self._device_states.items()
+            if d.is_offline and not d.is_suppressed
+        ]
 
     def _get_battery_level(self, entity_id: str) -> int | None:
         """Get battery level for an entity using configured mapping or auto-detection."""

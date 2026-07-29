@@ -12,8 +12,10 @@ The integration fires two events on the Home Assistant event bus at each transit
 
 | Event | Fired when | Data |
 |-------|-----------|------|
-| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `offline_since` |
-| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `downtime_seconds` |
+| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `offline_since`, `offline_count`, `offline_entities` |
+| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `downtime_seconds`, `offline_count`, `offline_entities` |
+
+`offline_count` and `offline_entities` reflect the group's offline state at the moment the entity transitions (includes all entities that transitioned earlier in the same update cycle). Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition that triggered the event.
 
 ### Notify when any monitored entity goes offline
 
@@ -29,6 +31,7 @@ automation:
         message: >
           {{ trigger.event.data.entity_id }} in
           {{ trigger.event.data.group }} went offline.
+          {{ trigger.event.data.offline_count }} device(s) now offline.
 ```
 
 ### Notify only for a specific group
@@ -61,6 +64,74 @@ automation:
         message: >
           {{ trigger.event.data.entity_id }} recovered after
           {{ (trigger.event.data.downtime_seconds | float / 60) | round(1) }} min offline.
+```
+
+### Rich push + email notification (offline and recovery)
+
+Uses `trigger.event.data.offline_count` and `trigger.event.data.offline_entities` from the event payload directly — no sensor state reads, no race condition.
+
+```yaml
+automation:
+  alias: EA — offline rich notification
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Device offline ({{ trigger.event.data.offline_count }} now offline)"
+        message: >-
+          {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+             or device_attr(device_id(trigger.event.data.entity_id), 'name')
+             or trigger.event.data.entity_id }}
+          in {{ trigger.event.data.group }} went offline
+          ({{ as_local(as_datetime(trigger.event.data.offline_since)).strftime('%d.%m.%Y %H:%M:%S') }}).
+    - service: notify.email
+      data:
+        title: "Device offline ({{ trigger.event.data.offline_count }} now offline)"
+        message: |-
+          Device: {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+                     or device_attr(device_id(trigger.event.data.entity_id), 'name')
+                     or trigger.event.data.entity_id }}
+          Group: {{ trigger.event.data.group }}
+          Offline since: {{ as_local(as_datetime(trigger.event.data.offline_since)).strftime('%d.%m.%Y %H:%M:%S') }}
+
+          Still offline ({{ trigger.event.data.offline_count }}):
+          • {{ trigger.event.data.offline_entities | join('\n• ') }}
+```
+
+```yaml
+automation:
+  alias: EA — recovery rich notification
+  trigger:
+    - platform: event
+      event_type: entity_availability_recovered
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Device recovered ({{ trigger.event.data.offline_count }} still offline)"
+        message: >-
+          {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+             or device_attr(device_id(trigger.event.data.entity_id), 'name')
+             or trigger.event.data.entity_id }}
+          in {{ trigger.event.data.group }} returned online after
+          {{ (trigger.event.data.downtime_seconds | float / 60) | round(0) }} minutes.
+    - service: notify.email
+      data:
+        title: "Device recovered ({{ trigger.event.data.offline_count }} still offline)"
+        message: |-
+          Device: {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+                     or device_attr(device_id(trigger.event.data.entity_id), 'name')
+                     or trigger.event.data.entity_id }}
+          Group: {{ trigger.event.data.group }}
+          Downtime: {{ (trigger.event.data.downtime_seconds | float / 60) | round(0) }} minutes
+
+          Still offline ({{ trigger.event.data.offline_count }}):
+          {% if trigger.event.data.offline_entities %}
+          • {{ trigger.event.data.offline_entities | join('\n• ') }}
+          {% else %}
+          None — all devices online.
+          {% endif %}
 ```
 
 ### Escalate only for long outages
