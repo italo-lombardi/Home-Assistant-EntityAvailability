@@ -351,10 +351,6 @@ class AvailabilitySensor(DedupCoordinatorSensor):
 
         values: list[float] = []
         for entity_id in self.coordinator.monitored_entities:
-            # Skip suppressed devices
-            device = self.coordinator.device_states.get(entity_id)
-            if device and device.is_suppressed:
-                continue
             avail = storage.get_availability(entity_id, self._window, now)
             if avail is not None:
                 values.append(avail)
@@ -377,9 +373,6 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         storage = self.coordinator.availability_storage
         breakdown: dict[str, float | None] = {}
         for entity_id in self.coordinator.monitored_entities:
-            device = self.coordinator.device_states.get(entity_id)
-            if device and device.is_suppressed:
-                continue
             avail = storage.get_availability(entity_id, self._window, now)
             breakdown[entity_id] = round(avail, 1) if avail is not None else None
         return {"per_device": breakdown}
@@ -421,10 +414,7 @@ class MTBFSensor(DedupCoordinatorSensor):
         values = [
             stats["mtbf_hours"]
             for entity_id in self.coordinator.monitored_entities
-            if not (
-                (d := self.coordinator.device_states.get(entity_id)) and d.is_suppressed
-            )
-            and (stats := self.coordinator.reliability_stats(entity_id, now))[
+            if (stats := self.coordinator.reliability_stats(entity_id, now))[
                 "mtbf_hours"
             ]
             is not None
@@ -440,9 +430,6 @@ class MTBFSensor(DedupCoordinatorSensor):
         per_device: dict[str, dict[str, Any]] = {}
         total_events = 0
         for entity_id in self.coordinator.monitored_entities:
-            device = self.coordinator.device_states.get(entity_id)
-            if device and device.is_suppressed:
-                continue
             stats = self.coordinator.reliability_stats(entity_id, now)
             per_device[entity_id] = {
                 "mtbf_hours": stats["mtbf_hours"],
@@ -486,10 +473,7 @@ class MTTRSensor(DedupCoordinatorSensor):
         values = [
             stats["mttr_minutes"]
             for entity_id in self.coordinator.monitored_entities
-            if not (
-                (d := self.coordinator.device_states.get(entity_id)) and d.is_suppressed
-            )
-            and (stats := self.coordinator.reliability_stats(entity_id, now))[
+            if (stats := self.coordinator.reliability_stats(entity_id, now))[
                 "mttr_minutes"
             ]
             is not None
@@ -505,9 +489,6 @@ class MTTRSensor(DedupCoordinatorSensor):
         per_device: dict[str, dict[str, Any]] = {}
         total_events = 0
         for entity_id in self.coordinator.monitored_entities:
-            device = self.coordinator.device_states.get(entity_id)
-            if device and device.is_suppressed:
-                continue
             stats = self.coordinator.reliability_stats(entity_id, now)
             per_device[entity_id] = {
                 "mttr_minutes": stats["mttr_minutes"],
