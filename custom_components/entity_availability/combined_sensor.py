@@ -129,18 +129,22 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
     async def async_added_to_hass(self) -> None:
         """Subscribe to all included coordinators."""
         await super().async_added_to_hass()
+        self._on_coordinator_update = self._make_update_callback()
+        domain_data = self.hass.data.get(DOMAIN, {})
+        for eid in self._combined_entry_ids:
+            coord = domain_data.get(eid)
+            if isinstance(coord, EntityAvailabilityCoordinator):
+                self._subscribe(eid, coord)
+
+    def _make_update_callback(self) -> Callable[[], None]:
+        """Return the coordinator update callback. Subclasses may override."""
 
         @callback
         def _on_coordinator_update() -> None:
             if self._ea_should_write():
                 self.async_write_ha_state()
 
-        self._on_coordinator_update = _on_coordinator_update
-        domain_data = self.hass.data.get(DOMAIN, {})
-        for eid in self._combined_entry_ids:
-            coord = domain_data.get(eid)
-            if isinstance(coord, EntityAvailabilityCoordinator):
-                self._subscribe(eid, coord)
+        return _on_coordinator_update
 
     async def async_will_remove_from_hass(self) -> None:
         """Unsubscribe from all coordinators."""
@@ -217,8 +221,8 @@ class CombinedGroupSensor(CombinedSensorBase):
         self._attr_translation_key = "combined_summary"
         self._prev_offline_set: frozenset[str] = frozenset()
 
-    async def async_added_to_hass(self) -> None:
-        await SensorEntity.async_added_to_hass(self)
+    def _make_update_callback(self) -> Callable[[], None]:
+        """Return event-aware coordinator update callback."""
 
         @callback
         def _on_update() -> None:
@@ -232,28 +236,38 @@ class CombinedGroupSensor(CombinedSensorBase):
             self._prev_offline_set = current
             if current != prev:
                 offline_list = sorted(current)
-                payload = {
+                base = {
                     "group": self._entry.data.get(CONF_GROUP_NAME, ""),
                     "entry_id": self._entry.entry_id,
                     "offline_count": len(current),
                     "offline_entities": offline_list,
                 }
                 if current - prev:
-                    self.hass.bus.async_fire(EVENT_OFFLINE, payload)
+                    self.hass.bus.async_fire(
+                        EVENT_OFFLINE,
+                        {**base, "newly_offline": sorted(current - prev)},
+                    )
                 if prev - current:
-                    self.hass.bus.async_fire(EVENT_RECOVERED, payload)
+                    self.hass.bus.async_fire(
+                        EVENT_RECOVERED,
+                        {**base, "recovered_entities": sorted(prev - current)},
+                    )
             if self._ea_should_write():
                 self.async_write_ha_state()
 
-        self._on_coordinator_update = _on_update
-        domain_data = self.hass.data.get(DOMAIN, {})
-        active = []
-        for eid in self._combined_entry_ids:
-            coord = domain_data.get(eid)
-            if isinstance(coord, EntityAvailabilityCoordinator):
-                self._subscribe(eid, coord)
-                active.append(coord)
-        # Prime with current state after subscribing to avoid spurious startup events
+        return _on_update
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # Prime after subscribing to avoid spurious events for pre-existing offline entities
+        active = [
+            c
+            for eid in self._combined_entry_ids
+            if isinstance(
+                c := self.hass.data.get(DOMAIN, {}).get(eid),
+                EntityAvailabilityCoordinator,
+            )
+        ]
         self._prev_offline_set = frozenset(
             d.entity_id
             for coord in active

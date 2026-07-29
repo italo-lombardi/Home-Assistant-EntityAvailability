@@ -864,7 +864,9 @@ class TestCombinedGroupSensor:
         assert len(offline_events) == 1
         assert len(recovered_events) == 1
         assert offline_events[0].data["offline_entities"] == ["binary_sensor.b1"]
+        assert offline_events[0].data["newly_offline"] == ["binary_sensor.b1"]
         assert recovered_events[0].data["offline_count"] == 1
+        assert recovered_events[0].data["recovered_entities"] == ["binary_sensor.a2"]
 
     async def test_no_spurious_event_on_startup_for_pre_existing_offline(
         self, mock_hass, combined_entry, coordinators
