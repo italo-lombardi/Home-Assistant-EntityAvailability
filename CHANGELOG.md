@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Suppress no longer affects historical availability %** — suppressing an entity previously removed it from the group availability average, causing the group % to jump immediately (e.g. 85% → 99% when suppressing an offline entity). Suppress now silences alerts and stops accumulating new offline time only. Historical buckets remain in the rolling window calculation; the group % improves naturally as offline buckets age out — not at suppression time. This matches the behaviour of Nagios, Datadog, and PagerDuty where suppress/mute never retroactively erases downtime history.
+- **Suppress no longer affects MTBF/MTTR** — reliability sensors now follow the same principle: suppressing an entity does not remove its historical outage events from the group MTBF/MTTR averages or per-device breakdowns. Suppress silences alerts; it does not rewrite reliability history.
 
 ## [0.3.14] - 2026-07-28
 

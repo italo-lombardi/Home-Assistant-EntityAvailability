@@ -2611,14 +2611,14 @@ class TestMTBFSensor:
         )
         assert sensor.native_value == 11.5
 
-    def test_native_value_skips_suppressed(self, mock_coordinator):
-        """Suppressed entities excluded from the average."""
+    def test_native_value_includes_suppressed_history(self, mock_coordinator):
+        """Suppressed entity's reliability stats still count in MTBF avg."""
         self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
         mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
         sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
-        assert sensor.native_value is None
+        assert sensor.native_value == 11.5
 
     def test_attributes(self, mock_coordinator):
         """extra_state_attributes carries total events and per-device MTBF only."""
@@ -2687,13 +2687,14 @@ class TestMTTRSensor:
         )
         assert sensor.native_value == 30.0
 
-    def test_native_value_skips_suppressed(self, mock_coordinator):
+    def test_native_value_includes_suppressed_history(self, mock_coordinator):
+        """Suppressed entity's reliability stats still count in MTTR avg."""
         self._seed(mock_coordinator, "binary_sensor.device_a", 2, 3600.0, 24 * 60)
         mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
         sensor = MTTRSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
-        assert sensor.native_value is None
+        assert sensor.native_value == 30.0
 
     def test_diagnostic_and_device_class(self, mock_coordinator):
         """MTTR sensor is diagnostic with duration device class, minutes."""
@@ -2718,25 +2719,25 @@ class TestMTTRSensor:
         assert dev_a["offline_events"] == 2
         assert "mtbf_hours" not in dev_a  # MTBF lives on its own sensor
 
-    def test_attributes_skip_suppressed(self, mock_coordinator):
-        """Suppressed entities omitted from MTTR per_device."""
+    def test_attributes_includes_suppressed(self, mock_coordinator):
+        """Suppressed entities still appear in MTTR per_device."""
         mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
         sensor = MTTRSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         attrs = sensor.extra_state_attributes
-        assert "binary_sensor.device_a" not in attrs["per_device"]
+        assert "binary_sensor.device_a" in attrs["per_device"]
 
 
 class TestMTBFSensorAttrSuppressed:
-    """MTBFSensor attribute suppression skip."""
+    """MTBFSensor attribute suppression — history still counted."""
 
-    def test_attributes_skip_suppressed(self, mock_coordinator):
-        """Suppressed entities are omitted from per_device attrs."""
+    def test_attributes_includes_suppressed(self, mock_coordinator):
+        """Suppressed entities still appear in per_device attrs."""
         mock_coordinator.device_states["binary_sensor.device_a"].is_suppressed = True
         sensor = MTBFSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         attrs = sensor.extra_state_attributes
-        assert "binary_sensor.device_a" not in attrs["per_device"]
+        assert "binary_sensor.device_a" in attrs["per_device"]
         assert "binary_sensor.device_b" in attrs["per_device"]
