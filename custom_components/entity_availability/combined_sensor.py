@@ -247,10 +247,19 @@ class CombinedGroupSensor(CombinedSensorBase):
 
         self._on_coordinator_update = _on_update
         domain_data = self.hass.data.get(DOMAIN, {})
+        active = []
         for eid in self._combined_entry_ids:
             coord = domain_data.get(eid)
             if isinstance(coord, EntityAvailabilityCoordinator):
                 self._subscribe(eid, coord)
+                active.append(coord)
+        # Prime with current state after subscribing to avoid spurious startup events
+        self._prev_offline_set = frozenset(
+            d.entity_id
+            for coord in active
+            for d in coord.device_states.values()
+            if d.is_offline and not d.is_suppressed
+        )
 
     @property
     def native_value(self) -> int:
@@ -498,12 +507,14 @@ class CombinedLowBatterySensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        low = [
-            f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
-            for coord in coords
-            for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed and not d.is_offline
-        ]
+        low = list(
+            dict.fromkeys(
+                f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
+                for coord in coords
+                for d in coord.device_states.values()
+                if d.is_low_battery and not d.is_suppressed and not d.is_offline
+            )
+        )
         if not low:
             return "None"
         result = ", ".join(low)
@@ -566,17 +577,20 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
 
     def _matching_devices(self):
         now = datetime.now(timezone.utc)
+        seen: set[str] = set()
         result = []
         for coord in self._active_coordinators():
             cutoff = coord.recovery_window_minutes * 60
-            result += [
-                (coord, d)
-                for d in coord.device_states.values()
-                if d.is_offline
-                and not d.is_suppressed
-                and d.recently_offline_at is not None
-                and (now - d.recently_offline_at).total_seconds() <= cutoff
-            ]
+            for d in coord.device_states.values():
+                if (
+                    d.is_offline
+                    and not d.is_suppressed
+                    and d.recently_offline_at is not None
+                    and (now - d.recently_offline_at).total_seconds() <= cutoff
+                    and d.entity_id not in seen
+                ):
+                    seen.add(d.entity_id)
+                    result.append((coord, d))
         return result
 
     @property
@@ -620,17 +634,20 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
 
     def _matching_devices(self):
         now = datetime.now(timezone.utc)
+        seen: set[str] = set()
         result = []
         for coord in self._active_coordinators():
             cutoff = coord.recovery_window_minutes * 60
-            result += [
-                (coord, d)
-                for d in coord.device_states.values()
-                if not d.is_offline
-                and not d.is_suppressed
-                and d.last_recovery is not None
-                and (now - d.last_recovery).total_seconds() <= cutoff
-            ]
+            for d in coord.device_states.values():
+                if (
+                    not d.is_offline
+                    and not d.is_suppressed
+                    and d.last_recovery is not None
+                    and (now - d.last_recovery).total_seconds() <= cutoff
+                    and d.entity_id not in seen
+                ):
+                    seen.add(d.entity_id)
+                    result.append((coord, d))
         return result
 
     @property
