@@ -53,6 +53,8 @@ SERVICE_RESET_STATISTICS = "reset_statistics"
 # Bus events fired on entity availability transitions
 EVENT_OFFLINE = "entity_availability_offline"
 EVENT_RECOVERED = "entity_availability_recovered"
+EVENT_LOW_BATTERY = "entity_availability_low_battery"
+EVENT_BATTERY_OK = "entity_availability_battery_ok"
 
 # Sentinel area name for entities with no HA area assigned.
 # Parentheses signal "not a real area" and avoid colliding with user-created area names.
