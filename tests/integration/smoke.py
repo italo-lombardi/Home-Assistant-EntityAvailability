@@ -752,46 +752,45 @@ for e in cfg['data']['entries']:
         )
 
     # ------------------------------------------------------------------
-    print(
-        "\n=== EC13: suppress offline entity — availability % must not change ===",
-        flush=True,
-    )
+    # Discover availability sensor once — reused by EC13-EC15
     restore_all(ctx)
-    wait()
-    # Read group availability before suppress — use today window if present, else first window
     avail_states = [
         s
         for s in api("GET", "/api/states")
         if s["entity_id"].startswith(prefix + "_availability")
     ]
-    if avail_states:
-        avail_eid = avail_states[0]["entity_id"]
-        avail_before = gs(avail_eid).get("state")
-        # Make one entity offline so it has a non-trivial availability value
-        target = ctx["entities"][0]
-        ss(target, "unavailable", {"friendly_name": "test"})
+    avail_eid = avail_states[0]["entity_id"] if avail_states else None
+    ec_target = ctx["entities"][0]
+
+    # ------------------------------------------------------------------
+    print(
+        "\n=== EC13: suppress offline entity — availability % must not change ===",
+        flush=True,
+    )
+    if avail_eid:
+        ss(ec_target, "unavailable", {"friendly_name": "test"})
         wait()
         avail_mid = gs(avail_eid).get("state")
-        # Now suppress that offline entity
+        # Read immediately before and after suppress — coordinator fires
+        # async_set_updated_data synchronously so value updates in same tick.
         api(
             "POST",
             "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": target, "group": ctx["title"]},
+            {"entity_id": ec_target, "group": ctx["title"]},
         )
-        wait()
         avail_after_suppress = gs(avail_eid).get("state")
         chk(
-            "EC13 availability % unchanged after suppressing offline entity",
+            "EC13 availability % unchanged immediately after suppressing offline entity",
             avail_after_suppress,
             avail_mid,
-            f"sensor={avail_eid} before_offline={avail_before} after_offline={avail_mid} after_suppress={avail_after_suppress}",
+            f"sensor={avail_eid} after_offline={avail_mid} after_suppress={avail_after_suppress}",
         )
-        # Unsuppress and confirm still same
         api(
             "POST",
             "/api/services/entity_availability/unsuppress",
-            {"entity_id": target, "group": ctx["title"]},
+            {"entity_id": ec_target, "group": ctx["title"]},
         )
+        restore_all(ctx)
     else:
         print("  EC13: skipped (no availability sensor found)", flush=True)
 
@@ -800,71 +799,65 @@ for e in cfg['data']['entries']:
         "\n=== EC14: suppressed entity appears in per_device availability breakdown ===",
         flush=True,
     )
-    restore_all(ctx)
-    wait()
-    avail_states = [
-        s
-        for s in api("GET", "/api/states")
-        if s["entity_id"].startswith(prefix + "_availability")
-    ]
-    if avail_states:
-        avail_eid = avail_states[0]["entity_id"]
-        target = ctx["entities"][0]
+    if avail_eid:
         api(
             "POST",
             "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": target, "group": ctx["title"]},
+            {"entity_id": ec_target, "group": ctx["title"]},
         )
-        wait()
-        per_device = gs(avail_eid).get("attributes", {}).get("per_device", {})
+        # Poll until coordinator writes updated per_device (attr update on next tick)
+        deadline = time.time() + 90
+        per_device = {}
+        while time.time() < deadline:
+            per_device = gs(avail_eid).get("attributes", {}).get("per_device", {})
+            if ec_target in per_device:
+                break
+            time.sleep(3)
         chk(
             "EC14 suppressed entity present in per_device breakdown",
-            target in per_device,
+            ec_target in per_device,
             True,
-            f"sensor={avail_eid} target={target} per_device_keys={list(per_device.keys())}",
+            f"sensor={avail_eid} target={ec_target} keys={list(per_device.keys())}",
         )
         api(
             "POST",
             "/api/services/entity_availability/unsuppress",
-            {"entity_id": target, "group": ctx["title"]},
+            {"entity_id": ec_target, "group": ctx["title"]},
         )
+        restore_all(ctx)
     else:
         print("  EC14: skipped (no availability sensor found)", flush=True)
 
     # ------------------------------------------------------------------
     print(
-        "\n=== EC15: unsuppress restores identical availability % (no drift) ===",
+        "\n=== EC15: suppress+unsuppress round-trip — availability % must not drift ===",
         flush=True,
     )
-    restore_all(ctx)
-    wait()
-    avail_states = [
-        s
-        for s in api("GET", "/api/states")
-        if s["entity_id"].startswith(prefix + "_availability")
-    ]
-    if avail_states:
-        avail_eid = avail_states[0]["entity_id"]
-        target = ctx["entities"][0]
+    if avail_eid:
         avail_before = gs(avail_eid).get("state")
         api(
             "POST",
             "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": target, "group": ctx["title"]},
+            {"entity_id": ec_target, "group": ctx["title"]},
         )
-        wait()
+        avail_suppressed = gs(avail_eid).get("state")
         api(
             "POST",
             "/api/services/entity_availability/unsuppress",
-            {"entity_id": target, "group": ctx["title"]},
+            {"entity_id": ec_target, "group": ctx["title"]},
         )
-        wait()
-        avail_after_roundtrip = gs(avail_eid).get("state")
+        avail_unsuppressed = gs(avail_eid).get("state")
         chk(
-            "EC15 availability % identical after suppress+unsuppress round-trip",
-            avail_after_roundtrip,
+            "EC15 availability % identical immediately after suppress",
+            avail_suppressed,
             avail_before,
-            f"sensor={avail_eid} before={avail_before} after_roundtrip={avail_after_roundtrip}",
+            f"before={avail_before} after_suppress={avail_suppressed}",
+        )
+        chk(
+            "EC15 availability % identical immediately after unsuppress",
+            avail_unsuppressed,
+            avail_before,
+            f"before={avail_before} after_unsuppress={avail_unsuppressed}",
         )
     else:
         print("  EC15: skipped (no availability sensor found)", flush=True)
