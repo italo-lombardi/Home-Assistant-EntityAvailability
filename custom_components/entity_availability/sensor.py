@@ -351,10 +351,6 @@ class AvailabilitySensor(DedupCoordinatorSensor):
 
         values: list[float] = []
         for entity_id in self.coordinator.monitored_entities:
-            # Skip suppressed devices
-            device = self.coordinator.device_states.get(entity_id)
-            if device and device.is_suppressed:
-                continue
             avail = storage.get_availability(entity_id, self._window, now)
             if avail is not None:
                 values.append(avail)
@@ -377,9 +373,6 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         storage = self.coordinator.availability_storage
         breakdown: dict[str, float | None] = {}
         for entity_id in self.coordinator.monitored_entities:
-            device = self.coordinator.device_states.get(entity_id)
-            if device and device.is_suppressed:
-                continue
             avail = storage.get_availability(entity_id, self._window, now)
             breakdown[entity_id] = round(avail, 1) if avail is not None else None
         return {"per_device": breakdown}

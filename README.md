@@ -277,7 +277,7 @@ For example, a combined group named "All Devices" produces the slug `all_devices
 | `sensor..._affected_areas_recently_offline` | Sensor | Areas where ≥1 entity went offline within the relevant source group's recovery window (`"None"` when none) | `areas` (list), `count` |
 | `sensor..._affected_areas_recently_recovered` | Sensor | Areas where all entities are back online and most recent recovery is within the relevant source group's recovery window (`"None"` when none) | `areas` (list), `count` |
 
-Suppressed entities are excluded from all combined sensor states, consistent with per-group behaviour.
+Suppressed entities are excluded from offline/alert counts in combined sensor states. Their availability history continues to count toward group availability averages, consistent with per-group behaviour.
 
 The `recently_offline` and `recently_recovered` sensors use each source group's own **Recovery window** setting — if groups have different windows, each group's devices are filtered by that group's window.
 
@@ -310,7 +310,7 @@ Availability sensors show what percentage of the time your entities were online 
 
 The integration samples each entity's state in the background. If online, that time counts toward its availability. If offline, it doesn't.
 
-**Group availability** is the average of all non-suppressed entities in the group.
+**Group availability** is the average of all monitored entities in the group, including suppressed ones. Suppressing an entity silences its alerts and stops recording new offline time — it does not retroactively remove past downtime from the availability calculation. The group % only improves as the entity's offline buckets age out of the rolling window.
 
 **Example:** 3 entities monitored over 24 hours. Entity A was offline all day (0%), B and C were always online (100%). Group availability = 66.7%.
 
@@ -353,7 +353,7 @@ data:
 
 > **Group field:** When both `entity_id` and `group` are provided, the suppression is scoped to that group only — the entity remains monitored in any other groups it belongs to. When only `entity_id` is provided, the entity is suppressed in all groups that monitor it. In the Actions UI, the `group` field shows a dropdown of all Entity Availability config entries. In YAML automations you can use either the group name or the config entry ID.
 
-**Use case:** Suppress monitoring during planned maintenance, firmware updates, or known downtime.
+**Use case:** Suppress monitoring during planned maintenance, firmware updates, or known downtime. Suppressing an entity silences offline alerts and stops accumulating new offline time — it does not remove past downtime from the availability %. Use `reset_statistics` after unsuppressing if you want to clear the historical record.
 
 ![Suppress Entity Action](assets/09_suppress_entity_action.png)
 

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **Suppress no longer affects availability %** — suppressing an entity previously removed it from the group availability average, causing the group % to jump immediately (e.g. 85% → 99% when suppressing an offline entity). Suppress now silences alerts and stops accumulating new offline time, but the entity's historical availability data is still included in the group average. The availability % only improves when the entity's offline buckets age out of the rolling window, not at the moment of suppression. This matches the behaviour of industry-standard monitoring tools (Nagios, Datadog, PagerDuty) where suppress/mute never retroactively erases downtime history.
+
 ## [0.3.14] - 2026-07-28
 
 ### Fixed

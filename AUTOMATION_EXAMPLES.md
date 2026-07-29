@@ -415,6 +415,8 @@ automation:
 
 ### Suppress during planned maintenance
 
+> **Note on availability %:** Suppressing an entity silences offline alerts and stops accumulating new offline time — it does not remove past downtime from the availability sensor. The group availability % only improves as offline buckets age out of the rolling window. To erase the maintenance outage from history entirely, call `reset_statistics` after unsuppressing (see example below).
+
 ```yaml
 automation:
   alias: EA — suppress during maintenance

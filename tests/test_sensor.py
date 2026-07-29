@@ -455,26 +455,83 @@ class TestAvailabilitySensor:
         # No data recorded
         assert sensor.native_value is None
 
-    def test_native_value_excludes_suppressed(self, mock_coordinator, mock_hass):
-        """Test suppressed devices excluded from availability calc."""
+    def test_native_value_includes_suppressed_history(
+        self, mock_coordinator, mock_hass
+    ):
+        """Suppressed entities still contribute their historical availability to the group avg.
+
+        Suppress silences alerts; it does not erase past uptime records.
+        A suppressed entity at 100% availability still pulls the group average up.
+        """
         now = datetime.now(timezone.utc)
         storage = mock_coordinator.availability_storage
 
-        # Only fill data for device_a
+        # Only fill data for device_a (100% availability)
         for i in range(24):
             t = now - timedelta(hours=i)
             storage.record_online("binary_sensor.device_a", 3600.0, t)
 
-        # Suppress device_a - so it won't be counted
+        # Suppress device_a — history must still count in group avg
         mock_coordinator._device_states["binary_sensor.device_a"].is_suppressed = True
 
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
         )
         sensor.hass = mock_hass
-        # device_b and device_c have no data, so None for them
-        # device_a is suppressed, so excluded
-        assert sensor.native_value is None
+        # device_b and device_c have no data (None), device_a is suppressed but
+        # its 100% history is still included → group avg = 100.0
+        assert sensor.native_value == 100.0
+
+    def test_native_value_suppressed_offline_entity_still_counts(
+        self, mock_coordinator, mock_hass
+    ):
+        """Suppressing an offline entity must not improve group availability %.
+
+        Before fix: suppressed entity was excluded from avg denominator, making
+        group % jump when a low-availability entity was suppressed.
+        After fix: historical offline time still counts toward group avg.
+        """
+        now = datetime.now(timezone.utc)
+        storage = mock_coordinator.availability_storage
+
+        # device_a: 50% availability (12h online out of 24h recorded)
+        for i in range(12):
+            t = now - timedelta(hours=i)
+            storage.record_online("binary_sensor.device_a", 3600.0, t)
+        # record 12 empty buckets (offline) so total_time > 0
+        for i in range(12, 24):
+            t = now - timedelta(hours=i)
+            storage.record_online("binary_sensor.device_a", 0.0, t)
+
+        # device_b: 100% availability
+        for i in range(24):
+            t = now - timedelta(hours=i)
+            storage.record_online("binary_sensor.device_b", 3600.0, t)
+
+        # device_c: 100% availability
+        for i in range(24):
+            t = now - timedelta(hours=i)
+            storage.record_online("binary_sensor.device_c", 3600.0, t)
+
+        sensor_before = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor_before.hass = mock_hass
+        value_before = sensor_before.native_value  # ~83.3% ((50+100+100)/3)
+
+        # Now suppress the offline entity — group % must NOT change
+        mock_coordinator._device_states["binary_sensor.device_a"].is_suppressed = True
+
+        sensor_after = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor_after.hass = mock_hass
+        value_after = sensor_after.native_value
+
+        assert value_before == value_after, (
+            f"Group availability changed from {value_before} to {value_after} "
+            "after suppressing an entity — suppress must not affect availability %"
+        )
 
     def test_extra_state_attributes_per_device(self, mock_coordinator, mock_hass):
         """Test per_device breakdown in attributes."""
@@ -1143,10 +1200,14 @@ class TestDegradedDevicesTruncation:
 
 
 class TestAvailabilitySensorAttributesSuppressed:
-    """Test that suppressed devices are skipped in extra_state_attributes breakdown."""
+    """Test that suppressed devices still appear in extra_state_attributes breakdown."""
 
-    def test_suppressed_excluded_from_per_device(self, mock_coordinator, mock_hass):
-        """Suppressed device does not appear in extra_state_attributes per_device."""
+    def test_suppressed_included_in_per_device(self, mock_coordinator, mock_hass):
+        """Suppressed device must appear in extra_state_attributes per_device.
+
+        Suppress silences alerts; the entity's historical availability is still
+        part of the group average and must appear in the per-device breakdown.
+        """
         now = datetime.now(timezone.utc)
         storage = mock_coordinator.availability_storage
 
@@ -1160,7 +1221,8 @@ class TestAvailabilitySensorAttributesSuppressed:
         )
         sensor.hass = mock_hass
         attrs = sensor.extra_state_attributes
-        assert "binary_sensor.device_a" not in attrs["per_device"]
+        # Both suppressed and non-suppressed entities appear in per_device
+        assert "binary_sensor.device_a" in attrs["per_device"]
         assert "binary_sensor.device_b" in attrs["per_device"]
 
 
