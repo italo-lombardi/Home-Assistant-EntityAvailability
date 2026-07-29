@@ -2956,10 +2956,14 @@ async def test_bus_events_fired_on_transitions(
     )
     assert offline_evt.data["entity_id"] == "binary_sensor.device_a"
     assert offline_evt.data["group"] == "Test Group"
+    assert offline_evt.data["offline_count"] == 1
+    assert "binary_sensor.device_a" in offline_evt.data["offline_entities"]
     recovered_evt = next(
         e for e in events if e.event_type == "entity_availability_recovered"
     )
     assert recovered_evt.data["downtime_seconds"] is not None
+    assert recovered_evt.data["offline_count"] == 0
+    assert recovered_evt.data["offline_entities"] == []
 
 
 async def test_counters_accumulate(mock_hass: HomeAssistant, mock_config_entry) -> None:
