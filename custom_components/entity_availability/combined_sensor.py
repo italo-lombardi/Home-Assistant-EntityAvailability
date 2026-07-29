@@ -226,54 +226,83 @@ class CombinedGroupSensor(CombinedSensorBase):
 
         @callback
         def _on_update() -> None:
-            current = frozenset(
-                d.entity_id
-                for coord in self._active_coordinators()
-                for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed
-            )
+            coords = self._active_coordinators()
+            # Late-joining coordinators are auto-subscribed by _active_coordinators;
+            # if one joins between priming and this first tick its entities appear in
+            # current but not prev, which may fire a spurious OFFLINE event.
+            current = self._current_offline_set(coords)
             prev = self._prev_offline_set
             self._prev_offline_set = current
+
             if current != prev:
+                # Build device_map only when needed for per-entity payload fields.
+                device_map: dict[str, Any] = {}
+                for coord in coords:
+                    for d in coord.device_states.values():
+                        if d.entity_id not in device_map:
+                            device_map[d.entity_id] = d
+
+                group_name = self._entry.data.get(CONF_GROUP_NAME, "")
+                entry_id = self._entry.entry_id
                 offline_list = sorted(current)
-                base = {
-                    "group": self._entry.data.get(CONF_GROUP_NAME, ""),
-                    "entry_id": self._entry.entry_id,
-                    "offline_count": len(current),
-                    "offline_entities": offline_list,
-                }
-                if current - prev:
+                offline_count = len(current)
+
+                for eid in sorted(current - prev):
+                    d = device_map.get(eid)
                     self.hass.bus.async_fire(
                         EVENT_OFFLINE,
-                        {**base, "newly_offline": sorted(current - prev)},
+                        {
+                            "entity_id": eid,
+                            "group": group_name,
+                            "entry_id": entry_id,
+                            "offline_since": d.offline_since.isoformat()
+                            if d and d.offline_since
+                            else None,
+                            "offline_count": offline_count,
+                            "offline_entities": offline_list,
+                        },
                     )
-                if prev - current:
+                for eid in sorted(prev - current):
+                    # d may be None if the coordinator that owned this entity was
+                    # removed between ticks; fire the event with null downtime rather
+                    # than silently dropping it.
+                    d = device_map.get(eid)
                     self.hass.bus.async_fire(
                         EVENT_RECOVERED,
-                        {**base, "recovered_entities": sorted(prev - current)},
+                        {
+                            "entity_id": eid,
+                            "group": group_name,
+                            "entry_id": entry_id,
+                            "downtime_seconds": d.last_downtime_seconds if d else None,
+                            "offline_count": offline_count,
+                            "offline_entities": offline_list,
+                        },
                     )
+
             if self._ea_should_write():
                 self.async_write_ha_state()
 
         return _on_update
 
+    def _current_offline_set(
+        self, coords: list[EntityAvailabilityCoordinator]
+    ) -> frozenset[str]:
+        """Return deduplicated set of offline, non-suppressed entity IDs."""
+        seen: dict[str, Any] = {}
+        for coord in coords:
+            for d in coord.device_states.values():
+                if d.entity_id not in seen:
+                    seen[d.entity_id] = d
+        return frozenset(
+            eid for eid, d in seen.items() if d.is_offline and not d.is_suppressed
+        )
+
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        # Prime after subscribing to avoid spurious events for pre-existing offline entities
-        active = [
-            c
-            for eid in self._combined_entry_ids
-            if isinstance(
-                c := self.hass.data.get(DOMAIN, {}).get(eid),
-                EntityAvailabilityCoordinator,
-            )
-        ]
-        self._prev_offline_set = frozenset(
-            d.entity_id
-            for coord in active
-            for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
-        )
+        # Prime _prev_offline_set using the same dedup logic as _on_update so the
+        # two code paths can't diverge. Must happen after super() subscribes so
+        # _active_coordinators() returns the full list.
+        self._prev_offline_set = self._current_offline_set(self._active_coordinators())
 
     @property
     def native_value(self) -> int:

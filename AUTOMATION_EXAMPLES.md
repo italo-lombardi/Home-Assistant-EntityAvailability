@@ -12,10 +12,17 @@ The integration fires two events on the Home Assistant event bus at each transit
 
 | Event | Fired when | Data |
 |-------|-----------|------|
-| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `offline_since`, `offline_count`, `offline_entities` |
-| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `downtime_seconds`, `offline_count`, `offline_entities` |
+| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities` |
+| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities` |
 
-`offline_count` and `offline_entities` reflect the group's offline state at the moment the entity transitions (includes all entities that transitioned earlier in the same update cycle). Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition that triggered the event.
+`offline_count` and `offline_entities` reflect the group's offline state at the moment the entity transitions. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. Use `trigger.event.data.offline_count` in automations instead of querying the `offline_count` sensor — the sensor state is written asynchronously and may not yet reflect the transition.
+
+**`offline_since`** is always an ISO timestamp string for individual group events. For combined group events it may be `null` if the coordinator has not yet recorded the transition time — guard with `| default(none)` before passing to `as_datetime()`:
+```yaml
+{{ as_local(as_datetime(trigger.event.data.offline_since | default(none))) if trigger.event.data.offline_since else "unknown" }}
+```
+
+**Combined groups fire the same events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
 
 ### Notify when any monitored entity goes offline
 
@@ -392,11 +399,53 @@ automation:
 
 ## Combined groups
 
-Combined groups aggregate several groups into one sensor set. The `any_offline` binary sensor is the simplest whole-home trigger.
+Combined groups aggregate several groups into one sensor set. They fire the same `entity_availability_offline` and `entity_availability_recovered` events as individual groups — one event per affected entity, same payload fields. Automations written for an individual group work unchanged on a combined group; just change the `group` name.
+
+### Notify when anything goes offline across all groups
 
 ```yaml
 automation:
-  alias: EA — anything offline anywhere
+  alias: EA — anything offline anywhere (event)
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+      event_data:
+        group: All Home
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Device offline ({{ trigger.event.data.offline_count }} total)"
+        message: >-
+          {{ trigger.event.data.entity_id }} in
+          {{ trigger.event.data.group }} went offline.
+          {{ trigger.event.data.offline_count }} device(s) now offline.
+```
+
+### Notify on recovery from a combined group
+
+```yaml
+automation:
+  alias: EA — anything recovered anywhere (event)
+  trigger:
+    - platform: event
+      event_type: entity_availability_recovered
+      event_data:
+        group: All Home
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {{ trigger.event.data.entity_id }} recovered.
+          {{ trigger.event.data.offline_count }} device(s) still offline.
+```
+
+### Binary sensor fallback (no event needed)
+
+The `any_offline` binary sensor is a simple whole-home trigger when event details aren't needed.
+
+```yaml
+automation:
+  alias: EA — anything offline anywhere (binary sensor)
   trigger:
     - platform: state
       entity_id: binary_sensor.entity_availability_combined_all_devices_any_offline

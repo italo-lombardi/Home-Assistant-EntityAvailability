@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [0.3.14] - 2026-07-30
 
 ### Added
-- Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events with `group`, `entry_id`, `offline_count`, `offline_entities`, `newly_offline` (offline event), and `recovered_entities` (recovered event). Events fire only on set changes; no spurious fires on startup. Duplicate entities deduplicated across all combined sensor outputs.
+- Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events. One event fires per affected entity using the same payload shape as individual group events: `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`. Automations written for individual groups work unchanged on combined groups — only the `group` name in the trigger filter differs. Events fire only on set changes; no spurious fires on startup. Duplicate entities deduplicated across all combined sensor outputs.
+- Individual group events now include `entry_id` in the payload.
 - Card: per-entity suppress toggle (`show_suppress_toggle`, opt-in, default `false`).
 
 ### Fixed

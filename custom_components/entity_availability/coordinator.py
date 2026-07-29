@@ -563,6 +563,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                                 {
                                     "entity_id": entity_id,
                                     "group": self.group_name,
+                                    "entry_id": self.entry.entry_id,
                                     "offline_since": device.offline_since.isoformat()
                                     if device.offline_since
                                     else None,
@@ -615,6 +616,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                             {
                                 "entity_id": entity_id,
                                 "group": self.group_name,
+                                "entry_id": self.entry.entry_id,
                                 "downtime_seconds": device.last_downtime_seconds,
                                 "offline_count": len(recovered_offline_ids),
                                 "offline_entities": recovered_offline_ids,
