@@ -2966,6 +2966,76 @@ async def test_bus_events_fired_on_transitions(
     assert recovered_evt.data["offline_entities"] == []
 
 
+async def test_bus_events_multi_entity_offline_count(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """offline_count and offline_entities reflect all offline devices at fire time."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    hass.states.async_set("binary_sensor.device_b", STATE_UNAVAILABLE)
+
+    offline_events: list = []
+    recovered_events: list = []
+    hass.bus.async_listen(
+        "entity_availability_offline", lambda e: offline_events.append(e)
+    )
+    hass.bus.async_listen(
+        "entity_availability_recovered", lambda e: recovered_events.append(e)
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        device_b = coord.device_states["binary_sensor.device_b"]
+
+        # Force both cooldowns to elapsed so both go offline on the same update
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=61)
+        device_b.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=61)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        assert device_a.is_offline is True
+        assert device_b.is_offline is True
+        assert len(offline_events) == 2
+
+        # Both offline events fired in entity insertion order (device_a first)
+        first_evt = offline_events[0]
+        second_evt = offline_events[1]
+        assert first_evt.data["entity_id"] == "binary_sensor.device_a"
+        assert second_evt.data["entity_id"] == "binary_sensor.device_b"
+
+        # When device_a fired: only device_a was offline (device_b not yet marked)
+        assert first_evt.data["offline_count"] == 1
+        assert first_evt.data["offline_entities"] == ["binary_sensor.device_a"]
+        assert isinstance(first_evt.data["offline_entities"], list)
+
+        # When device_b fired: both were offline
+        assert second_evt.data["offline_count"] == 2
+        assert second_evt.data["offline_entities"] == [
+            "binary_sensor.device_a",
+            "binary_sensor.device_b",
+        ]
+        assert isinstance(second_evt.data["offline_entities"], list)
+
+        # Recover device_a only
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        assert len(recovered_events) == 1
+        rec_evt = recovered_events[0]
+        assert rec_evt.data["entity_id"] == "binary_sensor.device_a"
+        # device_a recovered; device_b still offline
+        assert rec_evt.data["offline_count"] == 1
+        assert rec_evt.data["offline_entities"] == ["binary_sensor.device_b"]
+        assert isinstance(rec_evt.data["offline_entities"], list)
+
+
 async def test_counters_accumulate(mock_hass: HomeAssistant, mock_config_entry) -> None:
     """total_offline_seconds accumulates across events."""
     hass = mock_hass

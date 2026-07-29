@@ -634,27 +634,30 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # Mark as dirty; save periodically (every ~5 min)
         self._dirty = True
         self._update_count += 1
-        if self._update_count >= _SAVE_INTERVAL_UPDATES:
-            try:
-                await self._async_save_storage()
-            except Exception:  # noqa: BLE001
-                _LOGGER.warning(
-                    "[%s] Failed to save storage — will retry next interval",
-                    self.group_name,
-                )
-            finally:
-                self._update_count = 0
+        try:
+            if self._update_count >= _SAVE_INTERVAL_UPDATES:
+                try:
+                    await self._async_save_storage()
+                except Exception:  # noqa: BLE001
+                    _LOGGER.warning(
+                        "[%s] Failed to save storage — will retry next interval",
+                        self.group_name,
+                    )
+                finally:
+                    self._update_count = 0
 
-        for event_name, payload in pending_events:
-            self.hass.bus.async_fire(event_name, payload)
+            for event_name, payload in pending_events:
+                self.hass.bus.async_fire(event_name, payload)
 
-        return EntityAvailabilityData(
-            devices=dict(self._device_states),
-            buckets=dict(self._availability_storage.buckets),
-        )
+            return EntityAvailabilityData(
+                devices=dict(self._device_states),
+                buckets=dict(self._availability_storage.buckets),
+            )
+        finally:
+            pending_events.clear()
 
     def _offline_entity_ids(self) -> list[str]:
-        """Return entity_ids that are currently offline and not suppressed."""
+        """Return entity_ids that are currently offline and not suppressed, in insertion order."""
         return [
             eid
             for eid, d in self._device_states.items()
