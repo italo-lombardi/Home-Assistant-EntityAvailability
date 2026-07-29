@@ -1207,7 +1207,7 @@ class EntityAvailabilityCard extends LitElement {
     tt.className = "eac-global-tooltip";
     tt.style.cssText = `
       position:fixed;z-index:99999;
-      background:var(--card-background-color,var(--primary-background-color,#fafafa));
+      background:var(--card-background-color,var(--primary-background-color,#1c1c1e));
       border:1px solid var(--divider-color,rgba(0,0,0,0.12));
       border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.25);
       padding:8px 10px;font-size:12px;
@@ -1230,12 +1230,13 @@ class EntityAvailabilityCard extends LitElement {
     });
     document.body.appendChild(tt);
     this._activeTooltip = tt;
+    tt.getBoundingClientRect();
     const rect = e.currentTarget.getBoundingClientRect();
     const ttH = tt.offsetHeight;
     const ttW = tt.offsetWidth;
     const spaceBelow = window.innerHeight - rect.bottom;
     const top = spaceBelow >= ttH + 8 ? rect.bottom + 4 : rect.top - ttH - 4;
-    const left = Math.min(Math.max(8, rect.left), window.innerWidth - ttW - 8);
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - ttW - 8));
     tt.style.left = `${left}px`;
     tt.style.top = `${top}px`;
   }
@@ -1264,16 +1265,16 @@ class EntityAvailabilityCard extends LitElement {
       ? `entity_availability_combined_${this._config.group}`
       : `entity_availability_${this._config.group}`;
     const summary = this._getEntity(isCombined ? `sensor.${prefix}_combined_summary` : `sensor.${prefix}_group_summary`);
-    return summary?.attributes?.entry_id || this._config.group;
+    return summary?.attributes?.entry_id || null;
   }
 
   async _handleToggleSuppress(e, entityId, isSuppressed) {
     e.stopPropagation();
     const group = this._resolveGroupId();
     if (isSuppressed) {
-      await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId, group });
+      await this.hass.callService("entity_availability", "unsuppress", { entity_id: entityId, ...(group ? { group } : {}) });
     } else {
-      await this.hass.callService("entity_availability", "suppress_indefinitely", { entity_id: entityId, group });
+      await this.hass.callService("entity_availability", "suppress_indefinitely", { entity_id: entityId, ...(group ? { group } : {}) });
     }
   }
 
@@ -1284,7 +1285,7 @@ class EntityAvailabilityCard extends LitElement {
     for (const entityId of offlineIds) {
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
-        group,
+        ...(group ? { group } : {}),
         duration: 60,
       });
     }
@@ -1305,7 +1306,7 @@ class EntityAvailabilityCard extends LitElement {
     for (const entityId of entities) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
-        group,
+        ...(group ? { group } : {}),
       });
     }
   }
@@ -1340,7 +1341,7 @@ class EntityAvailabilityCardEditor extends LitElement {
         border: 1px solid var(--divider-color, #ccc);
         border-radius: 4px;
         box-sizing: border-box;
-        background: var(--eac-card-bg);
+        background: var(--card-background-color, var(--primary-background-color, #fafafa));
         color: var(--primary-text-color, #212121);
       }
       .editor-row.checkbox label {
@@ -1372,7 +1373,7 @@ class EntityAvailabilityCardEditor extends LitElement {
         padding: 4px 6px;
         border: 1px solid var(--divider-color, #ccc);
         border-radius: 4px;
-        background: var(--eac-card-bg);
+        background: var(--card-background-color, var(--primary-background-color, #fafafa));
         color: var(--primary-text-color, #212121);
       }
       .threshold-section {
