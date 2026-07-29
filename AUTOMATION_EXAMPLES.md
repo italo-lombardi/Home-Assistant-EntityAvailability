@@ -66,6 +66,74 @@ automation:
           {{ (trigger.event.data.downtime_seconds | float / 60) | round(1) }} min offline.
 ```
 
+### Rich push + email notification (offline and recovery)
+
+Uses `trigger.event.data.offline_count` and `trigger.event.data.offline_entities` from the event payload directly — no sensor state reads, no race condition.
+
+```yaml
+automation:
+  alias: EA — offline rich notification
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Device offline ({{ trigger.event.data.offline_count }} now offline)"
+        message: >-
+          {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+             or device_attr(device_id(trigger.event.data.entity_id), 'name')
+             or trigger.event.data.entity_id }}
+          in {{ trigger.event.data.group }} went offline
+          ({{ as_local(as_datetime(trigger.event.data.offline_since)).strftime('%d.%m.%Y %H:%M:%S') }}).
+    - service: notify.email
+      data:
+        title: "Device offline ({{ trigger.event.data.offline_count }} now offline)"
+        message: |-
+          Device: {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+                     or device_attr(device_id(trigger.event.data.entity_id), 'name')
+                     or trigger.event.data.entity_id }}
+          Group: {{ trigger.event.data.group }}
+          Offline since: {{ as_local(as_datetime(trigger.event.data.offline_since)).strftime('%d.%m.%Y %H:%M:%S') }}
+
+          Still offline ({{ trigger.event.data.offline_count }}):
+          • {{ trigger.event.data.offline_entities | join('\n• ') }}
+```
+
+```yaml
+automation:
+  alias: EA — recovery rich notification
+  trigger:
+    - platform: event
+      event_type: entity_availability_recovered
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Device recovered ({{ trigger.event.data.offline_count }} still offline)"
+        message: >-
+          {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+             or device_attr(device_id(trigger.event.data.entity_id), 'name')
+             or trigger.event.data.entity_id }}
+          in {{ trigger.event.data.group }} returned online after
+          {{ (trigger.event.data.downtime_seconds | float / 60) | round(0) }} minutes.
+    - service: notify.email
+      data:
+        title: "Device recovered ({{ trigger.event.data.offline_count }} still offline)"
+        message: |-
+          Device: {{ device_attr(device_id(trigger.event.data.entity_id), 'name_by_user')
+                     or device_attr(device_id(trigger.event.data.entity_id), 'name')
+                     or trigger.event.data.entity_id }}
+          Group: {{ trigger.event.data.group }}
+          Downtime: {{ (trigger.event.data.downtime_seconds | float / 60) | round(0) }} minutes
+
+          Still offline ({{ trigger.event.data.offline_count }}):
+          {% if trigger.event.data.offline_entities %}
+          • {{ trigger.event.data.offline_entities | join('\n• ') }}
+          {% else %}
+          None — all devices online.
+          {% endif %}
+```
+
 ### Escalate only for long outages
 
 ```yaml
