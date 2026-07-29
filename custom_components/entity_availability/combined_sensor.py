@@ -227,25 +227,21 @@ class CombinedGroupSensor(CombinedSensorBase):
         @callback
         def _on_update() -> None:
             coords = self._active_coordinators()
-            # Build a map of entity_id → device state (first coord wins on dupes).
             # Late-joining coordinators are auto-subscribed by _active_coordinators;
             # if one joins between priming and this first tick its entities appear in
             # current but not prev, which may fire a spurious OFFLINE event.
-            device_map: dict[str, Any] = {}
-            for coord in coords:
-                for d in coord.device_states.values():
-                    if d.entity_id not in device_map:
-                        device_map[d.entity_id] = d
-
-            current = frozenset(
-                eid
-                for eid, d in device_map.items()
-                if d.is_offline and not d.is_suppressed
-            )
+            current = self._current_offline_set(coords)
             prev = self._prev_offline_set
             self._prev_offline_set = current
 
             if current != prev:
+                # Build device_map only when needed for per-entity payload fields.
+                device_map: dict[str, Any] = {}
+                for coord in coords:
+                    for d in coord.device_states.values():
+                        if d.entity_id not in device_map:
+                            device_map[d.entity_id] = d
+
                 group_name = self._entry.data.get(CONF_GROUP_NAME, "")
                 entry_id = self._entry.entry_id
                 offline_list = sorted(current)
