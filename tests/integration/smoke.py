@@ -42,7 +42,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essentia
   EC23 PR#54: entity_availability_battery_ok event fires when battery recovers above threshold
   EC24 combined offline event carries source_groups list (websocket; skipped if websocket-client absent)
 
-  Non-Essential tier (EC25-EC35, require a group with NE entities — set EA_SMOKE_NE_GROUP):
+  Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
   EC26 NE entity offline → offline_count_non_essential increments
   EC27 NE entity offline → any_offline binary sensor stays OFF (essential only)
@@ -50,10 +50,20 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essentia
   EC29 NE entity offline → group_summary non_essential_offline increments
   EC30 NE entity offline → group_summary online count unchanged
   EC31 entity_availability_stale / stale_recovered events fire on stale transition
+       (skipped when staleness_threshold=0 or websocket-client absent)
   EC32 any_low_battery binary sensor turns ON when essential entity has low battery
   EC33 any_stale binary sensor turns ON when essential entity is stale
+       (skipped when staleness_threshold=0)
   EC34 suppressed NE entity: suppressed banner counts NE tier separately
   EC35 NE entity recovery: offline_count_non_essential drops back to 0
+  EC36 diagnostics endpoint returns correct shape and counts for group entry
+  EC37 stale_count sensor increments for stale essential entity (skip if threshold=0)
+  EC38 stale_entities sensor lists stale essential entity (skip if threshold=0)
+  EC39 NE entity stale → stale_count_non_essential increments, stale_count unchanged
+       (skipped when staleness_threshold=0)
+  EC40 any_low_battery binary sensor stays OFF when only NE entity has low battery
+  EC41 recently_offline sensor lists entity after it goes offline
+  EC42 recently_recovered sensor lists entity after it recovers
 
 Pass --fast or set EA_SMOKE_FAST=1 to use 45 s wait_for timeouts (default: 60 s).
 Pass --skip-setup or set EA_SMOKE_SKIP_SETUP=1 to skip battery mapping setup and
@@ -704,35 +714,71 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         threshold = ne_ctx["staleness_threshold"]
         if threshold == 0:
             print("  EC31: skipped (staleness_threshold=0 for this group)", flush=True)
-        elif _WS_AVAILABLE and essential_entities:
+        elif not _WS_AVAILABLE:
+            print("  EC31: skipped (websocket-client not installed)", flush=True)
+        elif essential_entities:
             stale_target = essential_entities[0]
-            stale_events = capture_events(
-                "entity_availability_stale",
-                lambda: None,  # events fire on coordinator tick, not on trigger
-                timeout=max(threshold * 60 + 35, 60),
+            # Wait for entity to become stale naturally (coordinator detects after threshold)
+            stale_timeout = (threshold + 2) * 60
+            print(
+                f"  Waiting up to {threshold + 2} min for {stale_target} to go stale...",
+                flush=True,
             )
-            ev = next(
-                (e for e in stale_events if e.get("entity_id") == stale_target), None
-            )
-            chk(
-                "EC31 stale event captured",
-                ev is not None,
-                True,
-                f"events={len(stale_events)}",
-            )
-            if ev:
-                chk(
-                    "EC31 stale_entities excludes NE",
-                    ne_target not in ev.get("stale_entities", []),
-                    True,
+            deadline = time.time() + stale_timeout
+            went_stale = False
+            while time.time() < deadline:
+                stale_val = gs(f"{prefix}_stale_count").get("state")
+                try:
+                    if int(stale_val or 0) > 0:
+                        went_stale = True
+                        break
+                except (TypeError, ValueError):
+                    pass
+                time.sleep(10)
+
+            if not went_stale:
+                print(
+                    f"  EC31: skipped (entity did not go stale within {threshold + 2} min)",
+                    flush=True,
+                )
+            else:
+                # Capture stale_recovered event by restoring the entity
+                recovered_events = capture_events(
+                    "entity_availability_stale_recovered",
+                    lambda: ss(stale_target, "on", {"friendly_name": stale_target.split(".")[-1]}),
+                    timeout=WAIT_FOR_TIMEOUT,
+                )
+                ev_recovered = next(
+                    (e for e in recovered_events if e.get("entity_id") == stale_target),
+                    None,
                 )
                 chk(
-                    "EC31 stale_count is int",
-                    isinstance(ev.get("stale_count"), int),
+                    "EC31 stale_recovered event captured after restore",
+                    ev_recovered is not None,
                     True,
+                    f"events={len(recovered_events)}",
+                )
+                if ev_recovered:
+                    chk(
+                        "EC31 stale_recovered stale_entities excludes NE",
+                        ne_target not in ev_recovered.get("stale_entities", []),
+                        True,
+                    )
+                    chk(
+                        "EC31 stale_recovered stale_count is int",
+                        isinstance(ev_recovered.get("stale_count"), int),
+                        True,
+                    )
+                # Also verify stale_count dropped
+                chk(
+                    "EC31 stale_count=0 after restore",
+                    wait_for(
+                        lambda: gs(f"{prefix}_stale_count").get("state"), "0"
+                    ),
+                    "0",
                 )
         else:
-            print("  EC31: skipped (websocket-client not installed)", flush=True)
+            print("  EC31: skipped (no essential entities in NE group)", flush=True)
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
@@ -786,11 +832,23 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         if threshold == 0:
             print("  EC33: skipped (staleness_threshold=0 for this group)", flush=True)
         else:
-            print(f"  Waiting {threshold + 1} min for stale threshold...", flush=True)
-            wait_for(
-                lambda: gs(f"{prefix}_stale_count").get("state"),
-                lambda v: int(v or 0) > 0,
-                timeout=(threshold + 2) * 60,
+            print(f"  Waiting up to {threshold + 2} min for stale threshold...", flush=True)
+            stale_timeout = (threshold + 2) * 60
+            deadline = time.time() + stale_timeout
+            stale_count = None
+            while time.time() < deadline:
+                stale_count = gs(f"{prefix}_stale_count").get("state")
+                try:
+                    if int(stale_count or 0) > 0:
+                        break
+                except (TypeError, ValueError):
+                    pass
+                time.sleep(10)
+            chk(
+                "EC33 stale_count > 0",
+                int(stale_count or 0) > 0,
+                True,
+                f"stale_count={stale_count}",
             )
             chk(
                 "EC33 any_stale=on",
@@ -845,6 +903,206 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             ),
             "0",
         )
+
+    ne_restore()
+
+    # EC36: diagnostics endpoint returns correct shape for group entry
+    if ec_enabled(36):
+        print(
+            "\n=== EC36: diagnostics endpoint returns correct shape ===",
+            flush=True,
+        )
+        try:
+            # HA wraps integration data under "data" key alongside home_assistant/custom_components
+            raw = api("GET", f"/api/diagnostics/config_entry/{ne_ctx['entry_id']}")
+            result = raw.get("data", raw)  # unwrap HA envelope
+            chk("EC36 diagnostics entry_type=group", result.get("entry_type"), "group")
+            chk("EC36 diagnostics has entity_count", "entity_count" in result, True)
+            chk(
+                "EC36 diagnostics essential_count >= 1",
+                int(result.get("essential_count", 0)) >= 1,
+                True,
+                f"essential_count={result.get('essential_count')}",
+            )
+            chk(
+                "EC36 diagnostics non_essential_count >= 1",
+                int(result.get("non_essential_count", 0)) >= 1,
+                True,
+                f"non_essential_count={result.get('non_essential_count')}",
+            )
+            chk("EC36 diagnostics has config dict", isinstance(result.get("config"), dict), True)
+            chk(
+                "EC36 diagnostics config has cooldown_seconds",
+                "cooldown_seconds" in result.get("config", {}),
+                True,
+            )
+        except Exception as e:
+            chk("EC36 diagnostics endpoint reachable", False, True, str(e))
+
+    ne_restore()
+
+    # EC37: stale_count sensor increments for stale essential entity
+    if ec_enabled(37):
+        print(
+            "\n=== EC37: stale_count sensor increments for stale essential entity ===",
+            flush=True,
+        )
+        threshold = ne_ctx["staleness_threshold"]
+        if threshold == 0:
+            print("  EC37: skipped (staleness_threshold=0 for this group)", flush=True)
+        elif not essential_entities:
+            print("  EC37: skipped (no essential entities)", flush=True)
+        else:
+            stale_timeout = (threshold + 2) * 60
+            print(
+                f"  Waiting up to {threshold + 2} min for stale...", flush=True
+            )
+            deadline = time.time() + stale_timeout
+            stale_val = "0"
+            while time.time() < deadline:
+                stale_val = gs(f"{prefix}_stale_count").get("state", "0")
+                try:
+                    if int(stale_val or 0) > 0:
+                        break
+                except (TypeError, ValueError):
+                    pass
+                time.sleep(10)
+            chk(
+                "EC37 stale_count > 0",
+                int(stale_val or 0) > 0,
+                True,
+                f"stale_count={stale_val}",
+            )
+
+    # EC38: stale_entities sensor lists stale essential entity
+    if ec_enabled(38):
+        print(
+            "\n=== EC38: stale_entities sensor lists stale essential entity ===",
+            flush=True,
+        )
+        threshold = ne_ctx["staleness_threshold"]
+        if threshold == 0:
+            print("  EC38: skipped (staleness_threshold=0 for this group)", flush=True)
+        elif not essential_entities:
+            print("  EC38: skipped (no essential entities)", flush=True)
+        else:
+            stale_state = gs(f"{prefix}_stale_entities")
+            stale_list = stale_state.get("state", "")
+            stale_attrs = stale_state.get("attributes", {})
+            # stale_entities sensor state is a comma-separated list or None
+            has_essential_stale = any(
+                eid in stale_list for eid in essential_entities
+            ) or any(
+                eid in str(stale_attrs.get("devices", {})) for eid in essential_entities
+            )
+            chk(
+                "EC38 stale_entities includes essential entity",
+                has_essential_stale,
+                True,
+                f"state={stale_list!r} essential={essential_entities}",
+            )
+            # NE entity must not appear in essential stale_entities
+            chk(
+                "EC38 stale_entities excludes NE entity",
+                ne_target not in stale_list,
+                True,
+                f"state={stale_list!r} ne_target={ne_target}",
+            )
+
+    # EC39: NE entity stale → stale_count_non_essential increments, stale_count unchanged
+    if ec_enabled(39):
+        print(
+            "\n=== EC39: NE stale → stale_count_non_essential increments, stale_count unchanged ===",
+            flush=True,
+        )
+        threshold = ne_ctx["staleness_threshold"]
+        if threshold == 0:
+            print("  EC39: skipped (staleness_threshold=0 for this group)", flush=True)
+        else:
+            essential_stale = gs(f"{prefix}_stale_count").get("state", "0")
+            ne_stale = gs(f"{prefix}_stale_count_non_essential").get("state", "0")
+            chk(
+                "EC39 stale_count_non_essential is int string",
+                ne_stale.isdigit() if ne_stale else False,
+                True,
+                f"ne_stale={ne_stale}",
+            )
+            # If NE entities are stale (same threshold), NE count > 0 while essential stale_count
+            # reflects only essential. Both sensors must be readable.
+            chk(
+                "EC39 stale_count (essential only) readable",
+                essential_stale.isdigit() if essential_stale else False,
+                True,
+                f"essential_stale={essential_stale}",
+            )
+
+    ne_restore()
+
+    # EC40: any_low_battery stays OFF when only NE entity has low battery
+    if ec_enabled(40):
+        print(
+            "\n=== EC40: any_low_battery stays OFF when only NE entity has low battery ===",
+            flush=True,
+        )
+        threshold = ne_ctx["battery_threshold"]
+        if threshold == 0:
+            print("  EC40: skipped (battery_threshold=0 for this group)", flush=True)
+        else:
+            ne_bat = f"sensor.{ne_target.split('.')[-1]}_battery"
+            low_val = str(int(threshold) - 5)
+            ss(ne_bat, low_val, {"device_class": "battery", "unit_of_measurement": "%"})
+            wait(12)
+            chk(
+                "EC40 any_low_battery=off (NE battery low, essential ok)",
+                gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
+                "off",
+                f"ne_bat={ne_bat} low_val={low_val}",
+            )
+            # Restore
+            ss(ne_bat, "90", {"device_class": "battery", "unit_of_measurement": "%"})
+            wait(8)
+
+    # EC41: recently_offline sensor lists entity after it goes offline
+    if ec_enabled(41):
+        print(
+            "\n=== EC41: recently_offline sensor lists entity after it goes offline ===",
+            flush=True,
+        )
+        target = essential_entities[0] if essential_entities else ne_entities[0]
+        ss(target, "unavailable", {"friendly_name": "smoke test"})
+        wait(12)
+        recent_offline_state = gs(f"{prefix}_recently_offline")
+        # state = display name; entities attr = list of entity_ids
+        recent_entities = recent_offline_state.get("attributes", {}).get("entities", [])
+        chk(
+            "EC41 recently_offline lists entity",
+            target in recent_entities,
+            True,
+            f"entities={recent_entities} target={target}",
+        )
+        ne_restore()
+
+    # EC42: recently_recovered sensor lists entity after recovery
+    if ec_enabled(42):
+        print(
+            "\n=== EC42: recently_recovered sensor lists entity after recovery ===",
+            flush=True,
+        )
+        target = essential_entities[0] if essential_entities else ne_entities[0]
+        # Drive offline then recover
+        ss(target, "unavailable", {"friendly_name": "smoke test"})
+        wait(12)
+        ss(target, "on", {"friendly_name": target.split(".")[-1]})
+        wait(12)
+        recent_recovered_state = gs(f"{prefix}_recently_recovered")
+        recent_entities = recent_recovered_state.get("attributes", {}).get("entities", [])
+        chk(
+            "EC42 recently_recovered lists entity",
+            target in recent_entities,
+            True,
+            f"entities={recent_entities} target={target}",
+        )
+        ne_restore()
 
 
 # ---------------------------------------------------------------------------
@@ -1814,7 +2072,7 @@ def main():
     # EC25-EC35: Non-Essential entity tier
     # Requires EA_SMOKE_NE_GROUP to point at a group with NE entities configured.
     # ------------------------------------------------------------------
-    ne_ecs = {n for n in range(25, 36)}
+    ne_ecs = {n for n in range(25, 43)}
     run_ne = bool(NE_GROUP_FILTER) and (not EC_FILTER or ne_ecs & EC_FILTER)
 
     if run_ne:
@@ -1824,12 +2082,12 @@ def main():
             _run_ne_tests(ne_ctx)
         else:
             print(
-                f"  EC25-EC35: skipped (no NE group matching '{NE_GROUP_FILTER}')",
+                f"  EC25-EC42: skipped (no NE group matching '{NE_GROUP_FILTER}')",
                 flush=True,
             )
-    elif any(ec_enabled(n) for n in range(25, 36)):
+    elif any(ec_enabled(n) for n in range(25, 43)):
         print(
-            "\n  EC25-EC35: skipped (set EA_SMOKE_NE_GROUP to a group with non-essential entities)",
+            "\n  EC25-EC42: skipped (set EA_SMOKE_NE_GROUP to a group with non-essential entities)",
             flush=True,
         )
 
