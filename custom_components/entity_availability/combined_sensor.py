@@ -419,7 +419,9 @@ class CombinedGroupSensor(CombinedSensorBase):
             )
             g_online = g_total - g_offline - g_suppressed - g_non_essential
             g_stale = sum(
-                1 for d in states.values() if d.is_stale and not d.is_suppressed
+                1
+                for d in states.values()
+                if d.is_stale and not d.is_suppressed and not d.is_non_essential
             )
             g_low_battery = sum(
                 1
@@ -446,6 +448,11 @@ class CombinedGroupSensor(CombinedSensorBase):
                 _LOGGER.warning(
                     "Could not find group summary entity for %s", coord.entry.entry_id
                 )
+            g_non_essential_entities = [
+                d.entity_id
+                for d in states.values()
+                if d.is_non_essential and not d.is_suppressed
+            ]
             groups[coord.entry.entry_id] = {
                 "name": gname,
                 "entity_id": gsummary,
@@ -456,6 +463,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "low_battery": g_low_battery,
                 "suppressed": g_suppressed,
                 "non_essential": g_non_essential,
+                "non_essential_entities": g_non_essential_entities,
                 "battery_powered": g_battery_powered,
             }
 
@@ -497,7 +505,9 @@ class CombinedGroupSensor(CombinedSensorBase):
             if not d.is_offline and not d.is_suppressed and not d.is_non_essential
         )
         stale = sum(
-            1 for d in merged_states.values() if d.is_stale and not d.is_suppressed
+            1
+            for d in merged_states.values()
+            if d.is_stale and not d.is_suppressed and not d.is_non_essential
         )
         suppressed = sum(1 for d in merged_states.values() if d.is_suppressed)
         # Dedup battery_powered by collecting device entity_ids (not battery sensor ids).

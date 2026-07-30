@@ -421,6 +421,7 @@ class MTBFSensor(DedupCoordinatorSensor):
         values = [
             stats["mtbf_hours"]
             for entity_id in self.coordinator.monitored_entities
+            # no state = entity not yet seen, treat as monitored; state present → skip if non-essential
             if not ds.get(entity_id) or not ds[entity_id].is_non_essential
             if (stats := self.coordinator.reliability_stats(entity_id, now))[
                 "mtbf_hours"
@@ -625,7 +626,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 if d.is_suppressed
             },
             "stale_entities": [
-                eid for eid, d in states.items() if d.is_stale and not d.is_suppressed
+                eid
+                for eid, d in states.items()
+                if d.is_stale and not d.is_suppressed and not d.is_non_essential
             ],
             "offline_since": {
                 eid: d.offline_since.isoformat()
@@ -668,6 +671,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
             for d in self.coordinator.device_states.values()
             if d.is_offline
             and not d.is_suppressed
+            and not d.is_non_essential
             and d.recently_offline_at is not None
             and (now - d.recently_offline_at).total_seconds() <= cutoff
         ]
@@ -738,6 +742,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
             for d in self.coordinator.device_states.values()
             if not d.is_offline
             and not d.is_suppressed
+            and not d.is_non_essential
             and d.last_recovery is not None
             and (now - d.last_recovery).total_seconds() <= cutoff
         ]
@@ -800,7 +805,7 @@ class AffectedAreasCountSensor(DedupCoordinatorSensor):
         areas = {
             resolve_area_name(self.hass, d.entity_id) or NO_AREA_SENTINEL
             for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         }
         return len(areas)
 
@@ -830,7 +835,7 @@ class AffectedAreasSensor(DedupCoordinatorSensor):
         areas: set[str] = set()
         unassigned: list[str] = []
         for d in self.coordinator.device_states.values():
-            if d.is_offline and not d.is_suppressed:
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential:
                 area = resolve_area_name(self.hass, d.entity_id)
                 if area:
                     areas.add(area)
@@ -890,6 +895,7 @@ class AffectedAreasRecentlyOfflineSensor(DedupCoordinatorSensor):
             if (
                 d.is_offline
                 and not d.is_suppressed
+                and not d.is_non_essential
                 and d.recently_offline_at is not None
                 and (now - d.recently_offline_at).total_seconds() <= cutoff
             ):

@@ -2868,3 +2868,47 @@ class TestNonEssentialKpiExclusion:
         sensor.hass = mock_hass
         attrs = sensor.extra_state_attributes
         assert "binary_sensor.device_b" not in attrs["offline_since"]
+
+    def test_recently_offline_excludes_non_essential(self, mock_coordinator, mock_hass):
+        """RecentlyOfflineSensor does not include non-essential offline entities."""
+        from datetime import timezone
+        from custom_components.entity_availability.sensor import RecentlyOfflineSensor
+
+        mock_coordinator.device_states["binary_sensor.device_b"].is_offline = True
+        mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True
+        mock_coordinator.device_states[
+            "binary_sensor.device_b"
+        ].recently_offline_at = datetime.now(timezone.utc)
+        sensor = RecentlyOfflineSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        devices = sensor._refresh_cache()
+        assert all(d.entity_id != "binary_sensor.device_b" for d in devices)
+
+    def test_recently_recovered_excludes_non_essential(
+        self, mock_coordinator, mock_hass
+    ):
+        """RecentlyRecoveredSensor does not include non-essential recovered entities."""
+        from datetime import timezone
+        from custom_components.entity_availability.sensor import RecentlyRecoveredSensor
+
+        mock_coordinator.device_states["binary_sensor.device_a"].is_non_essential = True
+        mock_coordinator.device_states[
+            "binary_sensor.device_a"
+        ].last_recovery = datetime.now(timezone.utc)
+        sensor = RecentlyRecoveredSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        devices = sensor._refresh_cache()
+        assert all(d.entity_id != "binary_sensor.device_a" for d in devices)
+
+    def test_stale_entities_excludes_non_essential(self, mock_coordinator, mock_hass):
+        """GroupSummarySensor: stale_entities excludes non-essential entities."""
+        mock_coordinator.device_states["binary_sensor.device_a"].is_stale = True
+        mock_coordinator.device_states["binary_sensor.device_a"].is_non_essential = True
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_a" not in attrs["stale_entities"]

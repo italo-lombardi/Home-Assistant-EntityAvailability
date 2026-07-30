@@ -2941,3 +2941,22 @@ class TestCombinedNonEssential:
         attrs = sensor.extra_state_attributes
         assert attrs["non_essential"] >= 1
         assert "binary_sensor.a1" in attrs["non_essential_entities"]
+
+    def test_per_group_breakdown_includes_non_essential_entities_list(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """Per-group breakdown in CombinedGroupSensor includes non_essential_entities list."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Test Combined",
+            "test_combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+        attrs = sensor.extra_state_attributes
+        groups = attrs["groups"]
+        entry_a_id = coordinator_a.entry.entry_id
+        assert "non_essential_entities" in groups[entry_a_id]
+        assert "binary_sensor.a1" in groups[entry_a_id]["non_essential_entities"]
