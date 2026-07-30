@@ -417,6 +417,9 @@ class CombinedGroupSensor(CombinedSensorBase):
                 1 for d in states.values() if d.is_suppressed and not d.is_non_essential
             )
             g_non_essential = sum(1 for d in states.values() if d.is_non_essential)
+            g_non_essential_suppressed = sum(
+                1 for d in states.values() if d.is_non_essential and d.is_suppressed
+            )
             g_online = g_total - g_offline - g_suppressed - g_non_essential
             g_stale = sum(
                 1
@@ -463,6 +466,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "low_battery": g_low_battery,
                 "suppressed": g_suppressed,
                 "non_essential": g_non_essential,
+                "non_essential_suppressed": g_non_essential_suppressed,
                 "non_essential_entities": g_non_essential_entities,
                 "battery_powered": g_battery_powered,
             }

@@ -185,7 +185,7 @@ The Group Summary sensor provides a complete overview in its attributes:
 | `offline` | Entities currently offline (excludes suppressed and non-essential) |
 | `suppressed` | Number of suppressed entities |
 | `non_essential` | Total number of non-essential entities (including suppressed) |
-| `non_essential_entities` | List of non-essential entity IDs |
+| `non_essential_entities` | List of unsuppressed non-essential entity IDs (note: `len(non_essential_entities)` < `non_essential` when any NE entities are suppressed) |
 | `battery_powered` | Number of entities with a mapped battery sensor |
 | `low_battery` | Number of entities with battery below threshold (excludes non-essential) |
 | `entities` | List of all monitored entity IDs in this group |
