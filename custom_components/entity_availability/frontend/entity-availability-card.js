@@ -992,7 +992,7 @@ class EntityAvailabilityCard extends LitElement {
         }
       } else if (isNonEssential) {
         dotColor = "grey";
-        status = "Non-Essential";
+        status = isStale ? "Non-Essential (Stale)" : "Non-Essential";
       } else if (isStale) {
         dotColor = "grey";
         status = "Stale";

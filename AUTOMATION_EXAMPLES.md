@@ -841,25 +841,3 @@ automation:
           {{ state_attr('sensor.entity_availability_living_room_group_summary', 'non_essential_entities') | join(', ') }}
 ```
 
-### Filter out non-essential from a combined group event
-
-Combined group events still fire for non-essential entities — if you want to silence them for non-essential, filter using the `group_summary` attribute:
-
-```yaml
-automation:
-  alias: EA — combined offline (skip non-essential)
-  trigger:
-    - platform: event
-      event_type: entity_availability_offline
-      event_data:
-        group: My Combined Group
-  condition:
-    - condition: template
-      value_template: >-
-        {{ trigger.event.data.entity_id not in
-           state_attr('sensor.entity_availability_my_group_group_summary', 'non_essential_entities') | default([]) }}
-  action:
-    - service: notify.mobile_app_my_phone
-      data:
-        message: "{{ trigger.event.data.entity_id }} offline in {{ trigger.event.data.group }}"
-```
