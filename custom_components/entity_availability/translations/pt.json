@@ -13,11 +13,7 @@
         "description": "Crie um grupo de entidades para monitorizar a disponibilidade.",
         "data": {
           "group_name": "Nome do Grupo",
-          "entities": "Entidades a Monitorizar",
-          "non_essential_entities": "Entidades não essenciais"
-        },
-        "data_description": {
-          "non_essential_entities": "Entidades exibidas e contadas no cartão, mas excluídas de todos os KPIs (contagem offline, disponibilidade %, MTBF, MTTR) e alertas. Útil para dispositivos que se espera que estejam offline (TV em standby, impressora desligada entre tarefas)."
+          "entities": "Entidades a Monitorizar"
         }
       },
       "combined": {
@@ -51,13 +47,15 @@
           "battery_threshold": "Limiar de bateria fraca (%, 0 = desativado)",
           "availability_windows": "Janelas de rastreio de disponibilidade",
           "recovery_window": "Janela de recuperação",
-          "use_device_names": "Mostrar nomes de dispositivo"
+          "use_device_names": "Mostrar nomes de dispositivo",
+          "non_essential_entities": "Entidades não essenciais"
         },
         "data_description": {
           "battery_threshold": "Sinaliza entidades cuja bateria fica abaixo desta percentagem. O estado 'low' também é detetado automaticamente. Entidades baseadas em volts não são suportadas. Use entidades que reportem a bateria como percentagem ou suportem o estado 'low'.",
           "availability_windows": "Janelas de tempo para o acompanhamento do histórico de disponibilidade do grupo (ex. hoje, 3d, 7d).",
           "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado.",
-          "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo."
+          "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo.",
+          "non_essential_entities": "Entidades exibidas e contadas no cartão, mas excluídas de todos os KPIs e alertas. Útil para dispositivos que se espera que estejam offline (TV em standby, impressora desligada entre tarefas)."
         }
       },
       "battery_mapping": {

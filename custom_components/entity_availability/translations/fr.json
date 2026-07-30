@@ -13,11 +13,7 @@
         "description": "Créez un groupe d'entités à surveiller pour la disponibilité.",
         "data": {
           "group_name": "Nom du groupe",
-          "entities": "Entités à surveiller",
-          "non_essential_entities": "Entités non essentielles"
-        },
-        "data_description": {
-          "non_essential_entities": "Entités affichées et comptées sur la carte mais exclues de tous les KPI (nombre hors ligne, disponibilité %, MTBF, MTTR) et alertes. Utile pour les appareils attendus hors ligne (TV en veille, imprimante éteinte entre les tâches)."
+          "entities": "Entités à surveiller"
         }
       },
       "combined": {
@@ -51,13 +47,15 @@
           "battery_threshold": "Seuil de batterie faible (%, 0 = désactivé)",
           "availability_windows": "Fenêtres de suivi de disponibilité",
           "recovery_window": "Fenêtre de rétablissement",
-          "use_device_names": "Afficher les noms d'appareils"
+          "use_device_names": "Afficher les noms d'appareils",
+          "non_essential_entities": "Entités non essentielles"
         },
         "data_description": {
           "battery_threshold": "Signale les entités dont la batterie passe en dessous de ce pourcentage. L'état 'low' est également détecté automatiquement. Les entités basées sur les volts ne sont pas prises en charge. Utilisez des entités qui rapportent la batterie en pourcentage ou prennent en charge l'état 'low'.",
           "availability_windows": "Fenêtres de temps pour le suivi de l'historique de disponibilité du groupe (p. ex. aujourd'hui, 3j, 7j).",
           "recovery_window": "Durée (en minutes) pendant laquelle une entité reste dans les capteurs Récemment hors ligne ou Récemment rétabli après un changement d'état.",
-          "use_device_names": "Affiche le nom de l'appareil HA plutôt que le nom convivial de l'entité dans les états des capteurs hors ligne / rétablis. Utilise le nom convivial en repli pour les entités non associées à un appareil."
+          "use_device_names": "Affiche le nom de l'appareil HA plutôt que le nom convivial de l'entité dans les états des capteurs hors ligne / rétablis. Utilise le nom convivial en repli pour les entités non associées à un appareil.",
+          "non_essential_entities": "Entités affichées et comptées sur la carte mais exclues de tous les KPI et alertes. Utile pour les appareils attendus hors ligne (TV en veille, imprimante éteinte entre les tâches)."
         }
       },
       "battery_mapping": {

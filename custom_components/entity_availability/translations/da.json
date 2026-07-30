@@ -13,11 +13,7 @@
         "description": "Opret en gruppe af entiteter til overvågning af tilgængelighed.",
         "data": {
           "group_name": "Gruppenavn",
-          "entities": "Entiteter at overvåge",
-          "non_essential_entities": "Ikke-essentielle enheder"
-        },
-        "data_description": {
-          "non_essential_entities": "Enheder der vises og tælles på kortet, men udelukkes fra alle KPI'er (antal offline, tilgængelighed %, MTBF, MTTR) og alarmer. Nyttig til enheder der forventes at være offline (TV i standby, printer slukket mellem jobs)."
+          "entities": "Entiteter at overvåge"
         }
       },
       "combined": {
@@ -51,13 +47,15 @@
           "battery_threshold": "Grænse for lavt batteri (%, 0 = deaktiveret)",
           "availability_windows": "Tilgængelighedssporingsvinduer",
           "recovery_window": "Genoprettelsesvindue",
-          "use_device_names": "Vis enhedsnavne"
+          "use_device_names": "Vis enhedsnavne",
+          "non_essential_entities": "Ikke-essentielle enheder"
         },
         "data_description": {
           "battery_threshold": "Markerer entiteter, hvis batteri falder under denne procentdel. Tilstanden 'low' registreres også automatisk. Volt-baserede entiteter understøttes ikke. Brug entiteter, der rapporterer batteri som procent eller understøtter tilstanden 'low'.",
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
           "availability_windows": "Tidsvinduer til sporing af gruppens tilgængelighed (f.eks. i dag, 3d, 7d).",
-          "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift."
+          "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift.",
+          "non_essential_entities": "Enheder der vises og tælles på kortet, men udelukkes fra alle KPI'er (antal offline, tilgængelighed %, MTBF, MTTR) og alarmer. Nyttig til enheder der forventes at være offline (TV i standby, printer slukket mellem jobs)."
         }
       },
       "battery_mapping": {
