@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Combined group events (`entity_availability_offline`, `entity_availability_recovered`, `entity_availability_low_battery`, `entity_availability_battery_ok`) now include a `source_groups` field — a list of the home group names that own the entity. For entities in a single home group this is a one-element list (e.g. `["Switches"]`); for entities shared across multiple home groups all names appear. Use `{{ trigger.event.data.source_groups | join(', ') }}` in automation templates.
+
+### Fixed
+- Smoke test suite: EC4 now resets state before the battery-threshold check to prevent carry-over from EC1; EC15 uses `wait_for` polling with ±0.5% tolerance instead of a single-shot read, eliminating spurious failures from rounding drift.
+
+### Changed
+- Smoke test `wait_for` default timeout reduced from 90 s to 60 s (two coordinator ticks). Pass `--fast` / set `EA_SMOKE_FAST=1` to use 45 s timeouts in warm CI environments.
+- Smoke test cleanup uses `restore_and_wait()` (polls until `offline_count=0` and `low_battery_count=0`) instead of a fixed `wait(35)`, cutting inter-test idle time.
+- Smoke EC19–EC21 and new EC24 verify event payload fields (`entry_id`, `entity_id`, `source_groups`) directly via WebSocket subscription when `websocket-client` is installed; falls back to sensor-proxy checks otherwise.
+
 ## [0.3.14] - 2026-07-30
 
 ### Added

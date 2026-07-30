@@ -223,6 +223,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         self._attr_translation_key = "combined_summary"
         self._prev_offline_set: frozenset[str] = frozenset()
         self._prev_low_battery_set: frozenset[str] = frozenset()
+        self._prev_source_group_map: dict[str, list[str]] = {}
 
     def _make_update_callback(self) -> Callable[[], None]:
         """Return event-aware coordinator update callback."""
@@ -243,6 +244,34 @@ class CombinedGroupSensor(CombinedSensorBase):
 
             if current != prev or current_lb != prev_lb:
                 device_map = self._build_device_map(coords)
+                # Build source_group_map: eid → sorted list of group names.
+                # Sorted for deterministic order regardless of coordinator subscription order.
+                current_source_group_map: dict[str, list[str]] = {}
+                for coord in coords:
+                    for eid in coord.device_states:
+                        current_source_group_map.setdefault(eid, []).append(
+                            coord.group_name
+                        )
+                for eid, groups in current_source_group_map.items():
+                    current_source_group_map[eid] = sorted(groups)
+                # Merge prev → current so RECOVERED/BATTERY_OK events for entities
+                # whose coordinator was removed between ticks still carry group names.
+                # Prune to entities in any active or transitioning set to prevent
+                # unbounded growth — entities gone from all sets on this tick are dropped.
+                still_relevant = current | prev | current_lb | prev_lb
+                source_group_map = {
+                    **{
+                        k: v
+                        for k, v in self._prev_source_group_map.items()
+                        if k in still_relevant
+                    },
+                    **current_source_group_map,
+                }
+                self._prev_source_group_map = {
+                    k: v
+                    for k, v in source_group_map.items()
+                    if k in (current | current_lb | prev | prev_lb)
+                }
                 group_name = self._entry.data.get(CONF_GROUP_NAME, "")
                 entry_id = self._entry.entry_id
 
@@ -262,6 +291,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 else None,
                                 "offline_count": offline_count,
                                 "offline_entities": offline_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
                     for eid in sorted(prev - current):
@@ -280,6 +310,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 else None,
                                 "offline_count": offline_count,
                                 "offline_entities": offline_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
 
@@ -297,6 +328,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 "battery_level": d.battery_level if d else None,
                                 "low_battery_count": low_battery_count,
                                 "low_battery_entities": low_battery_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
                     for eid in sorted(prev_lb - current_lb):
@@ -310,6 +342,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 "battery_level": d.battery_level if d else None,
                                 "low_battery_count": low_battery_count,
                                 "low_battery_entities": low_battery_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
 

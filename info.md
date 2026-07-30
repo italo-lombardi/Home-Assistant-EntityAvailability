@@ -5,7 +5,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 ## Features
 
 - Multi-group support — organize entities by function (Security, Climate, Media, etc.)
-- Combined groups — merge multiple groups into a single aggregate sensor set for cross-group automations
+- Combined groups — merge multiple groups into a single aggregate sensor set for cross-group automations; combined events include a `source_groups` list so automations know which home group an entity belongs to
 - Configurable bad states — define which states count as offline (`unavailable`, `unknown`, or custom)
 - Cooldown timer — ignore brief blips before marking an entity offline
 - Availability % sensors — track uptime over today, 3-day, 5-day, and 7-day windows (5-minute buckets)

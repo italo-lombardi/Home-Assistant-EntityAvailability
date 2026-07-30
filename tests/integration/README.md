@@ -11,8 +11,14 @@ Replace `<container>` with your container name throughout.
 docker cp custom_components/entity_availability/. \
   <container>:/workspaces/home-assistant-core/config/custom_components/entity_availability/
 
-# 2. Run smoke tests from the host
+# 2. Install optional smoke dependencies (enables EC24 WebSocket assertions)
+pip install websocket-client
+
+# 3. Run smoke tests from the host
 EA_SMOKE_TOKEN=<access_token> python3 tests/integration/smoke.py
+
+# Fast mode (45 s timeouts instead of 60 s — for warm CI environments):
+EA_SMOKE_TOKEN=<access_token> python3 tests/integration/smoke.py --fast
 ```
 
 ## Get a token
@@ -31,6 +37,16 @@ curl -s -X POST http://localhost:8123/auth/token \
   -d 'grant_type=refresh_token&refresh_token=<refresh_token>' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
 ```
+
+## Optional dependency
+
+EC24 verifies the `source_groups` field in combined group events via HA's WebSocket API. It requires `websocket-client`:
+
+```bash
+pip install websocket-client
+```
+
+Without it, EC24 skips with a printed notice. All other ECs use plain HTTP REST and have no additional dependencies. The `source_groups` field itself is covered by unit tests (see `tests/test_combined_sensor.py`) regardless of whether EC24 runs.
 
 ## What is covered
 

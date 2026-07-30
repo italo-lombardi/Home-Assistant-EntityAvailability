@@ -474,7 +474,9 @@ automation:
 
 ## Combined groups
 
-Combined groups aggregate several groups into one sensor set. They fire the same `entity_availability_offline` and `entity_availability_recovered` events as individual groups — one event per affected entity, same payload fields. Automations written for an individual group work unchanged on a combined group; just change the `group` name.
+**Combined groups fire all four events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
+
+**`source_groups` (combined group events only):** a list of the home group name(s) that contain the entity. Single-membership entities yield `["Switches"]`; entities shared across multiple home groups list all names. Use it to include the originating group in notifications without a separate per-group automation.
 
 ### Notify when anything goes offline across all groups
 
@@ -513,6 +515,47 @@ automation:
           {{ trigger.event.data.entity_id }} recovered.
           {{ trigger.event.data.offline_count }} device(s) still offline.
 ```
+
+### Include source group name in combined notification
+
+`source_groups` tells you which home group the entity came from, even when triggering on a combined group.
+
+```yaml
+automation:
+  alias: EA — combined offline with source group
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+      event_data:
+        group: All Home
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {{ trigger.event.data.entity_id }} went offline.
+          Group: {{ trigger.event.data.source_groups | join(', ') }}
+          ({{ trigger.event.data.offline_count }} now offline)
+```
+
+### Avoid double-fires — filter by entry_id
+
+Combined groups fire their own event **and** the home group fires its own. To respond only to the combined group and ignore the individual group's event, filter on `entry_id`:
+
+```yaml
+automation:
+  alias: EA — combined only (no double-fire)
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+      event_data:
+        entry_id: "your_combined_entry_id_here"   # Settings → Integrations → entry ID in URL
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: "{{ trigger.event.data.entity_id }} offline in {{ trigger.event.data.source_groups | join(', ') }}"
+```
+
+Alternatively filter by group name (`event_data: group: All Home`) which also guarantees only one automation fires per transition.
 
 ### Binary sensor fallback (no event needed)
 
@@ -590,4 +633,163 @@ automation:
     - service: entity_availability.suppress_indefinitely
       data:
         entity_id: sensor.flaky_attic_sensor
+```
+
+---
+
+## Notification channels
+
+### Telegram
+
+```yaml
+automation:
+  alias: EA — offline to Telegram
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  action:
+    - service: notify.telegram
+      data:
+        message: >-
+          🔴 *{{ trigger.event.data.entity_id }}* offline
+          in {{ trigger.event.data.group }}.
+          {{ trigger.event.data.offline_count }} device(s) now offline.
+```
+
+### Slack
+
+```yaml
+automation:
+  alias: EA — offline to Slack
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  action:
+    - service: notify.slack
+      data:
+        message: >-
+          :red_circle: `{{ trigger.event.data.entity_id }}` went offline
+          in *{{ trigger.event.data.group }}*
+          ({{ trigger.event.data.offline_count }} now offline).
+```
+
+### TTS announcement on speaker
+
+```yaml
+automation:
+  alias: EA — announce offline on speaker
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  action:
+    - service: tts.speak
+      target:
+        entity_id: tts.piper
+      data:
+        media_player_entity_id: media_player.living_room
+        message: >-
+          {{ state_attr('sensor.entity_availability_security_devices_offline_count', 'offline_entities')
+             | map('replace', 'sensor.', '') | map('replace', '_', ' ') | list | join(' and ') }}
+          {% if trigger.event.data.offline_count | int == 1 %}is{% else %}are{% endif %} offline.
+```
+
+---
+
+## Advanced patterns
+
+### Alert only when ALL devices are back online
+
+Fire once when the last offline device recovers (offline_count drops to 0).
+
+```yaml
+automation:
+  alias: EA — all devices back online
+  trigger:
+    - platform: event
+      event_type: entity_availability_recovered
+  condition:
+    - "{{ trigger.event.data.offline_count | int == 0 }}"
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: "All devices in {{ trigger.event.data.group }} are back online."
+```
+
+### Suppress during a time window (overnight)
+
+```yaml
+automation:
+  alias: EA — overnight suppress
+  trigger:
+    - platform: time
+      at: "23:00:00"
+  action:
+    - service: entity_availability.suppress
+      data:
+        group: Security Devices
+        duration: 480        # 8 hours
+
+automation:
+  alias: EA — morning unsuppress
+  trigger:
+    - platform: time
+      at: "07:00:00"
+  action:
+    - service: entity_availability.unsuppress
+      data:
+        group: Security Devices
+```
+
+### Log offline events to a helper (for dashboards)
+
+Writes the last offline entity name and time to `input_text` helpers for display in a Lovelace card.
+
+```yaml
+automation:
+  alias: EA — log last offline
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  action:
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.last_offline_entity
+      data:
+        value: >-
+          {{ trigger.event.data.entity_id }}
+          ({{ as_local(as_datetime(trigger.event.data.offline_since)).strftime('%H:%M:%S') }})
+```
+
+### `mode: queued` — when to use it
+
+`mode: queued` is needed only when a single automation could be triggered again before the previous run finishes. With per-entity events (`entity_availability_offline` fires once per entity) this is rare. **Remove `mode: queued` if:**
+- You filter on a specific `group` or `entry_id` — one event per entity, no reentrance.
+
+**Keep `mode: queued` if:**
+- Your automation has no filter and multiple entities can go offline simultaneously — the automation could be invoked while still running for the previous entity.
+- The action includes a long `delay:` or `wait_template:`.
+
+### Deduplicate notifications with a cooldown
+
+Suppress repeated alerts within a window (e.g. one Slack message per 10 minutes regardless of how many devices drop):
+
+```yaml
+automation:
+  alias: EA — offline with cooldown
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+  condition:
+    - condition: template
+      value_template: >-
+        {{ (now() - (states('input_datetime.last_offline_notification') | as_datetime | default(now() - timedelta(hours=1))).total_seconds() > 600 }}
+  action:
+    - service: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.last_offline_notification
+      data:
+        datetime: "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}"
+    - service: notify.mobile_app_my_phone
+      data:
+        message: "{{ trigger.event.data.offline_count }} device(s) offline in {{ trigger.event.data.group }}."
 ```
