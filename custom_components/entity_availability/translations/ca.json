@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Crea una entrada",
+        "description": "Superviseu un grup d'entitats o combineu grups existents.",
+        "data": {
+          "entry_type": "Tipus"
+        }
+      },
+      "group": {
+        "title": "Crea un grup d'entitats",
+        "description": "Creeu un grup d'entitats per supervisar-ne la disponibilitat.",
+        "data": {
+          "group_name": "Nom del grup",
+          "entities": "Entitats a supervisar",
+          "non_essential_entities": "Entitats no essencials"
+        },
+        "data_description": {
+          "entities": "Entitats per fer el seguiment de la disponibilitat. Es supervisen completament i s'inclouen en tots els KPI i alertes.",
+          "non_essential_entities": "Entitats que no afecten la puntuació de salut del grup. Visibles a la targeta i comptades en els totals, però excloses de tots els KPI (disponibilitat %, recompte fora de línia, MTBF, MTTR) i mai activen alertes. Useu-les per a dispositius on el temps d'inactivitat és acceptable — una TV, una impressora, un dispositiu estacional."
+        }
+      },
+      "combined": {
+        "title": "Crea un grup combinat",
+        "description": "Combineu diversos grups en una sola vista per a automatitzacions i taulers.",
+        "data": {
+          "group_name": "Nom del grup combinat",
+          "combined_groups": "Grups a incloure"
+        }
+      },
+      "monitoring": {
+        "title": "Configuració de supervisió",
+        "description": "Configureu com es supervisen les entitats.",
+        "data": {
+          "bad_states": "Estats considerats fora de línia",
+          "cooldown": "Espera abans de marcar com a fora de línia",
+          "staleness_threshold": "Llindar d'inactivitat",
+          "staleness_use_last_updated": "Compta les actualitzacions d'atributs com a activitat"
+        },
+        "data_description": {
+          "bad_states": "Estats d'entitat que indiquen que una entitat és fora de línia (p. ex., no disponible, desconegut).",
+          "cooldown": "Temps (en segons) que una entitat ha de romandre en un estat incorrecte abans de marcar-la com a fora de línia. Evita falses alarmes per desconnexions breus.",
+          "staleness_threshold": "Si una entitat no ha canviat d'estat durant aquest nombre de minuts, marca-la com a degradada. Detecta entitats que informen de 'disponible' però que han deixat d'enviar dades. Establiu 0 per desactivar.",
+          "staleness_use_last_updated": "Quan està activat, qualsevol actualització de l'entitat — incloent-hi canvis només d'atributs o informes del mateix valor repetit — reinicia el temporitzador d'inactivitat. Quan està desactivat (per defecte), només compta un canvi a l'estat principal. Activeu-ho per a dispositius que informen sovint però rarament canvien de valor (p. ex., temperatura o potència estable)."
+        }
+      },
+      "advanced": {
+        "title": "Configuració avançada",
+        "description": "Funcions de supervisió avançades opcionals.",
+        "data": {
+          "battery_threshold": "Llindar de bateria baixa (%, 0 = desactivat)",
+          "availability_windows": "Finestres de seguiment de disponibilitat",
+          "recovery_window": "Finestra de recuperació",
+          "use_device_names": "Mostra els noms del dispositiu"
+        },
+        "data_description": {
+          "battery_threshold": "Marca les entitats amb la bateria per sota d'aquest percentatge. L'estat 'baix' també es detecta automàticament. Les entitats basades en volts no estan admeses. Useu entitats que informen la bateria com a percentatge o admeten l'estat 'baix'.",
+          "availability_windows": "Finestres de temps per fer el seguiment de l'historial de disponibilitat del grup (p. ex., avui, 3d, 7d).",
+          "recovery_window": "Temps (en minuts) que una entitat roman als sensors Recentment fora de línia o Recuperat recentment després d'una transició d'estat.",
+          "use_device_names": "Mostra el nom del dispositiu HA en lloc del nom amigable de l'entitat als estats del sensor fora de línia/recuperat. Torna al nom amigable per a entitats no vinculades a un dispositiu."
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapatge d'entitats de bateria",
+        "description": "Confirmeu o canvieu el sensor de bateria per a cada entitat supervisada. Deixeu-lo buit per a entitats sense bateria. Admet estats numèrics (%) i de text ('baix')."
+      }
+    },
+    "error": {
+      "empty_group_name": "El nom del grup no pot estar buit.",
+      "no_entities": "Heu de seleccionar almenys una entitat.",
+      "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
+      "not_enough_groups_selected": "Seleccioneu almenys dos grups per combinar."
+    },
+    "abort": {
+      "already_configured": "Ja existeix un grup amb aquest nom.",
+      "not_enough_groups": "Necessiteu almenys dos grups abans de crear un grup combinat."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Edita el grup d'entitats",
+        "description": "Modifiqueu la configuració de supervisió d'aquest grup.",
+        "data": {
+          "entities": "Entitats a supervisar",
+          "non_essential_entities": "Entitats no essencials",
+          "bad_states": "Estats considerats fora de línia",
+          "cooldown": "Espera (segons)",
+          "staleness_threshold": "Llindar d'inactivitat (minuts, 0 = desactivat)",
+          "battery_threshold": "Llindar de bateria baixa (%, 0 = desactivat)",
+          "availability_windows": "Finestres de seguiment de disponibilitat",
+          "recovery_window": "Finestra de recuperació (minuts)",
+          "use_device_names": "Mostra els noms del dispositiu",
+          "staleness_use_last_updated": "Compta les actualitzacions d'atributs com a activitat"
+        },
+        "data_description": {
+          "entities": "Entitats per fer el seguiment de la disponibilitat. Es supervisen completament i s'inclouen en tots els KPI i alertes.",
+          "non_essential_entities": "Entitats que no afecten la puntuació de salut del grup. Visibles a la targeta i comptades en els totals, però excloses de tots els KPI (disponibilitat %, recompte fora de línia, MTBF, MTTR) i mai activen alertes. Useu-les per a dispositius on el temps d'inactivitat és acceptable — una TV, una impressora, un dispositiu estacional.",
+          "bad_states": "Estats d'entitat que indiquen que una entitat és fora de línia (p. ex., no disponible, desconegut).",
+          "cooldown": "Temps (en segons) que una entitat ha de romandre en un estat incorrecte abans de marcar-la com a fora de línia. Evita falses alarmes per desconnexions breus.",
+          "staleness_threshold": "Si una entitat no ha canviat d'estat durant aquest nombre de minuts, marca-la com a degradada. Establiu 0 per desactivar.",
+          "battery_threshold": "Marca les entitats amb la bateria per sota d'aquest percentatge. L'estat 'baix' també es detecta automàticament. Les entitats basades en volts no estan admeses.",
+          "availability_windows": "Finestres de temps per fer el seguiment de l'historial de disponibilitat del grup (p. ex., avui, 3d, 7d).",
+          "recovery_window": "Temps (en minuts) que una entitat roman als sensors Recentment fora de línia o Recuperat recentment després d'una transició d'estat.",
+          "use_device_names": "Mostra el nom del dispositiu HA en lloc del nom amigable de l'entitat als estats del sensor fora de línia/recuperat. Torna al nom amigable per a entitats no vinculades a un dispositiu.",
+          "staleness_use_last_updated": "Quan està activat, qualsevol actualització de l'entitat — incloent-hi canvis només d'atributs o informes del mateix valor repetit — reinicia el temporitzador d'inactivitat. Quan està desactivat (per defecte), només compta un canvi a l'estat principal. Activeu-ho per a dispositius que informen sovint però rarament canvien de valor (p. ex., temperatura o potència estable)."
+        }
+      },
+      "combined_init": {
+        "title": "Edita el grup combinat",
+        "description": "Modifiqueu el nom del grup combinat i els grups inclosos.",
+        "data": {
+          "group_name": "Nom del grup combinat",
+          "combined_groups": "Grups a incloure"
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapatge d'entitats de bateria",
+        "description": "Confirmeu o canvieu el sensor de bateria per a cada entitat supervisada. Deixeu-lo buit per a entitats sense bateria. Admet estats numèrics (%) i de text ('baix')."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Recompte fora de línia"
+      },
+      "offline_entities": {
+        "name": "Entitats fora de línia"
+      },
+      "low_battery": {
+        "name": "Bateria baixa"
+      },
+      "low_battery_count": {
+        "name": "Recompte de bateria baixa"
+      },
+      "group_summary": {
+        "name": "Resum del grup"
+      },
+      "recently_offline": {
+        "name": "Recentment fora de línia"
+      },
+      "recently_recovered": {
+        "name": "Recuperat recentment"
+      },
+      "combined_summary": {
+        "name": "Resum combinat"
+      },
+      "availability_today": {
+        "name": "Disponibilitat (avui)"
+      },
+      "availability_3d": {
+        "name": "Disponibilitat (3 dies)"
+      },
+      "availability_5d": {
+        "name": "Disponibilitat (5 dies)"
+      },
+      "availability_7d": {
+        "name": "Disponibilitat (7 dies)"
+      },
+      "affected_areas_count": {
+        "name": "Recompte de zones afectades"
+      },
+      "affected_areas": {
+        "name": "Zones afectades"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Zones recentment fora de línia"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Zones recuperades recentment"
+      },
+      "mtbf": {
+        "name": "Temps mitjà entre fallades"
+      },
+      "mttr": {
+        "name": "Temps mitjà de recuperació"
+      },
+      "stale_entities": {
+        "name": "Entitats sense actualitzar"
+      },
+      "stale_count": {
+        "name": "Recompte sense actualitzar"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entitats fora de línia (No essencial)"
+      },
+      "offline_count_non_essential": {
+        "name": "Recompte fora de línia (No essencial)"
+      },
+      "low_battery_non_essential": {
+        "name": "Bateria baixa (No essencial)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Recompte de bateria baixa (No essencial)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entitats sense actualitzar (No essencial)"
+      },
+      "stale_count_non_essential": {
+        "name": "Recompte sense actualitzar (No essencial)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Alguna fora de línia"
+      },
+      "combined_any_offline": {
+        "name": "Alguna fora de línia"
+      },
+      "any_offline_non_essential": {
+        "name": "Alguna fora de línia (No essencial)"
+      },
+      "any_low_battery": {
+        "name": "Alguna amb bateria baixa"
+      },
+      "any_stale": {
+        "name": "Alguna sense actualitzar"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Supervisar entitats",
+        "combined_group": "Combinar grups"
+      }
+    }
+  }
+}

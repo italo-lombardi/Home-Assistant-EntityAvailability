@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Luo merkintä",
+        "description": "Seuraa entiteettien ryhmää tai yhdistä olemassa olevia ryhmiä.",
+        "data": {
+          "entry_type": "Tyyppi"
+        }
+      },
+      "group": {
+        "title": "Luo entiteettiryhmä",
+        "description": "Luo ryhmä entiteeteistä saatavuuden seuraamista varten.",
+        "data": {
+          "group_name": "Ryhmän nimi",
+          "entities": "Seurattavat entiteetit",
+          "non_essential_entities": "Ei-kriittiset entiteetit"
+        },
+        "data_description": {
+          "entities": "Entiteetit, joiden saatavuutta seurataan. Nämä ovat täysin valvottuja ja mukana kaikissa KPI-mittareissa ja hälytyksistä.",
+          "non_essential_entities": "Entiteetit, jotka eivät vaikuta ryhmän terveyspisteytykseen. Näkyvät kortilla ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) eivätkä koskaan laukaise hälytyksiä. Käytä laitteissa, joissa seisokkiaika on hyväksyttävää — televisio, tulostin tai kausiluonteinen laite."
+        }
+      },
+      "combined": {
+        "title": "Luo yhdistetty ryhmä",
+        "description": "Yhdistä useita ryhmiä yhdeksi näkymäksi automaatioita ja koontinäyttöjä varten.",
+        "data": {
+          "group_name": "Yhdistetyn ryhmän nimi",
+          "combined_groups": "Sisällytettävät ryhmät"
+        }
+      },
+      "monitoring": {
+        "title": "Seuranta-asetukset",
+        "description": "Määritä, miten entiteettejä seurataan.",
+        "data": {
+          "bad_states": "Offline-tilana pidettävät tilat",
+          "cooldown": "Jäähdytysaika ennen offline-merkintää",
+          "staleness_threshold": "Vanhentumiskynnys",
+          "staleness_use_last_updated": "Laske attribuuttipäivitykset toiminnaksi"
+        },
+        "data_description": {
+          "bad_states": "Entiteetin tilat, jotka tarkoittavat, että entiteetti on offline (esim. ei saatavilla, tuntematon).",
+          "cooldown": "Kuinka kauan (sekunteina) entiteetin täytyy pysyä huonossa tilassa ennen kuin se merkitään offline-tilaan. Estää vääriä hälytyksiä lyhyiden katkosten aikana.",
+          "staleness_threshold": "Jos entiteetti ei ole muuttanut tilaansa tänä monta minuuttia, merkitse se heikentyneen tilaan. Tämä havaitsee entiteetit, jotka raportoivat 'saatavilla' mutta ovat tosiasiassa lopettaneet tiedonlähetyksen. Aseta 0 poistaaksesi käytöstä.",
+          "staleness_use_last_updated": "Kun käytössä, mikä tahansa päivitys entiteetiltä — mukaan lukien pelkät attribuuttimuutokset tai toistuvat saman arvon raportit — nollaa vanhentumisajastimen. Kun pois käytöstä (oletus), vain muutos päätilassa lasketaan. Ota käyttöön laitteille, jotka raportoivat usein mutta muuttuvat harvoin (esim. lämpötila tai teho, joka pysyy vakaana)."
+        }
+      },
+      "advanced": {
+        "title": "Lisäasetukset",
+        "description": "Valinnaiset lisäseurantaominaisuudet.",
+        "data": {
+          "battery_threshold": "Matalan akun kynnys (%, 0 = poistettu käytöstä)",
+          "availability_windows": "Saatavuuden seurantaikkunat",
+          "recovery_window": "Palautumisikkuna",
+          "use_device_names": "Näytä laitteiden nimet"
+        },
+        "data_description": {
+          "battery_threshold": "Merkitse entiteetit, joiden akku laskee alle tämän prosenttiosuuden. 'Matala' tila havaitaan myös automaattisesti. Jännitepohjaisia entiteettejä ei tueta. Käytä entiteettejä, jotka raportoivat akun prosentteina tai tukevat 'matala'-tilaa.",
+          "availability_windows": "Aikaikkunat ryhmän saatavuushistorian seuraamista varten (esim. tänään, 3pv, 7pv).",
+          "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
+          "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen."
+        }
+      },
+      "battery_mapping": {
+        "title": "Akkuentiteetin yhdistäminen",
+        "description": "Vahvista tai muuta akkuanturi kullekin seurattavalle entiteetille. Jätä tyhjäksi entiteeteille, joissa ei ole akkua. Tukee numeerisia (%) ja tekstimuotoisia tiloja ('matala')."
+      }
+    },
+    "error": {
+      "empty_group_name": "Ryhmän nimi ei voi olla tyhjä.",
+      "no_entities": "Sinun täytyy valita vähintään yksi entiteetti.",
+      "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
+      "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi."
+    },
+    "abort": {
+      "already_configured": "Tällä nimellä on jo olemassa ryhmä.",
+      "not_enough_groups": "Tarvitset vähintään kaksi ryhmää ennen yhdistetyn ryhmän luomista."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Muokkaa entiteettiryhmää",
+        "description": "Muokkaa tämän ryhmän seuranta-asetuksia.",
+        "data": {
+          "entities": "Seurattavat entiteetit",
+          "non_essential_entities": "Ei-kriittiset entiteetit",
+          "bad_states": "Offline-tilana pidettävät tilat",
+          "cooldown": "Jäähdytysaika (sekunteina)",
+          "staleness_threshold": "Vanhentumiskynnys (minuuttia, 0 = poistettu käytöstä)",
+          "battery_threshold": "Matalan akun kynnys (%, 0 = poistettu käytöstä)",
+          "availability_windows": "Saatavuuden seurantaikkunat",
+          "recovery_window": "Palautumisikkuna (minuuttia)",
+          "use_device_names": "Näytä laitteiden nimet",
+          "staleness_use_last_updated": "Laske attribuuttipäivitykset toiminnaksi"
+        },
+        "data_description": {
+          "entities": "Entiteetit, joiden saatavuutta seurataan. Nämä ovat täysin valvottuja ja mukana kaikissa KPI-mittareissa ja hälytyksistä.",
+          "non_essential_entities": "Entiteetit, jotka eivät vaikuta ryhmän terveyspisteytykseen. Näkyvät kortilla ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) eivätkä koskaan laukaise hälytyksiä. Käytä laitteissa, joissa seisokkiaika on hyväksyttävää — televisio, tulostin tai kausiluonteinen laite.",
+          "bad_states": "Entiteetin tilat, jotka tarkoittavat, että entiteetti on offline (esim. ei saatavilla, tuntematon).",
+          "cooldown": "Kuinka kauan (sekunteina) entiteetin täytyy pysyä huonossa tilassa ennen kuin se merkitään offline-tilaan. Estää vääriä hälytyksiä lyhyiden katkosten aikana.",
+          "staleness_threshold": "Jos entiteetti ei ole muuttanut tilaansa tänä monta minuuttia, merkitse se heikentyneen tilaan. Aseta 0 poistaaksesi käytöstä.",
+          "battery_threshold": "Merkitse entiteetit, joiden akku laskee alle tämän prosenttiosuuden. 'Matala' tila havaitaan myös automaattisesti. Jännitepohjaisia entiteettejä ei tueta.",
+          "availability_windows": "Aikaikkunat ryhmän saatavuushistorian seuraamista varten (esim. tänään, 3pv, 7pv).",
+          "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
+          "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen.",
+          "staleness_use_last_updated": "Kun käytössä, mikä tahansa päivitys entiteetiltä — mukaan lukien pelkät attribuuttimuutokset tai toistuvat saman arvon raportit — nollaa vanhentumisajastimen. Kun pois käytöstä (oletus), vain muutos päätilassa lasketaan. Ota käyttöön laitteille, jotka raportoivat usein mutta muuttuvat harvoin (esim. lämpötila tai teho, joka pysyy vakaana)."
+        }
+      },
+      "combined_init": {
+        "title": "Muokkaa yhdistettyä ryhmää",
+        "description": "Muokkaa yhdistetyn ryhmän nimeä ja mukana olevia ryhmiä.",
+        "data": {
+          "group_name": "Yhdistetyn ryhmän nimi",
+          "combined_groups": "Sisällytettävät ryhmät"
+        }
+      },
+      "battery_mapping": {
+        "title": "Akkuentiteetin yhdistäminen",
+        "description": "Vahvista tai muuta akkuanturi kullekin seurattavalle entiteetille. Jätä tyhjäksi entiteeteille, joissa ei ole akkua. Tukee numeerisia (%) ja tekstimuotoisia tiloja ('matala')."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Offline-määrä"
+      },
+      "offline_entities": {
+        "name": "Offline-entiteetit"
+      },
+      "low_battery": {
+        "name": "Matala akku"
+      },
+      "low_battery_count": {
+        "name": "Matalan akun määrä"
+      },
+      "group_summary": {
+        "name": "Ryhmän yhteenveto"
+      },
+      "recently_offline": {
+        "name": "Äskettäin offline"
+      },
+      "recently_recovered": {
+        "name": "Äskettäin palautunut"
+      },
+      "combined_summary": {
+        "name": "Yhdistetty yhteenveto"
+      },
+      "availability_today": {
+        "name": "Saatavuus (Tänään)"
+      },
+      "availability_3d": {
+        "name": "Saatavuus (3 päivää)"
+      },
+      "availability_5d": {
+        "name": "Saatavuus (5 päivää)"
+      },
+      "availability_7d": {
+        "name": "Saatavuus (7 päivää)"
+      },
+      "affected_areas_count": {
+        "name": "Vaikutettujen alueiden määrä"
+      },
+      "affected_areas": {
+        "name": "Vaikutetut alueet"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Äskettäin offline olevat alueet"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Äskettäin palautuneet alueet"
+      },
+      "mtbf": {
+        "name": "Keskimääräinen aika vikojen välillä"
+      },
+      "mttr": {
+        "name": "Keskimääräinen palautumisaika"
+      },
+      "stale_entities": {
+        "name": "Vanhentuneet entiteetit"
+      },
+      "stale_count": {
+        "name": "Vanhentuneiden määrä"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline-entiteetit (Ei-kriittinen)"
+      },
+      "offline_count_non_essential": {
+        "name": "Offline-määrä (Ei-kriittinen)"
+      },
+      "low_battery_non_essential": {
+        "name": "Matala akku (Ei-kriittinen)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Matalan akun määrä (Ei-kriittinen)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Vanhentuneet entiteetit (Ei-kriittinen)"
+      },
+      "stale_count_non_essential": {
+        "name": "Vanhentuneiden määrä (Ei-kriittinen)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Jokin offline"
+      },
+      "combined_any_offline": {
+        "name": "Jokin offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Jokin offline (Ei-kriittinen)"
+      },
+      "any_low_battery": {
+        "name": "Jokin matala akku"
+      },
+      "any_stale": {
+        "name": "Jokin vanhentunut"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Seuraa entiteettejä",
+        "combined_group": "Yhdistä ryhmiä"
+      }
+    }
+  }
+}

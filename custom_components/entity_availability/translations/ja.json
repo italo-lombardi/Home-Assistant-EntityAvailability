@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "エントリーの作成",
+        "description": "エンティティのグループを監視するか、既存のグループを結合します。",
+        "data": {
+          "entry_type": "タイプ"
+        }
+      },
+      "group": {
+        "title": "エンティティグループの作成",
+        "description": "可用性を監視するエンティティのグループを作成します。",
+        "data": {
+          "group_name": "グループ名",
+          "entities": "監視するエンティティ",
+          "non_essential_entities": "非必須エンティティ"
+        },
+        "data_description": {
+          "entities": "可用性を追跡するエンティティです。完全に監視され、すべてのKPIとアラートに含まれます。",
+          "non_essential_entities": "グループのヘルススコアに影響しないエンティティです。カードに表示され合計にも含まれますが、すべてのKPI（可用性%、オフライン数、MTBF、MTTR）から除外され、アラートをトリガーしません。ダウンタイムが許容されるデバイス（テレビ、プリンター、季節用デバイスなど）に使用します。"
+        }
+      },
+      "combined": {
+        "title": "結合グループの作成",
+        "description": "複数のグループをオートメーションとダッシュボード用に1つのビューに結合します。",
+        "data": {
+          "group_name": "結合グループ名",
+          "combined_groups": "含めるグループ"
+        }
+      },
+      "monitoring": {
+        "title": "監視設定",
+        "description": "エンティティの監視方法を設定します。",
+        "data": {
+          "bad_states": "オフラインとみなす状態",
+          "cooldown": "オフライン判定までのクールダウン",
+          "staleness_threshold": "データ停止のしきい値",
+          "staleness_use_last_updated": "属性の更新もアクティビティとしてカウントする"
+        },
+        "data_description": {
+          "bad_states": "エンティティがオフラインであることを示す状態（例：unavailable、unknown）。",
+          "cooldown": "エンティティがオフラインとマークされる前に、不正な状態のままでいる必要がある時間（秒）。短時間の切断による誤検知を防ぎます。",
+          "staleness_threshold": "エンティティがこの分数以上状態変化しない場合、デグレード状態としてマークします。「available」を報告しているにもかかわらず実際にはデータ送信が停止しているエンティティを検出します。0に設定すると無効になります。",
+          "staleness_use_last_updated": "オンにすると、属性のみの変更や同じ値の繰り返し報告を含む、エンティティからのあらゆる更新でデータ停止タイマーがリセットされます。オフ（デフォルト）の場合、メインの状態変化のみがカウントされます。値がほとんど変化しないが頻繁に報告するデバイス（温度や電力など）に有効にします。"
+        }
+      },
+      "advanced": {
+        "title": "詳細設定",
+        "description": "オプションの高度な監視機能。",
+        "data": {
+          "battery_threshold": "低バッテリーしきい値（%、0=無効）",
+          "availability_windows": "可用性追跡ウィンドウ",
+          "recovery_window": "回復ウィンドウ",
+          "use_device_names": "デバイス名を表示"
+        },
+        "data_description": {
+          "battery_threshold": "バッテリーがこのパーセンテージを下回るエンティティにフラグを立てます。「low」状態も自動的に検出されます。電圧ベースのエンティティはサポートされていません。バッテリーをパーセンテージで報告するか「low」状態をサポートするエンティティを使用してください。",
+          "availability_windows": "グループの可用性履歴を追跡する時間ウィンドウ（例：today、3d、7d）。",
+          "recovery_window": "状態遷移後にエンティティが「最近オフライン」または「最近回復」センサーに残る時間（分）。",
+          "use_device_names": "オフライン・回復センサーの状態でエンティティのフレンドリー名の代わりにHAデバイス名を表示します。デバイスに紐付けられていないエンティティはフレンドリー名にフォールバックします。"
+        }
+      },
+      "battery_mapping": {
+        "title": "バッテリーエンティティのマッピング",
+        "description": "監視中の各エンティティのバッテリーセンサーを確認または変更します。バッテリーのないエンティティは空欄のままにしてください。数値（%）とテキスト状態（「low」）をサポートします。"
+      }
+    },
+    "error": {
+      "empty_group_name": "グループ名を入力してください。",
+      "no_entities": "少なくとも1つのエンティティを選択してください。",
+      "duplicate_entities": "同じエンティティを両方のリストに含めることはできません。重複を削除してから保存してください。",
+      "not_enough_groups_selected": "結合するには少なくとも2つのグループを選択してください。"
+    },
+    "abort": {
+      "already_configured": "この名前のグループはすでに存在します。",
+      "not_enough_groups": "結合グループを作成するには少なくとも2つのグループが必要です。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "エンティティグループの編集",
+        "description": "このグループの監視設定を変更します。",
+        "data": {
+          "entities": "監視するエンティティ",
+          "non_essential_entities": "非必須エンティティ",
+          "bad_states": "オフラインとみなす状態",
+          "cooldown": "クールダウン（秒）",
+          "staleness_threshold": "データ停止のしきい値（分、0=無効）",
+          "battery_threshold": "低バッテリーしきい値（%、0=無効）",
+          "availability_windows": "可用性追跡ウィンドウ",
+          "recovery_window": "回復ウィンドウ（分）",
+          "use_device_names": "デバイス名を表示",
+          "staleness_use_last_updated": "属性の更新もアクティビティとしてカウントする"
+        },
+        "data_description": {
+          "entities": "可用性を追跡するエンティティです。完全に監視され、すべてのKPIとアラートに含まれます。",
+          "non_essential_entities": "グループのヘルススコアに影響しないエンティティです。カードに表示され合計にも含まれますが、すべてのKPI（可用性%、オフライン数、MTBF、MTTR）から除外され、アラートをトリガーしません。ダウンタイムが許容されるデバイス（テレビ、プリンター、季節用デバイスなど）に使用します。",
+          "bad_states": "エンティティがオフラインであることを示す状態（例：unavailable、unknown）。",
+          "cooldown": "エンティティがオフラインとマークされる前に、不正な状態のままでいる必要がある時間（秒）。短時間の切断による誤検知を防ぎます。",
+          "staleness_threshold": "エンティティがこの分数以上状態変化しない場合、デグレード状態としてマークします。0に設定すると無効になります。",
+          "battery_threshold": "バッテリーがこのパーセンテージを下回るエンティティにフラグを立てます。「low」状態も自動的に検出されます。電圧ベースのエンティティはサポートされていません。",
+          "availability_windows": "グループの可用性履歴を追跡する時間ウィンドウ（例：today、3d、7d）。",
+          "recovery_window": "状態遷移後にエンティティが「最近オフライン」または「最近回復」センサーに残る時間（分）。",
+          "use_device_names": "オフライン・回復センサーの状態でエンティティのフレンドリー名の代わりにHAデバイス名を表示します。デバイスに紐付けられていないエンティティはフレンドリー名にフォールバックします。",
+          "staleness_use_last_updated": "オンにすると、属性のみの変更や同じ値の繰り返し報告を含む、エンティティからのあらゆる更新でデータ停止タイマーがリセットされます。オフ（デフォルト）の場合、メインの状態変化のみがカウントされます。値がほとんど変化しないが頻繁に報告するデバイス（温度や電力など）に有効にします。"
+        }
+      },
+      "combined_init": {
+        "title": "結合グループの編集",
+        "description": "結合グループ名と含まれるグループを変更します。",
+        "data": {
+          "group_name": "結合グループ名",
+          "combined_groups": "含めるグループ"
+        }
+      },
+      "battery_mapping": {
+        "title": "バッテリーエンティティのマッピング",
+        "description": "監視中の各エンティティのバッテリーセンサーを確認または変更します。バッテリーのないエンティティは空欄のままにしてください。数値（%）とテキスト状態（「low」）をサポートします。"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "オフライン数"
+      },
+      "offline_entities": {
+        "name": "オフラインエンティティ"
+      },
+      "low_battery": {
+        "name": "低バッテリー"
+      },
+      "low_battery_count": {
+        "name": "低バッテリー数"
+      },
+      "group_summary": {
+        "name": "グループサマリー"
+      },
+      "recently_offline": {
+        "name": "最近オフライン"
+      },
+      "recently_recovered": {
+        "name": "最近回復"
+      },
+      "combined_summary": {
+        "name": "結合サマリー"
+      },
+      "availability_today": {
+        "name": "可用性（本日）"
+      },
+      "availability_3d": {
+        "name": "可用性（3日間）"
+      },
+      "availability_5d": {
+        "name": "可用性（5日間）"
+      },
+      "availability_7d": {
+        "name": "可用性（7日間）"
+      },
+      "affected_areas_count": {
+        "name": "影響エリア数"
+      },
+      "affected_areas": {
+        "name": "影響エリア"
+      },
+      "affected_areas_recently_offline": {
+        "name": "最近オフラインのエリア"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "最近回復のエリア"
+      },
+      "mtbf": {
+        "name": "平均故障間隔（MTBF）"
+      },
+      "mttr": {
+        "name": "平均復旧時間（MTTR）"
+      },
+      "stale_entities": {
+        "name": "停止エンティティ"
+      },
+      "stale_count": {
+        "name": "データ停止数"
+      },
+      "offline_entities_non_essential": {
+        "name": "オフラインエンティティ（非必須）"
+      },
+      "offline_count_non_essential": {
+        "name": "オフライン数（非必須）"
+      },
+      "low_battery_non_essential": {
+        "name": "低バッテリー（非必須）"
+      },
+      "low_battery_count_non_essential": {
+        "name": "低バッテリー数（非必須）"
+      },
+      "stale_entities_non_essential": {
+        "name": "停止エンティティ（非必須）"
+      },
+      "stale_count_non_essential": {
+        "name": "データ停止数（非必須）"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "オフラインあり"
+      },
+      "combined_any_offline": {
+        "name": "オフラインあり"
+      },
+      "any_offline_non_essential": {
+        "name": "オフラインあり（非必須）"
+      },
+      "any_low_battery": {
+        "name": "低バッテリーあり"
+      },
+      "any_stale": {
+        "name": "データ停止あり"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "エンティティを監視",
+        "combined_group": "グループを結合"
+      }
+    }
+  }
+}

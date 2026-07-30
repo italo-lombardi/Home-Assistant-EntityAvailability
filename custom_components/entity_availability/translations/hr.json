@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Stvori unos",
+        "description": "Pratite grupu entiteta ili kombinirajte postojeće grupe.",
+        "data": {
+          "entry_type": "Vrsta"
+        }
+      },
+      "group": {
+        "title": "Stvori grupu entiteta",
+        "description": "Stvorite grupu entiteta za praćenje dostupnosti.",
+        "data": {
+          "group_name": "Naziv grupe",
+          "entities": "Entiteti za praćenje",
+          "non_essential_entities": "Nebitni entiteti"
+        },
+        "data_description": {
+          "entities": "Entiteti čija se dostupnost prati. Potpuno su praćeni i uključeni u sve KPI-je i upozorenja.",
+          "non_essential_entities": "Entiteti koji ne utječu na ocjenu zdravlja grupe. Vidljivi su na kartici i uračunati u ukupne zbroje, ali isključeni iz svih KPI-ja (dostupnost %, broj offline, MTBF, MTTR) i nikad ne aktiviraju upozorenja. Koristite za uređaje kod kojih su prekidi prihvatljivi — televizor, pisač, sezonski uređaj."
+        }
+      },
+      "combined": {
+        "title": "Stvori kombiniranu grupu",
+        "description": "Kombinirajte više grupa u jedan prikaz za automatizacije i nadzorne ploče.",
+        "data": {
+          "group_name": "Naziv kombinirane grupe",
+          "combined_groups": "Grupe za uključivanje"
+        }
+      },
+      "monitoring": {
+        "title": "Postavke praćenja",
+        "description": "Konfigurirajte način na koji se entiteti prate.",
+        "data": {
+          "bad_states": "Stanja koja se smatraju offline",
+          "cooldown": "Čekanje prije označavanja offline",
+          "staleness_threshold": "Prag zastarjelosti",
+          "staleness_use_last_updated": "Računanje ažuriranja atributa kao aktivnost"
+        },
+        "data_description": {
+          "bad_states": "Stanja entiteta koja označavaju da je entitet offline (npr. nedostupan, nepoznat).",
+          "cooldown": "Koliko dugo (u sekundama) entitet mora ostati u lošem stanju prije nego se označi offline. Sprječava lažna upozorenja od kratkih prekida.",
+          "staleness_threshold": "Ako entitet nije promijenio stanje toliko minuta, označit će se kao degradiran. Time se otkrivaju entiteti koji prijavljuju 'dostupan', a zapravo su prestali slati podatke. Postavite na 0 za deaktiviranje.",
+          "staleness_use_last_updated": "Kada je uključeno, svako ažuriranje od entiteta — uključujući promjene samo atributa ili ponavljajuće iste vrijednosti — resetira tajmer zastarjelosti. Kada je isključeno (zadano), računa se samo promjena glavnog stanja. Uključite za uređaje koji često šalju podatke, ali rijetko mijenjaju vrijednost (npr. temperatura ili snaga koja ostaje stabilna)."
+        }
+      },
+      "advanced": {
+        "title": "Napredne postavke",
+        "description": "Neobavezne napredne funkcije praćenja.",
+        "data": {
+          "battery_threshold": "Prag slabe baterije (%, 0 = deaktivirano)",
+          "availability_windows": "Prozori za praćenje dostupnosti",
+          "recovery_window": "Prozor za oporavak",
+          "use_device_names": "Prikaži nazive uređaja"
+        },
+        "data_description": {
+          "battery_threshold": "Označava entitete čija baterija padne ispod ovog postotka. Stanje 'slaba' automatski se prepoznaje. Entiteti temeljeni na naponu nisu podržani. Koristite entitete koji prijavljuju bateriju kao postotak ili podržavaju stanje 'slaba'.",
+          "availability_windows": "Vremenski prozori za praćenje povijesti dostupnosti grupe (npr. danas, 3d, 7d).",
+          "recovery_window": "Koliko dugo (u minutama) entitet ostaje u senzorima 'Nedavno offline' ili 'Nedavno oporavljen' nakon promjene stanja.",
+          "use_device_names": "Prikazuje naziv HA uređaja umjesto prijaznog naziva entiteta u stanjima offline/oporavljen senzora. Za entitete koji nisu povezani s uređajem koristi se prijazni naziv."
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapiranje entiteta baterije",
+        "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba')."
+      }
+    },
+    "error": {
+      "empty_group_name": "Naziv grupe ne smije biti prazan.",
+      "no_entities": "Morate odabrati najmanje jedan entitet.",
+      "duplicate_entities": "Isti entitet ne može se pojaviti na oba popisa. Uklonite duplikate prije spremanja.",
+      "not_enough_groups_selected": "Odaberite najmanje dvije grupe za kombiniranje."
+    },
+    "abort": {
+      "already_configured": "Grupa s ovim nazivom već postoji.",
+      "not_enough_groups": "Potrebne su najmanje dvije grupe prije stvaranja kombinirane grupe."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Uredi grupu entiteta",
+        "description": "Izmjenite postavke praćenja za ovu grupu.",
+        "data": {
+          "entities": "Entiteti za praćenje",
+          "non_essential_entities": "Nebitni entiteti",
+          "bad_states": "Stanja koja se smatraju offline",
+          "cooldown": "Čekanje (sekunde)",
+          "staleness_threshold": "Prag zastarjelosti (minute, 0 = deaktivirano)",
+          "battery_threshold": "Prag slabe baterije (%, 0 = deaktivirano)",
+          "availability_windows": "Prozori za praćenje dostupnosti",
+          "recovery_window": "Prozor za oporavak (minute)",
+          "use_device_names": "Prikaži nazive uređaja",
+          "staleness_use_last_updated": "Računanje ažuriranja atributa kao aktivnost"
+        },
+        "data_description": {
+          "entities": "Entiteti čija se dostupnost prati. Potpuno su praćeni i uključeni u sve KPI-je i upozorenja.",
+          "non_essential_entities": "Entiteti koji ne utječu na ocjenu zdravlja grupe. Vidljivi su na kartici i uračunati u ukupne zbroje, ali isključeni iz svih KPI-ja (dostupnost %, broj offline, MTBF, MTTR) i nikad ne aktiviraju upozorenja. Koristite za uređaje kod kojih su prekidi prihvatljivi — televizor, pisač, sezonski uređaj.",
+          "bad_states": "Stanja entiteta koja označavaju da je entitet offline (npr. nedostupan, nepoznat).",
+          "cooldown": "Koliko dugo (u sekundama) entitet mora ostati u lošem stanju prije nego se označi offline. Sprječava lažna upozorenja od kratkih prekida.",
+          "staleness_threshold": "Ako entitet nije promijenio stanje toliko minuta, označit će se kao degradiran. Postavite na 0 za deaktiviranje.",
+          "battery_threshold": "Označava entitete čija baterija padne ispod ovog postotka. Stanje 'slaba' automatski se prepoznaje. Entiteti temeljeni na naponu nisu podržani.",
+          "availability_windows": "Vremenski prozori za praćenje povijesti dostupnosti grupe (npr. danas, 3d, 7d).",
+          "recovery_window": "Koliko dugo (u minutama) entitet ostaje u senzorima 'Nedavno offline' ili 'Nedavno oporavljen' nakon promjene stanja.",
+          "use_device_names": "Prikazuje naziv HA uređaja umjesto prijaznog naziva entiteta u stanjima offline/oporavljen senzora. Za entitete koji nisu povezani s uređajem koristi se prijazni naziv.",
+          "staleness_use_last_updated": "Kada je uključeno, svako ažuriranje od entiteta — uključujući promjene samo atributa ili ponavljajuće iste vrijednosti — resetira tajmer zastarjelosti. Kada je isključeno (zadano), računa se samo promjena glavnog stanja. Uključite za uređaje koji često šalju podatke, ali rijetko mijenjaju vrijednost (npr. temperatura ili snaga koja ostaje stabilna)."
+        }
+      },
+      "combined_init": {
+        "title": "Uredi kombiniranu grupu",
+        "description": "Izmjenite naziv i uključene grupe kombinirane grupe.",
+        "data": {
+          "group_name": "Naziv kombinirane grupe",
+          "combined_groups": "Grupe za uključivanje"
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapiranje entiteta baterije",
+        "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba')."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Broj offline"
+      },
+      "offline_entities": {
+        "name": "Offline entiteti"
+      },
+      "low_battery": {
+        "name": "Slaba baterija"
+      },
+      "low_battery_count": {
+        "name": "Broj sa slabom baterijom"
+      },
+      "group_summary": {
+        "name": "Sažetak grupe"
+      },
+      "recently_offline": {
+        "name": "Nedavno offline"
+      },
+      "recently_recovered": {
+        "name": "Nedavno oporavljen"
+      },
+      "combined_summary": {
+        "name": "Kombinirani sažetak"
+      },
+      "availability_today": {
+        "name": "Dostupnost (Danas)"
+      },
+      "availability_3d": {
+        "name": "Dostupnost (3 dana)"
+      },
+      "availability_5d": {
+        "name": "Dostupnost (5 dana)"
+      },
+      "availability_7d": {
+        "name": "Dostupnost (7 dana)"
+      },
+      "affected_areas_count": {
+        "name": "Broj pogođenih područja"
+      },
+      "affected_areas": {
+        "name": "Pogođena područja"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Područja nedavno offline"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Područja nedavno oporavljena"
+      },
+      "mtbf": {
+        "name": "Srednje vrijeme između kvarova"
+      },
+      "mttr": {
+        "name": "Srednje vrijeme do oporavka"
+      },
+      "stale_entities": {
+        "name": "Entiteti sa zastarjelim podacima"
+      },
+      "stale_count": {
+        "name": "Broj sa zastarjelim podacima"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline entiteti (Nebitni)"
+      },
+      "offline_count_non_essential": {
+        "name": "Broj offline (Nebitni)"
+      },
+      "low_battery_non_essential": {
+        "name": "Slaba baterija (Nebitni)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Broj sa slabom baterijom (Nebitni)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entiteti sa zastarjelim podacima (Nebitni)"
+      },
+      "stale_count_non_essential": {
+        "name": "Broj sa zastarjelim podacima (Nebitni)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Ima offline"
+      },
+      "combined_any_offline": {
+        "name": "Ima offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Ima offline (Nebitni)"
+      },
+      "any_low_battery": {
+        "name": "Ima slabe baterije"
+      },
+      "any_stale": {
+        "name": "Ima zastarjelih podataka"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Pratite entitete",
+        "combined_group": "Kombinirajte grupe"
+      }
+    }
+  }
+}

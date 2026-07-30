@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Creare intrare",
+        "description": "Monitorizați un grup de entități sau combinați grupuri existente.",
+        "data": {
+          "entry_type": "Tip"
+        }
+      },
+      "group": {
+        "title": "Creare grup de entități",
+        "description": "Creați un grup de entități pentru monitorizarea disponibilității.",
+        "data": {
+          "group_name": "Numele grupului",
+          "entities": "Entități de monitorizat",
+          "non_essential_entities": "Entități neesențiale"
+        },
+        "data_description": {
+          "entities": "Entitățile urmărite pentru disponibilitate. Acestea sunt monitorizate complet și incluse în toți KPI-ii și alertele.",
+          "non_essential_entities": "Entități care nu afectează scorul de sănătate al grupului. Sunt vizibile pe card și incluse în totaluri, dar excluse din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și nu declanșează niciodată alerte. Folosiți pentru dispozitive unde timpul de nefuncționare este acceptabil — un televizor, o imprimantă, un dispozitiv sezonier."
+        }
+      },
+      "combined": {
+        "title": "Creare grup combinat",
+        "description": "Combinați mai multe grupuri într-o singură vizualizare pentru automatizări și tablouri de bord.",
+        "data": {
+          "group_name": "Numele grupului combinat",
+          "combined_groups": "Grupuri de inclus"
+        }
+      },
+      "monitoring": {
+        "title": "Setări de monitorizare",
+        "description": "Configurați modul în care sunt monitorizate entitățile.",
+        "data": {
+          "bad_states": "Stări considerate offline",
+          "cooldown": "Timp de așteptare înainte de marcarea ca offline",
+          "staleness_threshold": "Prag de expirare",
+          "staleness_use_last_updated": "Actualizările de atribute contează ca activitate"
+        },
+        "data_description": {
+          "bad_states": "Stările entităților care indică faptul că acestea sunt offline (ex.: unavailable, unknown).",
+          "cooldown": "Cât timp (în secunde) trebuie să rămână o entitate într-o stare proastă înainte de a fi marcată offline. Previne alarmele false cauzate de deconectări scurte.",
+          "staleness_threshold": "Dacă o entitate nu și-a schimbat starea de atâtea minute, o marcăm ca degradată. Detectează entitățile care raportează 'disponibil' dar au încetat de fapt să trimită date. Setați la 0 pentru a dezactiva.",
+          "staleness_use_last_updated": "Când este activat, orice actualizare de la entitate — inclusiv modificări doar de atribute sau raportări repetate cu aceeași valoare — resetează cronometrul de expirare. Când este dezactivat (implicit), contează doar o schimbare a stării principale. Activați pentru dispozitivele care raportează frecvent, dar își schimbă rar valoarea (ex.: temperatură sau putere stabilă)."
+        }
+      },
+      "advanced": {
+        "title": "Setări avansate",
+        "description": "Funcții opționale avansate de monitorizare.",
+        "data": {
+          "battery_threshold": "Prag baterie descărcată (%, 0 = dezactivat)",
+          "availability_windows": "Ferestre de urmărire a disponibilității",
+          "recovery_window": "Fereastră de recuperare",
+          "use_device_names": "Afișați numele dispozitivelor"
+        },
+        "data_description": {
+          "battery_threshold": "Marcați entitățile al căror nivel de baterie scade sub acest procent. Starea 'low' este detectată automat. Entitățile bazate pe tensiune nu sunt acceptate. Folosiți entități care raportează bateria ca procent sau acceptă starea 'low'.",
+          "availability_windows": "Ferestre de timp pentru urmărirea istoricului disponibilității grupului (ex.: azi, 3z, 7z).",
+          "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
+          "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv."
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapare entități baterie",
+        "description": "Confirmați sau modificați senzorul de baterie pentru fiecare entitate monitorizată. Lăsați gol pentru entitățile fără baterie. Acceptă stări numerice (%) și text ('low')."
+      }
+    },
+    "error": {
+      "empty_group_name": "Numele grupului nu poate fi gol.",
+      "no_entities": "Trebuie să selectați cel puțin o entitate.",
+      "duplicate_entities": "Aceeași entitate nu poate apărea în ambele liste. Eliminați duplicatele înainte de salvare.",
+      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare."
+    },
+    "abort": {
+      "already_configured": "Există deja un grup cu acest nume.",
+      "not_enough_groups": "Aveți nevoie de cel puțin două grupuri înainte de a crea un grup combinat."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Editare grup de entități",
+        "description": "Modificați setările de monitorizare pentru acest grup.",
+        "data": {
+          "entities": "Entități de monitorizat",
+          "non_essential_entities": "Entități neesențiale",
+          "bad_states": "Stări considerate offline",
+          "cooldown": "Timp de așteptare (secunde)",
+          "staleness_threshold": "Prag de expirare (minute, 0 = dezactivat)",
+          "battery_threshold": "Prag baterie descărcată (%, 0 = dezactivat)",
+          "availability_windows": "Ferestre de urmărire a disponibilității",
+          "recovery_window": "Fereastră de recuperare (minute)",
+          "use_device_names": "Afișați numele dispozitivelor",
+          "staleness_use_last_updated": "Actualizările de atribute contează ca activitate"
+        },
+        "data_description": {
+          "entities": "Entitățile urmărite pentru disponibilitate. Acestea sunt monitorizate complet și incluse în toți KPI-ii și alertele.",
+          "non_essential_entities": "Entități care nu afectează scorul de sănătate al grupului. Sunt vizibile pe card și incluse în totaluri, dar excluse din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și nu declanșează niciodată alerte. Folosiți pentru dispozitive unde timpul de nefuncționare este acceptabil — un televizor, o imprimantă, un dispozitiv sezonier.",
+          "bad_states": "Stările entităților care indică faptul că acestea sunt offline (ex.: unavailable, unknown).",
+          "cooldown": "Cât timp (în secunde) trebuie să rămână o entitate într-o stare proastă înainte de a fi marcată offline. Previne alarmele false cauzate de deconectări scurte.",
+          "staleness_threshold": "Dacă o entitate nu și-a schimbat starea de atâtea minute, o marcăm ca degradată. Setați la 0 pentru a dezactiva.",
+          "battery_threshold": "Marcați entitățile al căror nivel de baterie scade sub acest procent. Starea 'low' este detectată automat. Entitățile bazate pe tensiune nu sunt acceptate.",
+          "availability_windows": "Ferestre de timp pentru urmărirea istoricului disponibilității grupului (ex.: azi, 3z, 7z).",
+          "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
+          "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv.",
+          "staleness_use_last_updated": "Când este activat, orice actualizare de la entitate — inclusiv modificări doar de atribute sau raportări repetate cu aceeași valoare — resetează cronometrul de expirare. Când este dezactivat (implicit), contează doar o schimbare a stării principale. Activați pentru dispozitivele care raportează frecvent, dar își schimbă rar valoarea (ex.: temperatură sau putere stabilă)."
+        }
+      },
+      "combined_init": {
+        "title": "Editare grup combinat",
+        "description": "Modificați numele și grupurile incluse în grupul combinat.",
+        "data": {
+          "group_name": "Numele grupului combinat",
+          "combined_groups": "Grupuri de inclus"
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapare entități baterie",
+        "description": "Confirmați sau modificați senzorul de baterie pentru fiecare entitate monitorizată. Lăsați gol pentru entitățile fără baterie. Acceptă stări numerice (%) și text ('low')."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Număr offline"
+      },
+      "offline_entities": {
+        "name": "Entități offline"
+      },
+      "low_battery": {
+        "name": "Baterie descărcată"
+      },
+      "low_battery_count": {
+        "name": "Număr baterii descărcate"
+      },
+      "group_summary": {
+        "name": "Rezumat grup"
+      },
+      "recently_offline": {
+        "name": "Offline recent"
+      },
+      "recently_recovered": {
+        "name": "Recuperat recent"
+      },
+      "combined_summary": {
+        "name": "Rezumat combinat"
+      },
+      "availability_today": {
+        "name": "Disponibilitate (azi)"
+      },
+      "availability_3d": {
+        "name": "Disponibilitate (3 zile)"
+      },
+      "availability_5d": {
+        "name": "Disponibilitate (5 zile)"
+      },
+      "availability_7d": {
+        "name": "Disponibilitate (7 zile)"
+      },
+      "affected_areas_count": {
+        "name": "Număr zone afectate"
+      },
+      "affected_areas": {
+        "name": "Zone afectate"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Zone offline recent"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Zone recuperate recent"
+      },
+      "mtbf": {
+        "name": "Timp mediu între defecțiuni (MTBF)"
+      },
+      "mttr": {
+        "name": "Timp mediu de recuperare (MTTR)"
+      },
+      "stale_entities": {
+        "name": "Entități expirate"
+      },
+      "stale_count": {
+        "name": "Număr entități expirate"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entități offline (Neesențial)"
+      },
+      "offline_count_non_essential": {
+        "name": "Număr offline (Neesențial)"
+      },
+      "low_battery_non_essential": {
+        "name": "Baterie descărcată (Neesențial)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Număr baterii descărcate (Neesențial)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entități expirate (Neesențial)"
+      },
+      "stale_count_non_essential": {
+        "name": "Număr entități expirate (Neesențial)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Există entitate offline"
+      },
+      "combined_any_offline": {
+        "name": "Există entitate offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Există entitate offline (Neesențial)"
+      },
+      "any_low_battery": {
+        "name": "Există baterie descărcată"
+      },
+      "any_stale": {
+        "name": "Există entitate expirată"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Monitorizare entități",
+        "combined_group": "Combinare grupuri"
+      }
+    }
+  }
+}

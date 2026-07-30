@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Vytvoriť záznam",
+        "description": "Monitorujte skupinu entít alebo kombinujte existujúce skupiny.",
+        "data": {
+          "entry_type": "Typ"
+        }
+      },
+      "group": {
+        "title": "Vytvoriť skupinu entít",
+        "description": "Vytvorte skupinu entít na sledovanie dostupnosti.",
+        "data": {
+          "group_name": "Názov skupiny",
+          "entities": "Entity na sledovanie",
+          "non_essential_entities": "Nedôležité entity"
+        },
+        "data_description": {
+          "entities": "Entity sledované z hľadiska dostupnosti. Sú plne monitorované a zahrnuté do všetkých KPI a upozornení.",
+          "non_essential_entities": "Entity, ktoré neovplyvňujú skóre zdravia skupiny. Zobrazujú sa na karte a počítajú sa do celkových súčtov, ale sú vylúčené zo všetkých KPI (dostupnosť %, počet offline, MTBF, MTTR) a nikdy nevyvolávajú upozornenia. Používajte pre zariadenia, u ktorých je výpadok prijateľný — televízor, tlačiareň, sezónne zariadenie."
+        }
+      },
+      "combined": {
+        "title": "Vytvoriť kombinovanú skupinu",
+        "description": "Zlúčte viacero skupín do jedného prehľadu pre automatizácie a dashboardy.",
+        "data": {
+          "group_name": "Názov kombinovanej skupiny",
+          "combined_groups": "Skupiny na zahrnutie"
+        }
+      },
+      "monitoring": {
+        "title": "Nastavenia monitorovania",
+        "description": "Nakonfigurujte spôsob sledovania entít.",
+        "data": {
+          "bad_states": "Stavy považované za offline",
+          "cooldown": "Prodleva pred označením ako offline",
+          "staleness_threshold": "Prah zastarania",
+          "staleness_use_last_updated": "Počítať aktualizácie atribútov ako aktivitu"
+        },
+        "data_description": {
+          "bad_states": "Stavy entity označujúce, že je entita offline (napr. unavailable, unknown).",
+          "cooldown": "Ako dlho (v sekundách) musí entita zostať v zlom stave, kým je označená ako offline. Zabraňuje falošným poplachom pri krátkych výpadkoch spojenia.",
+          "staleness_threshold": "Ak entita nezmenila stav po tento počet minút, označte ju ako degradovanú. Odhaľuje entity, ktoré hlásia 'dostupná', ale prestali odosielať dáta. Nastavte na 0 pre vypnutie.",
+          "staleness_use_last_updated": "Keď je zapnuté, akákoľvek aktualizácia entity — vrátane zmien len atribútov alebo opakovaných hlásení rovnakej hodnoty — resetuje časovač zastarania. Keď je vypnuté (predvolené), počíta sa iba zmena hlavného stavu. Zapnite pre zariadenia, ktoré hlásia často, ale len zriedka menia hodnotu (napr. teplota alebo výkon, ktorý zostáva stabilný)."
+        }
+      },
+      "advanced": {
+        "title": "Rozšírené nastavenia",
+        "description": "Voliteľné rozšírené funkcie monitorovania.",
+        "data": {
+          "battery_threshold": "Prah nízkej úrovne batérie (%, 0 = vypnuté)",
+          "availability_windows": "Časové okná sledovania dostupnosti",
+          "recovery_window": "Okno obnovy",
+          "use_device_names": "Zobrazovať názvy zariadení"
+        },
+        "data_description": {
+          "battery_threshold": "Označuje entity, ktorých batéria klesne pod toto percento. Stav 'low' je tiež automaticky detegovaný. Entity na voltovom základe nie sú podporované. Používajte entity, ktoré hlásia stav batérie v percentách alebo podporujú stav 'low'.",
+          "availability_windows": "Časové okná na sledovanie histórie dostupnosti skupiny (napr. dnes, 3d, 7d).",
+          "recovery_window": "Ako dlho (v minútach) zostane entita v senzoroch Nedávno offline alebo Nedávno obnovená po zmene stavu.",
+          "use_device_names": "Zobrazuje názov zariadenia HA namiesto priateľského názvu entity v stavoch offline/obnovená. Pre entity neprepojené so zariadením sa použije priateľský názov entity."
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapovanie senzora batérie",
+        "description": "Potvrďte alebo zmeňte senzor batérie pre každú sledovanú entitu. Ponechajte prázdne pre entity bez batérie. Podporuje číselné (%) aj textové stavy ('low')."
+      }
+    },
+    "error": {
+      "empty_group_name": "Názov skupiny nesmie byť prázdny.",
+      "no_entities": "Musíte vybrať aspoň jednu entitu.",
+      "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
+      "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie."
+    },
+    "abort": {
+      "already_configured": "Skupina s týmto názvom už existuje.",
+      "not_enough_groups": "Pred vytvorením kombinovanej skupiny potrebujete aspoň dve skupiny."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Upraviť skupinu entít",
+        "description": "Zmeňte nastavenia monitorovania pre túto skupinu.",
+        "data": {
+          "entities": "Entity na sledovanie",
+          "non_essential_entities": "Nedôležité entity",
+          "bad_states": "Stavy považované za offline",
+          "cooldown": "Prodleva (sekundy)",
+          "staleness_threshold": "Prah zastarania (minúty, 0 = vypnuté)",
+          "battery_threshold": "Prah nízkej úrovne batérie (%, 0 = vypnuté)",
+          "availability_windows": "Časové okná sledovania dostupnosti",
+          "recovery_window": "Okno obnovy (minúty)",
+          "use_device_names": "Zobrazovať názvy zariadení",
+          "staleness_use_last_updated": "Počítať aktualizácie atribútov ako aktivitu"
+        },
+        "data_description": {
+          "entities": "Entity sledované z hľadiska dostupnosti. Sú plne monitorované a zahrnuté do všetkých KPI a upozornení.",
+          "non_essential_entities": "Entity zobrazené a započítané na karte, ale vylúčené zo všetkých KPI (počet offline, dostupnosť %, MTBF, MTTR) a upozornení. Vhodné pre zariadenia, ktoré majú byť offline (TV v pohotovostnom režime, tlačiareň vypnutá medzi úlohami).",
+          "bad_states": "Stavy entity označujúce, že je entita offline (napr. unavailable, unknown).",
+          "cooldown": "Ako dlho (v sekundách) musí entita zostať v zlom stave, kým je označená ako offline. Zabraňuje falošným poplachom pri krátkych výpadkoch.",
+          "staleness_threshold": "Ak entita nezmenila stav po tento počet minút, je označená ako degradovaná. Nastavte na 0 pre vypnutie.",
+          "battery_threshold": "Označuje entity, ktorých batéria klesne pod toto percento. Stav 'low' je tiež automaticky detegovaný. Entity na voltovom základe nie sú podporované.",
+          "availability_windows": "Časové okná na sledovanie histórie dostupnosti skupiny (napr. dnes, 3d, 7d).",
+          "recovery_window": "Ako dlho (v minútach) zostane entita v senzoroch Nedávno offline alebo Nedávno obnovená po zmene stavu.",
+          "use_device_names": "Zobrazuje názov zariadenia HA namiesto priateľského názvu entity v stavoch offline/obnovená. Pre entity neprepojené so zariadením sa použije priateľský názov entity.",
+          "staleness_use_last_updated": "Keď je zapnuté, akákoľvek aktualizácia entity — vrátane zmien len atribútov alebo opakovaných hlásení rovnakej hodnoty — resetuje časovač zastarania. Keď je vypnuté (predvolené), počíta sa iba zmena hlavného stavu. Zapnite pre zariadenia, ktoré hlásia často, ale len zriedka menia hodnotu (napr. teplota alebo výkon, ktorý zostáva stabilný)."
+        }
+      },
+      "combined_init": {
+        "title": "Upraviť kombinovanú skupinu",
+        "description": "Zmeňte názov a zahrnuté skupiny tejto kombinovanej skupiny.",
+        "data": {
+          "group_name": "Názov kombinovanej skupiny",
+          "combined_groups": "Skupiny na zahrnutie"
+        }
+      },
+      "battery_mapping": {
+        "title": "Mapovanie senzora batérie",
+        "description": "Potvrďte alebo zmeňte senzor batérie pre každú sledovanú entitu. Ponechajte prázdne pre entity bez batérie. Podporuje číselné (%) aj textové stavy ('low')."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Počet offline"
+      },
+      "offline_entities": {
+        "name": "Entity offline"
+      },
+      "low_battery": {
+        "name": "Nízka batéria"
+      },
+      "low_battery_count": {
+        "name": "Počet nízkych batérií"
+      },
+      "group_summary": {
+        "name": "Prehľad skupiny"
+      },
+      "recently_offline": {
+        "name": "Nedávno offline"
+      },
+      "recently_recovered": {
+        "name": "Nedávno obnovená"
+      },
+      "combined_summary": {
+        "name": "Kombinovaný prehľad"
+      },
+      "availability_today": {
+        "name": "Dostupnosť (dnes)"
+      },
+      "availability_3d": {
+        "name": "Dostupnosť (3 dni)"
+      },
+      "availability_5d": {
+        "name": "Dostupnosť (5 dní)"
+      },
+      "availability_7d": {
+        "name": "Dostupnosť (7 dní)"
+      },
+      "affected_areas_count": {
+        "name": "Počet postihnutých oblastí"
+      },
+      "affected_areas": {
+        "name": "Postihnuté oblasti"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Oblasti nedávno offline"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Oblasti nedávno obnovené"
+      },
+      "mtbf": {
+        "name": "Stredná doba medzi poruchami"
+      },
+      "mttr": {
+        "name": "Stredná doba obnovy"
+      },
+      "stale_entities": {
+        "name": "Zastarané entity"
+      },
+      "stale_count": {
+        "name": "Počet zastaraných"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entity offline (Nedôležitý)"
+      },
+      "offline_count_non_essential": {
+        "name": "Počet offline (Nedôležitý)"
+      },
+      "low_battery_non_essential": {
+        "name": "Nízka batéria (Nedôležitý)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Počet nízkych batérií (Nedôležitý)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Zastarané entity (Nedôležitý)"
+      },
+      "stale_count_non_essential": {
+        "name": "Počet zastaraných (Nedôležitý)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Niektorá entita offline"
+      },
+      "combined_any_offline": {
+        "name": "Niektorá entita offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Niektorá entita offline (Nedôležitý)"
+      },
+      "any_low_battery": {
+        "name": "Nízka batéria zistená"
+      },
+      "any_stale": {
+        "name": "Zastaraná entita zistená"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Monitorovať entity",
+        "combined_group": "Kombinovať skupiny"
+      }
+    }
+  }
+}

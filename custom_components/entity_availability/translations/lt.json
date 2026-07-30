@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Kurti įrašą",
+        "description": "Stebėkite objektų grupę arba sujunkite esamas grupes.",
+        "data": {
+          "entry_type": "Tipas"
+        }
+      },
+      "group": {
+        "title": "Kurti objektų grupę",
+        "description": "Sukurkite objektų grupę, kurios pasiekiamumą norėsite stebėti.",
+        "data": {
+          "group_name": "Grupės pavadinimas",
+          "entities": "Stebimi objektai",
+          "non_essential_entities": "Neesminiai objektai"
+        },
+        "data_description": {
+          "entities": "Objektai, kurių pasiekiamumas bus sekamas. Jie yra visiškai stebimi ir įtraukiami į visus KPI bei įspėjimus.",
+          "non_essential_entities": "Objektai, kurie neveikia jūsų grupės sveikatos balo. Matomi kortelėje ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir niekada neaktyvina įspėjimų. Naudokite įrenginiams, kurių prastova yra priimtina — televizoriui, spausdintuvui, sezoniniams įrenginiams."
+        }
+      },
+      "combined": {
+        "title": "Kurti jungtinę grupę",
+        "description": "Sujunkite kelias grupes į vieną rodinį automatizavimui ir informaciniams skydeliams.",
+        "data": {
+          "group_name": "Jungtinės grupės pavadinimas",
+          "combined_groups": "Įtraukiamos grupės"
+        }
+      },
+      "monitoring": {
+        "title": "Stebėjimo nustatymai",
+        "description": "Konfigūruokite, kaip stebimi objektai.",
+        "data": {
+          "bad_states": "Būsenos, laikomos neprisijungusiomis",
+          "cooldown": "Laukimo laikas prieš pažymint neprisijungusiu",
+          "staleness_threshold": "Paseno duomenų riba",
+          "staleness_use_last_updated": "Atributų atnaujinimą skaičiuoti kaip aktyvumą"
+        },
+        "data_description": {
+          "bad_states": "Objektų būsenos, reiškiančios, kad objektas yra neprisijungęs (pvz., nepasiekiamas, nežinomas).",
+          "cooldown": "Kiek laiko (sekundėmis) objektas turi išbūti blogoje būsenoje, prieš jį pažymint neprisijungusiu. Apsaugo nuo klaidingų įspėjimų dėl trumpų atjungimų.",
+          "staleness_threshold": "Jei objektas nepakeitė būsenos šį skaičių minučių, jis pažymimas kaip degradavęs. Taip aptinkami objektai, kurie praneša, kad yra pasiekiami, bet iš tikrųjų nustojo siųsti duomenis. Nustatykite 0, kad išjungtumėte.",
+          "staleness_use_last_updated": "Įjungus, bet koks objekto atnaujinimas — įskaitant tik atributų pakeitimus ar pasikartojančias tas pačias reikšmes — atnaujina pasenimo laikmatį. Išjungus (numatytoji reikšmė), skaičiuojamas tik pagrindinės būsenos pasikeitimas. Įjunkite įrenginiams, kurie dažnai praneša, bet retai keičia reikšmę (pvz., temperatūra ar galia, kuri išlieka stabili)."
+        }
+      },
+      "advanced": {
+        "title": "Išplėstiniai nustatymai",
+        "description": "Pasirinktinės išplėstinės stebėjimo funkcijos.",
+        "data": {
+          "battery_threshold": "Žemo baterijos lygio riba (%, 0 = išjungta)",
+          "availability_windows": "Pasiekiamumo sekimo langai",
+          "recovery_window": "Atkūrimo langas",
+          "use_device_names": "Rodyti įrenginių pavadinimus"
+        },
+        "data_description": {
+          "battery_threshold": "Pažymėti objektus, kurių baterija nukrinta žemiau šio procento. Būsena „žemas” taip pat aptinkama automatiškai. Volt pagrįsti objektai nepalaikomi. Naudokite objektus, kurie praneša bateriją kaip procentą arba palaiko būseną „žemas”.",
+          "availability_windows": "Laiko langai grupės pasiekiamumo istorijai sekti (pvz., šiandien, 3d, 7d).",
+          "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių” arba „Neseniai atkurtų” jutikliuose po būsenos perėjimo.",
+          "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu."
+        }
+      },
+      "battery_mapping": {
+        "title": "Baterijos objektų susiejimas",
+        "description": "Patvirtinkite arba pakeiskite baterijos jutiklį kiekvienam stebimam objektui. Palikite tuščią objektams be baterijos. Palaiko skaitines (%) ir tekstines būsenas ('low')."
+      }
+    },
+    "error": {
+      "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
+      "no_entities": "Turite pasirinkti bent vieną objektą.",
+      "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
+      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui."
+    },
+    "abort": {
+      "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
+      "not_enough_groups": "Prieš kuriant jungtinę grupę, reikia turėti bent dvi grupes."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Redaguoti objektų grupę",
+        "description": "Keiskite šios grupės stebėjimo nustatymus.",
+        "data": {
+          "entities": "Stebimi objektai",
+          "non_essential_entities": "Neesminiai objektai",
+          "bad_states": "Būsenos, laikomos neprisijungusiomis",
+          "cooldown": "Laukimo laikas (sekundės)",
+          "staleness_threshold": "Paseno duomenų riba (minutės, 0 = išjungta)",
+          "battery_threshold": "Žemo baterijos lygio riba (%, 0 = išjungta)",
+          "availability_windows": "Pasiekiamumo sekimo langai",
+          "recovery_window": "Atkūrimo langas (minutės)",
+          "use_device_names": "Rodyti įrenginių pavadinimus",
+          "staleness_use_last_updated": "Atributų atnaujinimą skaičiuoti kaip aktyvumą"
+        },
+        "data_description": {
+          "entities": "Objektai, kurių pasiekiamumas bus sekamas. Jie yra visiškai stebimi ir įtraukiami į visus KPI bei įspėjimus.",
+          "non_essential_entities": "Objektai, kurie neveikia jūsų grupės sveikatos baalo. Matomi kortelėje ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir niekada neaktyvina įspėjimų. Naudokite įrenginiams, kurių prastova yra priimtina — televizoriui, spausdintuvui, sezoniniams įrenginiams.",
+          "bad_states": "Objektų būsenos, reiškiančios, kad objektas yra neprisijungęs (pvz., nepasiekiamas, nežinomas).",
+          "cooldown": "Kiek laiko (sekundėmis) objektas turi išbūti blogoje būsenoje, prieš jį pažymint neprisijungusiu. Apsaugo nuo klaidingų įspėjimų dėl trumpų atjungimų.",
+          "staleness_threshold": "Jei objektas nepakeitė būsenos šį skaičių minučių, jis pažymimas kaip degradavęs. Nustatykite 0, kad išjungtumėte.",
+          "battery_threshold": "Pažymėti objektus, kurių baterija nukrinta žemiau šio procento. Būsena „žemas” taip pat aptinkama automatiškai. Volt pagrįsti objektai nepalaikomi.",
+          "availability_windows": "Laiko langai grupės pasiekiamumo istorijai sekti (pvz., šiandien, 3d, 7d).",
+          "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių” arba „Neseniai atkurtų” jutikliuose po būsenos perėjimo.",
+          "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu.",
+          "staleness_use_last_updated": "Įjungus, bet koks objekto atnaujinimas — įskaitant tik atributų pakeitimus ar pasikartojančias tas pačias reikšmes — atnaujina pasenimo laikmatį. Išjungus (numatytoji reikšmė), skaičiuojamas tik pagrindinės būsenos pasikeitimas. Įjunkite įrenginiams, kurie dažnai praneša, bet retai keičia reikšmę (pvz., temperatūra ar galia, kuri išlieka stabili)."
+        }
+      },
+      "combined_init": {
+        "title": "Redaguoti jungtinę grupę",
+        "description": "Keiskite jungtinės grupės pavadinimą ir įtraukiamas grupes.",
+        "data": {
+          "group_name": "Jungtinės grupės pavadinimas",
+          "combined_groups": "Įtraukiamos grupės"
+        }
+      },
+      "battery_mapping": {
+        "title": "Baterijos objektų susiejimas",
+        "description": "Patvirtinkite arba pakeiskite baterijos jutiklį kiekvienam stebimam objektui. Palikite tuščią objektams be baterijos. Palaiko skaitines (%) ir tekstines būsenas ('low')."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Neprisijungusių skaičius"
+      },
+      "offline_entities": {
+        "name": "Neprisijungę objektai"
+      },
+      "low_battery": {
+        "name": "Žema baterija"
+      },
+      "low_battery_count": {
+        "name": "Žemos baterijos skaičius"
+      },
+      "group_summary": {
+        "name": "Grupės santrauka"
+      },
+      "recently_offline": {
+        "name": "Neseniai neprisijungę"
+      },
+      "recently_recovered": {
+        "name": "Neseniai atkurti"
+      },
+      "combined_summary": {
+        "name": "Jungtinė santrauka"
+      },
+      "availability_today": {
+        "name": "Pasiekiamumas (šiandien)"
+      },
+      "availability_3d": {
+        "name": "Pasiekiamumas (3 dienos)"
+      },
+      "availability_5d": {
+        "name": "Pasiekiamumas (5 dienos)"
+      },
+      "availability_7d": {
+        "name": "Pasiekiamumas (7 dienos)"
+      },
+      "affected_areas_count": {
+        "name": "Paveiktų zonų skaičius"
+      },
+      "affected_areas": {
+        "name": "Paveiktos zonos"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Neseniai neprisijungusios zonos"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Neseniai atkurtos zonos"
+      },
+      "mtbf": {
+        "name": "Vidutinis laikas tarp gedimų"
+      },
+      "mttr": {
+        "name": "Vidutinis atkūrimo laikas"
+      },
+      "stale_entities": {
+        "name": "Pasenę objektai"
+      },
+      "stale_count": {
+        "name": "Pasenusių skaičius"
+      },
+      "offline_entities_non_essential": {
+        "name": "Neprisijungę objektai (Neesminiai)"
+      },
+      "offline_count_non_essential": {
+        "name": "Neprisijungusių skaičius (Neesminiai)"
+      },
+      "low_battery_non_essential": {
+        "name": "Žema baterija (Neesminiai)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Žemos baterijos skaičius (Neesminiai)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Pasenę objektai (Neesminiai)"
+      },
+      "stale_count_non_essential": {
+        "name": "Pasenusių skaičius (Neesminiai)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Yra neprisijungusių"
+      },
+      "combined_any_offline": {
+        "name": "Yra neprisijungusių"
+      },
+      "any_offline_non_essential": {
+        "name": "Yra neprisijungusių (Neesminiai)"
+      },
+      "any_low_battery": {
+        "name": "Yra žema baterija"
+      },
+      "any_stale": {
+        "name": "Yra pasenę duomenys"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Stebėti objektus",
+        "combined_group": "Sujungti grupes"
+      }
+    }
+  }
+}

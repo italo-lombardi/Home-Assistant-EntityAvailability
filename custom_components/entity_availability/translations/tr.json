@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Giriş Oluştur",
+        "description": "Bir grup varlığı izleyin veya mevcut grupları birleştirin.",
+        "data": {
+          "entry_type": "Tür"
+        }
+      },
+      "group": {
+        "title": "Varlık Grubu Oluştur",
+        "description": "İzlenecek kullanılabilirlik için bir varlık grubu oluşturun.",
+        "data": {
+          "group_name": "Grup Adı",
+          "entities": "İzlenecek Varlıklar",
+          "non_essential_entities": "Kritik Olmayan Varlıklar"
+        },
+        "data_description": {
+          "entities": "Kullanılabilirlik için takip edilecek varlıklar. Bunlar tam olarak izlenir ve tüm KPI'lara ve uyarılara dahil edilir.",
+          "non_essential_entities": "Grubunuzun sağlık puanını etkilemeyen varlıklar. Kartta görünür ve toplamlara dahil edilir, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) hariç tutulur ve hiçbir zaman uyarı tetiklemez. Kapalı kalmanın kabul edilebilir olduğu cihazlar için kullanın — bir TV, yazıcı, mevsimlik cihaz."
+        }
+      },
+      "combined": {
+        "title": "Birleşik Grup Oluştur",
+        "description": "Otomasyonlar ve gösterge panelleri için birden fazla grubu tek bir görünümde birleştirin.",
+        "data": {
+          "group_name": "Birleşik Grup Adı",
+          "combined_groups": "Dahil Edilecek Gruplar"
+        }
+      },
+      "monitoring": {
+        "title": "İzleme Ayarları",
+        "description": "Varlıkların nasıl izleneceğini yapılandırın.",
+        "data": {
+          "bad_states": "Çevrimdışı sayılan durumlar",
+          "cooldown": "Çevrimdışı işaretlemeden önce bekleme süresi",
+          "staleness_threshold": "Güncellik eşiği",
+          "staleness_use_last_updated": "Nitelik güncellemelerini etkinlik olarak say"
+        },
+        "data_description": {
+          "bad_states": "Bir varlığın çevrimdışı olduğunu gösteren durumlar (ör. kullanılamaz, bilinmiyor).",
+          "cooldown": "Çevrimdışı olarak işaretlenmeden önce bir varlığın kötü bir durumda kalması gereken süre (saniye cinsinden). Kısa bağlantı kesintilerinden kaynaklanan yanlış alarmları önler.",
+          "staleness_threshold": "Bir varlık bu kadar dakika boyunca durum değiştirmediyse, düşürülmüş olarak işaretleyin. Bu, 'mevcut' rapor eden ancak aslında veri göndermeyi durduran varlıkları yakalar. Devre dışı bırakmak için 0 olarak ayarlayın.",
+          "staleness_use_last_updated": "Açık olduğunda, yalnızca nitelik değişiklikleri veya tekrarlanan aynı değer raporları dahil olmak üzere varlıktan gelen herhangi bir güncelleme güncellik zamanlayıcısını sıfırlar. Kapalı olduğunda (varsayılan), yalnızca ana durumdaki bir değişiklik sayılır. Sık rapor eden ancak nadiren değer değiştiren cihazlar için açın (ör. sabit kalan sıcaklık veya güç)."
+        }
+      },
+      "advanced": {
+        "title": "Gelişmiş Ayarlar",
+        "description": "İsteğe bağlı gelişmiş izleme özellikleri.",
+        "data": {
+          "battery_threshold": "Düşük pil eşiği (%, 0 = devre dışı)",
+          "availability_windows": "Kullanılabilirlik takip pencereleri",
+          "recovery_window": "Kurtarma penceresi",
+          "use_device_names": "Cihaz adlarını göster"
+        },
+        "data_description": {
+          "battery_threshold": "Pili bu yüzdenin altına düşen varlıkları işaretleyin. 'Düşük' durumu da otomatik olarak algılanır. Volt tabanlı varlıklar desteklenmez. Pili yüzde olarak raporlayan veya 'düşük' durumu destekleyen varlıkları kullanın.",
+          "availability_windows": "Grup kullanılabilirlik geçmişini takip etmek için zaman pencereleri (ör. bugün, 3g, 7g).",
+          "recovery_window": "Bir varlığın durum geçişinden sonra Son Zamanda Çevrimdışı veya Son Zamanda Kurtarıldı sensörlerinde kalma süresi (dakika cinsinden).",
+          "use_device_names": "Çevrimdışı/kurtarıldı sensör durumlarında varlık kolay adı yerine HA cihaz adını gösterin. Bir cihaza bağlı olmayan varlıklar için kolay ada geri döner."
+        }
+      },
+      "battery_mapping": {
+        "title": "Pil Varlığı Eşleme",
+        "description": "İzlenen her varlık için pil sensörünü onaylayın veya değiştirin. Pili olmayan varlıklar için boş bırakın. Sayısal (%) ve metin durumlarını ('düşük') destekler."
+      }
+    },
+    "error": {
+      "empty_group_name": "Grup adı boş olamaz.",
+      "no_entities": "En az bir varlık seçmelisiniz.",
+      "duplicate_entities": "Aynı varlık her iki listede de görünemez. Kaydetmeden önce tekrar edilenleri kaldırın.",
+      "not_enough_groups_selected": "Birleştirmek için en az iki grup seçin."
+    },
+    "abort": {
+      "already_configured": "Bu adda bir grup zaten mevcut.",
+      "not_enough_groups": "Birleşik grup oluşturmadan önce en az iki gruba ihtiyacınız var."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Varlık Grubunu Düzenle",
+        "description": "Bu grup için izleme ayarlarını değiştirin.",
+        "data": {
+          "entities": "İzlenecek Varlıklar",
+          "non_essential_entities": "Kritik Olmayan Varlıklar",
+          "bad_states": "Çevrimdışı sayılan durumlar",
+          "cooldown": "Bekleme süresi (saniye)",
+          "staleness_threshold": "Güncellik eşiği (dakika, 0 = devre dışı)",
+          "battery_threshold": "Düşük pil eşiği (%, 0 = devre dışı)",
+          "availability_windows": "Kullanılabilirlik takip pencereleri",
+          "recovery_window": "Kurtarma penceresi (dakika)",
+          "use_device_names": "Cihaz adlarını göster",
+          "staleness_use_last_updated": "Nitelik güncellemelerini etkinlik olarak say"
+        },
+        "data_description": {
+          "entities": "Kullanılabilirlik için takip edilecek varlıklar. Bunlar tam olarak izlenir ve tüm KPI'lara ve uyarılara dahil edilir.",
+          "non_essential_entities": "Grubunuzun sağlık puanını etkilemeyen varlıklar. Kartta görünür ve toplamlara dahil edilir, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) hariç tutulur ve hiçbir zaman uyarı tetiklemez. Kapalı kalmanın kabul edilebilir olduğu cihazlar için kullanın — bir TV, yazıcı, mevsimlik cihaz.",
+          "bad_states": "Bir varlığın çevrimdışı olduğunu gösteren durumlar (ör. kullanılamaz, bilinmiyor).",
+          "cooldown": "Çevrimdışı olarak işaretlenmeden önce bir varlığın kötü bir durumda kalması gereken süre (saniye cinsinden). Kısa bağlantı kesintilerinden kaynaklanan yanlış alarmları önler.",
+          "staleness_threshold": "Bir varlık bu kadar dakika boyunca durum değiştirmediyse, düşürülmüş olarak işaretleyin. Devre dışı bırakmak için 0 olarak ayarlayın.",
+          "battery_threshold": "Pili bu yüzdenin altına düşen varlıkları işaretleyin. 'Düşük' durumu da otomatik olarak algılanır. Volt tabanlı varlıklar desteklenmez.",
+          "availability_windows": "Grup kullanılabilirlik geçmişini takip etmek için zaman pencereleri (ör. bugün, 3g, 7g).",
+          "recovery_window": "Bir varlığın durum geçişinden sonra Son Zamanda Çevrimdışı veya Son Zamanda Kurtarıldı sensörlerinde kalma süresi (dakika cinsinden).",
+          "use_device_names": "Çevrimdışı/kurtarıldı sensör durumlarında varlık kolay adı yerine HA cihaz adını gösterin. Bir cihaza bağlı olmayan varlıklar için kolay ada geri döner.",
+          "staleness_use_last_updated": "Açık olduğunda, yalnızca nitelik değişiklikleri veya tekrarlanan aynı değer raporları dahil olmak üzere varlıktan gelen herhangi bir güncelleme güncellik zamanlayıcısını sıfırlar. Kapalı olduğunda (varsayılan), yalnızca ana durumdaki bir değişiklik sayılır. Sık rapor eden ancak nadiren değer değiştiren cihazlar için açın (ör. sabit kalan sıcaklık veya güç)."
+        }
+      },
+      "combined_init": {
+        "title": "Birleşik Grubu Düzenle",
+        "description": "Birleşik grup adını ve dahil edilen grupları değiştirin.",
+        "data": {
+          "group_name": "Birleşik Grup Adı",
+          "combined_groups": "Dahil Edilecek Gruplar"
+        }
+      },
+      "battery_mapping": {
+        "title": "Pil Varlığı Eşleme",
+        "description": "İzlenen her varlık için pil sensörünü onaylayın veya değiştirin. Pili olmayan varlıklar için boş bırakın. Sayısal (%) ve metin durumlarını ('düşük') destekler."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Çevrimdışı Sayısı"
+      },
+      "offline_entities": {
+        "name": "Çevrimdışı Varlıklar"
+      },
+      "low_battery": {
+        "name": "Düşük Pil"
+      },
+      "low_battery_count": {
+        "name": "Düşük Pil Sayısı"
+      },
+      "group_summary": {
+        "name": "Grup Özeti"
+      },
+      "recently_offline": {
+        "name": "Son Zamanda Çevrimdışı"
+      },
+      "recently_recovered": {
+        "name": "Son Zamanda Kurtarıldı"
+      },
+      "combined_summary": {
+        "name": "Birleşik Özet"
+      },
+      "availability_today": {
+        "name": "Kullanılabilirlik (Bugün)"
+      },
+      "availability_3d": {
+        "name": "Kullanılabilirlik (3 Gün)"
+      },
+      "availability_5d": {
+        "name": "Kullanılabilirlik (5 Gün)"
+      },
+      "availability_7d": {
+        "name": "Kullanılabilirlik (7 Gün)"
+      },
+      "affected_areas_count": {
+        "name": "Etkilenen Bölge Sayısı"
+      },
+      "affected_areas": {
+        "name": "Etkilenen Bölgeler"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Son Zamanda Çevrimdışı Bölgeler"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Son Zamanda Kurtarılan Bölgeler"
+      },
+      "mtbf": {
+        "name": "Ortalama Arıza Arası Süre"
+      },
+      "mttr": {
+        "name": "Ortalama Kurtarma Süresi"
+      },
+      "stale_entities": {
+        "name": "Güncel Olmayan Varlıklar"
+      },
+      "stale_count": {
+        "name": "Güncel Olmayan Sayısı"
+      },
+      "offline_entities_non_essential": {
+        "name": "Çevrimdışı Varlıklar (Kritik Olmayan)"
+      },
+      "offline_count_non_essential": {
+        "name": "Çevrimdışı Sayısı (Kritik Olmayan)"
+      },
+      "low_battery_non_essential": {
+        "name": "Düşük Pil (Kritik Olmayan)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Düşük Pil Sayısı (Kritik Olmayan)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Güncel Olmayan Varlıklar (Kritik Olmayan)"
+      },
+      "stale_count_non_essential": {
+        "name": "Güncel Olmayan Sayısı (Kritik Olmayan)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Herhangi Biri Çevrimdışı"
+      },
+      "combined_any_offline": {
+        "name": "Herhangi Biri Çevrimdışı"
+      },
+      "any_offline_non_essential": {
+        "name": "Herhangi Biri Çevrimdışı (Kritik Olmayan)"
+      },
+      "any_low_battery": {
+        "name": "Herhangi Birinde Düşük Pil"
+      },
+      "any_stale": {
+        "name": "Herhangi Biri Güncel Değil"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Varlıkları izle",
+        "combined_group": "Grupları birleştir"
+      }
+    }
+  }
+}

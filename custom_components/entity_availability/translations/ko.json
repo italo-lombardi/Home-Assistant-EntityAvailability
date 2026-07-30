@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "항목 생성",
+        "description": "엔티티 그룹을 모니터링하거나 기존 그룹을 결합합니다.",
+        "data": {
+          "entry_type": "유형"
+        }
+      },
+      "group": {
+        "title": "엔티티 그룹 생성",
+        "description": "가용성을 모니터링할 엔티티 그룹을 생성합니다.",
+        "data": {
+          "group_name": "그룹 이름",
+          "entities": "모니터링할 엔티티",
+          "non_essential_entities": "비필수 엔티티"
+        },
+        "data_description": {
+          "entities": "가용성을 추적할 엔티티입니다. 완전히 모니터링되며 모든 KPI 및 알림에 포함됩니다.",
+          "non_essential_entities": "그룹의 건강 점수에 영향을 주지 않는 엔티티입니다. 카드에 표시되고 합계에 포함되지만, 모든 KPI(가용성 %, 오프라인 수, MTBF, MTTR)에서 제외되며 알림을 트리거하지 않습니다. 다운타임이 허용되는 장치(TV, 프린터, 계절용 장치 등)에 사용합니다."
+        }
+      },
+      "combined": {
+        "title": "결합 그룹 생성",
+        "description": "자동화 및 대시보드를 위해 여러 그룹을 하나의 뷰로 결합합니다.",
+        "data": {
+          "group_name": "결합 그룹 이름",
+          "combined_groups": "포함할 그룹"
+        }
+      },
+      "monitoring": {
+        "title": "모니터링 설정",
+        "description": "엔티티 모니터링 방법을 구성합니다.",
+        "data": {
+          "bad_states": "오프라인으로 간주하는 상태",
+          "cooldown": "오프라인 판정 전 쿨다운",
+          "staleness_threshold": "데이터 중단 임계값",
+          "staleness_use_last_updated": "속성 업데이트도 활동으로 계산"
+        },
+        "data_description": {
+          "bad_states": "엔티티가 오프라인임을 나타내는 상태(예: unavailable, unknown).",
+          "cooldown": "엔티티가 오프라인으로 표시되기 전에 불량 상태를 유지해야 하는 시간(초)입니다. 짧은 연결 끊김으로 인한 오경보를 방지합니다.",
+          "staleness_threshold": "엔티티가 이 분 수 동안 상태 변화가 없으면 성능 저하 상태로 표시합니다. 'available'을 보고하지만 실제로 데이터 전송이 중단된 엔티티를 감지합니다. 0으로 설정하면 비활성화됩니다.",
+          "staleness_use_last_updated": "켜면 속성만 변경되거나 동일한 값이 반복 보고되는 경우를 포함한 엔티티의 모든 업데이트가 데이터 중단 타이머를 초기화합니다. 끄면(기본값) 주 상태 변경만 카운트됩니다. 값이 거의 변하지 않지만 자주 보고하는 장치(온도, 전력 등)에 켭니다."
+        }
+      },
+      "advanced": {
+        "title": "고급 설정",
+        "description": "선택적 고급 모니터링 기능.",
+        "data": {
+          "battery_threshold": "낮은 배터리 임계값(%, 0=비활성화)",
+          "availability_windows": "가용성 추적 창",
+          "recovery_window": "복구 창",
+          "use_device_names": "장치 이름 표시"
+        },
+        "data_description": {
+          "battery_threshold": "배터리가 이 비율 아래로 떨어지는 엔티티에 플래그를 지정합니다. 'low' 상태도 자동으로 감지됩니다. 전압 기반 엔티티는 지원되지 않습니다. 배터리를 비율로 보고하거나 'low' 상태를 지원하는 엔티티를 사용하세요.",
+          "availability_windows": "그룹 가용성 기록을 추적하는 시간 창(예: today, 3d, 7d).",
+          "recovery_window": "상태 전환 후 엔티티가 최근 오프라인 또는 최근 복구 센서에 남아 있는 시간(분).",
+          "use_device_names": "오프라인·복구 센서 상태에서 엔티티 친숙한 이름 대신 HA 장치 이름을 표시합니다. 장치에 연결되지 않은 엔티티는 친숙한 이름으로 대체됩니다."
+        }
+      },
+      "battery_mapping": {
+        "title": "배터리 엔티티 매핑",
+        "description": "모니터링 중인 각 엔티티의 배터리 센서를 확인하거나 변경합니다. 배터리가 없는 엔티티는 비워 두세요. 숫자(%)와 텍스트 상태('low')를 지원합니다."
+      }
+    },
+    "error": {
+      "empty_group_name": "그룹 이름을 입력해 주세요.",
+      "no_entities": "엔티티를 하나 이상 선택해야 합니다.",
+      "duplicate_entities": "같은 엔티티를 두 목록에 모두 추가할 수 없습니다. 중복을 제거한 후 저장하세요.",
+      "not_enough_groups_selected": "결합하려면 그룹을 두 개 이상 선택하세요."
+    },
+    "abort": {
+      "already_configured": "이 이름의 그룹이 이미 존재합니다.",
+      "not_enough_groups": "결합 그룹을 생성하려면 그룹이 두 개 이상 필요합니다."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "엔티티 그룹 편집",
+        "description": "이 그룹의 모니터링 설정을 수정합니다.",
+        "data": {
+          "entities": "모니터링할 엔티티",
+          "non_essential_entities": "비필수 엔티티",
+          "bad_states": "오프라인으로 간주하는 상태",
+          "cooldown": "쿨다운(초)",
+          "staleness_threshold": "데이터 중단 임계값(분, 0=비활성화)",
+          "battery_threshold": "낮은 배터리 임계값(%, 0=비활성화)",
+          "availability_windows": "가용성 추적 창",
+          "recovery_window": "복구 창(분)",
+          "use_device_names": "장치 이름 표시",
+          "staleness_use_last_updated": "속성 업데이트도 활동으로 계산"
+        },
+        "data_description": {
+          "entities": "가용성을 추적할 엔티티입니다. 완전히 모니터링되며 모든 KPI 및 알림에 포함됩니다.",
+          "non_essential_entities": "그룹의 건강 점수에 영향을 주지 않는 엔티티입니다. 카드에 표시되고 합계에 포함되지만, 모든 KPI(가용성 %, 오프라인 수, MTBF, MTTR)에서 제외되며 알림을 트리거하지 않습니다. 다운타임이 허용되는 장치(TV, 프린터, 계절용 장치 등)에 사용합니다.",
+          "bad_states": "엔티티가 오프라인임을 나타내는 상태(예: unavailable, unknown).",
+          "cooldown": "엔티티가 오프라인으로 표시되기 전에 불량 상태를 유지해야 하는 시간(초)입니다. 짧은 연결 끊김으로 인한 오경보를 방지합니다.",
+          "staleness_threshold": "엔티티가 이 분 수 동안 상태 변화가 없으면 성능 저하 상태로 표시합니다. 0으로 설정하면 비활성화됩니다.",
+          "battery_threshold": "배터리가 이 비율 아래로 떨어지는 엔티티에 플래그를 지정합니다. 'low' 상태도 자동으로 감지됩니다. 전압 기반 엔티티는 지원되지 않습니다.",
+          "availability_windows": "그룹 가용성 기록을 추적하는 시간 창(예: today, 3d, 7d).",
+          "recovery_window": "상태 전환 후 엔티티가 최근 오프라인 또는 최근 복구 센서에 남아 있는 시간(분).",
+          "use_device_names": "오프라인·복구 센서 상태에서 엔티티 친숙한 이름 대신 HA 장치 이름을 표시합니다. 장치에 연결되지 않은 엔티티는 친숙한 이름으로 대체됩니다.",
+          "staleness_use_last_updated": "켜면 속성만 변경되거나 동일한 값이 반복 보고되는 경우를 포함한 엔티티의 모든 업데이트가 데이터 중단 타이머를 초기화합니다. 끄면(기본값) 주 상태 변경만 카운트됩니다. 값이 거의 변하지 않지만 자주 보고하는 장치(온도, 전력 등)에 켭니다."
+        }
+      },
+      "combined_init": {
+        "title": "결합 그룹 편집",
+        "description": "결합 그룹 이름과 포함된 그룹을 수정합니다.",
+        "data": {
+          "group_name": "결합 그룹 이름",
+          "combined_groups": "포함할 그룹"
+        }
+      },
+      "battery_mapping": {
+        "title": "배터리 엔티티 매핑",
+        "description": "모니터링 중인 각 엔티티의 배터리 센서를 확인하거나 변경합니다. 배터리가 없는 엔티티는 비워 두세요. 숫자(%)와 텍스트 상태('low')를 지원합니다."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "오프라인 수"
+      },
+      "offline_entities": {
+        "name": "오프라인 엔티티"
+      },
+      "low_battery": {
+        "name": "낮은 배터리"
+      },
+      "low_battery_count": {
+        "name": "낮은 배터리 수"
+      },
+      "group_summary": {
+        "name": "그룹 요약"
+      },
+      "recently_offline": {
+        "name": "최근 오프라인"
+      },
+      "recently_recovered": {
+        "name": "최근 복구"
+      },
+      "combined_summary": {
+        "name": "결합 요약"
+      },
+      "availability_today": {
+        "name": "가용성(오늘)"
+      },
+      "availability_3d": {
+        "name": "가용성(3일)"
+      },
+      "availability_5d": {
+        "name": "가용성(5일)"
+      },
+      "availability_7d": {
+        "name": "가용성(7일)"
+      },
+      "affected_areas_count": {
+        "name": "영향 구역 수"
+      },
+      "affected_areas": {
+        "name": "영향 구역"
+      },
+      "affected_areas_recently_offline": {
+        "name": "최근 오프라인 구역"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "최근 복구 구역"
+      },
+      "mtbf": {
+        "name": "평균 고장 간격(MTBF)"
+      },
+      "mttr": {
+        "name": "평균 복구 시간(MTTR)"
+      },
+      "stale_entities": {
+        "name": "비활성 엔티티"
+      },
+      "stale_count": {
+        "name": "데이터 중단 수"
+      },
+      "offline_entities_non_essential": {
+        "name": "오프라인 엔티티(비필수)"
+      },
+      "offline_count_non_essential": {
+        "name": "오프라인 수(비필수)"
+      },
+      "low_battery_non_essential": {
+        "name": "낮은 배터리(비필수)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "낮은 배터리 수(비필수)"
+      },
+      "stale_entities_non_essential": {
+        "name": "비활성 엔티티(비필수)"
+      },
+      "stale_count_non_essential": {
+        "name": "데이터 중단 수(비필수)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "오프라인 있음"
+      },
+      "combined_any_offline": {
+        "name": "오프라인 있음"
+      },
+      "any_offline_non_essential": {
+        "name": "오프라인 있음(비필수)"
+      },
+      "any_low_battery": {
+        "name": "낮은 배터리 있음"
+      },
+      "any_stale": {
+        "name": "데이터 중단 있음"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "엔티티 모니터링",
+        "combined_group": "그룹 결합"
+      }
+    }
+  }
+}
