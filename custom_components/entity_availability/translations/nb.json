@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Noen offline (ikke-kritiske)"
+      },
+      "any_low_battery": {
+        "name": "Lavt batteri tilstede"
+      },
+      "any_stale": {
+        "name": "Inaktiv entitet tilstede"
       }
     }
   },

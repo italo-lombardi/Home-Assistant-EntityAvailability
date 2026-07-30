@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Au moins une hors ligne (non essentielle)"
+      },
+      "any_low_battery": {
+        "name": "Batterie faible présente"
+      },
+      "any_stale": {
+        "name": "Entité dégradée présente"
       }
     }
   },

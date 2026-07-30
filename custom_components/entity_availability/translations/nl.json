@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Een of meer offline (niet-essentieel)"
+      },
+      "any_low_battery": {
+        "name": "Lage batterij aanwezig"
+      },
+      "any_stale": {
+        "name": "Inactieve entiteit aanwezig"
       }
     }
   },

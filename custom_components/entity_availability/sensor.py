@@ -1365,10 +1365,10 @@ class AffectedAreasRecentlyRecoveredSensor(DedupCoordinatorSensor):
         now = datetime.now(timezone.utc)
         cutoff = self.coordinator.recovery_window_minutes * 60
 
-        # Build area → list[DeviceState] for non-suppressed devices
+        # Build area → list[DeviceState] for non-suppressed, non-essential devices
         area_devices: dict[str, list] = {}
         for d in self.coordinator.device_states.values():
-            if d.is_suppressed:
+            if d.is_suppressed or d.is_non_essential:
                 continue
             area = resolve_area_name(self.hass, d.entity_id) or NO_AREA_SENTINEL
             area_devices.setdefault(area, []).append(d)

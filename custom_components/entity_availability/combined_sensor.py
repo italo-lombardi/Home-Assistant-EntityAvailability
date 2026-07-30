@@ -767,6 +767,7 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
                 if (
                     d.is_offline
                     and not d.is_suppressed
+                    and not d.is_non_essential
                     and d.recently_offline_at is not None
                     and (now - d.recently_offline_at).total_seconds() <= cutoff
                     and d.entity_id not in seen
@@ -824,6 +825,7 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
                 if (
                     not d.is_offline
                     and not d.is_suppressed
+                    and not d.is_non_essential
                     and d.last_recovery is not None
                     and (now - d.last_recovery).total_seconds() <= cutoff
                     and d.entity_id not in seen
@@ -1004,7 +1006,7 @@ class CombinedAffectedAreasRecentlyRecoveredSensor(CombinedSensorBase):
         area_pairs: dict[str, list] = {}
         for coord in self._active_coordinators():
             for d in coord.device_states.values():
-                if d.is_suppressed:
+                if d.is_suppressed or d.is_non_essential:
                     continue
                 area = resolve_area_name(self.hass, d.entity_id) or NO_AREA_SENTINEL
                 area_pairs.setdefault(area, []).append((coord, d))
@@ -1016,8 +1018,8 @@ class CombinedAffectedAreasRecentlyRecoveredSensor(CombinedSensorBase):
             if any(
                 d.last_recovery is not None
                 and (now - d.last_recovery).total_seconds()
-                <= coord.recovery_window_minutes * 60
-                for coord, d in pairs
+                <= coord_p.recovery_window_minutes * 60
+                for coord_p, d in pairs
             ):
                 recovered.append(area)
 

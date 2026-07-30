@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Mindestens eine offline (Nicht-wesentlich)"
+      },
+      "any_low_battery": {
+        "name": "Niedriger Batteriestand vorhanden"
+      },
+      "any_stale": {
+        "name": "Veraltete Entität vorhanden"
       }
     }
   },

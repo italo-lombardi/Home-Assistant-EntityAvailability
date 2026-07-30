@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Any Offline (Non-Essential)"
+      },
+      "any_low_battery": {
+        "name": "Any Low Battery"
+      },
+      "any_stale": {
+        "name": "Any Stale"
       }
     }
   },

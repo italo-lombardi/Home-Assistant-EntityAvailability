@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Alguno sin conexión (no esenciales)"
+      },
+      "any_low_battery": {
+        "name": "Alguno con batería baja"
+      },
+      "any_stale": {
+        "name": "Alguno obsoleto"
       }
     }
   },

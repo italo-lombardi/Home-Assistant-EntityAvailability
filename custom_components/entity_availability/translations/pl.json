@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Jakakolwiek encja offline (Nieistotne)"
+      },
+      "any_low_battery": {
+        "name": "Niski poziom baterii wykryty"
+      },
+      "any_stale": {
+        "name": "Nieaktywna encja wykryta"
       }
     }
   },

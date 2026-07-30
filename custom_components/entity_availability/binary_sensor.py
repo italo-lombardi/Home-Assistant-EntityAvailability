@@ -37,6 +37,10 @@ async def async_setup_entry(
     async_add_entities(
         [
             AnyOfflineBinarySensor(coordinator, group_name, group_slug, entry.entry_id),
+            AnyLowBatteryBinarySensor(
+                coordinator, group_name, group_slug, entry.entry_id
+            ),
+            AnyStaleBinarySensor(coordinator, group_name, group_slug, entry.entry_id),
             NonEssentialAnyOfflineBinarySensor(
                 coordinator, group_name, group_slug, entry.entry_id
             ),
@@ -138,3 +142,95 @@ class NonEssentialAnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
             if d.is_offline and not d.is_suppressed and d.is_non_essential
         ]
         return {"offline_entities": entities, "offline_count": len(entities)}
+
+
+class AnyLowBatteryBinarySensor(DedupCoordinatorBinarySensor):
+    """Binary sensor: ON when at least one essential entity has low battery."""
+
+    _attr_device_class = BinarySensorDeviceClass.BATTERY
+    _attr_icon = "mdi:battery-alert-variant-outline"
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_any_low_battery"
+        self.entity_id = (
+            f"binary_sensor.entity_availability_{group_slug}_any_low_battery"
+        )
+        self._attr_translation_key = "any_low_battery"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry_id)},
+            name=f"Entity Availability - {group_name}",
+            manufacturer="Entity Availability",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if any essential entity has low battery."""
+        return any(
+            d.is_low_battery and not d.is_suppressed and not d.is_non_essential
+            for d in self.coordinator.device_states.values()
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return low battery entity details."""
+        entities = [
+            d.entity_id
+            for d in self.coordinator.device_states.values()
+            if d.is_low_battery and not d.is_suppressed and not d.is_non_essential
+        ]
+        return {"low_battery_entities": entities, "low_battery_count": len(entities)}
+
+
+class AnyStaleBinarySensor(DedupCoordinatorBinarySensor):
+    """Binary sensor: ON when at least one essential entity is stale."""
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:clock-alert-outline"
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the binary sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_any_stale"
+        self.entity_id = f"binary_sensor.entity_availability_{group_slug}_any_stale"
+        self._attr_translation_key = "any_stale"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry_id)},
+            name=f"Entity Availability - {group_name}",
+            manufacturer="Entity Availability",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if any essential entity is stale."""
+        return any(
+            d.is_stale and not d.is_suppressed and not d.is_non_essential
+            for d in self.coordinator.device_states.values()
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return stale entity details."""
+        entities = [
+            d.entity_id
+            for d in self.coordinator.device_states.values()
+            if d.is_stale and not d.is_suppressed and not d.is_non_essential
+        ]
+        return {"stale_entities": entities, "stale_count": len(entities)}

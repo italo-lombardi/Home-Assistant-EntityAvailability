@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Någon offline (ej väsentliga)"
+      },
+      "any_low_battery": {
+        "name": "Lågt batteri förekommande"
+      },
+      "any_stale": {
+        "name": "Inaktuell entitet förekommande"
       }
     }
   },

@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Alguma Entidade Offline (Não Essencial)"
+      },
+      "any_low_battery": {
+        "name": "Bateria Fraca Presente"
+      },
+      "any_stale": {
+        "name": "Entidade Inativa Presente"
       }
     }
   },

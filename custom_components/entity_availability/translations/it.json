@@ -211,6 +211,12 @@
       },
       "any_offline_non_essential": {
         "name": "Qualcosa è offline (non essenziali)"
+      },
+      "any_low_battery": {
+        "name": "Batteria scarica presente"
+      },
+      "any_stale": {
+        "name": "Entità inattiva presente"
       }
     }
   },

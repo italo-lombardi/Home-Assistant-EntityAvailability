@@ -11,7 +11,9 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.binary_sensor import (
+    AnyLowBatteryBinarySensor,
     AnyOfflineBinarySensor,
+    AnyStaleBinarySensor,
     NonEssentialAnyOfflineBinarySensor,
     async_setup_entry,
 )
@@ -175,9 +177,11 @@ async def test_binary_sensor_setup_entry_group_path(
 
     await async_setup_entry(hass, mock_config_entry, capture)
 
-    assert len(added) == 2
+    assert len(added) == 4
     assert isinstance(added[0], AnyOfflineBinarySensor)
-    assert isinstance(added[1], NonEssentialAnyOfflineBinarySensor)
+    assert isinstance(added[1], AnyLowBatteryBinarySensor)
+    assert isinstance(added[2], AnyStaleBinarySensor)
+    assert isinstance(added[3], NonEssentialAnyOfflineBinarySensor)
 
 
 async def test_binary_sensor_setup_entry_slug_fallback(
@@ -212,7 +216,7 @@ async def test_binary_sensor_setup_entry_slug_fallback(
 
     await async_setup_entry(hass, entry, capture)
 
-    assert len(added) == 2
+    assert len(added) == 4
     assert "abcdef12" in added[0].entity_id
 
 
@@ -332,3 +336,91 @@ class TestNonEssentialBinarySensor:
         )
         assert sensor.is_on is False
         assert sensor.extra_state_attributes["offline_count"] == 0
+
+
+class TestAnyLowBatteryBinarySensor:
+    """Tests for AnyLowBatteryBinarySensor."""
+
+    def test_is_off_when_no_low_battery(self, mock_coordinator, mock_hass):
+        sensor = AnyLowBatteryBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+
+    def test_is_on_when_low_battery(self, mock_coordinator, mock_hass):
+        mock_coordinator.device_states["binary_sensor.device_a"].is_low_battery = True
+        sensor = AnyLowBatteryBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is True
+
+    def test_excludes_suppressed(self, mock_coordinator, mock_hass):
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_low_battery = True
+        d.is_suppressed = True
+        sensor = AnyLowBatteryBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+
+    def test_excludes_non_essential(self, mock_coordinator, mock_hass):
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_low_battery = True
+        d.is_non_essential = True
+        sensor = AnyLowBatteryBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+
+    def test_extra_state_attributes(self, mock_coordinator, mock_hass):
+        mock_coordinator.device_states["binary_sensor.device_a"].is_low_battery = True
+        sensor = AnyLowBatteryBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["low_battery_count"] == 1
+        assert "binary_sensor.device_a" in attrs["low_battery_entities"]
+
+
+class TestAnyStaleBinarySensor:
+    """Tests for AnyStaleBinarySensor."""
+
+    def test_is_off_when_no_stale(self, mock_coordinator, mock_hass):
+        sensor = AnyStaleBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+
+    def test_is_on_when_stale(self, mock_coordinator, mock_hass):
+        mock_coordinator.device_states["binary_sensor.device_a"].is_stale = True
+        sensor = AnyStaleBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is True
+
+    def test_excludes_suppressed(self, mock_coordinator, mock_hass):
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_stale = True
+        d.is_suppressed = True
+        sensor = AnyStaleBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+
+    def test_excludes_non_essential(self, mock_coordinator, mock_hass):
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_stale = True
+        d.is_non_essential = True
+        sensor = AnyStaleBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+
+    def test_extra_state_attributes(self, mock_coordinator, mock_hass):
+        mock_coordinator.device_states["binary_sensor.device_a"].is_stale = True
+        sensor = AnyStaleBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["stale_count"] == 1
+        assert "binary_sensor.device_a" in attrs["stale_entities"]
