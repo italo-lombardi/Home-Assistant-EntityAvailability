@@ -816,7 +816,7 @@ class TestCombinedGroupSensor:
 
         b1_events = [e for e in events if e.data["entity_id"] == "binary_sensor.b1"]
         assert len(b1_events) == 1
-        assert b1_events[0].data["source_groups"] == ["Group A", "Group B"]
+        assert b1_events[0].data["source_groups"] == sorted(["Group A", "Group B"])
 
     async def test_recovered_event_carries_source_groups(
         self, mock_hass, combined_entry, coordinators
@@ -839,6 +839,38 @@ class TestCombinedGroupSensor:
 
         assert len(events) == 1
         assert events[0].data["source_groups"] == ["Group A"]
+
+    async def test_source_groups_preserved_when_coordinator_removed_before_recovery(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """source_groups on RECOVERED uses _prev_source_group_map when coordinator is gone."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+
+        # Tick 1: a2 goes offline — _prev_source_group_map is populated with Group A
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = True
+        sensor._prev_offline_set = frozenset()
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+        assert "binary_sensor.a2" in sensor._prev_source_group_map
+
+        # Coordinator 0 "removed" — evict from hass.data so _active_coordinators skips it
+        del mock_hass.data["entity_availability"][coordinators[0].entry.entry_id]
+
+        # Tick 2: a2 recovers — coordinator gone, but source_groups still carries Group A
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_recovered", lambda e: events.append(e)
+        )
+        fired_cbs[1]()
+        await mock_hass.async_block_till_done()
+
+        recovered = [e for e in events if e.data["entity_id"] == "binary_sensor.a2"]
+        assert len(recovered) == 1
+        assert recovered[0].data["source_groups"] == ["Group A"]
 
     async def test_fires_recovered_event_when_offline_set_shrinks(
         self, mock_hass, combined_entry, coordinators

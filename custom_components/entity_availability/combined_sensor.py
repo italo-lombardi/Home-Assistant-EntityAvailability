@@ -223,6 +223,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         self._attr_translation_key = "combined_summary"
         self._prev_offline_set: frozenset[str] = frozenset()
         self._prev_low_battery_set: frozenset[str] = frozenset()
+        self._prev_source_group_map: dict[str, list[str]] = {}
 
     def _make_update_callback(self) -> Callable[[], None]:
         """Return event-aware coordinator update callback."""
@@ -243,10 +244,23 @@ class CombinedGroupSensor(CombinedSensorBase):
 
             if current != prev or current_lb != prev_lb:
                 device_map = self._build_device_map(coords)
-                source_group_map: dict[str, list[str]] = {}
+                # Build source_group_map: eid → sorted list of group names.
+                # Sorted for deterministic order regardless of coordinator subscription order.
+                # Merged with _prev_source_group_map so recovered entities whose coordinator
+                # was removed between ticks still carry their group name(s).
+                current_source_group_map: dict[str, list[str]] = {}
                 for coord in coords:
                     for eid in coord.device_states:
-                        source_group_map.setdefault(eid, []).append(coord.group_name)
+                        current_source_group_map.setdefault(eid, []).append(
+                            coord.group_name
+                        )
+                for eid, groups in current_source_group_map.items():
+                    current_source_group_map[eid] = sorted(groups)
+                source_group_map = {
+                    **self._prev_source_group_map,
+                    **current_source_group_map,
+                }
+                self._prev_source_group_map = source_group_map
                 group_name = self._entry.data.get(CONF_GROUP_NAME, "")
                 entry_id = self._entry.entry_id
 
