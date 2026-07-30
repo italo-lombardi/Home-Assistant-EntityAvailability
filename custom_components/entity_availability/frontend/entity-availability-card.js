@@ -804,13 +804,11 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _renderStats(online, offline, lowBattery, suppressed, nonEssential = 0) {
-    const showNE = this._config.show_non_essential_stats === true;
     return html`
       <div class="stats-row">
         <span class="stat-item ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="stat-item ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
         <span class="stat-item ${lowBattery > 0 ? "battery" : "neutral"}">Low Battery: ${lowBattery}</span>
-        ${showNE && nonEssential > 0 ? html`<span class="stat-item neutral">Non-Essential: ${nonEssential}</span>` : nothing}
       </div>
     `;
   }
@@ -864,10 +862,11 @@ class EntityAvailabilityCard extends LitElement {
 
     const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential);
     const filter = this._config.entity_filter || "all";
+    const showNE = this._config.show_non_essential_stats === true;
     const items = filter === "offline"
       ? allItems.filter((i) => i.isOffline || i.isStale || i.dotColor === "yellow")
       : filter === "online"
-      ? allItems.filter((i) => !i.isOffline && !i.isStale && i.dotColor !== "yellow" && !i.isNonEssential)
+      ? allItems.filter((i) => !i.isOffline && !i.isStale && i.dotColor !== "yellow" && (!i.isNonEssential || showNE))
       : allItems;
 
     const expanded = this._entitiesExpanded;

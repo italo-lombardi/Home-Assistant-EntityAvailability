@@ -315,10 +315,9 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
 
 
 class NonEssentialOfflineEntitiesSensor(DedupCoordinatorSensor):
-    """Sensor showing count of non-essential offline entities."""
+    """Sensor showing non-essential offline entities as a list."""
 
-    _attr_icon = "mdi:devices"
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:alert-circle-outline"
     _attr_has_entity_name = True
 
     def __init__(
@@ -420,7 +419,14 @@ class NonEssentialLowBatteryCountSensor(DedupCoordinatorSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, group_name, group_slug, entry_id):
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_low_battery_count_non_essential"
         self.entity_id = (
@@ -445,7 +451,14 @@ class NonEssentialOfflineCountSensor(DedupCoordinatorSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, group_name, group_slug, entry_id):
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_offline_count_non_essential"
         self.entity_id = (
@@ -469,7 +482,14 @@ class NonEssentialStaleEntitiesSensor(DedupCoordinatorSensor):
     _attr_icon = "mdi:clock-alert-outline"
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, group_name, group_slug, entry_id):
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_stale_entities_non_essential"
         self.entity_id = (
@@ -517,7 +537,14 @@ class NonEssentialStaleCountSensor(DedupCoordinatorSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, group_name, group_slug, entry_id):
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_stale_count_non_essential"
         self.entity_id = (
