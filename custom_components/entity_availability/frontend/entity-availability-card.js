@@ -704,6 +704,7 @@ class EntityAvailabilityCard extends LitElement {
       const lowBattery = attrs.low_battery || 0;
       const suppressed = attrs.suppressed || 0;
       const nonEssential = attrs.non_essential || 0;
+      const staleCount = attrs.stale || 0;
       const groups = attrs.groups || {};
 
       const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
@@ -715,7 +716,7 @@ class EntityAvailabilityCard extends LitElement {
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
-          ${this._renderStats(online, offline, lowBattery, 0)}
+          ${this._renderStats(online, offline, lowBattery, staleCount)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}

@@ -184,7 +184,7 @@ The Group Summary sensor provides a complete overview in its attributes:
 | `online` | Entities currently online (excludes suppressed and non-essential) |
 | `offline` | Entities currently offline (excludes suppressed and non-essential) |
 | `suppressed` | Number of suppressed entities |
-| `non_essential` | Number of non-essential entities (not suppressed) |
+| `non_essential` | Total number of non-essential entities (including suppressed) |
 | `non_essential_entities` | List of non-essential entity IDs |
 | `battery_powered` | Number of entities with a mapped battery sensor |
 | `low_battery` | Number of entities with battery below threshold (excludes non-essential) |
@@ -195,6 +195,7 @@ The Group Summary sensor provides a complete overview in its attributes:
 | `stale_entities_non_essential` | Non-essential entities that haven't reported a state change longer than the staleness threshold |
 | `offline_since` | When each currently offline entity first went offline (includes both essential and non-essential entities) |
 | `offline_entities_non_essential` | List of non-essential entity IDs currently offline |
+| `non_essential_suppressed` | Number of non-essential entities currently suppressed |
 | `non_essential_online` | Number of non-essential entities currently online (unsuppressed, not offline) |
 | `non_essential_offline` | Number of non-essential entities currently offline (unsuppressed) |
 | `low_battery_non_essential` | Number of non-essential entities with battery below threshold |

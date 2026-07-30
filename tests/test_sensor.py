@@ -2937,6 +2937,39 @@ class TestNonEssentialAndStaleSensors:
         assert attrs["count"] == 1
         assert "binary_sensor.device_b" in attrs["entities"]
 
+    def test_non_essential_offline_entities_sensor_none(
+        self, mock_coordinator, mock_hass
+    ):
+        """NonEssentialOfflineEntitiesSensor returns 'None' when no NE offline."""
+        sensor = NonEssentialOfflineEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == "None"
+
+    def test_non_essential_offline_entities_sensor_truncation(
+        self, mock_coordinator, mock_hass
+    ):
+        """NonEssentialOfflineEntitiesSensor truncates at MAX_STATE_LENGTH."""
+        for i in range(50):
+            entity_id = f"binary_sensor.ne_device_{i:03d}"
+            mock_coordinator._device_states[entity_id] = DeviceState(
+                entity_id=entity_id,
+                is_offline=True,
+                is_non_essential=True,
+            )
+            mock_hass.states.async_set(
+                entity_id,
+                STATE_UNAVAILABLE,
+                {"friendly_name": f"Non Essential Device Name Number {i:03d}"},
+            )
+        sensor = NonEssentialOfflineEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert len(sensor.native_value) <= 255
+        assert sensor.native_value.endswith("...")
+
     def test_non_essential_offline_count_sensor(self, mock_coordinator, mock_hass):
         """NonEssentialOfflineCountSensor returns count of non-essential offline."""
         mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True

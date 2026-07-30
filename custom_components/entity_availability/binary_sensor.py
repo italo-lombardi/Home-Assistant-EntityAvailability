@@ -102,7 +102,14 @@ class NonEssentialAnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
     _attr_icon = "mdi:alert-outline"
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, group_name, group_slug, entry_id):
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the binary sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_any_offline_non_essential"
         self.entity_id = (
