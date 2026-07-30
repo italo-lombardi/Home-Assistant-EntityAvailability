@@ -19,6 +19,9 @@ EA_SMOKE_TOKEN=<access_token> python3 tests/integration/smoke.py
 
 # Fast mode (45 s timeouts instead of 60 s — for warm CI environments):
 EA_SMOKE_TOKEN=<access_token> python3 tests/integration/smoke.py --fast
+
+# Target a single EC without running the full preamble (assumes clean HA state):
+EA_SMOKE_TOKEN=<access_token> EA_SMOKE_EC=24 python3 tests/integration/smoke.py --skip-setup
 ```
 
 ## Get a token

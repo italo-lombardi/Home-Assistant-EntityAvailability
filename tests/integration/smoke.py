@@ -43,6 +43,9 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core):
   EC24 combined offline event carries source_groups list (websocket; skipped if websocket-client absent)
 
 Pass --fast or set EA_SMOKE_FAST=1 to use 45 s wait_for timeouts (default: 60 s).
+Pass --skip-setup or set EA_SMOKE_SKIP_SETUP=1 to skip battery mapping setup and
+  initial restore_and_wait — assumes HA is already in a clean state. Use with
+  EA_SMOKE_EC to jump straight to a targeted check without running the full preamble.
 """
 
 import argparse
@@ -60,12 +63,14 @@ import urllib.parse
 # ---------------------------------------------------------------------------
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--fast", action="store_true")
+_parser.add_argument("--skip-setup", action="store_true")
 _args, _ = _parser.parse_known_args()
 
 TOKEN = os.environ.get("EA_SMOKE_TOKEN", "")
 BASE = os.environ.get("EA_SMOKE_BASE_URL", "http://localhost:8123")
 GROUP_FILTER = os.environ.get("EA_SMOKE_GROUP", "Test Group")
 FAST = _args.fast or os.environ.get("EA_SMOKE_FAST", "") == "1"
+SKIP_SETUP = _args.skip_setup or os.environ.get("EA_SMOKE_SKIP_SETUP", "") == "1"
 # Comma-separated EC numbers to run, e.g. "16,17,18". Empty = run all.
 EC_FILTER: set[int] = {
     int(x) for x in os.environ.get("EA_SMOKE_EC", "").split(",") if x.strip().isdigit()
@@ -480,8 +485,14 @@ def main():
     print("=== Entity Availability smoke tests ===\n", flush=True)
 
     ctx = discover()
-    setup_battery(ctx)
-    restore_and_wait(ctx)
+    if not SKIP_SETUP:
+        setup_battery(ctx)
+        restore_and_wait(ctx)
+    else:
+        print(
+            "  --skip-setup: assuming clean state, skipping battery setup + restore",
+            flush=True,
+        )
 
     prefix = ctx["prefix"]
     battery_entity = ctx["mapped_battery_entity"]
@@ -621,8 +632,11 @@ def main():
             "unit_of_measurement": "%",
         },
     )
-    wait()
-    chk("offline_count=0", gs(f"{prefix}_offline_count").get("state"), "0")
+    chk(
+        "offline_count=0",
+        wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0"),
+        "0",
+    )
     chk(
         "low_battery_count=0 (battery 90%)",
         gs(f"{prefix}_low_battery_count").get("state"),
