@@ -1828,6 +1828,25 @@ class TestCombinedRecentlyOfflineSensor:
             value = sensor.native_value
         assert value == "None"
 
+    def test_non_essential_excluded(self, mock_hass, combined_entry, coordinators):
+        """Non-essential offline devices are excluded from combined recently offline."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        d = coordinators[0]._device_states["binary_sensor.a2"]
+        d.recently_offline_at = _NOW - timedelta(minutes=1)
+        d.is_non_essential = True
+        sensor = _make_recently_offline_sensor(mock_hass, combined_entry, coordinators)
+        with patch(
+            "custom_components.entity_availability.combined_sensor.datetime"
+        ) as mock_dt:
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+            attrs = sensor.extra_state_attributes
+        assert value == "None"
+        assert "binary_sensor.a2" not in attrs["entities"]
+
     def test_truncates_long_value(self, mock_hass, combined_entry, coordinators):
         """native_value truncated to MAX_STATE_LENGTH."""
         mock_hass.data[DOMAIN] = {
@@ -2042,6 +2061,27 @@ class TestCombinedRecentlyRecoveredSensor:
         assert attrs["count"] == 1
         assert "binary_sensor.a1" in attrs["entities"]
         assert "binary_sensor.b1" not in attrs["entities"]
+
+    def test_non_essential_excluded(self, mock_hass, combined_entry, coordinators):
+        """Non-essential recovered devices are excluded from combined recently recovered."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        d = coordinators[0]._device_states["binary_sensor.a1"]
+        d.last_recovery = _NOW - timedelta(minutes=2)
+        d.is_non_essential = True
+        sensor = _make_recently_recovered_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        with patch(
+            "custom_components.entity_availability.combined_sensor.datetime"
+        ) as mock_dt:
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+            attrs = sensor.extra_state_attributes
+        assert value == "None"
+        assert "binary_sensor.a1" not in attrs["entities"]
 
     def test_unique_id(self, mock_hass, combined_entry, coordinators):
         mock_hass.data[DOMAIN] = {}

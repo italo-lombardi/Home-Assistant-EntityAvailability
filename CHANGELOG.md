@@ -9,11 +9,12 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Non-Essential entity tier** — mark individual entities as Non-Essential when creating or editing a group. Non-essential entities show on the card and count toward totals, but are excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Perfect for devices that are expected to go offline — a TV, a printer, a seasonal sensor — without needing a separate group. Zero migration: existing groups default to all-essential.
 - **6 new sensors per group** for non-essential visibility (offline count/list, stale count/list, low battery count/list)
-- **New binary sensor** `any_offline_non_essential` — turns ON when any non-essential entity goes offline, for use in automations
+- **3 new binary sensors per group**: `any_low_battery` (ON when any essential entity has low battery), `any_stale` (ON when any essential entity stopped reporting), `any_offline_non_essential` (ON when any non-essential entity is offline)
+- **Stale events** — `entity_availability_stale` / `entity_availability_stale_recovered` fire when an essential entity transitions in/out of stale state; payload mirrors the offline/recovered shape
+- **Battery and stale events** — `entity_availability_low_battery` / `entity_availability_battery_ok` events fire on battery threshold transitions; combined groups fire offline/recovered events; all events include `entry_id` and `source_groups` in the payload; all event entity lists exclude non-essential entities
 - **Card: Non-Essential stats row** (`show_non_essential_stats`, default off) — opt-in row below the main stats showing Online / Offline / Stale / Low Battery counts for non-essential entities; also shows non-essential entities in the entity list sorted to the bottom
 - **Card: Stale count in stats row** — `Stale: N` appears when entities are stale; hidden when zero (consistent with Low Battery)
 - **Card: Suppressed banner shows tier** — when non-essential stats are enabled, the banner distinguishes: "2 entities suppressed, 1 non-essential"
-- **Battery and stale events** — `entity_availability_low_battery` / `entity_availability_battery_ok` events now fire on battery threshold transitions; combined groups fire offline/recovered events; all events include `entry_id` and `source_groups` in the payload
 - **Card: per-entity suppress toggle** (`show_suppress_toggle`, opt-in, default off)
 
 ### Fixed

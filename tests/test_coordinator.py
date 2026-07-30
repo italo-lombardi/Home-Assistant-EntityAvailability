@@ -4043,3 +4043,132 @@ async def test_suppressed_and_non_essential_both_flagged(
     d = coord.device_states["binary_sensor.device_a"]
     assert d.is_suppressed is True
     assert d.is_non_essential is True
+
+
+@pytest.mark.asyncio
+async def test_bus_events_stale_transition(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """entity_availability_stale fires on False→True; stale_recovered on True→False."""
+    hass = mock_hass
+    stale_events: list = []
+    recovered_events: list = []
+    hass.bus.async_listen("entity_availability_stale", lambda e: stale_events.append(e))
+    hass.bus.async_listen(
+        "entity_availability_stale_recovered", lambda e: recovered_events.append(e)
+    )
+
+    config = dict(mock_config_data)
+    config[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    config[CONF_STALENESS_THRESHOLD] = 1
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="stale_event_test",
+        unique_id=f"{DOMAIN}_stale_event",
+    )
+    entry.add_to_hass(hass)
+
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+
+        # Fresh state — not stale
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert coord.device_states["binary_sensor.device_a"].is_stale is False
+        assert stale_events == []
+
+        # Backdate state → stale
+        hass.states._states["binary_sensor.device_a"] = State(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {},
+            last_changed=old_time,
+            last_updated=old_time,
+        )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        assert device_a.is_stale is True
+        assert len(stale_events) == 1
+        data = stale_events[0].data
+        assert data["entity_id"] == "binary_sensor.device_a"
+        assert data["group"] == "Test Group"
+        assert data["entry_id"] == entry.entry_id
+        assert "stale_since" in data
+        assert data["stale_count"] == 1
+        assert "binary_sensor.device_a" in data["stale_entities"]
+        assert recovered_events == []
+
+        # Fresh state → stale_recovered
+        fresh_time = datetime.now(timezone.utc)
+        hass.states._states["binary_sensor.device_a"] = State(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {},
+            last_changed=fresh_time,
+            last_updated=fresh_time,
+        )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        assert coord.device_states["binary_sensor.device_a"].is_stale is False
+        assert len(recovered_events) == 1
+        rec = recovered_events[0].data
+        assert rec["entity_id"] == "binary_sensor.device_a"
+        assert rec["stale_count"] == 0
+        assert rec["stale_entities"] == []
+
+
+@pytest.mark.asyncio
+async def test_bus_events_stale_no_refire_when_unchanged(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """No stale event fires when entity stays stale across updates."""
+    hass = mock_hass
+    stale_events: list = []
+    hass.bus.async_listen("entity_availability_stale", lambda e: stale_events.append(e))
+
+    config = dict(mock_config_data)
+    config[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    config[CONF_STALENESS_THRESHOLD] = 1
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="stale_no_refire",
+        unique_id=f"{DOMAIN}_stale_no_refire",
+    )
+    entry.add_to_hass(hass)
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        hass.states._states["binary_sensor.device_a"] = State(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {},
+            last_changed=old_time,
+            last_updated=old_time,
+        )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert len(stale_events) == 1
+
+        # Second tick — still stale, no new event
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert len(stale_events) == 1

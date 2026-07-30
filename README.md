@@ -155,7 +155,10 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._availability_7d` | Sensor | Group availability % over 7 days | Per-entity availability breakdown |
 | `sensor..._mtbf` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `offline_events`) |
 | `sensor..._mttr` | Sensor (Diagnostic) | Group mean MTTR in minutes (mean time to recovery / average outage length) | `total_offline_events`, `per_device` (`mttr_minutes`, `offline_events`) |
-| `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one entity is offline | offline_entities, offline_count |
+| `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one essential entity is offline | `offline_entities`, `offline_count` |
+| `binary_sensor..._any_low_battery` | Binary Sensor (Battery) | ON when at least one essential entity has low battery | `low_battery_entities`, `low_battery_count` |
+| `binary_sensor..._any_stale` | Binary Sensor (Problem) | ON when at least one essential entity is stale (stopped reporting) | `stale_entities`, `stale_count` |
+| `binary_sensor..._any_offline_non_essential` | Binary Sensor (Problem) | ON when at least one non-essential entity is offline and not suppressed | `offline_entities` (list), `offline_count` |
 | `sensor..._affected_areas_count` | Sensor | Number of unique HA areas containing ≥1 offline, unsuppressed entity | — |
 | `sensor..._affected_areas` | Sensor | Comma-separated sorted list of affected area names (`"None"` when none) | `areas` (list), `count`, `unassigned_entities` (entity IDs with no area) |
 | `sensor..._affected_areas_recently_offline` | Sensor | Areas where ≥1 entity went offline within the recovery window (`"None"` when none) | `areas` (list), `count`, `window_minutes` |
@@ -449,12 +452,16 @@ data:
 
 ## Bus Events
 
-The integration fires two events on the Home Assistant event bus when a monitored entity crosses state (after its cooldown, and outside the 60 s startup grace period):
+The integration fires events on the Home Assistant event bus when a monitored entity crosses state (after its cooldown, and outside the 60 s startup grace period). All payload fields reference essential (monitored) entities only — non-essential entities are excluded from event payloads.
 
 | Event | Fired when | Data |
 |-------|-----------|------|
-| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
-| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
+| `entity_availability_offline` | An essential entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
+| `entity_availability_recovered` | An offline essential entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
+| `entity_availability_low_battery` | An essential entity's battery drops below threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
+| `entity_availability_battery_ok` | An essential entity's battery recovers above threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
+| `entity_availability_stale` | An essential entity stops reporting state changes | `entity_id`, `group`, `entry_id`, `stale_since`, `stale_count`, `stale_entities` |
+| `entity_availability_stale_recovered` | A stale essential entity resumes reporting | `entity_id`, `group`, `entry_id`, `stale_count`, `stale_entities` |
 
 `offline_count` and `offline_entities` reflect the group's offline state at the moment of the event. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. `offline_since` is always set for individual group events; for combined groups it may be `null` if the coordinator has not yet recorded the transition — guard with `if trigger.event.data.offline_since` before using `as_datetime()`.
 

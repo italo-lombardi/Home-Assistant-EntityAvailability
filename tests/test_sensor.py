@@ -2317,6 +2317,41 @@ class TestAffectedAreasSensors:
             # device_a and device_c both online, device_a has recent recovery → Kitchen qualifies
             assert sensor.native_value == "Kitchen"
 
+    def test_non_essential_entity_not_blocking_recovery(
+        self, mock_coordinator, mock_hass
+    ):
+        """Non-essential offline entities don't block area from showing as recovered."""
+        from datetime import timedelta
+
+        # device_a: essential, online, recently recovered
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = False
+        mock_coordinator._device_states["binary_sensor.device_a"].last_recovery = (
+            datetime.now(timezone.utc) - timedelta(minutes=2)
+        )
+        # device_b: non-essential, offline — should NOT block area recovery
+        mock_coordinator._device_states[
+            "binary_sensor.device_b"
+        ].is_non_essential = True
+        # device_c: online, no recovery — included in area
+        area_map = {
+            "binary_sensor.device_a": "Living Room",
+            "binary_sensor.device_b": "Living Room",  # NE → ignored
+            "binary_sensor.device_c": "Living Room",
+        }
+
+        def _area_side_effect(hass, entity_id):
+            return area_map.get(entity_id)
+
+        with patch(
+            "custom_components.entity_availability.sensor.resolve_area_name",
+            side_effect=_area_side_effect,
+        ):
+            sensor = AffectedAreasRecentlyRecoveredSensor(
+                mock_coordinator, "Test Group", "test_group", "test_entry_id"
+            )
+            sensor.hass = mock_hass
+            assert sensor.native_value == "Living Room"
+
     def test_recently_recovered_attrs_have_window(self, mock_coordinator, mock_hass):
         """extra_state_attributes includes window_minutes."""
         from datetime import timedelta
