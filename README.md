@@ -77,7 +77,8 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Field | Description |
 |-------|-------------|
 | Group Name | A descriptive name for this group (e.g., "Security Cameras") |
-| Entities to Monitor | Select the entities you want to track |
+| Entities to Monitor | Select the entities you want to fully monitor (included in all KPIs and alerts) |
+| Non-Essential entities | *(optional)* Entities shown on the card and counted in totals, but excluded from all KPIs (offline count, availability %, MTBF, MTTR) and never trigger alerts. Useful for devices where downtime is acceptable — a TV, a printer, a seasonal device. At least one entity in either field is required. |
 
 ![Step 2a: Create Entity Group](assets/01_create_entity_group.png)
 
@@ -100,8 +101,6 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Availability tracking windows | `today`, `7d` | Which time windows to create availability sensors for |
 | Recovery window (minutes) | `5` | How long entities remain visible in the recently-offline and recently-recovered sensors after the event |
 | Show device names | `off` | When enabled, offline/recovered sensor states show the HA device name (e.g. "Entrance Smoke Detector") instead of the entity friendly name. Falls back to friendly name for entities not linked to an HA device (helpers, template sensors) |
-| Non-Essential entities | *(none)* | Entities shown and counted on the card but excluded from all KPIs (offline count, availability %, MTBF, MTTR) and alerts. Useful for devices expected to be offline — TV in standby, printer off between jobs, PS3 when not in use — without creating a separate group. Existing groups without this field default to all-Monitored with no migration needed. |
-
 ![Step 4: Advanced Settings](assets/03_advanced_settings.png)
 
 ### Step 5: Battery Entity Mapping (when battery threshold > 0)
@@ -161,6 +160,15 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._affected_areas` | Sensor | Comma-separated sorted list of affected area names (`"None"` when none) | `areas` (list), `count`, `unassigned_entities` (entity IDs with no area) |
 | `sensor..._affected_areas_recently_offline` | Sensor | Areas where ≥1 entity went offline within the recovery window (`"None"` when none) | `areas` (list), `count`, `window_minutes` |
 | `sensor..._affected_areas_recently_recovered` | Sensor | Areas where all entities are back online and most recent recovery is within the recovery window (`"None"` when none) | `areas` (list), `count`, `window_minutes` |
+| `sensor..._stale_entities` | Sensor | Comma-separated list of stale essential entity names (`"None"` when none) | `entities` (list), `count` |
+| `sensor..._stale_count` | Sensor | Number of stale essential entities | — |
+| `sensor..._offline_entities_non_essential` | Sensor | Comma-separated list of offline non-essential entity names (`"None"` when none) | `entities` (list), `count` |
+| `sensor..._offline_count_non_essential` | Sensor | Number of non-essential entities currently offline | — |
+| `sensor..._stale_entities_non_essential` | Sensor | Comma-separated list of stale non-essential entity names (`"None"` when none) | `entities` (list), `count` |
+| `sensor..._stale_count_non_essential` | Sensor | Number of stale non-essential entities | — |
+| `sensor..._low_battery_non_essential` | Sensor | Comma-separated list of low-battery non-essential entities (`"None"` when all OK) — includes offline entities | Per-entity battery levels, count |
+| `sensor..._low_battery_count_non_essential` | Sensor | Number of non-essential entities with low battery | — |
+| `binary_sensor..._any_offline_non_essential` | Binary Sensor (Problem) | ON when at least one non-essential entity is offline and not suppressed | `offline_entities` (list), `offline_count` |
 
 > **Note:** The Low Battery and Low Battery Count sensors are only created when battery threshold > 0. Availability window sensors are only created for windows selected during configuration. The recently-offline and recently-recovered sensors are always created regardless of battery threshold.
 
@@ -183,8 +191,13 @@ The Group Summary sensor provides a complete overview in its attributes:
 | `entities` | List of all monitored entity IDs in this group |
 | `battery_levels` | Dict of `{entity_id: battery_level}` for entities with battery sensors |
 | `suppressed_until` | Which entities are suppressed and when the suppression expires |
-| `stale_entities` | Entities that haven't reported a state change longer than the staleness threshold (excludes non-essential) |
-| `offline_since` | When each currently offline entity first went offline (excludes non-essential) |
+| `stale_entities` | Entities that haven't reported a state change longer than the staleness threshold (excludes non-essential and suppressed) |
+| `stale_entities_non_essential` | Non-essential entities that haven't reported a state change longer than the staleness threshold |
+| `offline_since` | When each currently offline entity first went offline (includes both essential and non-essential entities) |
+| `offline_entities_non_essential` | List of non-essential entity IDs currently offline |
+| `non_essential_online` | Number of non-essential entities currently online (or suppressed) |
+| `non_essential_offline` | Number of non-essential entities currently offline (unsuppressed) |
+| `low_battery_non_essential` | Number of non-essential entities with battery below threshold |
 
 Access these in templates:
 
@@ -553,6 +566,7 @@ availability_colors:
 | `show_affected_areas` | `false` | Show offline area names as pills between stats and availability bars (both regular and combined groups) |
 | `show_availability` | `true` | Show availability progress bars (regular groups only) |
 | `show_entities` | `true` | Show expandable entity list (regular) or group breakdown table (combined) |
+| `show_non_essential_stats` | `false` | Show non-essential sub-stats row (Online / Offline / Low Battery for NE entities) below the main stats row, and include non-essential entities in the entity list sorted to the bottom (regular groups only). When `false`, non-essential entities are hidden from the card entirely. |
 | `entities_expanded` | `false` | Start entity list / group breakdown expanded |
 | `show_actions` | `false` | Show Suppress/Unsuppress All buttons (regular groups only). **Suppress All** suppresses only currently-offline entities for 60 minutes. To suppress online entities individually, use `show_suppress_toggle`. |
 | `show_suppress_toggle` | `false` | Show per-entity suppress/unsuppress icon button on each entity row. Click suppresses indefinitely within this card's group only; click the orange bell to unsuppress. (regular groups only) |

@@ -109,7 +109,6 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 non_essential = list(dict.fromkeys(non_essential))
-                monitored = [e for e in monitored if e not in non_essential]
                 self._data[CONF_ENTRY_TYPE] = ENTRY_TYPE_GROUP
                 self._data[CONF_GROUP_NAME] = group_name
                 self._data[CONF_ENTITIES] = list(
@@ -400,9 +399,8 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             else:
                 self._data = {**self.config_entry.data, **user_input}
                 non_essential = list(dict.fromkeys(non_essential_raw))
-                monitored = [e for e in monitored_raw if e not in non_essential]
                 self._data[CONF_ENTITIES] = list(
-                    dict.fromkeys(monitored + non_essential)
+                    dict.fromkeys(monitored_raw + non_essential)
                 )
                 self._data[CONF_NON_ESSENTIAL_ENTITIES] = non_essential
 

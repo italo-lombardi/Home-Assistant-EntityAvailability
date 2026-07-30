@@ -4,33 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Added
-- **Non-Essential entity level** — mark individual entities in a group as Non-Essential via *Advanced Settings → Non-Essential entities*. Non-essential entities appear on the card and count toward `total_entities` but are excluded from all KPIs (offline count, availability %, MTBF, MTTR) and from all alerts (binary sensor, affected areas, events). Useful for devices that are expected to be offline — TV in standby, printer off between jobs, PS3 when not in use — without splitting them into a separate group (which would orphan availability history). Setting is a list of entity IDs stored in group config; existing entries without the field default to `[]` so all devices remain Monitored with zero migration. Exclusion propagates to combined groups transitively.
-
-## [0.3.14-beta.7] - 2026-07-30
-
-### Added
-- Combined group events (`entity_availability_offline`, `entity_availability_recovered`, `entity_availability_low_battery`, `entity_availability_battery_ok`) now include a `source_groups` field — a list of the home group names that own the entity. For entities in a single home group this is a one-element list (e.g. `["Switches"]`); for entities shared across multiple home groups all names appear. Use `{{ trigger.event.data.source_groups | join(', ') }}` in automation templates.
-
-### Fixed
-- Smoke test suite: EC4 now resets state before the battery-threshold check to prevent carry-over from EC1; EC15 uses `wait_for` polling with ±0.5% tolerance instead of a single-shot read, eliminating spurious failures from rounding drift.
-
-### Changed
-- Smoke test `wait_for` default timeout reduced from 90 s to 60 s (two coordinator ticks). Pass `--fast` / set `EA_SMOKE_FAST=1` to use 45 s timeouts in warm CI environments.
-- Smoke test cleanup uses `restore_and_wait()` (polls until `offline_count=0` and `low_battery_count=0`) instead of a fixed `wait(35)`, cutting inter-test idle time.
-- Smoke EC19–EC21 and new EC24 verify event payload fields (`entry_id`, `entity_id`, `source_groups`) directly via WebSocket subscription when `websocket-client` is installed; falls back to sensor-proxy checks otherwise.
-
 ## [0.3.14] - 2026-07-30
 
 ### Added
-- New bus events `entity_availability_low_battery` and `entity_availability_battery_ok` fired on battery threshold transitions. Payload: `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities`. Full parity with offline/recovered event shape. Both individual groups and combined groups fire events; combined group uses the same `_prev_low_battery_set` diff pattern as offline events.
-- Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events. One event fires per affected entity using the same payload shape as individual group events: `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`. Automations written for individual groups work unchanged on combined groups — only the `group` name in the trigger filter differs. Events fire only on set changes; no spurious fires on startup. Duplicate entities deduplicated across all combined sensor outputs.
+- **Non-Essential entity level** — mark individual entities in a group as Non-Essential via the group creation step (Step 1b, same screen as entity selection). Non-essential entities appear on the card and count toward `total_entities` but are excluded from all KPIs (offline count, availability %, MTBF, MTTR) and from all alerts (binary sensor, affected areas, events). Useful for devices that are expected to be offline — TV in standby, printer off between jobs, PS3 when not in use — without splitting them into a separate group. Setting is a list of entity IDs stored in group config; existing entries without the field default to `[]` so all devices remain Monitored with zero migration. Exclusion propagates to combined groups transitively.
+- **6 new sensors per group** for non-essential entity visibility:
+  - `sensor..._offline_entities_non_essential` — list of non-essential entities currently offline
+  - `sensor..._offline_count_non_essential` — count of non-essential offline entities
+  - `sensor..._stale_entities_non_essential` — list of non-essential stale entities
+  - `sensor..._stale_count_non_essential` — count of non-essential stale entities
+  - `sensor..._low_battery_non_essential` — list of non-essential low-battery entities (battery gate)
+  - `sensor..._low_battery_count_non_essential` — count of non-essential low-battery entities (battery gate)
+- **New binary sensor** `binary_sensor..._any_offline_non_essential` — ON when any non-essential entity is offline and not suppressed.
+- **Card: `show_non_essential_stats`** (default `false`) — when enabled, shows a non-essential sub-stats row (Online / Offline / Low Battery) below the main stats row, and includes non-essential entities in the entity list (sorted to bottom, marked with `mdi:minus-circle-outline` icon). When disabled, non-essential entities are hidden from the card entirely.
+- Combined group events (`entity_availability_offline`, `entity_availability_recovered`, `entity_availability_low_battery`, `entity_availability_battery_ok`) now include a `source_groups` field — a list of the home group names that own the entity.
+- New bus events `entity_availability_low_battery` and `entity_availability_battery_ok` fired on battery threshold transitions. Payload: `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities`.
+- Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events with the same payload shape as individual group events.
 - Individual group events now include `entry_id` in the payload.
 - Card: per-entity suppress toggle (`show_suppress_toggle`, opt-in, default `false`).
 
 ### Fixed
 - Suppress no longer affects historical availability % or MTBF/MTTR — history is preserved, only new accumulation stops.
-- Bus events (`entity_availability_offline` / `entity_availability_recovered`) now include `offline_count` and `offline_entities` in the payload; events fire after all state mutations complete. Resolves #46.
+- Bus events now include `offline_count` and `offline_entities` in the payload; events fire after all state mutations complete. Resolves #46.
 - Suppress/unsuppress/reset_statistics services now group-scoped when both `entity_id` and `group` are provided.
 - `suppressed_until` attribute now includes indefinitely-suppressed entities with value `null`.
 - Combined sensor counts and entity lists deduplicated when the same entity appears in multiple member groups.
@@ -43,6 +38,7 @@ All notable changes to this project will be documented in this file.
 
 ### Breaking Changes
 - `suppressed_until` now includes indefinitely-suppressed entities as `null`. Templates using truthiness check (`if suppressed_until.get(entity_id)`) will evaluate `False` for indefinite suppression — use `entity_id in suppressed_until` instead.
+
 
 ## [0.3.13] - 2026-07-22
 
