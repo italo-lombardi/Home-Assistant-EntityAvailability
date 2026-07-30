@@ -17,7 +17,8 @@
           "non_essential_entities": "Ikke-essensielle enheter"
         },
         "data_description": {
-          "non_essential_entities": "Enheter som vises på kortet, men ekskluderes fra alle KPI-er og varsler."
+          "entities": "Enheter som overvåkes for tilgjengelighet. Disse er fullt overvåket og inkludert i alle KPI-er og varsler.",
+          "non_essential_entities": "Enheter som ikke påvirker gruppens helsescore. Synlige på kortet og talt med i totaler, men ekskludert fra alle KPI-er (tilgjengelighet %, antall offline, MTBF, MTTR) og utløser aldri varsler. Bruk for enheter der nedetid er akseptabelt — en TV, en skriver, en sesongbasert enhet."
         }
       },
       "combined": {
@@ -68,7 +69,8 @@
     "error": {
       "empty_group_name": "Gruppenavnet kan ikke være tomt.",
       "no_entities": "Du må velge minst én entitet.",
-      "not_enough_groups_selected": "Velg minst to grupper å kombinere."
+      "not_enough_groups_selected": "Velg minst to grupper å kombinere.",
+      "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring."
     },
     "abort": {
       "already_configured": "En gruppe med dette navnet finnes allerede.",
@@ -101,7 +103,8 @@
           "availability_windows": "Tidsvinduer for sporing av gruppens tilgjengelighetshistorikk (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
           "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
-          "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil)."
+          "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil).",
+          "entities": "Enheter som overvåkes for tilgjengelighet. Disse er fullt overvåket og inkludert i alle KPI-er og varsler."
         }
       },
       "combined_init": {
@@ -173,6 +176,30 @@
       },
       "mttr": {
         "name": "Gjennomsnittlig gjenopprettingstid"
+      },
+      "stale_entities": {
+        "name": "Inaktive entiteter"
+      },
+      "stale_count": {
+        "name": "Antall inaktive"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline-entiteter (ikke-kritiske)"
+      },
+      "offline_count_non_essential": {
+        "name": "Antall offline (ikke-kritiske)"
+      },
+      "low_battery_non_essential": {
+        "name": "Lavt batteri (ikke-kritiske)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Antall lavt batteri (ikke-kritiske)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Inaktive entiteter (ikke-kritiske)"
+      },
+      "stale_count_non_essential": {
+        "name": "Antall inaktive (ikke-kritiske)"
       }
     },
     "binary_sensor": {
@@ -181,6 +208,9 @@
       },
       "combined_any_offline": {
         "name": "Noen offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Noen offline (ikke-kritiske)"
       }
     }
   },

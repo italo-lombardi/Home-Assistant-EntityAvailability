@@ -37,6 +37,9 @@ async def async_setup_entry(
     async_add_entities(
         [
             AnyOfflineBinarySensor(coordinator, group_name, group_slug, entry.entry_id),
+            NonEssentialAnyOfflineBinarySensor(
+                coordinator, group_name, group_slug, entry.entry_id
+            ),
         ]
     )
 
@@ -90,3 +93,41 @@ class AnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
             "offline_entities": offline_entities,
             "offline_count": len(offline_entities),
         }
+
+
+class NonEssentialAnyOfflineBinarySensor(DedupCoordinatorBinarySensor):
+    """Binary sensor: ON when at least one non-essential entity is offline."""
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:alert-outline"
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, group_name, group_slug, entry_id):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_any_offline_non_essential"
+        self.entity_id = (
+            f"binary_sensor.entity_availability_{group_slug}_any_offline_non_essential"
+        )
+        self._attr_translation_key = "any_offline_non_essential"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry_id)},
+            name=f"Entity Availability - {group_name}",
+            manufacturer="Entity Availability",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def is_on(self) -> bool:
+        return any(
+            d.is_offline and not d.is_suppressed and d.is_non_essential
+            for d in self.coordinator.device_states.values()
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        entities = [
+            d.entity_id
+            for d in self.coordinator.device_states.values()
+            if d.is_offline and not d.is_suppressed and d.is_non_essential
+        ]
+        return {"offline_entities": entities, "offline_count": len(entities)}

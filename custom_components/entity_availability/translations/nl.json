@@ -17,7 +17,8 @@
           "non_essential_entities": "Niet-essentiële entiteiten"
         },
         "data_description": {
-          "non_essential_entities": "Entiteiten die op de kaart worden weergegeven maar van alle KPI's en waarschuwingen worden uitgesloten."
+          "entities": "Entiteiten die worden gecontroleerd op beschikbaarheid. Deze worden volledig gemonitord en opgenomen in alle KPI's en waarschuwingen.",
+          "non_essential_entities": "Entiteiten die de gezondheidsscore van de groep niet beïnvloeden. Zichtbaar op de kaart en meegeteld in totalen, maar uitgesloten van alle KPI's (beschikbaarheid %, aantal offline, MTBF, MTTR) en activeren nooit waarschuwingen. Gebruik voor apparaten waarbij uitvaltijd acceptabel is — een TV, een printer, een seizoensapparaat."
         }
       },
       "combined": {
@@ -68,7 +69,8 @@
     "error": {
       "empty_group_name": "Groepsnaam mag niet leeg zijn.",
       "no_entities": "Je moet minstens één entiteit selecteren.",
-      "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren."
+      "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren.",
+      "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan."
     },
     "abort": {
       "already_configured": "Een groep met deze naam bestaat al.",
@@ -93,15 +95,16 @@
           "staleness_use_last_updated": "Attribuutupdates als activiteit tellen"
         },
         "data_description": {
-          "non_essential_entities": "Entiteiten die worden weergegeven en geteld op de kaart maar worden uitgesloten van alle KPI's (offline aantal, beschikbaarheid %, MTBF, MTTR) en meldingen. Handig voor apparaten die naar verwachting offline zijn (tv in standby, printer uit tussen taken).",
+          "non_essential_entities": "Entiteiten die worden weergegeven en geteld op de kaart maar worden uitgesloten van alle KPI's (aantal offline, beschikbaarheid %, MTBF, MTTR) en meldingen. Handig voor apparaten die naar verwachting offline zijn (tv in standby, printer uit tussen taken).",
           "bad_states": "Entiteitsstatussen die aangeven dat een entiteit offline is (bijv. unavailable, unknown).",
-          "cooldown": "Hoe lang (in seconden) een entiteit in een slechte staat moet blijven voordat deze als offline wordt gemarkeerd. Voorkomt valse alarmen bij korte verbindingsonderbrekingen.",
+          "cooldown": "Hoe lang (in seconden) een entiteit in een slechte status moet blijven voordat deze als offline wordt gemarkeerd. Voorkomt valse alarmen bij korte verbindingsonderbrekingen.",
           "staleness_threshold": "Als een entiteit dit aantal minuten niet van staat is veranderd, wordt deze gemarkeerd als verslechterd. Stel in op 0 om uit te schakelen.",
           "battery_threshold": "Markeert entiteiten waarvan de batterij onder dit percentage daalt. De staat 'low' wordt ook automatisch gedetecteerd. Volt-gebaseerde entiteiten worden niet ondersteund.",
           "availability_windows": "Tijdvensters voor het bijhouden van de beschikbaarheidsgeschiedenis van de groep (bijv. vandaag, 3d, 7d).",
           "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
           "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld.",
-          "staleness_use_last_updated": "Wanneer ingeschakeld, stelt elke update van de entiteit — inclusief wijzigingen aan alleen attributen of herhaalde meldingen met dezelfde waarde — de inactiviteitstimer opnieuw in. Wanneer uitgeschakeld (standaard) telt alleen een wijziging in de hoofdstatus. Schakel dit in voor apparaten die vaak melden maar zelden van waarde veranderen (bijv. temperatuur of vermogen dat stabiel blijft)."
+          "staleness_use_last_updated": "Wanneer ingeschakeld, stelt elke update van de entiteit — inclusief wijzigingen aan alleen attributen of herhaalde meldingen met dezelfde waarde — de inactiviteitstimer opnieuw in. Wanneer uitgeschakeld (standaard) telt alleen een wijziging in de hoofdstatus. Schakel dit in voor apparaten die vaak melden maar zelden van waarde veranderen (bijv. temperatuur of vermogen dat stabiel blijft).",
+          "entities": "Entiteiten die worden gecontroleerd op beschikbaarheid. Deze worden volledig gemonitord en opgenomen in alle KPI's en waarschuwingen."
         }
       },
       "combined_init": {
@@ -173,6 +176,30 @@
       },
       "mttr": {
         "name": "Gemiddelde hersteltijd"
+      },
+      "stale_entities": {
+        "name": "Inactieve entiteiten"
+      },
+      "stale_count": {
+        "name": "Aantal inactief"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline entiteiten (niet-essentieel)"
+      },
+      "offline_count_non_essential": {
+        "name": "Aantal offline (niet-essentieel)"
+      },
+      "low_battery_non_essential": {
+        "name": "Lage batterij (niet-essentieel)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Aantal lage batterijen (niet-essentieel)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Inactieve entiteiten (niet-essentieel)"
+      },
+      "stale_count_non_essential": {
+        "name": "Aantal inactief (niet-essentieel)"
       }
     },
     "binary_sensor": {
@@ -181,6 +208,9 @@
       },
       "combined_any_offline": {
         "name": "Een of meer offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Een of meer offline (niet-essentieel)"
       }
     }
   },

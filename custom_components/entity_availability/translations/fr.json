@@ -17,7 +17,8 @@
           "non_essential_entities": "Entités non essentielles"
         },
         "data_description": {
-          "non_essential_entities": "Entités affichées sur la carte mais exclues de tous les KPI et alertes."
+          "entities": "Entités à surveiller pour la disponibilité. Elles sont entièrement surveillées et incluses dans tous les KPIs et alertes.",
+          "non_essential_entities": "Entités qui n'affectent pas le score de santé du groupe. Visibles sur la carte et comptées dans les totaux, mais exclues de tous les KPI (disponibilité %, nombre hors ligne, MTBF, MTTR) et ne déclenchent jamais d'alertes. À utiliser pour les appareils dont les interruptions sont acceptables — une TV, une imprimante, un appareil saisonnier."
         }
       },
       "combined": {
@@ -68,7 +69,8 @@
     "error": {
       "empty_group_name": "Le nom du groupe ne peut pas être vide.",
       "no_entities": "Vous devez sélectionner au moins une entité.",
-      "not_enough_groups_selected": "Sélectionnez au moins deux groupes à combiner."
+      "not_enough_groups_selected": "Sélectionnez au moins deux groupes à combiner.",
+      "duplicate_entities": "La même entité ne peut pas apparaître dans les deux listes. Supprimez les doublons avant d'enregistrer."
     },
     "abort": {
       "already_configured": "Un groupe avec ce nom existe déjà.",
@@ -101,7 +103,8 @@
           "availability_windows": "Fenêtres de temps pour le suivi de l'historique de disponibilité du groupe (p. ex. aujourd'hui, 3j, 7j).",
           "recovery_window": "Durée (en minutes) pendant laquelle une entité reste dans les capteurs Récemment hors ligne ou Récemment rétabli après un changement d'état.",
           "use_device_names": "Affiche le nom de l'appareil HA plutôt que le nom convivial de l'entité dans les états des capteurs hors ligne / rétablis. Utilise le nom convivial en repli pour les entités non associées à un appareil.",
-          "staleness_use_last_updated": "Lorsque activé, toute mise à jour de l'entité — y compris les changements portant uniquement sur les attributs ou les rapports répétés de la même valeur — réinitialise le minuteur d'obsolescence. Lorsque désactivé (par défaut), seul un changement de l'état principal compte. Activez cette option pour les appareils qui émettent souvent mais changent rarement de valeur (p. ex. température ou puissance qui reste stable)."
+          "staleness_use_last_updated": "Lorsque activé, toute mise à jour de l'entité — y compris les changements portant uniquement sur les attributs ou les rapports répétés de la même valeur — réinitialise le minuteur d'obsolescence. Lorsque désactivé (par défaut), seul un changement de l'état principal compte. Activez cette option pour les appareils qui émettent souvent mais changent rarement de valeur (p. ex. température ou puissance qui reste stable).",
+          "entities": "Entités à surveiller pour la disponibilité. Elles sont entièrement surveillées et incluses dans tous les KPIs et alertes."
         }
       },
       "combined_init": {
@@ -173,6 +176,30 @@
       },
       "mttr": {
         "name": "Temps moyen de rétablissement"
+      },
+      "stale_entities": {
+        "name": "Entités dégradées"
+      },
+      "stale_count": {
+        "name": "Nombre d'entités dégradées"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entités hors ligne (non essentielles)"
+      },
+      "offline_count_non_essential": {
+        "name": "Nombre d'entités hors ligne (non essentielles)"
+      },
+      "low_battery_non_essential": {
+        "name": "Batterie faible (non essentielle)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Nombre de batteries faibles (non essentielles)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entités dégradées (non essentielles)"
+      },
+      "stale_count_non_essential": {
+        "name": "Nombre d'entités dégradées (non essentielles)"
       }
     },
     "binary_sensor": {
@@ -181,6 +208,9 @@
       },
       "combined_any_offline": {
         "name": "Au moins un hors ligne"
+      },
+      "any_offline_non_essential": {
+        "name": "Au moins une hors ligne (non essentielle)"
       }
     }
   },

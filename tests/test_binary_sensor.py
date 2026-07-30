@@ -12,6 +12,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.binary_sensor import (
     AnyOfflineBinarySensor,
+    NonEssentialAnyOfflineBinarySensor,
     async_setup_entry,
 )
 from custom_components.entity_availability.const import (
@@ -174,8 +175,9 @@ async def test_binary_sensor_setup_entry_group_path(
 
     await async_setup_entry(hass, mock_config_entry, capture)
 
-    assert len(added) == 1
+    assert len(added) == 2
     assert isinstance(added[0], AnyOfflineBinarySensor)
+    assert isinstance(added[1], NonEssentialAnyOfflineBinarySensor)
 
 
 async def test_binary_sensor_setup_entry_slug_fallback(
@@ -210,7 +212,7 @@ async def test_binary_sensor_setup_entry_slug_fallback(
 
     await async_setup_entry(hass, entry, capture)
 
-    assert len(added) == 1
+    assert len(added) == 2
     assert "abcdef12" in added[0].entity_id
 
 
@@ -309,3 +311,24 @@ class TestNonEssentialBinarySensor:
             "binary_sensor.device_b"
             not in sensor.extra_state_attributes["offline_entities"]
         )
+
+    def test_non_essential_any_offline_on(self, mock_coordinator, mock_hass):
+        """NonEssentialAnyOfflineBinarySensor is_on True when non-essential offline."""
+        d = mock_coordinator.device_states["binary_sensor.device_b"]
+        d.is_offline = True
+        d.is_non_essential = True
+        sensor = NonEssentialAnyOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is True
+        attrs = sensor.extra_state_attributes
+        assert attrs["offline_count"] == 1
+        assert "binary_sensor.device_b" in attrs["offline_entities"]
+
+    def test_non_essential_any_offline_off(self, mock_coordinator, mock_hass):
+        """NonEssentialAnyOfflineBinarySensor is_on False when no non-essential offline."""
+        sensor = NonEssentialAnyOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+        assert sensor.extra_state_attributes["offline_count"] == 0

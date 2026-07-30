@@ -17,7 +17,8 @@
           "non_essential_entities": "Nieistotne encje"
         },
         "data_description": {
-          "non_essential_entities": "Encje wyświetlane na karcie, ale wykluczone ze wszystkich KPI i alertów."
+          "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach.",
+          "non_essential_entities": "Encje, które nie wpływają na kondycję grupy. Widoczne na karcie i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i nigdy nie wyzwalają alertów. Używaj dla urządzeń, gdzie przestoje są akceptowalne — telewizor, drukarka, urządzenie sezonowe."
         }
       },
       "combined": {
@@ -68,7 +69,8 @@
     "error": {
       "empty_group_name": "Nazwa grupy nie może być pusta.",
       "no_entities": "Musisz wybrać co najmniej jedną encję.",
-      "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia."
+      "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia.",
+      "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem."
     },
     "abort": {
       "already_configured": "Grupa o tej nazwie już istnieje.",
@@ -101,7 +103,8 @@
           "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
           "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
-          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
+          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna).",
+          "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach."
         }
       },
       "combined_init": {
@@ -173,6 +176,30 @@
       },
       "mttr": {
         "name": "Średni czas przywracania"
+      },
+      "stale_entities": {
+        "name": "Nieaktywne encje"
+      },
+      "stale_count": {
+        "name": "Liczba nieaktywnych"
+      },
+      "offline_entities_non_essential": {
+        "name": "Encje offline (Nieistotne)"
+      },
+      "offline_count_non_essential": {
+        "name": "Liczba offline (Nieistotne)"
+      },
+      "low_battery_non_essential": {
+        "name": "Niski poziom baterii (Nieistotne)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Liczba niskich baterii (Nieistotne)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Nieaktywne encje (Nieistotne)"
+      },
+      "stale_count_non_essential": {
+        "name": "Liczba nieaktywnych (Nieistotne)"
       }
     },
     "binary_sensor": {
@@ -181,6 +208,9 @@
       },
       "combined_any_offline": {
         "name": "Dowolna encja offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Jakakolwiek encja offline (Nieistotne)"
       }
     }
   },

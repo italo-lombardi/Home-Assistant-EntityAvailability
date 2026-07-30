@@ -17,7 +17,8 @@
           "non_essential_entities": "Entità non essenziali"
         },
         "data_description": {
-          "non_essential_entities": "Entità mostrate sulla scheda ma escluse da tutti i KPI e avvisi."
+          "entities": "Entità da monitorare per la disponibilità. Sono completamente monitorate e incluse in tutti i KPI e gli avvisi.",
+          "non_essential_entities": "Entità che non influenzano il punteggio di salute del gruppo. Visibili sulla scheda e conteggiate nei totali, ma escluse da tutti i KPI (disponibilità %, conteggio offline, MTBF, MTTR) e non attivano mai avvisi. Da usare per dispositivi dove i tempi di inattività sono accettabili — una TV, una stampante, un dispositivo stagionale."
         }
       },
       "combined": {
@@ -68,7 +69,8 @@
     "error": {
       "empty_group_name": "Il nome del gruppo non può essere vuoto.",
       "no_entities": "Devi selezionare almeno un'entità.",
-      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare."
+      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare.",
+      "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare."
     },
     "abort": {
       "already_configured": "Un gruppo con questo nome esiste già.",
@@ -95,13 +97,14 @@
         "data_description": {
           "non_essential_entities": "Entità mostrate e conteggiate nella scheda ma escluse da tutti i KPI (conteggio offline, disponibilità %, MTBF, MTTR) e avvisi. Utile per dispositivi che si prevede siano offline (TV in standby, stampante spenta tra un lavoro e l'altro).",
           "bad_states": "Stati delle entità che indicano che un'entità è offline (es. unavailable, unknown).",
-          "cooldown": "Per quanto tempo (in secondi) un'entità deve rimanere in uno stato errato prima di essere contrassegnata come offline. Previene falsi allarmi da brevi disconnessioni.",
+          "cooldown": "Per quanto tempo (in secondi) un'entità deve rimanere in uno stato anomalo prima di essere contrassegnata come offline. Previene falsi allarmi da brevi disconnessioni.",
           "staleness_threshold": "Se un'entità non ha cambiato stato per questo numero di minuti, viene contrassegnata come degradata. Imposta 0 per disabilitare.",
           "battery_threshold": "Segnala le entità la cui batteria scende al di sotto di questa percentuale. Lo stato 'low' viene rilevato automaticamente. Le entità basate su volt non sono supportate.",
           "availability_windows": "Finestre temporali per il monitoraggio della disponibilità del gruppo (es. today, 3d, 7d).",
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
           "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
-          "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi o le segnalazioni ripetute dello stesso valore — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile)."
+          "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi o le segnalazioni ripetute dello stesso valore — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile).",
+          "entities": "Entità da monitorare per la disponibilità. Sono completamente monitorate e incluse in tutti i KPI e gli avvisi."
         }
       },
       "combined_init": {
@@ -173,14 +176,41 @@
       },
       "mttr": {
         "name": "Tempo medio di ripristino"
+      },
+      "stale_entities": {
+        "name": "Entità inattive"
+      },
+      "stale_count": {
+        "name": "Conteggio entità inattive"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entità offline (non essenziali)"
+      },
+      "offline_count_non_essential": {
+        "name": "Conteggio offline (non essenziali)"
+      },
+      "low_battery_non_essential": {
+        "name": "Batteria scarica (non essenziali)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Conteggio batteria scarica (non essenziali)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entità inattive (non essenziali)"
+      },
+      "stale_count_non_essential": {
+        "name": "Conteggio entità inattive (non essenziali)"
       }
     },
     "binary_sensor": {
       "any_offline": {
-        "name": "Presenza offline"
+        "name": "Qualcosa è offline"
       },
       "combined_any_offline": {
-        "name": "Presenza offline"
+        "name": "Qualcosa è offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Qualcosa è offline (non essenziali)"
       }
     }
   },

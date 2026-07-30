@@ -93,35 +93,47 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             group_name = user_input[CONF_GROUP_NAME].strip()
-            entities = user_input[CONF_ENTITIES]
+            monitored = user_input.get(CONF_ENTITIES, [])
+            non_essential = user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
 
             if not group_name:
                 errors[CONF_GROUP_NAME] = "empty_group_name"
-            elif not entities:
+            elif not monitored and not non_essential:
                 errors[CONF_ENTITIES] = "no_entities"
+            elif set(monitored) & set(non_essential):
+                errors[CONF_ENTITIES] = "duplicate_entities"
             else:
                 await self.async_set_unique_id(
                     f"{DOMAIN}_{group_name.lower().replace(' ', '_')}"
                 )
                 self._abort_if_unique_id_configured()
 
+                non_essential = list(dict.fromkeys(non_essential))
+                monitored = [e for e in monitored if e not in non_essential]
                 self._data[CONF_ENTRY_TYPE] = ENTRY_TYPE_GROUP
                 self._data[CONF_GROUP_NAME] = group_name
-                self._data[CONF_ENTITIES] = entities
-                self._data[CONF_NON_ESSENTIAL_ENTITIES] = [
-                    e
-                    for e in user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
-                    if e in entities
-                ]
+                self._data[CONF_ENTITIES] = list(
+                    dict.fromkeys(monitored + non_essential)
+                )
+                self._data[CONF_NON_ESSENTIAL_ENTITIES] = non_essential
                 return await self.async_step_monitoring()
 
         data_schema = vol.Schema(
             {
-                vol.Required(CONF_GROUP_NAME): str,
-                vol.Required(CONF_ENTITIES): selector.EntitySelector(
+                vol.Required(
+                    CONF_GROUP_NAME,
+                    default=(user_input or {}).get(CONF_GROUP_NAME, ""),
+                ): str,
+                vol.Optional(
+                    CONF_ENTITIES,
+                    default=(user_input or {}).get(CONF_ENTITIES, []),
+                ): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True)
                 ),
-                vol.Optional(CONF_NON_ESSENTIAL_ENTITIES): selector.EntitySelector(
+                vol.Optional(
+                    CONF_NON_ESSENTIAL_ENTITIES,
+                    default=(user_input or {}).get(CONF_NON_ESSENTIAL_ENTITIES, []),
+                ): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True)
                 ),
             }
@@ -377,35 +389,49 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the options."""
+        errors: dict[str, str] = {}
+
         if user_input is not None:
-            self._data = {**self.config_entry.data, **user_input}
-            self._data[CONF_NON_ESSENTIAL_ENTITIES] = [
-                e
-                for e in self._data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
-                if e in self._data.get(CONF_ENTITIES, [])
-            ]
+            monitored_raw = user_input.get(CONF_ENTITIES, [])
+            non_essential_raw = user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
 
-            if self._data.get(CONF_BATTERY_THRESHOLD, 0) > 0:
-                return await self.async_step_battery_mapping()
+            if set(monitored_raw) & set(non_essential_raw):
+                errors[CONF_ENTITIES] = "duplicate_entities"
+            else:
+                self._data = {**self.config_entry.data, **user_input}
+                non_essential = list(dict.fromkeys(non_essential_raw))
+                monitored = [e for e in monitored_raw if e not in non_essential]
+                self._data[CONF_ENTITIES] = list(
+                    dict.fromkeys(monitored + non_essential)
+                )
+                self._data[CONF_NON_ESSENTIAL_ENTITIES] = non_essential
 
-            self._data[CONF_BATTERY_ENTITY_MAP] = {}
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, data=self._data
-            )
-            return self.async_create_entry(title="", data={})
+                if self._data.get(CONF_BATTERY_THRESHOLD, 0) > 0:
+                    return await self.async_step_battery_mapping()
+
+                self._data[CONF_BATTERY_ENTITY_MAP] = {}
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=self._data
+                )
+                return self.async_create_entry(title="", data={})
 
         current = self.config_entry.data
 
+        current_non_essential = current.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+        current_monitored = [
+            e for e in current.get(CONF_ENTITIES, []) if e not in current_non_essential
+        ]
+
         data_schema = vol.Schema(
             {
-                vol.Required(
-                    CONF_ENTITIES, default=current.get(CONF_ENTITIES, [])
+                vol.Optional(
+                    CONF_ENTITIES, default=current_monitored
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True)
                 ),
-                vol.Required(
+                vol.Optional(
                     CONF_NON_ESSENTIAL_ENTITIES,
-                    default=current.get(CONF_NON_ESSENTIAL_ENTITIES, []),
+                    default=current_non_essential,
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True)
                 ),
@@ -484,6 +510,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=data_schema,
+            errors=errors,
         )
 
     async def async_step_battery_mapping(

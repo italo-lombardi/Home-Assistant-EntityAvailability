@@ -37,10 +37,18 @@ from custom_components.entity_availability.sensor import (
     LowBatteryCountSensor,
     MAX_STATE_LENGTH,
     MTTRSensor,
+    NonEssentialLowBatteryCountSensor,
+    NonEssentialLowBatterySensor,
+    NonEssentialOfflineCountSensor,
+    NonEssentialOfflineEntitiesSensor,
+    NonEssentialStaleCountSensor,
+    NonEssentialStaleEntitiesSensor,
     OfflineCountSensor,
     OfflineDevicesSensor,
     RecentlyOfflineSensor,
     RecentlyRecoveredSensor,
+    StaleCountSensor,
+    StaleEntitiesSensor,
     MTBFSensor,
     async_setup_entry,
 )
@@ -2859,15 +2867,15 @@ class TestNonEssentialKpiExclusion:
         assert attrs["low_battery"] == 0
         assert "binary_sensor.device_a" not in attrs["low_battery_entities"]
 
-    def test_offline_since_excludes_non_essential(self, mock_coordinator, mock_hass):
-        """GroupSummarySensor: offline_since does not include non-essential entities."""
+    def test_offline_since_includes_non_essential(self, mock_coordinator, mock_hass):
+        """GroupSummarySensor: offline_since includes ALL entities, non-essential too."""
         mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True
         sensor = GroupSummarySensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         sensor.hass = mock_hass
         attrs = sensor.extra_state_attributes
-        assert "binary_sensor.device_b" not in attrs["offline_since"]
+        assert "binary_sensor.device_b" in attrs["offline_since"]
 
     def test_recently_offline_excludes_non_essential(self, mock_coordinator, mock_hass):
         """RecentlyOfflineSensor does not include non-essential offline entities."""
@@ -2912,3 +2920,186 @@ class TestNonEssentialKpiExclusion:
         sensor.hass = mock_hass
         attrs = sensor.extra_state_attributes
         assert "binary_sensor.device_a" not in attrs["stale_entities"]
+
+
+class TestNonEssentialAndStaleSensors:
+    """Tests for the dedicated non-essential and stale sensor entities."""
+
+    def test_non_essential_offline_entities_sensor(self, mock_coordinator, mock_hass):
+        """NonEssentialOfflineEntitiesSensor counts/lists non-essential offline."""
+        mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True
+        sensor = NonEssentialOfflineEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == 1
+        attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 1
+        assert "binary_sensor.device_b" in attrs["entities"]
+
+    def test_non_essential_offline_count_sensor(self, mock_coordinator, mock_hass):
+        """NonEssentialOfflineCountSensor returns count of non-essential offline."""
+        mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True
+        sensor = NonEssentialOfflineCountSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.native_value == 1
+
+    def test_non_essential_low_battery_sensor(self, mock_coordinator, mock_hass):
+        """NonEssentialLowBatterySensor lists non-essential low-battery devices."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_non_essential = True
+        d.is_low_battery = True
+        d.battery_level = 5
+        sensor = NonEssentialLowBatterySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert "5%" in sensor.native_value
+        attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 1
+        assert attrs["devices"]["binary_sensor.device_a"] == "5%"
+
+    def test_non_essential_low_battery_sensor_none(self, mock_coordinator, mock_hass):
+        """NonEssentialLowBatterySensor returns 'None' when no matches."""
+        sensor = NonEssentialLowBatterySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == "None"
+        assert sensor.extra_state_attributes["count"] == 0
+
+    def test_non_essential_low_battery_sensor_truncates(
+        self, mock_coordinator, mock_hass
+    ):
+        """NonEssentialLowBatterySensor truncates long device lists."""
+        for i, eid in enumerate(list(mock_coordinator.device_states)):
+            d = mock_coordinator.device_states[eid]
+            d.is_non_essential = True
+            d.is_low_battery = True
+            d.battery_level = 5
+            mock_hass.states.async_set(eid, "on", {"friendly_name": "X" * 120})
+        sensor = NonEssentialLowBatterySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value.endswith("...")
+        assert len(sensor.native_value) <= MAX_STATE_LENGTH
+
+    def test_non_essential_low_battery_count_sensor(self, mock_coordinator, mock_hass):
+        """NonEssentialLowBatteryCountSensor returns count."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_non_essential = True
+        d.is_low_battery = True
+        sensor = NonEssentialLowBatteryCountSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.native_value == 1
+
+    def test_non_essential_stale_entities_sensor(self, mock_coordinator, mock_hass):
+        """NonEssentialStaleEntitiesSensor lists non-essential stale entities."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_non_essential = True
+        d.is_stale = True
+        sensor = NonEssentialStaleEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value != "None"
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_a" in attrs["entities"]
+        assert attrs["count"] == 1
+
+    def test_non_essential_stale_entities_sensor_none(
+        self, mock_coordinator, mock_hass
+    ):
+        """NonEssentialStaleEntitiesSensor returns 'None' when empty."""
+        sensor = NonEssentialStaleEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == "None"
+        assert sensor.extra_state_attributes["count"] == 0
+
+    def test_non_essential_stale_entities_sensor_truncates(
+        self, mock_coordinator, mock_hass
+    ):
+        """NonEssentialStaleEntitiesSensor truncates long lists."""
+        for eid in list(mock_coordinator.device_states):
+            d = mock_coordinator.device_states[eid]
+            d.is_non_essential = True
+            d.is_stale = True
+            d.is_offline = False
+            mock_hass.states.async_set(eid, "on", {"friendly_name": "Y" * 120})
+        sensor = NonEssentialStaleEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value.endswith("...")
+
+    def test_non_essential_stale_count_sensor(self, mock_coordinator, mock_hass):
+        """NonEssentialStaleCountSensor returns count."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_non_essential = True
+        d.is_stale = True
+        sensor = NonEssentialStaleCountSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.native_value == 1
+
+    def test_stale_entities_sensor(self, mock_coordinator, mock_hass):
+        """StaleEntitiesSensor lists monitored (essential) stale entities."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_stale = True
+        sensor = StaleEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value != "None"
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_a" in attrs["entities"]
+        assert attrs["count"] == 1
+
+    def test_stale_entities_sensor_none(self, mock_coordinator, mock_hass):
+        """StaleEntitiesSensor returns 'None' when empty."""
+        sensor = StaleEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == "None"
+        assert sensor.extra_state_attributes["count"] == 0
+
+    def test_stale_entities_sensor_excludes_non_essential(
+        self, mock_coordinator, mock_hass
+    ):
+        """StaleEntitiesSensor excludes non-essential stale entities."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_stale = True
+        d.is_non_essential = True
+        sensor = StaleEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value == "None"
+
+    def test_stale_entities_sensor_truncates(self, mock_coordinator, mock_hass):
+        """StaleEntitiesSensor truncates long lists."""
+        for eid in list(mock_coordinator.device_states):
+            d = mock_coordinator.device_states[eid]
+            d.is_stale = True
+            d.is_offline = False
+            mock_hass.states.async_set(eid, "on", {"friendly_name": "Z" * 120})
+        sensor = StaleEntitiesSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.native_value.endswith("...")
+
+    def test_stale_count_sensor(self, mock_coordinator, mock_hass):
+        """StaleCountSensor returns count of monitored stale entities."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_stale = True
+        sensor = StaleCountSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.native_value == 1

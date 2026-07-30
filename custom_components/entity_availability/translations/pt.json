@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Criar Entrada",
-        "description": "Monitore um grupo de entidades ou combine grupos existentes.",
+        "description": "Monitorize um grupo de entidades ou combine grupos existentes.",
         "data": {
           "entry_type": "Tipo"
         }
@@ -17,7 +17,8 @@
           "non_essential_entities": "Entidades não essenciais"
         },
         "data_description": {
-          "non_essential_entities": "Entidades mostradas no cartão mas excluídas de todos os KPIs e alertas."
+          "entities": "Entidades a monitorizar para disponibilidade. São totalmente monitorizadas e incluídas em todos os KPIs e alertas.",
+          "non_essential_entities": "Entidades que não afetam a pontuação de saúde do grupo. Visíveis no cartão e contadas nos totais, mas excluídas de todos os KPIs (disponibilidade %, contagem offline, MTBF, MTTR) e nunca ativam alertas. Use para dispositivos onde o tempo de inatividade é aceitável — uma TV, uma impressora, um dispositivo sazonal."
         }
       },
       "combined": {
@@ -68,7 +69,8 @@
     "error": {
       "empty_group_name": "O nome do grupo não pode estar vazio.",
       "no_entities": "Deve selecionar pelo menos uma entidade.",
-      "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar."
+      "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar.",
+      "duplicate_entities": "A mesma entidade não pode aparecer em ambas as listas. Remova os duplicados antes de guardar."
     },
     "abort": {
       "already_configured": "Já existe um grupo com este nome.",
@@ -101,7 +103,8 @@
           "availability_windows": "Janelas de tempo para o acompanhamento do histórico de disponibilidade do grupo (ex. hoje, 3d, 7d).",
           "recovery_window": "Quanto tempo (em minutos) uma entidade permanece nos sensores Recentemente Offline ou Recentemente Recuperada após uma transição de estado.",
           "use_device_names": "Mostrar o nome do dispositivo HA em vez do nome amigável da entidade nos estados offline/recuperado dos sensores. Usa o nome amigável como alternativa para entidades não associadas a um dispositivo.",
-          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos ou os relatórios repetidos com o mesmo valor — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável)."
+          "staleness_use_last_updated": "Quando ativado, qualquer atualização da entidade — incluindo alterações apenas de atributos ou os relatórios repetidos com o mesmo valor — reinicia o temporizador de inatividade. Quando desativado (predefinição), apenas uma alteração no estado principal conta. Ative para dispositivos que reportam com frequência mas raramente mudam de valor (ex. temperatura ou potência que se mantém estável).",
+          "entities": "Entidades a monitorizar para disponibilidade. São totalmente monitorizadas e incluídas em todos os KPIs e alertas."
         }
       },
       "combined_init": {
@@ -173,14 +176,41 @@
       },
       "mttr": {
         "name": "Tempo médio de recuperação"
+      },
+      "stale_entities": {
+        "name": "Entidades Inativas"
+      },
+      "stale_count": {
+        "name": "Contagem de Entidades Inativas"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entidades Offline (Não Essenciais)"
+      },
+      "offline_count_non_essential": {
+        "name": "Contagem Offline (Não Essenciais)"
+      },
+      "low_battery_non_essential": {
+        "name": "Bateria Fraca (Não Essenciais)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Contagem de Bateria Fraca (Não Essenciais)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entidades Inativas (Não Essenciais)"
+      },
+      "stale_count_non_essential": {
+        "name": "Contagem de Entidades Inativas (Não Essenciais)"
       }
     },
     "binary_sensor": {
       "any_offline": {
-        "name": "Alguma Offline"
+        "name": "Alguma Entidade Offline"
       },
       "combined_any_offline": {
-        "name": "Alguma Offline"
+        "name": "Alguma Entidade Offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Alguma Entidade Offline (Não Essencial)"
       }
     }
   },
