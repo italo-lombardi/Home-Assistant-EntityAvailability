@@ -779,7 +779,7 @@ class EntityAvailabilityCard extends LitElement {
         ${this._renderStats(online, offline, lowBattery, suppressed, nonEssential)}
         ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, lowBatteryNonEssential) : nothing}
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
-        ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
+        ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialEntities.filter(e => e in suppressedUntil).length : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
         ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, showNEStats ? nonEssentialEntities : [], showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : []) : nothing}
         ${this._config.show_actions ? this._renderActions(prefix) : nothing}
@@ -811,6 +811,19 @@ class EntityAvailabilityCard extends LitElement {
         <span class="stat-item ${lowBattery > 0 ? "battery" : "neutral"}">Low Battery: ${lowBattery}</span>
       </div>
     `;
+  }
+
+  _renderSuppressedBanner(essential, nonEssential) {
+    if (essential === 0 && nonEssential === 0) return nothing;
+    let msg;
+    if (essential > 0 && nonEssential > 0) {
+      msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed, ${nonEssential} non-essential`;
+    } else if (essential > 0) {
+      msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed`;
+    } else {
+      msg = `${nonEssential} non-essential ${nonEssential > 1 ? "entities" : "entity"} suppressed`;
+    }
+    return html`<div class="suppressed-banner">${msg}</div>`;
   }
 
   _renderNonEssentialStats(online, offline, lowBattery) {
@@ -1072,26 +1085,23 @@ class EntityAvailabilityCard extends LitElement {
 
     items.sort((a, b) => {
       const sortBy = this._config.sort_by || "status";
+      // NE entities always go after essential, but within each tier the same sort applies
+      if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
       if (sortBy === "name_asc") {
-        if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
         return a.name.localeCompare(b.name);
       } else if (sortBy === "name_desc") {
-        if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
         return b.name.localeCompare(a.name);
       } else if (sortBy === "battery_asc") {
-        if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
         const aBat = a.battery ?? 101;
         const bBat = b.battery ?? 101;
         if (aBat !== bBat) return aBat - bBat;
         return a.name.localeCompare(b.name);
       } else if (sortBy === "battery_desc") {
-        if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
         const aBat = a.battery ?? -1;
         const bBat = b.battery ?? -1;
         if (aBat !== bBat) return bBat - aBat;
         return a.name.localeCompare(b.name);
       } else {
-        if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
         if (a.isOffline && !b.isOffline) return -1;
         if (!a.isOffline && b.isOffline) return 1;
         if (a.dotColor === "yellow" && b.dotColor === "green") return -1;
