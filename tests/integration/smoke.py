@@ -722,21 +722,19 @@ def main():
         # Find an entity with cleared ("") mapping
         import subprocess
 
+        eid_val = ctx["entry_id"]
+        _ec9_script = (
+            "import json\n"
+            "cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))\n"
+            "for e in cfg['data']['entries']:\n"
+            f"    if e['entry_id'] == {repr(eid_val)}:\n"
+            "        bmap = e['data'].get('battery_entity_map', {})\n"
+            "        cleared = [k for k, v in bmap.items() if v == '']\n"
+            "        print(json.dumps(cleared))\n"
+        )
         try:
             raw = subprocess.check_output(
-                [
-                    "python3",
-                    "-c",
-                    f"""
-    import json
-    cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
-    for e in cfg['data']['entries']:
-        if e['entry_id'] == '{ctx["entry_id"]}':
-            bmap = e['data'].get('battery_entity_map', {{}})
-            cleared = [k for k, v in bmap.items() if v == '']
-            print(json.dumps(cleared))
-    """,
-                ],
+                ["python3", "-c", _ec9_script],
                 text=True,
             ).strip()
             cleared_entities = json.loads(raw)
@@ -1171,8 +1169,18 @@ def main():
                             {"friendly_name": "smoke test device"},
                         ),
                     )
+                    # Individual event: any event for target (no source_groups)
                     ev = next(
                         (e for e in offline_events if e.get("entity_id") == target),
+                        None,
+                    )
+                    # Combined event: the one with source_groups field present
+                    ev_combined = next(
+                        (
+                            e
+                            for e in offline_events
+                            if e.get("entity_id") == target and "source_groups" in e
+                        ),
                         None,
                     )
                     chk(
@@ -1193,11 +1201,18 @@ def main():
                             ev.get("entity_id"),
                             target,
                         )
+                    chk(
+                        "EC20 combined offline event captured for target",
+                        ev_combined is not None,
+                        True,
+                        f"target={target} events={offline_events}",
+                    )
+                    if ev_combined is not None:
                         chk(
-                            "EC20 offline event source_groups is a list",
-                            isinstance(ev.get("source_groups"), list),
+                            "EC20 combined offline event source_groups is a list",
+                            isinstance(ev_combined.get("source_groups"), list),
                             True,
-                            f"source_groups={ev.get('source_groups')!r}",
+                            f"source_groups={ev_combined.get('source_groups')!r}",
                         )
 
             if ec_enabled(21):
@@ -1236,6 +1251,14 @@ def main():
                         (e for e in recovered_events if e.get("entity_id") == target),
                         None,
                     )
+                    ev_combined = next(
+                        (
+                            e
+                            for e in recovered_events
+                            if e.get("entity_id") == target and "source_groups" in e
+                        ),
+                        None,
+                    )
                     chk(
                         "EC21 recovered event captured for target",
                         ev is not None,
@@ -1254,11 +1277,18 @@ def main():
                             ev.get("entity_id"),
                             target,
                         )
+                    chk(
+                        "EC21 combined recovered event captured for target",
+                        ev_combined is not None,
+                        True,
+                        f"target={target} events={recovered_events}",
+                    )
+                    if ev_combined is not None:
                         chk(
-                            "EC21 recovered event source_groups is a list",
-                            isinstance(ev.get("source_groups"), list),
+                            "EC21 combined recovered event source_groups is a list",
+                            isinstance(ev_combined.get("source_groups"), list),
                             True,
-                            f"source_groups={ev.get('source_groups')!r}",
+                            f"source_groups={ev_combined.get('source_groups')!r}",
                         )
 
                 restore_and_wait(ctx)
