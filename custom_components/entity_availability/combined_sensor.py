@@ -243,6 +243,10 @@ class CombinedGroupSensor(CombinedSensorBase):
 
             if current != prev or current_lb != prev_lb:
                 device_map = self._build_device_map(coords)
+                source_group_map: dict[str, list[str]] = {}
+                for coord in coords:
+                    for eid in coord.device_states:
+                        source_group_map.setdefault(eid, []).append(coord.group_name)
                 group_name = self._entry.data.get(CONF_GROUP_NAME, "")
                 entry_id = self._entry.entry_id
 
@@ -262,6 +266,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 else None,
                                 "offline_count": offline_count,
                                 "offline_entities": offline_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
                     for eid in sorted(prev - current):
@@ -280,6 +285,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 else None,
                                 "offline_count": offline_count,
                                 "offline_entities": offline_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
 
@@ -297,6 +303,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 "battery_level": d.battery_level if d else None,
                                 "low_battery_count": low_battery_count,
                                 "low_battery_entities": low_battery_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
                     for eid in sorted(prev_lb - current_lb):
@@ -310,6 +317,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                                 "battery_level": d.battery_level if d else None,
                                 "low_battery_count": low_battery_count,
                                 "low_battery_entities": low_battery_list,
+                                "source_groups": source_group_map.get(eid, []),
                             },
                         )
 

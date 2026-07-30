@@ -435,12 +435,20 @@ The integration fires two events on the Home Assistant event bus when a monitore
 
 | Event | Fired when | Data |
 |-------|-----------|------|
-| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities` |
-| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities` |
+| `entity_availability_offline` | An entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
+| `entity_availability_recovered` | An offline entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
 
 `offline_count` and `offline_entities` reflect the group's offline state at the moment of the event. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. `offline_since` is always set for individual group events; for combined groups it may be `null` if the coordinator has not yet recorded the transition — guard with `if trigger.event.data.offline_since` before using `as_datetime()`.
 
 **Combined groups fire the same events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
+
+**`source_groups` (combined groups only):** a list of the home group names that own the entity. For most entities this is a one-element list (e.g. `["Switches"]`); entities shared across multiple home groups list all names. Use it to include the originating group in notifications:
+
+```yaml
+message: >-
+  {{ trigger.event.data.entity_id }} went offline
+  (group: {{ trigger.event.data.source_groups | join(', ') }})
+```
 
 These are cleaner automation triggers than watching sensor attributes with templates:
 

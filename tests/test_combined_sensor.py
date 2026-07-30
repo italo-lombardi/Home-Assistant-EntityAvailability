@@ -766,6 +766,80 @@ class TestCombinedGroupSensor:
         assert "binary_sensor.a2" in data["offline_entities"]
         assert data["offline_count"] == 1
 
+    async def test_offline_event_carries_source_groups(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """source_groups lists the group_name(s) of coordinators owning the entity."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_offline_set = frozenset()
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        # a2 lives in coordinator_a (title "Group A")
+        assert events[0].data["source_groups"] == ["Group A"]
+
+    async def test_source_groups_lists_all_owning_coordinators(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """When two coordinators own the same entity, source_groups lists both."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_offline_set = frozenset()
+
+        # b1 is now owned by both coordinators and offline in both
+        coordinators[0]._device_states["binary_sensor.b1"] = DeviceState(
+            entity_id="binary_sensor.b1", is_offline=True
+        )
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+        # Only care about b1 here — drop the pre-existing offline a2
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_offline", lambda e: events.append(e)
+        )
+
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        b1_events = [e for e in events if e.data["entity_id"] == "binary_sensor.b1"]
+        assert len(b1_events) == 1
+        assert b1_events[0].data["source_groups"] == ["Group A", "Group B"]
+
+    async def test_recovered_event_carries_source_groups(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """RECOVERED event includes source_groups for the recovered entity."""
+        sensor, fired_cbs = self._setup_event_sensor(
+            mock_hass, combined_entry, coordinators
+        )
+        await sensor.async_added_to_hass()
+        sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
+
+        events = []
+        mock_hass.bus.async_listen(
+            "entity_availability_recovered", lambda e: events.append(e)
+        )
+
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+        fired_cbs[0]()
+        await mock_hass.async_block_till_done()
+
+        assert len(events) == 1
+        assert events[0].data["source_groups"] == ["Group A"]
+
     async def test_fires_recovered_event_when_offline_set_shrinks(
         self, mock_hass, combined_entry, coordinators
     ):
@@ -964,6 +1038,7 @@ class TestCombinedGroupSensor:
         # offline_since must be a non-None ISO string (fixture sets it)
         assert data["offline_since"] is not None
         assert isinstance(data["offline_since"], str)
+        assert data["source_groups"] == ["Group A"]
 
     async def test_fires_low_battery_event_when_entity_goes_low(
         self, mock_hass, combined_entry, coordinators
@@ -991,6 +1066,7 @@ class TestCombinedGroupSensor:
         assert data["battery_level"] == 8
         assert data["low_battery_count"] == 1
         assert "binary_sensor.a1" in data["low_battery_entities"]
+        assert data["source_groups"] == ["Group A"]
 
     async def test_fires_battery_ok_event_when_entity_recovers(
         self, mock_hass, combined_entry, coordinators
@@ -1017,6 +1093,7 @@ class TestCombinedGroupSensor:
         assert data["battery_level"] == 75
         assert data["low_battery_count"] == 0
         assert data["low_battery_entities"] == []
+        assert data["source_groups"] == ["Group A"]
 
     async def test_no_low_battery_event_when_set_unchanged(
         self, mock_hass, combined_entry, coordinators
@@ -1116,6 +1193,7 @@ class TestCombinedGroupSensor:
             "battery_level",
             "low_battery_count",
             "low_battery_entities",
+            "source_groups",
         }
 
 

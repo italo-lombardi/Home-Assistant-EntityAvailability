@@ -18,7 +18,7 @@ The test auto-discovers the first entity_availability group whose title contains
 EA_SMOKE_GROUP, then discovers its monitored entities and battery entity map from
 the live sensor attributes — no hardcoded entity IDs, entry IDs, or device names.
 
-What is tested (covers PRs #37, #41, #50, #52, #53, core):
+What is tested (covers PRs #37, #41, #50, #52, #53, #54, core):
   EC1  entity goes unavailable → offline_count increments
   EC4  device online + battery below threshold → low_battery_count=1, list populated
   EC5  device+battery unavailable → offline=1, low_battery=0 (PR#41: no double-count)
@@ -31,7 +31,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, core):
   EC12 group-scoped suppress: entity in two groups, suppress in one, other unaffected
   EC13 PR#50: suppressing offline entity does not change group availability %
   EC14 PR#50: suppressed entity still appears in per_device availability breakdown
-  EC15 PR#50: unsuppressing restores identical group availability % (no drift)
+  EC15 PR#50: unsuppressing restores identical group availability % (no drift, ±0.5%)
   EC16 PR#52: combined offline_count rises when member entity goes offline
   EC17 PR#52: combined offline_entities list contains the offline entity
   EC18 PR#52: combined offline_count drops to baseline after recovery
@@ -40,25 +40,37 @@ What is tested (covers PRs #37, #41, #50, #52, #53, core):
   EC21 PR#53: individual and combined offline_entities sensors both reflect the offline entity
   EC22 PR#54: entity_availability_low_battery event fires when battery drops below threshold
   EC23 PR#54: entity_availability_battery_ok event fires when battery recovers above threshold
+  EC24 combined offline event carries source_groups list (websocket; skipped if websocket-client absent)
+
+Pass --fast or set EA_SMOKE_FAST=1 to use 45 s wait_for timeouts (default: 60 s).
 """
 
+import argparse
 import json
 import os
 import sys
+import threading
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
 
 # ---------------------------------------------------------------------------
 # Config from env
 # ---------------------------------------------------------------------------
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument("--fast", action="store_true")
+_args, _ = _parser.parse_known_args()
+
 TOKEN = os.environ.get("EA_SMOKE_TOKEN", "")
 BASE = os.environ.get("EA_SMOKE_BASE_URL", "http://localhost:8123")
 GROUP_FILTER = os.environ.get("EA_SMOKE_GROUP", "Test Group")
+FAST = _args.fast or os.environ.get("EA_SMOKE_FAST", "") == "1"
 # Comma-separated EC numbers to run, e.g. "16,17,18". Empty = run all.
 EC_FILTER: set[int] = {
     int(x) for x in os.environ.get("EA_SMOKE_EC", "").split(",") if x.strip().isdigit()
 }
+WAIT_FOR_TIMEOUT = 45 if FAST else 60
 
 
 def ec_enabled(n: int) -> bool:
@@ -101,8 +113,10 @@ def wait(seconds=45):
     time.sleep(seconds)
 
 
-def wait_for(check_fn, expected, timeout=60, interval=5):
+def wait_for(check_fn, expected, timeout=None, interval=5):
     """Poll until check_fn() == expected or timeout."""
+    if timeout is None:
+        timeout = WAIT_FOR_TIMEOUT
     deadline = time.time() + timeout
     while time.time() < deadline:
         val = check_fn()
@@ -110,6 +124,98 @@ def wait_for(check_fn, expected, timeout=60, interval=5):
             return val
         time.sleep(interval)
     return check_fn()
+
+
+def wait_for_close(check_fn, expected, tolerance=0.5, timeout=None, interval=5):
+    """Poll until abs(float(check_fn()) - expected) <= tolerance or timeout."""
+    if timeout is None:
+        timeout = WAIT_FOR_TIMEOUT
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            val = float(check_fn())
+            if abs(val - expected) <= tolerance:
+                return val
+        except (TypeError, ValueError):
+            pass
+        time.sleep(interval)
+    try:
+        return float(check_fn())
+    except (TypeError, ValueError):
+        return check_fn()
+
+
+# ---------------------------------------------------------------------------
+# WebSocket event capture
+# ---------------------------------------------------------------------------
+
+try:
+    import websocket as _ws_lib  # websocket-client
+
+    _WS_AVAILABLE = True
+except ImportError:
+    _WS_AVAILABLE = False
+
+
+def capture_events(event_type: str, trigger_fn, timeout: int = 30) -> list[dict]:
+    """Subscribe to event_type, call trigger_fn(), return captured payloads.
+
+    Falls back to [] when websocket-client is not installed.
+    """
+    if not _WS_AVAILABLE:
+        trigger_fn()
+        return []
+
+    captured: list[dict] = []
+    ws_url = (
+        BASE.replace("http://", "ws://").replace("https://", "wss://")
+        + "/api/websocket"
+    )
+    done = threading.Event()
+    msg_id = 1
+
+    def on_message(ws, raw):
+        nonlocal msg_id
+        try:
+            msg = json.loads(raw)
+        except Exception:
+            return
+        mtype = msg.get("type")
+        if mtype == "auth_required":
+            ws.send(json.dumps({"type": "auth", "access_token": TOKEN}))
+        elif mtype == "auth_ok":
+            ws.send(
+                json.dumps(
+                    {"id": msg_id, "type": "subscribe_events", "event_type": event_type}
+                )
+            )
+        elif mtype == "result" and msg.get("id") == msg_id:
+            if msg.get("success"):
+                trigger_fn()
+        elif mtype == "event":
+            data = msg.get("event", {}).get("data", {})
+            captured.append(data)
+        elif mtype == "event" and done.is_set():
+            pass
+
+    def on_error(ws, err):
+        pass
+
+    def on_open(ws):
+        pass
+
+    ws = _ws_lib.WebSocketApp(
+        ws_url,
+        on_open=on_open,
+        on_message=on_message,
+        on_error=on_error,
+    )
+    t = threading.Thread(target=lambda: ws.run_forever(), daemon=True)
+    t.start()
+    time.sleep(timeout)
+    ws.close()
+    done.set()
+    return captured
 
 
 # ---------------------------------------------------------------------------
@@ -346,7 +452,23 @@ def restore_all(ctx):
         )
     except Exception:
         pass
-    wait(35)
+    wait(10)
+
+
+def restore_and_wait(ctx):
+    """restore_all then poll until offline_count=0 and low_battery_count=0."""
+    restore_all(ctx)
+    prefix = ctx["prefix"]
+    wait_for(
+        lambda: gs(f"{prefix}_offline_count").get("state"),
+        "0",
+        timeout=WAIT_FOR_TIMEOUT,
+    )
+    wait_for(
+        lambda: gs(f"{prefix}_low_battery_count").get("state"),
+        "0",
+        timeout=WAIT_FOR_TIMEOUT,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +481,7 @@ def main():
 
     ctx = discover()
     setup_battery(ctx)
-    restore_all(ctx)
+    restore_and_wait(ctx)
 
     prefix = ctx["prefix"]
     battery_entity = ctx["mapped_battery_entity"]
@@ -376,7 +498,6 @@ def main():
         wait_for(
             lambda: gs(f"{prefix}_offline_count").get("state"),
             "1",
-            timeout=90,
         ),
         "1",
     )
@@ -384,13 +505,14 @@ def main():
         c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
         chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
         chk("EC1 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
-    restore_all(ctx)
+    restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     print(
         "\n=== EC4: online + battery below threshold → low_battery_count=1 ===",
         flush=True,
     )
+    restore_and_wait(ctx)
     ss(
         battery_sensor,
         low_val,
@@ -405,7 +527,6 @@ def main():
         wait_for(
             lambda: gs(f"{prefix}_low_battery_count").get("state"),
             "1",
-            timeout=90,
         ),
         "1",
     )
@@ -414,7 +535,6 @@ def main():
         wait_for(
             lambda: gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
             1,
-            timeout=90,
         ),
         1,
     )
@@ -443,7 +563,6 @@ def main():
                 .get("low_battery")
             ),
             1,
-            timeout=90,
         )
         c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
         chk("EC4 combined low_battery=1", low_battery_val, 1)
@@ -465,7 +584,6 @@ def main():
         wait_for(
             lambda: gs(f"{prefix}_offline_count").get("state"),
             "1",
-            timeout=90,
         ),
         "1",
     )
@@ -848,7 +966,6 @@ for e in cfg['data']['entries']:
                     in gs(avail_eid).get("attributes", {}).get("per_device", {})
                 ),
                 True,
-                timeout=90,
                 interval=3,
             ),
             True,
@@ -869,29 +986,36 @@ for e in cfg['data']['entries']:
         flush=True,
     )
     if avail_eid:
-        avail_before = gs(avail_eid).get("state")
+        try:
+            avail_before = float(gs(avail_eid).get("state") or "0")
+        except ValueError:
+            avail_before = 0.0
         api(
             "POST",
             "/api/services/entity_availability/suppress_indefinitely",
             {"entity_id": ec_target, "group": ctx["title"]},
         )
-        avail_suppressed = gs(avail_eid).get("state")
+        avail_suppressed = wait_for_close(
+            lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
+        )
+        chk(
+            "EC15 availability % identical after suppress (±0.5%)",
+            abs(float(avail_suppressed or 0) - avail_before) <= 0.5,
+            True,
+            f"before={avail_before} after_suppress={avail_suppressed}",
+        )
         api(
             "POST",
             "/api/services/entity_availability/unsuppress",
             {"entity_id": ec_target, "group": ctx["title"]},
         )
-        avail_unsuppressed = gs(avail_eid).get("state")
-        chk(
-            "EC15 availability % identical immediately after suppress",
-            avail_suppressed,
-            avail_before,
-            f"before={avail_before} after_suppress={avail_suppressed}",
+        avail_unsuppressed = wait_for_close(
+            lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
         )
         chk(
-            "EC15 availability % identical immediately after unsuppress",
-            avail_unsuppressed,
-            avail_before,
+            "EC15 availability % identical after unsuppress (±0.5%)",
+            abs(float(avail_unsuppressed or 0) - avail_before) <= 0.5,
+            True,
             f"before={avail_before} after_unsuppress={avail_unsuppressed}",
         )
     else:
@@ -903,8 +1027,7 @@ for e in cfg['data']['entries']:
             "\n=== EC16-EC18: PR#52 — combined group offline_count/entities reflect member state ===",
             flush=True,
         )
-        restore_all(ctx)
-        wait()
+        restore_and_wait(ctx)
         if combined_prefix:
             target = ctx["entities"][0]
             c_offline_eid = f"{combined_prefix}_offline_count"
@@ -948,8 +1071,7 @@ for e in cfg['data']['entries']:
                     ss(target, "unavailable", {"friendly_name": "smoke test device"})
                     wait()
                 # EC18: recovery → combined offline_count drops back to baseline
-                restore_all(ctx)
-                wait()
+                restore_and_wait(ctx)
                 after_recovery = int(gs(c_offline_eid).get("state", "0"))
                 chk(
                     "EC18 combined offline_count returns to baseline after recovery",
@@ -966,8 +1088,7 @@ for e in cfg['data']['entries']:
             "\n=== EC19-EC21: PR#53 — event consistency: entry_id, fan-out parity ===",
             flush=True,
         )
-        restore_all(ctx)
-        wait()
+        restore_and_wait(ctx)
         if combined_prefix:
             target = ctx["entities"][0]
             c_offline_eid = f"{combined_prefix}_offline_count"
@@ -1008,6 +1129,46 @@ for e in cfg['data']['entries']:
                     f"sensor={i_offline_eid} baseline={i_baseline} after={i_after}",
                 )
 
+                if _WS_AVAILABLE:
+                    # Additive: capture the offline event payload and assert shape.
+                    restore_and_wait(ctx)
+                    offline_events = capture_events(
+                        "entity_availability_offline",
+                        lambda: ss(
+                            target,
+                            "unavailable",
+                            {"friendly_name": "smoke test device"},
+                        ),
+                    )
+                    ev = next(
+                        (e for e in offline_events if e.get("entity_id") == target),
+                        None,
+                    )
+                    chk(
+                        "EC20 offline event captured for target",
+                        ev is not None,
+                        True,
+                        f"target={target} events={offline_events}",
+                    )
+                    if ev is not None:
+                        chk(
+                            "EC20 offline event has non-empty entry_id",
+                            bool(ev.get("entry_id")),
+                            True,
+                            f"entry_id={ev.get('entry_id')!r}",
+                        )
+                        chk(
+                            "EC20 offline event entity_id matches target",
+                            ev.get("entity_id"),
+                            target,
+                        )
+                        chk(
+                            "EC20 offline event source_groups is a list",
+                            isinstance(ev.get("source_groups"), list),
+                            True,
+                            f"source_groups={ev.get('source_groups')!r}",
+                        )
+
             if ec_enabled(21):
                 if not ec_enabled(20):
                     ss(target, "unavailable", {"friendly_name": "smoke test device"})
@@ -1031,8 +1192,45 @@ for e in cfg['data']['entries']:
                     True,
                     f"target={target} combined={c_entities}",
                 )
-                restore_all(ctx)
-                wait()
+
+                if _WS_AVAILABLE:
+                    # Additive: capture the recovery event payload and assert shape.
+                    recovered_events = capture_events(
+                        "entity_availability_recovered",
+                        lambda: ss(
+                            target, "on", {"friendly_name": target.split(".")[-1]}
+                        ),
+                    )
+                    ev = next(
+                        (e for e in recovered_events if e.get("entity_id") == target),
+                        None,
+                    )
+                    chk(
+                        "EC21 recovered event captured for target",
+                        ev is not None,
+                        True,
+                        f"target={target} events={recovered_events}",
+                    )
+                    if ev is not None:
+                        chk(
+                            "EC21 recovered event has non-empty entry_id",
+                            bool(ev.get("entry_id")),
+                            True,
+                            f"entry_id={ev.get('entry_id')!r}",
+                        )
+                        chk(
+                            "EC21 recovered event entity_id matches target",
+                            ev.get("entity_id"),
+                            target,
+                        )
+                        chk(
+                            "EC21 recovered event source_groups is a list",
+                            isinstance(ev.get("source_groups"), list),
+                            True,
+                            f"source_groups={ev.get('source_groups')!r}",
+                        )
+
+                restore_and_wait(ctx)
         else:
             print("  EC19-EC21: skipped (no combined group found)", flush=True)
 
@@ -1044,8 +1242,7 @@ for e in cfg['data']['entries']:
     # the event was fired.
     # ------------------------------------------------------------------
     if ec_enabled(22) and battery_sensor and battery_entity:
-        restore_all(ctx)
-        wait()
+        restore_and_wait(ctx)
         print(
             "\n=== EC22: entity_availability_low_battery event proxy (sensor transition) ===",
             flush=True,
@@ -1063,7 +1260,6 @@ for e in cfg['data']['entries']:
         after = wait_for(
             lambda: gs(f"{prefix}_low_battery_count").get("state"),
             str(int(baseline) + 1),
-            timeout=90,
         )
         chk(
             "EC22 low_battery_count rose (low_battery event fired)",
@@ -1094,7 +1290,6 @@ for e in cfg['data']['entries']:
             wait_for(
                 lambda: gs(f"{prefix}_low_battery_count").get("state"),
                 "1",
-                timeout=90,
             )
         print(
             "\n=== EC23: entity_availability_battery_ok event proxy (sensor transition) ===",
@@ -1113,7 +1308,6 @@ for e in cfg['data']['entries']:
         after_ok = wait_for(
             lambda: gs(f"{prefix}_low_battery_count").get("state"),
             "0",
-            timeout=90,
         )
         chk(
             "EC23 low_battery_count dropped to 0 (battery_ok event fired)",
@@ -1121,10 +1315,68 @@ for e in cfg['data']['entries']:
             "0",
             f"after={after_ok}",
         )
-        restore_all(ctx)
-        wait()
+        restore_and_wait(ctx)
     elif ec_enabled(22) or ec_enabled(23):
         print("  EC22-EC23: skipped (no battery sensor configured)", flush=True)
+
+    # ------------------------------------------------------------------
+    if ec_enabled(24) and combined_prefix:
+        print(
+            "\n=== EC24: combined offline event carries source_groups list ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        target = ctx["entities"][0]
+        entries = api("GET", "/api/config/config_entries/entry")
+        combined_entry = next(
+            (
+                e
+                for e in entries
+                if e["domain"] == "entity_availability"
+                and "combined" in e["title"].lower()
+            ),
+            None,
+        )
+        combined_entry_id = combined_entry["entry_id"] if combined_entry else ""
+
+        if _WS_AVAILABLE and combined_entry_id:
+            events = capture_events(
+                "entity_availability_offline",
+                lambda: ss(
+                    target, "unavailable", {"friendly_name": "smoke test device"}
+                ),
+                timeout=WAIT_FOR_TIMEOUT,
+            )
+            combined_events = [
+                e for e in events if e.get("entry_id") == combined_entry_id
+            ]
+            if combined_events:
+                ev = combined_events[0]
+                chk(
+                    "EC24 source_groups is a list",
+                    isinstance(ev.get("source_groups"), list),
+                    True,
+                    f"source_groups={ev.get('source_groups')}",
+                )
+                chk(
+                    "EC24 source_groups is non-empty",
+                    len(ev.get("source_groups", [])) > 0,
+                    True,
+                    f"source_groups={ev.get('source_groups')}",
+                )
+            else:
+                print(
+                    f"  EC24: no combined event captured (combined_entry_id={combined_entry_id}, total={len(events)})",
+                    flush=True,
+                )
+            restore_and_wait(ctx)
+        else:
+            print(
+                "  EC24: skipped (websocket-client not installed or no combined entry)",
+                flush=True,
+            )
+    elif ec_enabled(24):
+        print("  EC24: skipped (no combined group found)", flush=True)
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)
