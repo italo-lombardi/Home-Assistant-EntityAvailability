@@ -566,7 +566,7 @@ availability_colors:
 | `show_affected_areas` | `false` | Show offline area names as pills between stats and availability bars (both regular and combined groups) |
 | `show_availability` | `true` | Show availability progress bars (regular groups only) |
 | `show_entities` | `true` | Show expandable entity list (regular) or group breakdown table (combined) |
-| `show_non_essential_stats` | `false` | Show non-essential sub-stats row (Online / Offline / Low Battery for NE entities) below the main stats row, and include non-essential entities in the entity list sorted to the bottom (regular groups only). When `false`, non-essential entities are hidden from the card entirely. |
+| `show_non_essential_stats` | `false` | Show non-essential sub-stats row (Online / Offline / Stale / Low Battery for NE entities) below the main stats row, and include non-essential entities in the entity list sorted to the bottom (regular groups only). When `false`, non-essential entities are hidden from the card entirely. |
 | `entities_expanded` | `false` | Start entity list / group breakdown expanded |
 | `show_actions` | `false` | Show Suppress/Unsuppress All buttons (regular groups only). **Suppress All** suppresses only currently-offline entities for 60 minutes. To suppress online entities individually, use `show_suppress_toggle`. |
 | `show_suppress_toggle` | `false` | Show per-entity suppress/unsuppress icon button on each entity row. Click suppresses indefinitely within this card's group only; click the orange bell to unsuppress. (regular groups only) |
@@ -603,7 +603,7 @@ Selecting a combined group hides editor controls that don't apply (availability 
 ┌───────────────────────────────────────────────┐
 │ ✓ Security Devices                    All OK  │
 ├───────────────────────────────────────────────┤
-│   Online: 4   Offline: 1   Low Battery: 1     │
+│   Online: 4   Offline: 1   Stale: 1   Low Battery: 1     │
 ├───────────────────────────────────────────────┤
 │  Today   ██████████████████████░░░░   98.2%   │
 │  7 Days  ████████████████████░░░░░░   95.1%   │

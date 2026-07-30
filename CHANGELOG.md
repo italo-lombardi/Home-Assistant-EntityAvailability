@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 ## [0.3.14] - 2026-07-30
 
 ### Added
+- **Card: stale count in stats row** — `Stale: N` appears in the main stats row when any essential entities are stale (staleness threshold > 0 and entities detected). Non-essential sub-stats row also shows `Stale: N` when `show_non_essential_stats` is enabled. Hidden when count is zero.
+- **Card: context-aware suppressed banner** — when `show_non_essential_stats` is enabled, the suppressed banner distinguishes essential vs non-essential: "2 entities suppressed, 1 non-essential". When only NE entities are suppressed: "1 non-essential entity suppressed".
 - **Non-Essential entity level** — mark individual entities in a group as Non-Essential via the group creation step (Step 1b, same screen as entity selection). Non-essential entities appear on the card and count toward `total_entities` but are excluded from all KPIs (offline count, availability %, MTBF, MTTR) and from all alerts (binary sensor, affected areas, events). Useful for devices that are expected to be offline — TV in standby, printer off between jobs, PS3 when not in use — without splitting them into a separate group. Setting is a list of entity IDs stored in group config; existing entries without the field default to `[]` so all devices remain Monitored with zero migration. Exclusion propagates to combined groups transitively.
 - **6 new sensors per group** for non-essential entity visibility:
   - `sensor..._offline_entities_non_essential` — list of non-essential entities currently offline

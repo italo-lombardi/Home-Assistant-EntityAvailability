@@ -715,7 +715,7 @@ class EntityAvailabilityCard extends LitElement {
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
-          ${this._renderStats(online, offline, lowBattery, suppressed, nonEssential)}
+          ${this._renderStats(online, offline, lowBattery, 0)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
@@ -759,6 +759,8 @@ class EntityAvailabilityCard extends LitElement {
     const nonEssentialOffline = attrs.non_essential_offline ?? 0;
     const lowBatteryNonEssential = attrs.low_battery_non_essential ?? 0;
     const nonEssentialSuppressed = attrs.non_essential_suppressed ?? 0;
+    const staleCount = staleEntities.length;
+    const staleCountNonEssential = staleEntitiesNonEssential.length;
 
     const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
@@ -777,8 +779,8 @@ class EntityAvailabilityCard extends LitElement {
       <ha-card class="${compactClass}">
         ${this._renderHeader(title, statusColor, statusText)}
         <div class="divider"></div>
-        ${this._renderStats(online, offline, lowBattery, suppressed, nonEssential)}
-        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, lowBatteryNonEssential) : nothing}
+        ${this._renderStats(online, offline, lowBattery, staleCount)}
+        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, lowBatteryNonEssential, staleCountNonEssential) : nothing}
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
@@ -804,11 +806,12 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderStats(online, offline, lowBattery, suppressed, nonEssential = 0) {
+  _renderStats(online, offline, lowBattery, stale = 0) {
     return html`
       <div class="stats-row">
         <span class="stat-item ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="stat-item ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
+        ${stale > 0 ? html`<span class="stat-item battery">Stale: ${stale}</span>` : nothing}
         <span class="stat-item ${lowBattery > 0 ? "battery" : "neutral"}">Low Battery: ${lowBattery}</span>
       </div>
     `;
@@ -827,12 +830,13 @@ class EntityAvailabilityCard extends LitElement {
     return html`<div class="suppressed-banner">${msg}</div>`;
   }
 
-  _renderNonEssentialStats(online, offline, lowBattery) {
+  _renderNonEssentialStats(online, offline, lowBattery, stale = 0) {
     return html`
       <div class="non-essential-stats-row">
         <span class="non-essential-stats-label">↳ Non-Essential</span>
         <span class="non-essential-stat ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="non-essential-stat ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
+        ${stale > 0 ? html`<span class="non-essential-stat battery">Stale: ${stale}</span>` : nothing}
         <span class="non-essential-stat ${lowBattery > 0 ? "battery" : "neutral"}">Low Battery: ${lowBattery}</span>
       </div>
     `;

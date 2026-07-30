@@ -841,3 +841,63 @@ automation:
           {{ state_attr('sensor.entity_availability_living_room_group_summary', 'non_essential_entities') | join(', ') }}
 ```
 
+
+---
+
+## Stale Entity Automations
+
+### Alert when any essential entity goes stale (stops reporting)
+
+```yaml
+automation:
+  alias: EA — stale entity alert
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.entity_availability_security_devices_stale_count
+      above: 0
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {{ states('sensor.entity_availability_security_devices_stale_count') }} entity(ies) stopped reporting:
+          {{ state_attr('sensor.entity_availability_security_devices_stale_entities', 'entities') | join(', ') }}
+```
+
+### Alert when any non-essential entity goes stale
+
+```yaml
+automation:
+  alias: EA — non-essential stale alert
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.entity_availability_living_room_group_stale_count_non_essential
+      above: 0
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          Non-essential stale:
+          {{ state_attr('sensor.entity_availability_living_room_group_stale_entities_non_essential', 'entities') | join(', ') }}
+```
+
+### Use stale + offline together in a morning briefing
+
+```yaml
+automation:
+  alias: EA — morning device health briefing
+  trigger:
+    - platform: time
+      at: "07:00:00"
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {% set offline = states('sensor.entity_availability_security_devices_offline_count') | int(0) %}
+          {% set stale = states('sensor.entity_availability_security_devices_stale_count') | int(0) %}
+          {% set low_bat = states('sensor.entity_availability_security_devices_low_battery_count') | int(0) %}
+          {% if offline == 0 and stale == 0 and low_bat == 0 %}
+            All devices healthy ✓
+          {% else %}
+            Device issues: {{ offline }} offline, {{ stale }} stale, {{ low_bat }} low battery.
+          {% endif %}
+```
