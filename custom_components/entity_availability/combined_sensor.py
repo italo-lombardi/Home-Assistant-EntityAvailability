@@ -246,8 +246,6 @@ class CombinedGroupSensor(CombinedSensorBase):
                 device_map = self._build_device_map(coords)
                 # Build source_group_map: eid → sorted list of group names.
                 # Sorted for deterministic order regardless of coordinator subscription order.
-                # Merged with _prev_source_group_map so recovered entities whose coordinator
-                # was removed between ticks still carry their group name(s).
                 current_source_group_map: dict[str, list[str]] = {}
                 for coord in coords:
                     for eid in coord.device_states:
@@ -256,11 +254,24 @@ class CombinedGroupSensor(CombinedSensorBase):
                         )
                 for eid, groups in current_source_group_map.items():
                     current_source_group_map[eid] = sorted(groups)
+                # Merge prev → current so RECOVERED/BATTERY_OK events for entities
+                # whose coordinator was removed between ticks still carry group names.
+                # Prune to entities in any active or transitioning set to prevent
+                # unbounded growth — entities gone from all sets on this tick are dropped.
+                still_relevant = current | prev | current_lb | prev_lb
                 source_group_map = {
-                    **self._prev_source_group_map,
+                    **{
+                        k: v
+                        for k, v in self._prev_source_group_map.items()
+                        if k in still_relevant
+                    },
                     **current_source_group_map,
                 }
-                self._prev_source_group_map = source_group_map
+                self._prev_source_group_map = {
+                    k: v
+                    for k, v in source_group_map.items()
+                    if k in (current | current_lb)
+                }
                 group_name = self._entry.data.get(CONF_GROUP_NAME, "")
                 entry_id = self._entry.entry_id
 

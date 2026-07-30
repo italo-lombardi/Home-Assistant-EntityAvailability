@@ -859,7 +859,9 @@ class TestCombinedGroupSensor:
         # Coordinator 0 "removed" — evict from hass.data so _active_coordinators skips it
         del mock_hass.data["entity_availability"][coordinators[0].entry.entry_id]
 
-        # Tick 2: a2 recovers — coordinator gone, but source_groups still carries Group A
+        # Tick 2: coordinator 0 is gone so a2 is invisible to the combined sensor.
+        # current becomes empty; prev still has a2 → diff fires RECOVERED.
+        # source_groups must come from _prev_source_group_map (not current coords).
         coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
         events = []
         mock_hass.bus.async_listen(
