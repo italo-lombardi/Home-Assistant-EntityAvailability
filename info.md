@@ -6,6 +6,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 
 - Multi-group support — organize entities by function (Security, Climate, Media, etc.)
 - Combined groups — merge multiple groups into a single aggregate sensor set for cross-group automations; combined events include a `source_groups` list so automations know which home group an entity belongs to
+- **Non-Essential entity tier** — mark entities as non-essential when creating or editing a group. They appear on the card but are excluded from all KPIs and alerts. Perfect for devices expected to be offline (TV in standby, seasonal sensor) without needing a separate group. Enable the `show_non_essential_stats` card option to see their status on the dashboard.
 - Configurable bad states — define which states count as offline (`unavailable`, `unknown`, or custom)
 - Cooldown timer — ignore brief blips before marking an entity offline
 - Availability % sensors — track uptime over today, 3-day, 5-day, and 7-day windows (5-minute buckets)
@@ -16,7 +17,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - Area sensors — four sensors per group exposing which physical areas are affected: Affected Areas Count, Affected Areas, Areas Recently Offline, Areas Recently Recovered; area resolution follows entity → device → excluded; no new configuration required
 - Card: Affected Areas pill row — opt-in (`show_affected_areas: false` by default); shows offline area names as colored pills between stats and availability bars; named areas in red, unassigned entities as italic "Unassigned"; works for regular and combined groups
 - Degraded entity detection — flag entities with low battery or stale data
-- Group Summary sensor — total, online, offline, suppressed, battery_powered, low_battery counts + full entity list
+- Group Summary sensor — total, online, offline, suppressed, non_essential counts + full entity list
 - Maintenance/suppression mode — suppress individual entities or entire groups
 - Any Offline binary sensor (Problem class) — triggers automations when entities go offline
 - Custom Lovelace card — dashboard-style display with status icon, stats, availability bars, entity list, and visual editor; supports both regular and combined groups

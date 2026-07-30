@@ -366,19 +366,23 @@ class CombinedGroupSensor(CombinedSensorBase):
     def _current_offline_set(
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
-        """Return deduplicated set of offline, non-suppressed entity IDs."""
+        """Return deduplicated set of offline, non-suppressed, non-essential entity IDs."""
         dm = self._build_device_map(coords)
         return frozenset(
-            eid for eid, d in dm.items() if d.is_offline and not d.is_suppressed
+            eid
+            for eid, d in dm.items()
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         )
 
     def _current_low_battery_set(
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
-        """Return deduplicated set of low-battery, non-suppressed entity IDs."""
+        """Return deduplicated set of low-battery, non-suppressed, non-essential entity IDs."""
         dm = self._build_device_map(coords)
         return frozenset(
-            eid for eid, d in dm.items() if d.is_low_battery and not d.is_suppressed
+            eid
+            for eid, d in dm.items()
+            if d.is_low_battery and not d.is_suppressed and not d.is_non_essential
         )
 
     async def async_added_to_hass(self) -> None:
@@ -405,17 +409,30 @@ class CombinedGroupSensor(CombinedSensorBase):
             states = coord.device_states
             g_total = len(coord.monitored_entities)
             g_offline = sum(
-                1 for d in states.values() if d.is_offline and not d.is_suppressed
+                1
+                for d in states.values()
+                if d.is_offline and not d.is_suppressed and not d.is_non_essential
             )
-            g_suppressed = sum(1 for d in states.values() if d.is_suppressed)
-            g_online = g_total - g_offline - g_suppressed
+            g_suppressed = sum(
+                1 for d in states.values() if d.is_suppressed and not d.is_non_essential
+            )
+            g_non_essential = sum(1 for d in states.values() if d.is_non_essential)
+            g_non_essential_suppressed = sum(
+                1 for d in states.values() if d.is_non_essential and d.is_suppressed
+            )
+            g_online = g_total - g_offline - g_suppressed - g_non_essential
             g_stale = sum(
-                1 for d in states.values() if d.is_stale and not d.is_suppressed
+                1
+                for d in states.values()
+                if d.is_stale and not d.is_suppressed and not d.is_non_essential
             )
             g_low_battery = sum(
                 1
                 for d in states.values()
-                if d.is_low_battery and not d.is_suppressed and not d.is_offline
+                if d.is_low_battery
+                and not d.is_suppressed
+                and not d.is_offline
+                and not d.is_non_essential
             )
             battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
             if battery_map:
@@ -434,6 +451,11 @@ class CombinedGroupSensor(CombinedSensorBase):
                 _LOGGER.warning(
                     "Could not find group summary entity for %s", coord.entry.entry_id
                 )
+            g_non_essential_entities = [
+                d.entity_id
+                for d in states.values()
+                if d.is_non_essential and not d.is_suppressed
+            ]
             groups[coord.entry.entry_id] = {
                 "name": gname,
                 "entity_id": gsummary,
@@ -443,6 +465,9 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "stale": g_stale,
                 "low_battery": g_low_battery,
                 "suppressed": g_suppressed,
+                "non_essential": g_non_essential,
+                "non_essential_suppressed": g_non_essential_suppressed,
+                "non_essential_entities": g_non_essential_entities,
                 "battery_powered": g_battery_powered,
             }
 
@@ -459,25 +484,43 @@ class CombinedGroupSensor(CombinedSensorBase):
         offline_entities = [
             d.entity_id
             for d in merged_states.values()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         ]
         low_battery_entities = [
             d.entity_id
             for d in merged_states.values()
-            if d.is_low_battery and not d.is_suppressed and not d.is_offline
+            if d.is_low_battery
+            and not d.is_suppressed
+            and not d.is_offline
+            and not d.is_non_essential
         ]
         total = len(all_entities)
         offline = len(offline_entities)
         low_battery = len(low_battery_entities)
+        non_essential_entities = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_non_essential and not d.is_suppressed
+        ]
+        non_essential_suppressed = sum(
+            1 for d in merged_states.values() if d.is_non_essential and d.is_suppressed
+        )
+        non_essential = len(non_essential_entities) + non_essential_suppressed
+        suppressed = sum(
+            1
+            for d in merged_states.values()
+            if d.is_suppressed and not d.is_non_essential
+        )
         online = sum(
             1
             for d in merged_states.values()
-            if not d.is_offline and not d.is_suppressed
+            if not d.is_offline and not d.is_suppressed and not d.is_non_essential
         )
         stale = sum(
-            1 for d in merged_states.values() if d.is_stale and not d.is_suppressed
+            1
+            for d in merged_states.values()
+            if d.is_stale and not d.is_suppressed and not d.is_non_essential
         )
-        suppressed = sum(1 for d in merged_states.values() if d.is_suppressed)
         # Dedup battery_powered by collecting device entity_ids (not battery sensor ids).
         # battery_map keys are device entity_ids; battery_level path is already keyed by eid.
         # Using one set handles mixed-config groups without double-counting.
@@ -508,6 +551,8 @@ class CombinedGroupSensor(CombinedSensorBase):
             "stale": stale,
             "low_battery": low_battery,
             "suppressed": suppressed,
+            "non_essential": non_essential,
+            "non_essential_entities": non_essential_entities,
             "battery_powered": battery_powered,
             "groups": groups,
             "entities": all_entities,
@@ -552,7 +597,7 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
                 d.entity_id
                 for coord in self._active_coordinators()
                 for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed
+                if d.is_offline and not d.is_suppressed and not d.is_non_essential
             }
         )
 
@@ -563,7 +608,7 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
                 d.entity_id
                 for coord in self._active_coordinators()
                 for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed
+                if d.is_offline and not d.is_suppressed and not d.is_non_essential
             )
         )
         return {"entities": offline, "count": len(offline)}
@@ -594,7 +639,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
                 )
                 for coord in coords
                 for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed
+                if d.is_offline and not d.is_suppressed and not d.is_non_essential
             )
         )
         if not offline:
@@ -613,7 +658,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
                 d.entity_id
                 for coord in self._active_coordinators()
                 for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed
+                if d.is_offline and not d.is_suppressed and not d.is_non_essential
             )
         )
         return {"entities": offline, "count": len(offline)}
@@ -640,7 +685,10 @@ class CombinedLowBatterySensor(CombinedSensorBase):
                 f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
                 for coord in coords
                 for d in coord.device_states.values()
-                if d.is_low_battery and not d.is_suppressed and not d.is_offline
+                if d.is_low_battery
+                and not d.is_suppressed
+                and not d.is_offline
+                and not d.is_non_essential
             )
         )
         if not low:
@@ -658,7 +706,10 @@ class CombinedLowBatterySensor(CombinedSensorBase):
             d.entity_id: f"{d.battery_level}%"
             for coord in self._active_coordinators()
             for d in coord.device_states.values()
-            if d.is_low_battery and not d.is_suppressed and not d.is_offline
+            if d.is_low_battery
+            and not d.is_suppressed
+            and not d.is_offline
+            and not d.is_non_essential
         }
         return {"devices": devices, "count": len(devices)}
 
@@ -684,7 +735,10 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
                 d.entity_id
                 for coord in self._active_coordinators()
                 for d in coord.device_states.values()
-                if d.is_low_battery and not d.is_suppressed and not d.is_offline
+                if d.is_low_battery
+                and not d.is_suppressed
+                and not d.is_offline
+                and not d.is_non_essential
             }
         )
 
@@ -713,6 +767,7 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
                 if (
                     d.is_offline
                     and not d.is_suppressed
+                    and not d.is_non_essential
                     and d.recently_offline_at is not None
                     and (now - d.recently_offline_at).total_seconds() <= cutoff
                     and d.entity_id not in seen
@@ -770,6 +825,7 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
                 if (
                     not d.is_offline
                     and not d.is_suppressed
+                    and not d.is_non_essential
                     and d.last_recovery is not None
                     and (now - d.last_recovery).total_seconds() <= cutoff
                     and d.entity_id not in seen
@@ -821,7 +877,7 @@ class CombinedAffectedAreasCountSensor(CombinedSensorBase):
         areas: set[str] = set()
         for coord in self._active_coordinators():
             for d in coord.device_states.values():
-                if d.is_offline and not d.is_suppressed:
+                if d.is_offline and not d.is_suppressed and not d.is_non_essential:
                     area = resolve_area_name(self.hass, d.entity_id)
                     areas.add(area if area else NO_AREA_SENTINEL)
         return len(areas)
@@ -848,7 +904,7 @@ class CombinedAffectedAreasSensor(CombinedSensorBase):
         unassigned: list[str] = []
         for coord in self._active_coordinators():
             for d in coord.device_states.values():
-                if d.is_offline and not d.is_suppressed:
+                if d.is_offline and not d.is_suppressed and not d.is_non_essential:
                     area = resolve_area_name(self.hass, d.entity_id)
                     if area:
                         areas.add(area)
@@ -903,6 +959,7 @@ class CombinedAffectedAreasRecentlyOfflineSensor(CombinedSensorBase):
                 if (
                     d.is_offline
                     and not d.is_suppressed
+                    and not d.is_non_essential
                     and d.recently_offline_at is not None
                     and (now - d.recently_offline_at).total_seconds() <= cutoff
                 ):
@@ -949,7 +1006,7 @@ class CombinedAffectedAreasRecentlyRecoveredSensor(CombinedSensorBase):
         area_pairs: dict[str, list] = {}
         for coord in self._active_coordinators():
             for d in coord.device_states.values():
-                if d.is_suppressed:
+                if d.is_suppressed or d.is_non_essential:
                     continue
                 area = resolve_area_name(self.hass, d.entity_id) or NO_AREA_SENTINEL
                 area_pairs.setdefault(area, []).append((coord, d))
@@ -961,8 +1018,8 @@ class CombinedAffectedAreasRecentlyRecoveredSensor(CombinedSensorBase):
             if any(
                 d.last_recovery is not None
                 and (now - d.last_recovery).total_seconds()
-                <= coord.recovery_window_minutes * 60
-                for coord, d in pairs
+                <= coord_p.recovery_window_minutes * 60
+                for coord_p, d in pairs
             ):
                 recovered.append(area)
 

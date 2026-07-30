@@ -451,6 +451,11 @@ const cardStyles = css`
   .entity-dot.red { background-color: var(--eac-red); }
   .entity-dot.yellow { background-color: var(--eac-yellow); }
   .entity-dot.grey { background-color: var(--eac-bar-bg); }
+  .non-essential-icon {
+    --mdc-icon-size: 14px;
+    flex-shrink: 0;
+    margin-right: -2px;
+  }
 
   .entity-name {
     font-size: 13px;
@@ -518,10 +523,40 @@ const cardStyles = css`
 
   .compact .card-header { padding: 12px 16px 8px; }
   .compact .stats-row { padding: 6px 16px; }
+  .compact .non-essential-stats-row { padding: 4px 16px; }
   .compact .affected-areas-row { padding: 0 16px 6px; }
   .compact .availability-section { padding: 6px 16px; }
   .compact .entity-section-header { padding: 6px 16px; }
   .compact .actions-section { padding: 4px 16px 8px; }
+
+  .non-essential-stats-row {
+    display: flex;
+    align-items: center;
+    padding: 0 16px 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--eac-text-secondary);
+    gap: 0;
+  }
+
+  .non-essential-stats-label {
+    flex-shrink: 0;
+    margin-right: 8px;
+    font-size: 12px;
+    font-weight: 400;
+  }
+
+  .non-essential-stat {
+    flex: 1;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .non-essential-stat.online { color: var(--eac-green); }
+  .non-essential-stat.offline { color: var(--eac-red); }
+  .non-essential-stat.battery { color: var(--eac-yellow); }
+  .non-essential-stat.neutral { color: var(--eac-text-secondary); }
 
   .affected-areas-row {
     display: flex;
@@ -615,6 +650,7 @@ class EntityAvailabilityCard extends LitElement {
       entity_detail: "off",
       entity_filter: "all",
       show_affected_areas: false,
+      show_non_essential_stats: false,
       ...config,
     };
     // backwards compat: show_entity_tooltips: true → entity_detail: "tooltip"
@@ -667,6 +703,8 @@ class EntityAvailabilityCard extends LitElement {
       const offline = attrs.offline || 0;
       const lowBattery = attrs.low_battery || 0;
       const suppressed = attrs.suppressed || 0;
+      const nonEssential = attrs.non_essential || 0;
+      const staleCount = attrs.stale || 0;
       const groups = attrs.groups || {};
 
       const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
@@ -678,9 +716,9 @@ class EntityAvailabilityCard extends LitElement {
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
-          ${this._renderStats(online, offline, lowBattery, suppressed)}
+          ${this._renderStats(online, offline, lowBattery, staleCount)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
-          ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
+          ${this._renderSuppressedBanner(suppressed, 0)}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
@@ -706,13 +744,24 @@ class EntityAvailabilityCard extends LitElement {
     const offline = attrs.offline || 0;
     const lowBattery = attrs.low_battery || 0;
     const suppressed = attrs.suppressed || 0;
+    const nonEssential = attrs.non_essential || 0;
+    const nonEssentialEntities = attrs.non_essential_entities || [];
+    const nonEssentialOfflineEntities = attrs.offline_entities_non_essential || [];
     const entities = attrs.entities || [];
     const batteryLevels = attrs.battery_levels || {};
     const suppressedUntil = attrs.suppressed_until || {};
     const staleEntities = attrs.stale_entities || [];
+    const staleEntitiesNonEssential = attrs.stale_entities_non_essential || [];
     const offlineSince = attrs.offline_since || {};
     const lowBatteryEntities = attrs.low_battery_entities || [];
     const displayNames = attrs.display_names || {};
+
+    const nonEssentialOnline = attrs.non_essential_online ?? 0;
+    const nonEssentialOffline = attrs.non_essential_offline ?? 0;
+    const lowBatteryNonEssential = attrs.low_battery_non_essential ?? 0;
+    const nonEssentialSuppressed = attrs.non_essential_suppressed ?? 0;
+    const staleCount = staleEntities.length;
+    const staleCountNonEssential = staleEntitiesNonEssential.length;
 
     const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
@@ -724,15 +773,19 @@ class EntityAvailabilityCard extends LitElement {
       ? "Degraded"
       : "All OK";
 
+    const showNEStats = this._config.show_non_essential_stats === true && nonEssential > 0;
+    const visibleNonEssentialEntities = showNEStats ? nonEssentialEntities : [];
+
     return html`
       <ha-card class="${compactClass}">
         ${this._renderHeader(title, statusColor, statusText)}
         <div class="divider"></div>
-        ${this._renderStats(online, offline, lowBattery, suppressed)}
+        ${this._renderStats(online, offline, lowBattery, staleCount)}
+        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, lowBatteryNonEssential, staleCountNonEssential) : nothing}
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
-        ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
+        ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
-        ${this._config.show_entities ? this._renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames) : nothing}
+        ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, showNEStats ? nonEssentialEntities : [], showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : []) : nothing}
         ${this._config.show_actions ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
@@ -754,12 +807,38 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderStats(online, offline, lowBattery, suppressed) {
+  _renderStats(online, offline, lowBattery, stale = 0) {
     return html`
       <div class="stats-row">
         <span class="stat-item ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="stat-item ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
-        <span class="stat-item ${lowBattery > 0 ? "battery" : "neutral"}">Low Battery: ${lowBattery}</span>
+        ${stale > 0 ? html`<span class="stat-item battery">Stale: ${stale}</span>` : nothing}
+        ${lowBattery > 0 ? html`<span class="stat-item battery">Low Battery: ${lowBattery}</span>` : nothing}
+      </div>
+    `;
+  }
+
+  _renderSuppressedBanner(essential, nonEssential) {
+    if (essential === 0 && nonEssential === 0) return nothing;
+    let msg;
+    if (essential > 0 && nonEssential > 0) {
+      msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed, ${nonEssential} non-essential`;
+    } else if (essential > 0) {
+      msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed`;
+    } else {
+      msg = `${nonEssential} non-essential ${nonEssential > 1 ? "entities" : "entity"} suppressed`;
+    }
+    return html`<div class="suppressed-banner">${msg}</div>`;
+  }
+
+  _renderNonEssentialStats(online, offline, lowBattery, stale = 0) {
+    return html`
+      <div class="non-essential-stats-row">
+        <span class="non-essential-stats-label">↳ Non-Essential</span>
+        <span class="non-essential-stat ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
+        <span class="non-essential-stat ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
+        ${stale > 0 ? html`<span class="non-essential-stat battery">Stale: ${stale}</span>` : nothing}
+        ${lowBattery > 0 ? html`<span class="non-essential-stat battery">Low Battery: ${lowBattery}</span>` : nothing}
       </div>
     `;
   }
@@ -797,15 +876,16 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}) {
+  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = []) {
     if (entities.length === 0 && total === 0) return nothing;
 
-    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames);
+    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential);
     const filter = this._config.entity_filter || "all";
+    const showNE = this._config.show_non_essential_stats === true;
     const items = filter === "offline"
       ? allItems.filter((i) => i.isOffline || i.isStale || i.dotColor === "yellow")
       : filter === "online"
-      ? allItems.filter((i) => !i.isOffline && !i.isStale && i.dotColor !== "yellow")
+      ? allItems.filter((i) => !i.isOffline && !i.isStale && i.dotColor !== "yellow" && (!i.isNonEssential || showNE))
       : allItems;
 
     const expanded = this._entitiesExpanded;
@@ -845,6 +925,7 @@ class EntityAvailabilityCard extends LitElement {
             <div class="entity-item" tabindex="0" role="button" @mouseenter=${(e) => this._positionTooltip(e, item, suppressedUntil)} @mouseleave=${() => this._hideTooltip()} @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
               <div class="entity-item-row">
                 <div class="entity-dot ${item.dotColor}"></div>
+                ${item.isNonEssential ? html`<ha-icon icon="mdi:minus-circle-outline" class="non-essential-icon" style="color:var(--eac-${item.dotColor === 'green' ? 'green' : item.dotColor === 'red' ? 'red' : 'yellow'})"></ha-icon>` : nothing}
                 <span class="entity-name">${item.name}</span>
                 <span class="entity-status">${item.status}</span>
                 ${hasBattery
@@ -915,7 +996,7 @@ class EntityAvailabilityCard extends LitElement {
     return html`
       <div class="divider"></div>
       <div class="actions-section">
-        <button class="action-btn suppress" title="Suppress all currently offline entities for 60 minutes" @click=${this._handleSuppressAll}>
+        <button class="action-btn suppress" title="Suppress all currently offline monitored entities for 60 minutes (non-essential entities excluded)" @click=${this._handleSuppressAll}>
           Suppress All
         </button>
         <button class="action-btn unsuppress" title="Remove suppression from all entities in this group" @click=${this._handleUnsuppressAll}>
@@ -949,14 +1030,15 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}) {
+  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = []) {
     const items = entities.map((entityId) => {
       const state = this.hass.states[entityId];
       const friendlyName = displayNames[entityId] || state?.attributes?.friendly_name || entityId.split(".").pop();
-      const offlineEntities = this._getOfflineEntityIds();
-      const isOffline = offlineEntities.includes(entityId);
-      const isStale = staleEntities.includes(entityId);
+      const monitoredOfflineEntities = this._getOfflineEntityIds();
+      const isOffline = monitoredOfflineEntities.includes(entityId) || nonEssentialOfflineEntities.includes(entityId);
+      const isStale = staleEntities.includes(entityId) || staleEntitiesNonEssential.includes(entityId);
       const isSuppressed = entityId in suppressedUntil;
+      const isNonEssential = nonEssentialEntities.includes(entityId);
       const battery = batteryLevels[entityId] ?? null;
       const isLowBattery = lowBatteryEntities.includes(entityId);
 
@@ -985,6 +1067,17 @@ class EntityAvailabilityCard extends LitElement {
         } else {
           status = "Offline";
         }
+      } else if (isNonEssential) {
+        if (isStale) {
+          dotColor = "yellow";
+          status = "Stale";
+        } else if (isLowBattery) {
+          dotColor = "yellow";
+          status = "Low Battery";
+        } else {
+          dotColor = "green";
+          status = "Online";
+        }
       } else if (isStale) {
         dotColor = "grey";
         status = "Stale";
@@ -993,11 +1086,13 @@ class EntityAvailabilityCard extends LitElement {
         status = "Low Battery";
       }
 
-      return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed };
+      return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential };
     });
 
     items.sort((a, b) => {
       const sortBy = this._config.sort_by || "status";
+      // NE entities always go after essential, but within each tier the same sort applies
+      if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
       if (sortBy === "name_asc") {
         return a.name.localeCompare(b.name);
       } else if (sortBy === "name_desc") {
@@ -1017,8 +1112,6 @@ class EntityAvailabilityCard extends LitElement {
         if (!a.isOffline && b.isOffline) return 1;
         if (a.dotColor === "yellow" && b.dotColor === "green") return -1;
         if (a.dotColor === "green" && b.dotColor === "yellow") return 1;
-        if (a.dotColor === "grey" && b.dotColor === "green") return -1;
-        if (a.dotColor === "green" && b.dotColor === "grey") return 1;
         return a.name.localeCompare(b.name);
       }
     });
@@ -1513,6 +1606,18 @@ class EntityAvailabilityCardEditor extends LitElement {
             Show Entity List
           </label>
         </div>
+        ${!this._isSelectedGroupCombined() ? html`
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_non_essential_stats === true}
+              @change=${(e) => this._updateConfig("show_non_essential_stats", e.target.checked)}
+            />
+            Show Non-Essential Stats Row &amp; Entities
+          </label>
+        </div>
+        ` : nothing}
         ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row">
           <label>Filter Entities (requires Show Entity List)</label>

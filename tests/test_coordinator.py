@@ -15,6 +15,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.entity_availability.const import (
     CONF_BATTERY_ENTITY_MAP,
     CONF_ENTITIES,
+    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     DEFAULT_BAD_STATES,
@@ -3927,3 +3928,311 @@ async def test_staleness_skips_none_stale_ts(
         await coord._async_update_data()
     device_a = coord.device_states["binary_sensor.device_a"]
     assert device_a.is_stale is False
+
+
+# ---------------------------------------------------------------------------
+# Non-essential flag tests
+# ---------------------------------------------------------------------------
+
+
+async def test_non_essential_flag_set_for_listed_entity(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Entity in non_essential_entities list gets is_non_essential=True."""
+    from custom_components.entity_availability.const import CONF_NON_ESSENTIAL_ENTITIES
+
+    config = {
+        **mock_config_data,
+        CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="test_entry_ne_flag",
+        unique_id=f"{DOMAIN}_test_ne_flag",
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_a", "on", {"friendly_name": "Device A"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_b", "on", {"friendly_name": "Device B"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_c", "on", {"friendly_name": "Device C"}
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    assert coord.device_states["binary_sensor.device_a"].is_non_essential is True
+    assert coord.device_states["binary_sensor.device_b"].is_non_essential is False
+
+
+async def test_missing_non_essential_field_all_monitored(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Entry without non_essential_entities key → all devices Monitored."""
+    config = dict(mock_config_data)
+    config.pop("non_essential_entities", None)
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="test_entry_ne_missing",
+        unique_id=f"{DOMAIN}_test_ne_missing",
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_a", "on", {"friendly_name": "Device A"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_b", "on", {"friendly_name": "Device B"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_c", "on", {"friendly_name": "Device C"}
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    for d in coord.device_states.values():
+        assert d.is_non_essential is False
+
+
+async def test_suppressed_and_non_essential_both_flagged(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Suppressed+non-essential entity gets is_non_essential=True (flag set before continue)."""
+    from custom_components.entity_availability.const import CONF_NON_ESSENTIAL_ENTITIES
+
+    config = {
+        **mock_config_data,
+        CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="test_entry_ne_suppressed",
+        unique_id=f"{DOMAIN}_test_ne_suppressed",
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_a", "unavailable", {"friendly_name": "Device A"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_b", "on", {"friendly_name": "Device B"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_c", "on", {"friendly_name": "Device C"}
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    # Manually suppress device_a and re-run to simulate suppressed+non-essential
+    coord._suppressed["binary_sensor.device_a"] = None
+    await coord._async_update_data()
+    d = coord.device_states["binary_sensor.device_a"]
+    assert d.is_suppressed is True
+    assert d.is_non_essential is True
+
+
+@pytest.mark.asyncio
+async def test_bus_events_stale_transition(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """entity_availability_stale fires on False→True; stale_recovered on True→False."""
+    hass = mock_hass
+    stale_events: list = []
+    recovered_events: list = []
+    hass.bus.async_listen("entity_availability_stale", lambda e: stale_events.append(e))
+    hass.bus.async_listen(
+        "entity_availability_stale_recovered", lambda e: recovered_events.append(e)
+    )
+
+    config = dict(mock_config_data)
+    config[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    config[CONF_STALENESS_THRESHOLD] = 1
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="stale_event_test",
+        unique_id=f"{DOMAIN}_stale_event",
+    )
+    entry.add_to_hass(hass)
+
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+
+        # Fresh state — not stale
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert coord.device_states["binary_sensor.device_a"].is_stale is False
+        assert stale_events == []
+
+        # Backdate state → stale
+        hass.states._states["binary_sensor.device_a"] = State(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {},
+            last_changed=old_time,
+            last_updated=old_time,
+        )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        assert device_a.is_stale is True
+        assert len(stale_events) == 1
+        data = stale_events[0].data
+        assert data["entity_id"] == "binary_sensor.device_a"
+        assert data["group"] == "Test Group"
+        assert data["entry_id"] == entry.entry_id
+        assert "stale_since" in data
+        assert data["stale_count"] == 1
+        assert "binary_sensor.device_a" in data["stale_entities"]
+        assert recovered_events == []
+
+        # Fresh state → stale_recovered
+        fresh_time = datetime.now(timezone.utc)
+        hass.states._states["binary_sensor.device_a"] = State(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {},
+            last_changed=fresh_time,
+            last_updated=fresh_time,
+        )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        assert coord.device_states["binary_sensor.device_a"].is_stale is False
+        assert len(recovered_events) == 1
+        rec = recovered_events[0].data
+        assert rec["entity_id"] == "binary_sensor.device_a"
+        assert rec["stale_count"] == 0
+        assert rec["stale_entities"] == []
+
+
+@pytest.mark.asyncio
+async def test_bus_events_stale_no_refire_when_unchanged(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """No stale event fires when entity stays stale across updates."""
+    hass = mock_hass
+    stale_events: list = []
+    hass.bus.async_listen("entity_availability_stale", lambda e: stale_events.append(e))
+
+    config = dict(mock_config_data)
+    config[CONF_ENTITIES] = ["binary_sensor.device_a"]
+    config[CONF_STALENESS_THRESHOLD] = 1
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="stale_no_refire",
+        unique_id=f"{DOMAIN}_stale_no_refire",
+    )
+    entry.add_to_hass(hass)
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        hass.states._states["binary_sensor.device_a"] = State(
+            "binary_sensor.device_a",
+            STATE_ON,
+            {},
+            last_changed=old_time,
+            last_updated=old_time,
+        )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert len(stale_events) == 1
+
+        # Second tick — still stale, no new event
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert len(stale_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_bus_events_stale_non_essential_excluded(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """NE entities are excluded from stale event payloads."""
+    hass = mock_hass
+    stale_events: list = []
+    hass.bus.async_listen("entity_availability_stale", lambda e: stale_events.append(e))
+
+    config = dict(mock_config_data)
+    config[CONF_ENTITIES] = ["binary_sensor.device_a", "binary_sensor.device_b"]
+    config[CONF_NON_ESSENTIAL_ENTITIES] = ["binary_sensor.device_b"]
+    config[CONF_STALENESS_THRESHOLD] = 1
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="stale_ne_excl",
+        unique_id=f"{DOMAIN}_stale_ne_excl",
+    )
+    entry.add_to_hass(hass)
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+
+        # Make BOTH entities stale
+        for eid in ["binary_sensor.device_a", "binary_sensor.device_b"]:
+            hass.states._states[eid] = State(
+                eid, "on", {}, last_changed=old_time, last_updated=old_time
+            )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        # Two stale events should fire (one per entity)
+        assert len(stale_events) == 2
+        for ev in stale_events:
+            data = ev.data
+            # NE entity must NOT appear in stale_entities list
+            assert "binary_sensor.device_b" not in data["stale_entities"], (
+                f"NE entity in stale_entities: {data['stale_entities']}"
+            )
+            # stale_count must only count essential entities
+            assert data["stale_count"] <= 1, (
+                f"stale_count includes NE: {data['stale_count']}"
+            )
+        # The event for device_a (essential) should be present
+        essential_events = [
+            e for e in stale_events if e.data["entity_id"] == "binary_sensor.device_a"
+        ]
+        assert len(essential_events) == 1
+        # The event for device_b (NE) may fire but its payload must exclude NE from lists
+        ne_events = [
+            e for e in stale_events if e.data["entity_id"] == "binary_sensor.device_b"
+        ]
+        for ev in ne_events:
+            assert "binary_sensor.device_b" not in ev.data["stale_entities"]

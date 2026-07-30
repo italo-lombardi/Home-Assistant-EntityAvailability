@@ -13,6 +13,7 @@ CONF_BATTERY_THRESHOLD = "battery_threshold"
 CONF_BATTERY_ENTITY_MAP = "battery_entity_map"
 CONF_AVAILABILITY_WINDOWS = "availability_windows"
 CONF_USE_DEVICE_NAMES = "use_device_names"
+CONF_NON_ESSENTIAL_ENTITIES = "non_essential_entities"
 
 # Entry types
 CONF_ENTRY_TYPE = "entry_type"
@@ -55,6 +56,8 @@ EVENT_OFFLINE = "entity_availability_offline"
 EVENT_RECOVERED = "entity_availability_recovered"
 EVENT_LOW_BATTERY = "entity_availability_low_battery"
 EVENT_BATTERY_OK = "entity_availability_battery_ok"
+EVENT_STALE = "entity_availability_stale"
+EVENT_STALE_RECOVERED = "entity_availability_stale_recovered"
 
 # Sentinel area name for entities with no HA area assigned.
 # Parentheses signal "not a real area" and avoid colliding with user-created area names.

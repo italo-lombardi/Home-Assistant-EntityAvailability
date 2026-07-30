@@ -13,7 +13,12 @@
         "description": "Erstellen Sie eine Gruppe von Entitäten zur Verfügbarkeitsüberwachung.",
         "data": {
           "group_name": "Gruppenname",
-          "entities": "Zu überwachende Entitäten"
+          "entities": "Zu überwachende Entitäten",
+          "non_essential_entities": "Nicht-wesentliche Entitäten"
+        },
+        "data_description": {
+          "entities": "Entitäten, die auf Verfügbarkeit überwacht werden. Diese werden vollständig überwacht und in alle KPIs und Warnungen einbezogen.",
+          "non_essential_entities": "Entitäten, die den Gesundheitsscore der Gruppe nicht beeinflussen. Auf der Karte sichtbar und in Gesamtzahlen gezählt, aber von allen KPIs (Verfügbarkeit %, Offline-Anzahl, MTBF, MTTR) ausgeschlossen und lösen nie Warnungen aus. Geeignet für Geräte, bei denen Ausfallzeiten akzeptabel sind — ein Fernseher, ein Drucker, ein Saisongerät."
         }
       },
       "combined": {
@@ -64,7 +69,8 @@
     "error": {
       "empty_group_name": "Der Gruppenname darf nicht leer sein.",
       "no_entities": "Sie müssen mindestens eine Entität auswählen.",
-      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus."
+      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus.",
+      "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern."
     },
     "abort": {
       "already_configured": "Eine Gruppe mit diesem Namen existiert bereits.",
@@ -78,6 +84,7 @@
         "description": "Überwachungseinstellungen für diese Gruppe ändern.",
         "data": {
           "entities": "Zu überwachende Entitäten",
+          "non_essential_entities": "Nicht-wesentliche Entitäten",
           "bad_states": "Zustände, die als offline gelten",
           "cooldown": "Abklingzeit (Sekunden)",
           "staleness_threshold": "Veralterungsschwelle (Minuten, 0 = deaktiviert)",
@@ -88,6 +95,7 @@
           "staleness_use_last_updated": "Attributaktualisierungen als Aktivität zählen"
         },
         "data_description": {
+          "non_essential_entities": "Entitäten, die auf der Karte angezeigt und gezählt werden, aber von allen KPIs (Offline-Anzahl, Verfügbarkeit %, MTBF, MTTR) und Benachrichtigungen ausgeschlossen sind. Nützlich für Geräte, die erwartungsgemäß offline sind (Fernseher im Standby, Drucker zwischen Aufträgen).",
           "bad_states": "Entitätszustände, die anzeigen, dass eine Entität offline ist (z. B. unavailable, unknown).",
           "cooldown": "Wie lange (in Sekunden) eine Entität in einem schlechten Zustand bleiben muss, bevor sie als offline markiert wird. Verhindert Fehlalarme bei kurzen Verbindungsunterbrechungen.",
           "staleness_threshold": "Wenn eine Entität sich für diese Anzahl von Minuten nicht geändert hat, wird sie als beeinträchtigt markiert. Auf 0 setzen zum Deaktivieren.",
@@ -95,7 +103,8 @@
           "availability_windows": "Zeitfenster zur Verfolgung der Gruppenverfügbarkeit (z. B. heute, 3d, 7d).",
           "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
           "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen.",
-          "staleness_use_last_updated": "Wenn aktiviert, setzt jede Aktualisierung der Entität — einschließlich reiner Attributänderungen oder wiederholter Meldungen desselben Werts — den Veralterungstimer zurück. Wenn deaktiviert (Standard), zählt nur eine Änderung des Hauptzustands. Aktivieren Sie dies für Geräte, die häufig melden, aber ihren Wert selten ändern (z. B. Temperatur oder Leistung, die konstant bleibt)."
+          "staleness_use_last_updated": "Wenn aktiviert, setzt jede Aktualisierung der Entität — einschließlich reiner Attributänderungen oder wiederholter Meldungen desselben Werts — den Veralterungstimer zurück. Wenn deaktiviert (Standard), zählt nur eine Änderung des Hauptzustands. Aktivieren Sie dies für Geräte, die häufig melden, aber ihren Wert selten ändern (z. B. Temperatur oder Leistung, die konstant bleibt).",
+          "entities": "Entitäten, die auf Verfügbarkeit überwacht werden. Diese werden vollständig überwacht und in alle KPIs und Warnungen einbezogen."
         }
       },
       "combined_init": {
@@ -167,6 +176,30 @@
       },
       "mttr": {
         "name": "Mittlere Wiederherstellungszeit"
+      },
+      "stale_entities": {
+        "name": "Veraltete Entitäten"
+      },
+      "stale_count": {
+        "name": "Veraltungsanzahl"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline-Entitäten (Nicht-wesentlich)"
+      },
+      "offline_count_non_essential": {
+        "name": "Offline-Anzahl (Nicht-wesentlich)"
+      },
+      "low_battery_non_essential": {
+        "name": "Niedriger Batteriestand (Nicht-wesentlich)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Anzahl schwacher Batterien (Nicht-wesentlich)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Veraltete Entitäten (Nicht-wesentlich)"
+      },
+      "stale_count_non_essential": {
+        "name": "Veraltungsanzahl (Nicht-wesentlich)"
       }
     },
     "binary_sensor": {
@@ -175,6 +208,15 @@
       },
       "combined_any_offline": {
         "name": "Mindestens eine offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Mindestens eine offline (Nicht-wesentlich)"
+      },
+      "any_low_battery": {
+        "name": "Niedriger Batteriestand vorhanden"
+      },
+      "any_stale": {
+        "name": "Veraltete Entität vorhanden"
       }
     }
   },

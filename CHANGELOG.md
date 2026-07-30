@@ -2,42 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.3.14-beta.7] - 2026-07-30
-
-### Added
-- Combined group events (`entity_availability_offline`, `entity_availability_recovered`, `entity_availability_low_battery`, `entity_availability_battery_ok`) now include a `source_groups` field — a list of the home group names that own the entity. For entities in a single home group this is a one-element list (e.g. `["Switches"]`); for entities shared across multiple home groups all names appear. Use `{{ trigger.event.data.source_groups | join(', ') }}` in automation templates.
-
-### Fixed
-- Smoke test suite: EC4 now resets state before the battery-threshold check to prevent carry-over from EC1; EC15 uses `wait_for` polling with ±0.5% tolerance instead of a single-shot read, eliminating spurious failures from rounding drift.
-
-### Changed
-- Smoke test `wait_for` default timeout reduced from 90 s to 60 s (two coordinator ticks). Pass `--fast` / set `EA_SMOKE_FAST=1` to use 45 s timeouts in warm CI environments.
-- Smoke test cleanup uses `restore_and_wait()` (polls until `offline_count=0` and `low_battery_count=0`) instead of a fixed `wait(35)`, cutting inter-test idle time.
-- Smoke EC19–EC21 and new EC24 verify event payload fields (`entry_id`, `entity_id`, `source_groups`) directly via WebSocket subscription when `websocket-client` is installed; falls back to sensor-proxy checks otherwise.
+## [Unreleased]
 
 ## [0.3.14] - 2026-07-30
 
 ### Added
-- New bus events `entity_availability_low_battery` and `entity_availability_battery_ok` fired on battery threshold transitions. Payload: `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities`. Full parity with offline/recovered event shape. Both individual groups and combined groups fire events; combined group uses the same `_prev_low_battery_set` diff pattern as offline events.
-- Combined groups now fire `entity_availability_offline` and `entity_availability_recovered` events. One event fires per affected entity using the same payload shape as individual group events: `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`. Automations written for individual groups work unchanged on combined groups — only the `group` name in the trigger filter differs. Events fire only on set changes; no spurious fires on startup. Duplicate entities deduplicated across all combined sensor outputs.
-- Individual group events now include `entry_id` in the payload.
-- Card: per-entity suppress toggle (`show_suppress_toggle`, opt-in, default `false`).
+- **Non-Essential entity tier** — mark individual entities as Non-Essential when creating or editing a group. Non-essential entities show on the card and count toward totals, but are excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Perfect for devices that are expected to go offline — a TV, a printer, a seasonal sensor — without needing a separate group. Zero migration: existing groups default to all-essential.
+- **6 new sensors per group** for non-essential visibility (offline count/list, stale count/list, low battery count/list)
+- **3 new binary sensors per group**: `any_low_battery` (ON when any essential entity has low battery), `any_stale` (ON when any essential entity stopped reporting), `any_offline_non_essential` (ON when any non-essential entity is offline)
+- **Stale events** — `entity_availability_stale` / `entity_availability_stale_recovered` fire when an essential entity transitions in/out of stale state; payload mirrors the offline/recovered shape
+- **Battery and stale events** — `entity_availability_low_battery` / `entity_availability_battery_ok` events fire on battery threshold transitions; combined groups fire offline/recovered events; all events include `entry_id` and `source_groups` in the payload; all event entity lists exclude non-essential entities
+- **Card: Non-Essential stats row** (`show_non_essential_stats`, default off) — opt-in row below the main stats showing Online / Offline / Stale / Low Battery counts for non-essential entities; also shows non-essential entities in the entity list sorted to the bottom
+- **Card: Stale count in stats row** — `Stale: N` appears when entities are stale; hidden when zero (consistent with Low Battery)
+- **Card: Suppressed banner shows tier** — when non-essential stats are enabled, the banner distinguishes: "2 entities suppressed, 1 non-essential"
+- **Card: per-entity suppress toggle** (`show_suppress_toggle`, opt-in, default off)
 
 ### Fixed
-- Suppress no longer affects historical availability % or MTBF/MTTR — history is preserved, only new accumulation stops.
-- Bus events (`entity_availability_offline` / `entity_availability_recovered`) now include `offline_count` and `offline_entities` in the payload; events fire after all state mutations complete. Resolves #46.
-- Suppress/unsuppress/reset_statistics services now group-scoped when both `entity_id` and `group` are provided.
-- `suppressed_until` attribute now includes indefinitely-suppressed entities with value `null`.
-- Combined sensor counts and entity lists deduplicated when the same entity appears in multiple member groups.
-- Battery mapping: cleared entries no longer re-populated on next options flow visit. Resolves #38.
-- Low battery flag retained when device goes offline; offline+low-battery not double-counted. Resolves #33.
-- Card: Space key no longer scrolls page on focused entity rows; entity click guard against missing entity ID.
+- Suppressing an entity no longer affects historical availability % or MTBF/MTTR
+- Offline/recovered events now include `offline_count` and `offline_entities` in the payload
+- Combined groups deduplicate entities that appear in multiple member groups
+- Battery mapping no longer re-populates cleared entries on the next edit
+- Low battery flag preserved when a device also goes offline
+- Card: Space key no longer scrolls the page when an entity row is focused
 
 ### Changed
-- Card: entity rows and combined group rows are now clickable (opens more-info dialog). Resolves #36.
+- Card entity rows and combined group rows are clickable (opens more-info dialog)
 
 ### Breaking Changes
-- `suppressed_until` now includes indefinitely-suppressed entities as `null`. Templates using truthiness check (`if suppressed_until.get(entity_id)`) will evaluate `False` for indefinite suppression — use `entity_id in suppressed_until` instead.
+- `suppressed_until` attribute now includes indefinitely-suppressed entities as `null`. Use `entity_id in suppressed_until` instead of `suppressed_until.get(entity_id)` to check suppression status.
+
 
 ## [0.3.13] - 2026-07-22
 

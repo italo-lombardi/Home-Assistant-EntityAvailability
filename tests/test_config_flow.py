@@ -48,7 +48,11 @@ async def _init_flow(hass: HomeAssistant) -> dict:
 
 
 async def _step_group(
-    hass: HomeAssistant, flow_id: str, name: str, entities: list
+    hass: HomeAssistant,
+    flow_id: str,
+    name: str,
+    entities: list,
+    non_essential: list | None = None,
 ) -> dict:
     """Submit the type-selector and the group step in one go."""
     # First pick "group" entry type
@@ -56,10 +60,15 @@ async def _step_group(
         flow_id, {"entry_type": ENTRY_TYPE_GROUP}
     )
     assert result["step_id"] == "group"
-    # Then fill in name + entities
-    return await hass.config_entries.flow.async_configure(
-        flow_id, {CONF_GROUP_NAME: name, CONF_ENTITIES: entities}
-    )
+    # Then fill in name + entities (+ optional non_essential)
+    data: dict = {CONF_GROUP_NAME: name, CONF_ENTITIES: entities}
+    if non_essential is not None:
+        from custom_components.entity_availability.const import (
+            CONF_NON_ESSENTIAL_ENTITIES,
+        )
+
+        data[CONF_NON_ESSENTIAL_ENTITIES] = non_essential
+    return await hass.config_entries.flow.async_configure(flow_id, data)
 
 
 # ---------------------------------------------------------------------------
@@ -1641,3 +1650,176 @@ async def test_options_flow_entity_absent_from_map_is_detected(
 
     cleared = _schema_marker(result["data_schema"], "binary_sensor.device_a")
     assert not (cleared.description or {}).get("suggested_value")
+
+
+# ---------------------------------------------------------------------------
+# Non-essential entities config flow tests
+# ---------------------------------------------------------------------------
+
+
+async def test_group_step_stores_non_essential(hass: HomeAssistant) -> None:
+    """non_essential_entities submitted in group step is stored in entry data."""
+    from custom_components.entity_availability.const import (
+        CONF_NON_ESSENTIAL_ENTITIES,
+        CONF_RECOVERY_WINDOW,
+        DEFAULT_RECOVERY_WINDOW,
+    )
+
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass,
+        result["flow_id"],
+        "Test Group",
+        ["binary_sensor.device_b"],
+        non_essential=["binary_sensor.device_a"],
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: ["today", "7d"],
+                CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
+                CONF_USE_DEVICE_NAMES: False,
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_NON_ESSENTIAL_ENTITIES] == ["binary_sensor.device_a"]
+
+
+async def test_group_step_defaults_non_essential_empty(hass: HomeAssistant) -> None:
+    """Omitting non_essential_entities in group step stores empty list."""
+    from custom_components.entity_availability.const import (
+        CONF_NON_ESSENTIAL_ENTITIES,
+        CONF_RECOVERY_WINDOW,
+        DEFAULT_RECOVERY_WINDOW,
+    )
+
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "Test Group", ["binary_sensor.device_a"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: ["today", "7d"],
+                CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
+                CONF_USE_DEVICE_NAMES: False,
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"].get(CONF_NON_ESSENTIAL_ENTITIES, []) == []
+
+
+async def test_options_flow_edits_non_essential(
+    hass: HomeAssistant, mock_config_data
+) -> None:
+    """Options flow round-trip stores non_essential_entities."""
+    from custom_components.entity_availability.const import CONF_NON_ESSENTIAL_ENTITIES
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data={
+            **mock_config_data,
+            CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+        },
+        entry_id="test_ne_opts",
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_ENTITIES: ["binary_sensor.device_a"],
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: ["today", "7d"],
+                CONF_USE_DEVICE_NAMES: False,
+                CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_b"],
+            },
+        )
+    assert entry.data[CONF_NON_ESSENTIAL_ENTITIES] == ["binary_sensor.device_b"]
+
+
+async def test_group_step_duplicate_entities_error(hass: HomeAssistant) -> None:
+    """Group step rejects an entity that appears in both monitored and non-essential."""
+    from custom_components.entity_availability.const import CONF_NON_ESSENTIAL_ENTITIES
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_GROUP}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "Test Group",
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_ENTITIES: "duplicate_entities"}
+
+
+async def test_options_flow_duplicate_entities_error(
+    hass: HomeAssistant, mock_config_data
+) -> None:
+    """Options flow rejects an entity in both monitored and non-essential lists."""
+    from custom_components.entity_availability.const import CONF_NON_ESSENTIAL_ENTITIES
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data={
+            **mock_config_data,
+            CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+        },
+        entry_id="test_ne_dup",
+    )
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: ["today", "7d"],
+            CONF_USE_DEVICE_NAMES: False,
+            CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_ENTITIES: "duplicate_entities"}

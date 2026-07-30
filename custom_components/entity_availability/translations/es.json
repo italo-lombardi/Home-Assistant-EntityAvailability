@@ -13,7 +13,12 @@
         "description": "Cree un grupo de entidades para supervisar su disponibilidad.",
         "data": {
           "group_name": "Nombre del grupo",
-          "entities": "Entidades a supervisar"
+          "entities": "Entidades a supervisar",
+          "non_essential_entities": "Entidades no esenciales"
+        },
+        "data_description": {
+          "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
+          "non_essential_entities": "Entidades que no afectan la puntuación de salud del grupo. Visibles en la tarjeta y contadas en los totales, pero excluidas de todos los KPIs (disponibilidad %, recuento sin conexión, MTBF, MTTR) y nunca activan alertas. Úsalo para dispositivos donde el tiempo de inactividad es aceptable — un TV, una impresora, un dispositivo de temporada."
         }
       },
       "combined": {
@@ -64,7 +69,8 @@
     "error": {
       "empty_group_name": "El nombre del grupo no puede estar vacío.",
       "no_entities": "Debe seleccionar al menos una entidad.",
-      "not_enough_groups_selected": "Seleccione al menos dos grupos para combinar."
+      "not_enough_groups_selected": "Seleccione al menos dos grupos para combinar.",
+      "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar."
     },
     "abort": {
       "already_configured": "Ya existe un grupo con este nombre.",
@@ -78,6 +84,7 @@
         "description": "Modificar los ajustes de supervisión para este grupo.",
         "data": {
           "entities": "Entidades a supervisar",
+          "non_essential_entities": "Entidades no esenciales",
           "bad_states": "Estados considerados sin conexión",
           "cooldown": "Tiempo de espera (segundos)",
           "staleness_threshold": "Umbral de obsolescencia (minutos, 0 = desactivado)",
@@ -88,6 +95,7 @@
           "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad"
         },
         "data_description": {
+          "non_essential_entities": "Entidades que se muestran y cuentan en la tarjeta pero se excluyen de todos los KPIs (recuento sin conexión, disponibilidad %, MTBF, MTTR) y alertas. Útil para dispositivos que se espera que estén offline (TV en standby, impresora apagada entre trabajos).",
           "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
           "cooldown": "Tiempo (en segundos) que una entidad debe permanecer en un estado incorrecto antes de marcarse como sin conexión. Evita falsas alarmas por desconexiones breves.",
           "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, se marca como degradada. Establezca 0 para deshabilitar.",
@@ -95,7 +103,8 @@
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
           "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
-          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable)."
+          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable).",
+          "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas."
         }
       },
       "combined_init": {
@@ -167,6 +176,30 @@
       },
       "mttr": {
         "name": "Tiempo medio de recuperación"
+      },
+      "stale_entities": {
+        "name": "Entidades obsoletas"
+      },
+      "stale_count": {
+        "name": "Recuento de entidades obsoletas"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entidades sin conexión (no esenciales)"
+      },
+      "offline_count_non_essential": {
+        "name": "Cantidad sin conexión (no esenciales)"
+      },
+      "low_battery_non_essential": {
+        "name": "Batería baja (no esenciales)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Recuento de batería baja (no esenciales)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entidades obsoletas (no esenciales)"
+      },
+      "stale_count_non_essential": {
+        "name": "Recuento de entidades obsoletas (no esenciales)"
       }
     },
     "binary_sensor": {
@@ -175,6 +208,15 @@
       },
       "combined_any_offline": {
         "name": "Alguno sin conexión"
+      },
+      "any_offline_non_essential": {
+        "name": "Alguno sin conexión (no esenciales)"
+      },
+      "any_low_battery": {
+        "name": "Alguno con batería baja"
+      },
+      "any_stale": {
+        "name": "Alguno obsoleto"
       }
     }
   },

@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "创建条目",
+        "description": "监控一组实体，或合并现有的组。",
+        "data": {
+          "entry_type": "类型"
+        }
+      },
+      "group": {
+        "title": "创建实体组",
+        "description": "创建一组实体以监控其可用性。",
+        "data": {
+          "group_name": "组名",
+          "entities": "要监控的实体",
+          "non_essential_entities": "非必要实体"
+        },
+        "data_description": {
+          "entities": "要跟踪可用性的实体。这些实体会被完整监控，并纳入所有 KPI 和告警。",
+          "non_essential_entities": "不影响组健康评分的实体。在卡片上可见并计入总数，但不纳入任何 KPI（可用性 %、离线数量、MTBF、MTTR），也不会触发告警。适用于允许停机的设备——如电视、打印机、季节性设备。"
+        }
+      },
+      "combined": {
+        "title": "创建合并组",
+        "description": "将多个组合并为一个视图，用于自动化和仪表盘。",
+        "data": {
+          "group_name": "合并组名",
+          "combined_groups": "要包含的组"
+        }
+      },
+      "monitoring": {
+        "title": "监控设置",
+        "description": "配置实体的监控方式。",
+        "data": {
+          "bad_states": "视为离线的状态",
+          "cooldown": "标记离线前的冷却时间",
+          "staleness_threshold": "数据过期阈值",
+          "staleness_use_last_updated": "将属性更新计为活动"
+        },
+        "data_description": {
+          "bad_states": "表示实体离线的状态（例如 unavailable、unknown）。",
+          "cooldown": "实体需持续处于异常状态多长时间（秒）才会被标记为离线。可防止因短暂断连引发的误报。",
+          "staleness_threshold": "若实体在指定分钟数内未发生状态变化，则将其标记为降级。可捕获那些报告「可用」但实际上已停止发送数据的实体。设为 0 表示禁用。",
+          "staleness_use_last_updated": "启用后，实体的任何更新——包括仅属性变化或重复相同值的上报——都会重置数据过期计时器。禁用（默认）时，只有主状态发生变化才计数。适用于频繁上报但值很少变化的设备（如温度或长期稳定的功率）。"
+        }
+      },
+      "advanced": {
+        "title": "高级设置",
+        "description": "可选的高级监控功能。",
+        "data": {
+          "battery_threshold": "低电量阈值（%，0 = 禁用）",
+          "availability_windows": "可用性追踪时间窗口",
+          "recovery_window": "恢复窗口",
+          "use_device_names": "显示设备名称"
+        },
+        "data_description": {
+          "battery_threshold": "标记电池电量低于此百分比的实体。「low」状态也会被自动检测。不支持基于电压的实体。请使用以百分比报告电量或支持「low」状态的实体。",
+          "availability_windows": "用于追踪组可用性历史记录的时间窗口（例如 today、3d、7d）。",
+          "recovery_window": "实体在状态转换后，在「最近离线」或「最近恢复」传感器中保留的时长（分钟）。",
+          "use_device_names": "在离线/已恢复传感器状态中显示 HA 设备名称，而非实体友好名称。对未关联设备的实体，回退使用友好名称。"
+        }
+      },
+      "battery_mapping": {
+        "title": "电池实体映射",
+        "description": "确认或更改每个被监控实体的电池传感器。没有电池的实体请留空。支持数字（%）和文本状态（「low」）。"
+      }
+    },
+    "error": {
+      "empty_group_name": "组名不能为空。",
+      "no_entities": "必须至少选择一个实体。",
+      "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
+      "not_enough_groups_selected": "至少选择两个组进行合并。"
+    },
+    "abort": {
+      "already_configured": "已存在同名组。",
+      "not_enough_groups": "创建合并组前，至少需要两个现有组。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "编辑实体组",
+        "description": "修改此组的监控设置。",
+        "data": {
+          "entities": "要监控的实体",
+          "non_essential_entities": "非必要实体",
+          "bad_states": "视为离线的状态",
+          "cooldown": "冷却时间（秒）",
+          "staleness_threshold": "数据过期阈值（分钟，0 = 禁用）",
+          "battery_threshold": "低电量阈值（%，0 = 禁用）",
+          "availability_windows": "可用性追踪时间窗口",
+          "recovery_window": "恢复窗口（分钟）",
+          "use_device_names": "显示设备名称",
+          "staleness_use_last_updated": "将属性更新计为活动"
+        },
+        "data_description": {
+          "entities": "要跟踪可用性的实体。这些实体会被完整监控，并纳入所有 KPI 和告警。",
+          "non_essential_entities": "不影响组健康评分的实体。在卡片上可见并计入总数，但不纳入任何 KPI（可用性 %、离线数量、MTBF、MTTR），也不会触发告警。适用于允许停机的设备——如电视、打印机、季节性设备。",
+          "bad_states": "表示实体离线的状态（例如 unavailable、unknown）。",
+          "cooldown": "实体需持续处于异常状态多长时间（秒）才会被标记为离线。可防止因短暂断连引发的误报。",
+          "staleness_threshold": "若实体在指定分钟数内未发生状态变化，则将其标记为降级。设为 0 表示禁用。",
+          "battery_threshold": "标记电池电量低于此百分比的实体。「low」状态也会被自动检测。不支持基于电压的实体。",
+          "availability_windows": "用于追踪组可用性历史记录的时间窗口（例如 today、3d、7d）。",
+          "recovery_window": "实体在状态转换后，在「最近离线」或「最近恢复」传感器中保留的时长（分钟）。",
+          "use_device_names": "在离线/已恢复传感器状态中显示 HA 设备名称，而非实体友好名称。对未关联设备的实体，回退使用友好名称。",
+          "staleness_use_last_updated": "启用后，实体的任何更新——包括仅属性变化或重复相同值的上报——都会重置数据过期计时器。禁用（默认）时，只有主状态发生变化才计数。适用于频繁上报但值很少变化的设备（如温度或长期稳定的功率）。"
+        }
+      },
+      "combined_init": {
+        "title": "编辑合并组",
+        "description": "修改合并组的名称及包含的组。",
+        "data": {
+          "group_name": "合并组名",
+          "combined_groups": "要包含的组"
+        }
+      },
+      "battery_mapping": {
+        "title": "电池实体映射",
+        "description": "确认或更改每个被监控实体的电池传感器。没有电池的实体请留空。支持数字（%）和文本状态（「low」）。"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "离线数量"
+      },
+      "offline_entities": {
+        "name": "离线实体"
+      },
+      "low_battery": {
+        "name": "低电量"
+      },
+      "low_battery_count": {
+        "name": "低电量数量"
+      },
+      "group_summary": {
+        "name": "组摘要"
+      },
+      "recently_offline": {
+        "name": "最近离线"
+      },
+      "recently_recovered": {
+        "name": "最近恢复"
+      },
+      "combined_summary": {
+        "name": "合并摘要"
+      },
+      "availability_today": {
+        "name": "可用性（今日）"
+      },
+      "availability_3d": {
+        "name": "可用性（3 天）"
+      },
+      "availability_5d": {
+        "name": "可用性（5 天）"
+      },
+      "availability_7d": {
+        "name": "可用性（7 天）"
+      },
+      "affected_areas_count": {
+        "name": "受影响区域数量"
+      },
+      "affected_areas": {
+        "name": "受影响区域"
+      },
+      "affected_areas_recently_offline": {
+        "name": "最近离线的区域"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "最近恢复的区域"
+      },
+      "mtbf": {
+        "name": "平均故障间隔时间"
+      },
+      "mttr": {
+        "name": "平均恢复时间"
+      },
+      "stale_entities": {
+        "name": "数据过期实体"
+      },
+      "stale_count": {
+        "name": "数据过期数量"
+      },
+      "offline_entities_non_essential": {
+        "name": "离线实体（非必要）"
+      },
+      "offline_count_non_essential": {
+        "name": "离线数量（非必要）"
+      },
+      "low_battery_non_essential": {
+        "name": "低电量（非必要）"
+      },
+      "low_battery_count_non_essential": {
+        "name": "低电量数量（非必要）"
+      },
+      "stale_entities_non_essential": {
+        "name": "数据过期实体（非必要）"
+      },
+      "stale_count_non_essential": {
+        "name": "数据过期数量（非必要）"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "存在离线实体"
+      },
+      "combined_any_offline": {
+        "name": "存在离线实体"
+      },
+      "any_offline_non_essential": {
+        "name": "存在离线实体（非必要）"
+      },
+      "any_low_battery": {
+        "name": "存在低电量实体"
+      },
+      "any_stale": {
+        "name": "存在数据过期实体"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "监控实体",
+        "combined_group": "合并组"
+      }
+    }
+  }
+}

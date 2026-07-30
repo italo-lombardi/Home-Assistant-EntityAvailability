@@ -13,7 +13,12 @@
         "description": "Skapa en grupp av entiteter att övervaka tillgänglighet för.",
         "data": {
           "group_name": "Gruppnamn",
-          "entities": "Entiteter att övervaka"
+          "entities": "Entiteter att övervaka",
+          "non_essential_entities": "Icke-väsentliga enheter"
+        },
+        "data_description": {
+          "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar.",
+          "non_essential_entities": "Enheter som inte påverkar gruppens hälsostatus. Synliga på kortet och räknade i totaler, men uteslutna från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och utlöser aldrig aviseringar. Använd för enheter där driftstopp är acceptabelt — en TV, en skrivare, en säsongsenhet."
         }
       },
       "combined": {
@@ -64,7 +69,8 @@
     "error": {
       "empty_group_name": "Gruppnamnet kan inte vara tomt.",
       "no_entities": "Du måste välja minst en entitet.",
-      "not_enough_groups_selected": "Välj minst två grupper att kombinera."
+      "not_enough_groups_selected": "Välj minst två grupper att kombinera.",
+      "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar."
     },
     "abort": {
       "already_configured": "En grupp med detta namn finns redan.",
@@ -78,6 +84,7 @@
         "description": "Ändra övervakningsinställningar för denna grupp.",
         "data": {
           "entities": "Entiteter att övervaka",
+          "non_essential_entities": "Icke-väsentliga enheter",
           "bad_states": "Tillstånd som anses offline",
           "cooldown": "Väntetid (sekunder)",
           "staleness_threshold": "Inaktivitetsgräns (minuter, 0 = inaktiverad)",
@@ -88,6 +95,7 @@
           "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet"
         },
         "data_description": {
+          "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och aviseringar. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb).",
           "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
           "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
           "staleness_threshold": "Om en entitet inte har ändrat tillstånd på detta antal minuter markeras den som försämrad. Ställ in 0 för att inaktivera.",
@@ -95,7 +103,8 @@
           "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
           "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
           "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
-          "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil)."
+          "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil).",
+          "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar."
         }
       },
       "combined_init": {
@@ -151,22 +160,46 @@
         "name": "Tillgänglighet (7 dagar)"
       },
       "affected_areas_count": {
-        "name": "Antal Påverkade Områden"
+        "name": "Antal påverkade områden"
       },
       "affected_areas": {
-        "name": "Påverkade Områden"
+        "name": "Påverkade områden"
       },
       "affected_areas_recently_offline": {
-        "name": "Nyligen Offline Områden"
+        "name": "Nyligen offline områden"
       },
       "affected_areas_recently_recovered": {
-        "name": "Nyligen Återställda Områden"
+        "name": "Nyligen återställda områden"
       },
       "mtbf": {
         "name": "Genomsnittlig tid mellan fel"
       },
       "mttr": {
         "name": "Genomsnittlig återställningstid"
+      },
+      "stale_entities": {
+        "name": "Inaktuella entiteter"
+      },
+      "stale_count": {
+        "name": "Antal inaktuella"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline-entiteter (ej väsentliga)"
+      },
+      "offline_count_non_essential": {
+        "name": "Antal offline (ej väsentliga)"
+      },
+      "low_battery_non_essential": {
+        "name": "Lågt batteri (ej väsentliga)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Antal lågt batteri (ej väsentliga)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Inaktuella entiteter (ej väsentliga)"
+      },
+      "stale_count_non_essential": {
+        "name": "Antal inaktuella (ej väsentliga)"
       }
     },
     "binary_sensor": {
@@ -175,6 +208,15 @@
       },
       "combined_any_offline": {
         "name": "Någon offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Någon offline (ej väsentliga)"
+      },
+      "any_low_battery": {
+        "name": "Lågt batteri förekommande"
+      },
+      "any_stale": {
+        "name": "Inaktuell entitet förekommande"
       }
     }
   },

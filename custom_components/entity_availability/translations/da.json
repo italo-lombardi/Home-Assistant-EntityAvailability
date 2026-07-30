@@ -13,7 +13,12 @@
         "description": "Opret en gruppe af entiteter til overvågning af tilgængelighed.",
         "data": {
           "group_name": "Gruppenavn",
-          "entities": "Entiteter at overvåge"
+          "entities": "Entiteter at overvåge",
+          "non_essential_entities": "Ikke-essentielle entiteter"
+        },
+        "data_description": {
+          "entities": "Enheder der overvåges for tilgængelighed. Disse er fuldt overvåget og inkluderet i alle KPI'er og advarsler.",
+          "non_essential_entities": "Enheder der ikke påvirker gruppens sundhedsscore. Synlige på kortet og talt med i totaler, men ekskluderet fra alle KPI'er (tilgængelighed %, offline antal, MTBF, MTTR) og udløser aldrig advarsler. Brug til enheder hvor nedetid er acceptabelt — et TV, en printer, en sæsonenhed."
         }
       },
       "combined": {
@@ -51,6 +56,7 @@
         },
         "data_description": {
           "battery_threshold": "Markerer entiteter, hvis batteri falder under denne procentdel. Tilstanden 'low' registreres også automatisk. Volt-baserede entiteter understøttes ikke. Brug entiteter, der rapporterer batteri som procent eller understøtter tilstanden 'low'.",
+          "staleness_threshold": "Hvis en entitet ikke har ændret tilstand i dette antal minutter, markeres den som forringet. Dette opdager entiteter, der rapporterer 'tilgængelig', men faktisk er stoppet med at sende data. Sæt til 0 for at deaktivere.",
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
           "availability_windows": "Tidsvinduer til sporing af gruppens tilgængelighed (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift."
@@ -64,7 +70,8 @@
     "error": {
       "empty_group_name": "Gruppenavnet kan ikke være tomt.",
       "no_entities": "Du skal vælge mindst én entitet.",
-      "not_enough_groups_selected": "Vælg mindst to grupper at kombinere."
+      "not_enough_groups_selected": "Vælg mindst to grupper at kombinere.",
+      "duplicate_entities": "Den samme entitet kan ikke optræde på begge lister. Fjern dubletter, inden du gemmer."
     },
     "abort": {
       "already_configured": "En gruppe med dette navn findes allerede.",
@@ -78,6 +85,7 @@
         "description": "Ændr overvågningsindstillinger for denne gruppe.",
         "data": {
           "entities": "Entiteter at overvåge",
+          "non_essential_entities": "Ikke-essentielle entiteter",
           "bad_states": "Tilstande betragtet som offline",
           "cooldown": "Ventetid (sekunder)",
           "staleness_threshold": "Inaktivitetstærskel (minutter, 0 = deaktiveret)",
@@ -88,6 +96,7 @@
           "staleness_use_last_updated": "Tæl attributopdateringer som aktivitet"
         },
         "data_description": {
+          "non_essential_entities": "Enheder der vises og tælles på kortet, men udelukkes fra alle KPI'er (antal offline, tilgængelighed %, MTBF, MTTR) og alarmer. Nyttig til enheder der forventes at være offline (TV i standby, printer slukket mellem jobs).",
           "bad_states": "Entitetstilstande, der indikerer, at en entitet er offline (f.eks. unavailable, unknown).",
           "cooldown": "Hvor længe (i sekunder) en entitet skal forblive i en fejltilstand, før den markeres som offline. Forhindrer falske alarmer ved korte afbrydelser.",
           "staleness_threshold": "Hvis en entitet ikke har skiftet tilstand i dette antal minutter, markeres den som forringet. Sæt til 0 for at deaktivere.",
@@ -95,7 +104,8 @@
           "availability_windows": "Tidsvinduer til sporing af gruppens tilgængelighed (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift.",
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
-          "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter eller gentagne rapporter med samme værdi — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil)."
+          "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter eller gentagne rapporter med samme værdi — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil).",
+          "entities": "Enheder der overvåges for tilgængelighed. Disse er fuldt overvåget og inkluderet i alle KPI'er og advarsler."
         }
       },
       "combined_init": {
@@ -167,6 +177,30 @@
       },
       "mttr": {
         "name": "Gennemsnitlig genoprettelsestid"
+      },
+      "stale_entities": {
+        "name": "Inaktive entiteter"
+      },
+      "stale_count": {
+        "name": "Antal inaktive"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline-entiteter (ikke-essentielle)"
+      },
+      "offline_count_non_essential": {
+        "name": "Antal offline (ikke-essentielle)"
+      },
+      "low_battery_non_essential": {
+        "name": "Lavt batteri (ikke-essentielle)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Antal med lavt batteri (ikke-essentielle)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Inaktive entiteter (ikke-essentielle)"
+      },
+      "stale_count_non_essential": {
+        "name": "Antal inaktive (ikke-essentielle)"
       }
     },
     "binary_sensor": {
@@ -175,6 +209,15 @@
       },
       "combined_any_offline": {
         "name": "Nogen offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Nogen offline (ikke-essentielle)"
+      },
+      "any_low_battery": {
+        "name": "Lavt batteri til stede"
+      },
+      "any_stale": {
+        "name": "Inaktiv entitet til stede"
       }
     }
   },

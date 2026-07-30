@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "建立條目",
+        "description": "監控一組實體，或合併現有的組。",
+        "data": {
+          "entry_type": "類型"
+        }
+      },
+      "group": {
+        "title": "建立實體組",
+        "description": "建立一組實體以監控其可用性。",
+        "data": {
+          "group_name": "組名",
+          "entities": "要監控的實體",
+          "non_essential_entities": "非必要實體"
+        },
+        "data_description": {
+          "entities": "要追蹤可用性的實體。這些實體會被完整監控，並納入所有 KPI 與告警。",
+          "non_essential_entities": "不影響組健康評分的實體。在卡片上可見並計入總數，但不納入任何 KPI（可用性 %、離線數量、MTBF、MTTR），也不會觸發告警。適用於允許停機的設備——如電視、印表機、季節性設備。"
+        }
+      },
+      "combined": {
+        "title": "建立合併組",
+        "description": "將多個組合併為一個視圖，用於自動化與儀表板。",
+        "data": {
+          "group_name": "合併組名",
+          "combined_groups": "要包含的組"
+        }
+      },
+      "monitoring": {
+        "title": "監控設定",
+        "description": "設定實體的監控方式。",
+        "data": {
+          "bad_states": "視為離線的狀態",
+          "cooldown": "標記離線前的冷卻時間",
+          "staleness_threshold": "資料逾時閾值",
+          "staleness_use_last_updated": "將屬性更新計為活動"
+        },
+        "data_description": {
+          "bad_states": "表示實體離線的狀態（例如 unavailable、unknown）。",
+          "cooldown": "實體需持續處於異常狀態多長時間（秒）才會被標記為離線。可防止因短暫斷線引發的誤報。",
+          "staleness_threshold": "若實體在指定分鐘數內未發生狀態變化，則將其標記為降級。可捕捉那些回報「可用」但實際上已停止傳送資料的實體。設為 0 表示停用。",
+          "staleness_use_last_updated": "啟用後，實體的任何更新——包括僅屬性變化或重複相同值的回報——都會重置資料逾時計時器。停用（預設）時，只有主狀態發生變化才計數。適用於頻繁回報但值很少變化的設備（如溫度或長期穩定的功率）。"
+        }
+      },
+      "advanced": {
+        "title": "進階設定",
+        "description": "選用的進階監控功能。",
+        "data": {
+          "battery_threshold": "低電量閾值（%，0 = 停用）",
+          "availability_windows": "可用性追蹤時間窗口",
+          "recovery_window": "恢復窗口",
+          "use_device_names": "顯示設備名稱"
+        },
+        "data_description": {
+          "battery_threshold": "標記電池電量低於此百分比的實體。「low」狀態也會被自動偵測。不支援基於電壓的實體。請使用以百分比回報電量或支援「low」狀態的實體。",
+          "availability_windows": "用於追蹤組可用性歷史記錄的時間窗口（例如 today、3d、7d）。",
+          "recovery_window": "實體在狀態轉換後，在「最近離線」或「最近恢復」感測器中保留的時長（分鐘）。",
+          "use_device_names": "在離線/已恢復感測器狀態中顯示 HA 設備名稱，而非實體友善名稱。對未關聯設備的實體，回退使用友善名稱。"
+        }
+      },
+      "battery_mapping": {
+        "title": "電池實體對應",
+        "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。"
+      }
+    },
+    "error": {
+      "empty_group_name": "組名不得為空。",
+      "no_entities": "必須至少選擇一個實體。",
+      "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
+      "not_enough_groups_selected": "至少選擇兩個組進行合併。"
+    },
+    "abort": {
+      "already_configured": "已存在同名組。",
+      "not_enough_groups": "建立合併組前，至少需要兩個現有組。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "編輯實體組",
+        "description": "修改此組的監控設定。",
+        "data": {
+          "entities": "要監控的實體",
+          "non_essential_entities": "非必要實體",
+          "bad_states": "視為離線的狀態",
+          "cooldown": "冷卻時間（秒）",
+          "staleness_threshold": "資料逾時閾值（分鐘，0 = 停用）",
+          "battery_threshold": "低電量閾值（%，0 = 停用）",
+          "availability_windows": "可用性追蹤時間窗口",
+          "recovery_window": "恢復窗口（分鐘）",
+          "use_device_names": "顯示設備名稱",
+          "staleness_use_last_updated": "將屬性更新計為活動"
+        },
+        "data_description": {
+          "entities": "要追蹤可用性的實體。這些實體會被完整監控，並納入所有 KPI 與告警。",
+          "non_essential_entities": "不影響組健康評分的實體。在卡片上可見並計入總數，但不納入任何 KPI（可用性 %、離線數量、MTBF、MTTR），也不會觸發告警。適用於允許停機的設備——如電視、印表機、季節性設備。",
+          "bad_states": "表示實體離線的狀態（例如 unavailable、unknown）。",
+          "cooldown": "實體需持續處於異常狀態多長時間（秒）才會被標記為離線。可防止因短暫斷線引發的誤報。",
+          "staleness_threshold": "若實體在指定分鐘數內未發生狀態變化，則將其標記為降級。設為 0 表示停用。",
+          "battery_threshold": "標記電池電量低於此百分比的實體。「low」狀態也會被自動偵測。不支援基於電壓的實體。",
+          "availability_windows": "用於追蹤組可用性歷史記錄的時間窗口（例如 today、3d、7d）。",
+          "recovery_window": "實體在狀態轉換後，在「最近離線」或「最近恢復」感測器中保留的時長（分鐘）。",
+          "use_device_names": "在離線/已恢復感測器狀態中顯示 HA 設備名稱，而非實體友善名稱。對未關聯設備的實體，回退使用友善名稱。",
+          "staleness_use_last_updated": "啟用後，實體的任何更新——包括僅屬性變化或重複相同值的回報——都會重置資料逾時計時器。停用（預設）時，只有主狀態發生變化才計數。適用於頻繁回報但值很少變化的設備（如溫度或長期穩定的功率）。"
+        }
+      },
+      "combined_init": {
+        "title": "編輯合併組",
+        "description": "修改合併組的名稱及包含的組。",
+        "data": {
+          "group_name": "合併組名",
+          "combined_groups": "要包含的組"
+        }
+      },
+      "battery_mapping": {
+        "title": "電池實體對應",
+        "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "離線數量"
+      },
+      "offline_entities": {
+        "name": "離線實體"
+      },
+      "low_battery": {
+        "name": "低電量"
+      },
+      "low_battery_count": {
+        "name": "低電量數量"
+      },
+      "group_summary": {
+        "name": "組摘要"
+      },
+      "recently_offline": {
+        "name": "最近離線"
+      },
+      "recently_recovered": {
+        "name": "最近恢復"
+      },
+      "combined_summary": {
+        "name": "合併摘要"
+      },
+      "availability_today": {
+        "name": "可用性（今日）"
+      },
+      "availability_3d": {
+        "name": "可用性（3 天）"
+      },
+      "availability_5d": {
+        "name": "可用性（5 天）"
+      },
+      "availability_7d": {
+        "name": "可用性（7 天）"
+      },
+      "affected_areas_count": {
+        "name": "受影響區域數量"
+      },
+      "affected_areas": {
+        "name": "受影響區域"
+      },
+      "affected_areas_recently_offline": {
+        "name": "最近離線的區域"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "最近恢復的區域"
+      },
+      "mtbf": {
+        "name": "平均故障間隔時間"
+      },
+      "mttr": {
+        "name": "平均恢復時間"
+      },
+      "stale_entities": {
+        "name": "資料逾時實體"
+      },
+      "stale_count": {
+        "name": "資料逾時數量"
+      },
+      "offline_entities_non_essential": {
+        "name": "離線實體（非必要）"
+      },
+      "offline_count_non_essential": {
+        "name": "離線數量（非必要）"
+      },
+      "low_battery_non_essential": {
+        "name": "低電量（非必要）"
+      },
+      "low_battery_count_non_essential": {
+        "name": "低電量數量（非必要）"
+      },
+      "stale_entities_non_essential": {
+        "name": "資料逾時實體（非必要）"
+      },
+      "stale_count_non_essential": {
+        "name": "資料逾時數量（非必要）"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "存在離線實體"
+      },
+      "combined_any_offline": {
+        "name": "存在離線實體"
+      },
+      "any_offline_non_essential": {
+        "name": "存在離線實體（非必要）"
+      },
+      "any_low_battery": {
+        "name": "存在低電量實體"
+      },
+      "any_stale": {
+        "name": "存在資料逾時實體"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "監控實體",
+        "combined_group": "合併組"
+      }
+    }
+  }
+}

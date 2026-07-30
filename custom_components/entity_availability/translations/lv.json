@@ -1,0 +1,231 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Izveidot ierakstu",
+        "description": "Uzraugiet entitāšu grupu vai apvienojiet esošās grupas.",
+        "data": {
+          "entry_type": "Veids"
+        }
+      },
+      "group": {
+        "title": "Izveidot entitāšu grupu",
+        "description": "Izveidojiet entitāšu grupu, kuras pieejamību vēlaties uzraudzīt.",
+        "data": {
+          "group_name": "Grupas nosaukums",
+          "entities": "Uzraugāmās entitātes",
+          "non_essential_entities": "Nebūtiskās entitātes"
+        },
+        "data_description": {
+          "entities": "Entitātes, kuru pieejamība tiks izsekota. Tās tiek pilnībā uzraudzītas un iekļautas visos KPI un brīdinājumos.",
+          "non_essential_entities": "Entitātes, kas neietekmē jūsu grupas veselības rādītāju. Redzamas kartē un ieskaitītas kopsummās, bet izslēgtas no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un nekad neaktivizē brīdinājumus. Izmantojiet ierīcēm, kur dīkstāve ir pieņemama — televizoram, printerim, sezonālai ierīcei."
+        }
+      },
+      "combined": {
+        "title": "Izveidot apvienoto grupu",
+        "description": "Apvienojiet vairākas grupas vienā skatā automatizācijai un informācijas paneļiem.",
+        "data": {
+          "group_name": "Apvienotās grupas nosaukums",
+          "combined_groups": "Iekļaujamās grupas"
+        }
+      },
+      "monitoring": {
+        "title": "Uzraudzības iestatījumi",
+        "description": "Konfigurējiet, kā entitātes tiek uzraudzītas.",
+        "data": {
+          "bad_states": "Stāvokļi, kas tiek uzskatīti par bezsaistē",
+          "cooldown": "Gaidīšanas laiks pirms atzīmēšanas bezsaistē",
+          "staleness_threshold": "Novecošanas slieksnis",
+          "staleness_use_last_updated": "Atribūtu atjauninājumus skaitīt kā aktivitāti"
+        },
+        "data_description": {
+          "bad_states": "Entitāšu stāvokļi, kas norāda, ka entitāte ir bezsaistē (piemēram, nepieejama, nezināma).",
+          "cooldown": "Cik ilgi (sekundēs) entitātei jāpaliek slikta stāvoklī, pirms tā tiek atzīmēta kā bezsaistē esoša. Novērš viltus trauksmes īsu atvienojumu gadījumā.",
+          "staleness_threshold": "Ja entitāte nav mainījusi stāvokli šo minūšu skaitu, tā tiek atzīmēta kā degradēta. Tādā veidā tiek atklātas entitātes, kas ziņo par pieejamību, bet faktiski ir pārstājušas sūtīt datus. Iestatiet 0, lai atspējotu.",
+          "staleness_use_last_updated": "Ieslēgts — jebkurš entitātes atjauninājums, ieskaitot tikai atribūtu izmaiņas vai atkārtotus vienas un tās pašas vērtības ziņojumus, atiestata novecošanas taimeri. Izslēgts (noklusējums) — tiek skaitītas tikai galvenā stāvokļa izmaiņas. Ieslēdziet ierīcēm, kas bieži ziņo, bet reti maina vērtību (piemēram, temperatūra vai jauda, kas paliek stabila)."
+        }
+      },
+      "advanced": {
+        "title": "Papildu iestatījumi",
+        "description": "Izvēles papildu uzraudzības funkcijas.",
+        "data": {
+          "battery_threshold": "Zema akumulatora līmeņa slieksnis (%, 0 = atspējots)",
+          "availability_windows": "Pieejamības izsekošanas logi",
+          "recovery_window": "Atjaunošanas logs",
+          "use_device_names": "Rādīt ierīces nosaukumus"
+        },
+        "data_description": {
+          "battery_threshold": "Atzīmēt entitātes, kuru akumulators nokrītas zem šī procenta. Stāvoklis „zems” tiek atklāts arī automātiski. Voltāžas entitātes netiek atbalstītas. Izmantojiet entitātes, kas ziņo akumulatoru kā procentus vai atbalsta stāvokli „zems”.",
+          "availability_windows": "Laika logi grupas pieejamības vēstures izsekošanai (piemēram, šodien, 3d, 7d).",
+          "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē” vai „Nesen atjaunots” pēc stāvokļa pārejas.",
+          "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci."
+        }
+      },
+      "battery_mapping": {
+        "title": "Akumulatora entitāšu kartēšana",
+        "description": "Apstipriniet vai mainiet akumulatora sensoru katrai uzraugāmajai entitātei. Atstājiet tukšu entitātēm bez akumulatora. Atbalsta skaitliskos (%) un teksta stāvokļus ('low')."
+      }
+    },
+    "error": {
+      "empty_group_name": "Grupas nosaukums nedrīkst būt tukšs.",
+      "no_entities": "Jums jāizvēlas vismaz viena entitāte.",
+      "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
+      "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai."
+    },
+    "abort": {
+      "already_configured": "Grupa ar šādu nosaukumu jau eksistē.",
+      "not_enough_groups": "Pirms apvienotās grupas izveidošanas ir nepieciešamas vismaz divas grupas."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Rediģēt entitāšu grupu",
+        "description": "Mainiet šīs grupas uzraudzības iestatījumus.",
+        "data": {
+          "entities": "Uzraugāmās entitātes",
+          "non_essential_entities": "Nebūtiskās entitātes",
+          "bad_states": "Stāvokļi, kas tiek uzskatīti par bezsaistē",
+          "cooldown": "Gaidīšanas laiks (sekundes)",
+          "staleness_threshold": "Novecošanas slieksnis (minūtes, 0 = atspējots)",
+          "battery_threshold": "Zema akumulatora līmeņa slieksnis (%, 0 = atspējots)",
+          "availability_windows": "Pieejamības izsekošanas logi",
+          "recovery_window": "Atjaunošanas logs (minūtes)",
+          "use_device_names": "Rādīt ierīces nosaukumus",
+          "staleness_use_last_updated": "Atribūtu atjauninājumus skaitīt kā aktivitāti"
+        },
+        "data_description": {
+          "entities": "Entitātes, kuru pieejamība tiks izsekota. Tās tiek pilnībā uzraudzītas un iekļautas visos KPI un brīdinājumos.",
+          "non_essential_entities": "Entitātes, kas neietekmē jūsu grupas veselības rādītāju. Redzamas kartē un ieskaitītas kopsummās, bet izslēgtas no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un nekad neaktivizē brīdinājumus. Izmantojiet ierīcēm, kur dīkstāve ir pieņemama — televizoram, printerim, sezonālai ierīcei.",
+          "bad_states": "Entitāšu stāvokļi, kas norāda, ka entitāte ir bezsaistē (piemēram, nepieejama, nezināma).",
+          "cooldown": "Cik ilgi (sekundēs) entitātei jāpaliek slikta stāvoklī, pirms tā tiek atzīmēta kā bezsaistē esoša. Novērš viltus trauksmes īsu atvienojumu gadījumā.",
+          "staleness_threshold": "Ja entitāte nav mainījusi stāvokli šo minūšu skaitu, tā tiek atzīmēta kā degradēta. Iestatiet 0, lai atspējotu.",
+          "battery_threshold": "Atzīmēt entitātes, kuru akumulators nokrītas zem šī procenta. Stāvoklis „zems” tiek atklāts arī automātiski. Voltāžas entitātes netiek atbalstītas.",
+          "availability_windows": "Laika logi grupas pieejamības vēstures izsekošanai (piemēram, šodien, 3d, 7d).",
+          "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē” vai „Nesen atjaunots” pēc stāvokļa pārejas.",
+          "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci.",
+          "staleness_use_last_updated": "Ieslēgts — jebkurš entitātes atjauninājums, ieskaitot tikai atribūtu izmaiņas vai atkārtotus vienas un tās pašas vērtības ziņojumus, atiestata novecošanas taimeri. Izslēgts (noklusējums) — tiek skaitītas tikai galvenā stāvokļa izmaiņas. Ieslēdziet ierīcēm, kas bieži ziņo, bet reti maina vērtību (piemēram, temperatūra vai jauda, kas paliek stabila)."
+        }
+      },
+      "combined_init": {
+        "title": "Rediģēt apvienoto grupu",
+        "description": "Mainiet apvienotās grupas nosaukumu un iekļaujamās grupas.",
+        "data": {
+          "group_name": "Apvienotās grupas nosaukums",
+          "combined_groups": "Iekļaujamās grupas"
+        }
+      },
+      "battery_mapping": {
+        "title": "Akumulatora entitāšu kartēšana",
+        "description": "Apstipriniet vai mainiet akumulatora sensoru katrai uzraugāmajai entitātei. Atstājiet tukšu entitātēm bez akumulatora. Atbalsta skaitliskos (%) un teksta stāvokļus ('low')."
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Bezsaistē esošo skaits"
+      },
+      "offline_entities": {
+        "name": "Bezsaistē esošās entitātes"
+      },
+      "low_battery": {
+        "name": "Zems akumulators"
+      },
+      "low_battery_count": {
+        "name": "Zema akumulatora skaits"
+      },
+      "group_summary": {
+        "name": "Grupas kopsavilkums"
+      },
+      "recently_offline": {
+        "name": "Nesen bezsaistē"
+      },
+      "recently_recovered": {
+        "name": "Nesen atjaunots"
+      },
+      "combined_summary": {
+        "name": "Apvienotais kopsavilkums"
+      },
+      "availability_today": {
+        "name": "Pieejamība (šodien)"
+      },
+      "availability_3d": {
+        "name": "Pieejamība (3 dienas)"
+      },
+      "availability_5d": {
+        "name": "Pieejamība (5 dienas)"
+      },
+      "availability_7d": {
+        "name": "Pieejamība (7 dienas)"
+      },
+      "affected_areas_count": {
+        "name": "Ietekmēto zonu skaits"
+      },
+      "affected_areas": {
+        "name": "Ietekmētās zonas"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Nesen bezsaistē esošās zonas"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Nesen atjaunotās zonas"
+      },
+      "mtbf": {
+        "name": "Vidējais laiks starp kļūmēm"
+      },
+      "mttr": {
+        "name": "Vidējais atjaunošanas laiks"
+      },
+      "stale_entities": {
+        "name": "Novecojušās entitātes"
+      },
+      "stale_count": {
+        "name": "Novecojušo skaits"
+      },
+      "offline_entities_non_essential": {
+        "name": "Bezsaistē esošās entitātes (Nebūtiski)"
+      },
+      "offline_count_non_essential": {
+        "name": "Bezsaistē esošo skaits (Nebūtiski)"
+      },
+      "low_battery_non_essential": {
+        "name": "Zems akumulators (Nebūtiski)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Zema akumulatora skaits (Nebūtiski)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Novecojušās entitātes (Nebūtiski)"
+      },
+      "stale_count_non_essential": {
+        "name": "Novecojušo skaits (Nebūtiski)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Ir bezsaistē esošas"
+      },
+      "combined_any_offline": {
+        "name": "Ir bezsaistē esošas"
+      },
+      "any_offline_non_essential": {
+        "name": "Ir bezsaistē esošas (Nebūtiski)"
+      },
+      "any_low_battery": {
+        "name": "Ir zems akumulators"
+      },
+      "any_stale": {
+        "name": "Ir novecojuši dati"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Uzraudzīt entitātes",
+        "combined_group": "Apvienot grupas"
+      }
+    }
+  }
+}

@@ -13,7 +13,12 @@
         "description": "Create a group of entities to monitor for availability.",
         "data": {
           "group_name": "Group Name",
-          "entities": "Entities to Monitor"
+          "entities": "Entities to Monitor",
+          "non_essential_entities": "Non-Essential entities"
+        },
+        "data_description": {
+          "entities": "Entities to track for availability. These are fully monitored and included in all KPIs and alerts.",
+          "non_essential_entities": "Entities that don't affect your group's health score. Visible on the card and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Use for devices where downtime is acceptable — a TV, a printer, a seasonal device."
         }
       },
       "combined": {
@@ -64,6 +69,7 @@
     "error": {
       "empty_group_name": "Group name cannot be empty.",
       "no_entities": "You must select at least one entity.",
+      "duplicate_entities": "The same entity cannot appear in both lists. Remove duplicates before saving.",
       "not_enough_groups_selected": "Select at least two groups to combine."
     },
     "abort": {
@@ -78,6 +84,7 @@
         "description": "Modify monitoring settings for this group.",
         "data": {
           "entities": "Entities to Monitor",
+          "non_essential_entities": "Non-Essential entities",
           "bad_states": "States considered offline",
           "cooldown": "Cooldown (seconds)",
           "staleness_threshold": "Staleness threshold (minutes, 0 = disabled)",
@@ -88,6 +95,8 @@
           "staleness_use_last_updated": "Count attribute updates as activity"
         },
         "data_description": {
+          "entities": "Entities to track for availability. These are fully monitored and included in all KPIs and alerts.",
+          "non_essential_entities": "Entities that don't affect your group's health score. Visible on the card and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Use for devices where downtime is acceptable — a TV, a printer, a seasonal device.",
           "bad_states": "Entity states that indicate an entity is offline (e.g., unavailable, unknown).",
           "cooldown": "How long (in seconds) an entity must stay in a bad state before it is marked offline. Prevents false alarms from brief disconnections.",
           "staleness_threshold": "If an entity hasn't changed state for this many minutes, mark it as degraded. Set to 0 to disable.",
@@ -167,6 +176,30 @@
       },
       "mttr": {
         "name": "Mean Time To Recovery"
+      },
+      "stale_entities": {
+        "name": "Stale Entities"
+      },
+      "stale_count": {
+        "name": "Stale Count"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline Entities (Non-Essential)"
+      },
+      "offline_count_non_essential": {
+        "name": "Offline Count (Non-Essential)"
+      },
+      "low_battery_non_essential": {
+        "name": "Low Battery (Non-Essential)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Low Battery Count (Non-Essential)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Stale Entities (Non-Essential)"
+      },
+      "stale_count_non_essential": {
+        "name": "Stale Count (Non-Essential)"
       }
     },
     "binary_sensor": {
@@ -175,6 +208,15 @@
       },
       "combined_any_offline": {
         "name": "Any Offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Any Offline (Non-Essential)"
+      },
+      "any_low_battery": {
+        "name": "Any Low Battery"
+      },
+      "any_stale": {
+        "name": "Any Stale"
       }
     }
   },

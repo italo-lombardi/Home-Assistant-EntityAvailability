@@ -23,6 +23,7 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_COOLDOWN,
     CONF_ENTITIES,
+    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_RECOVERY_WINDOW,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
@@ -34,6 +35,8 @@ from .const import (
     DEFAULT_STALENESS_USE_LAST_UPDATED,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
+    EVENT_STALE,
+    EVENT_STALE_RECOVERED,
     EVENT_OFFLINE,
     EVENT_RECOVERED,
     SCAN_INTERVAL,
@@ -72,6 +75,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         self.entry = entry
         self._entities: list[str] = entry.data.get(CONF_ENTITIES, [])
+        self._non_essential: list[str] = entry.data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
         self._bad_states: list[str] = entry.data.get(
             CONF_BAD_STATES, DEFAULT_BAD_STATES
         )
@@ -449,6 +453,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
             device = self._device_states[entity_id]
 
+            # Set non-essential flag (must be before suppressed continue so both flags are set)
+            device.is_non_essential = entity_id in self._non_essential
+
             # Restore suppression from loaded data
             if entity_id in self._suppressed and not device.is_suppressed:
                 device.is_suppressed = True
@@ -503,6 +510,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             # Staleness check. Uses last_updated when configured (advances on any
             # state write, including unchanged-value reports); otherwise last_changed.
             is_stale = False
+            stale_ts = None
             if self._staleness_threshold > 0 and state:
                 device.last_changed = state.last_changed
                 stale_ts = (
@@ -639,7 +647,39 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 self._availability_storage.record_offline(entity_id, elapsed, now)
 
             # Degraded = not offline but battery low or stale
-            device.is_stale = is_stale
+            if is_stale and not device.is_stale:
+                device.is_stale = True
+                stale_ids = self._stale_entity_ids()
+                pending_events.append(
+                    (
+                        EVENT_STALE,
+                        {
+                            "entity_id": entity_id,
+                            "group": self.group_name,
+                            "entry_id": self.entry.entry_id,
+                            "stale_since": (stale_ts or now).isoformat(),
+                            "stale_count": len(stale_ids),
+                            "stale_entities": stale_ids,
+                        },
+                    )
+                )
+            elif not is_stale and device.is_stale:
+                device.is_stale = False
+                stale_ids = self._stale_entity_ids()
+                pending_events.append(
+                    (
+                        EVENT_STALE_RECOVERED,
+                        {
+                            "entity_id": entity_id,
+                            "group": self.group_name,
+                            "entry_id": self.entry.entry_id,
+                            "stale_count": len(stale_ids),
+                            "stale_entities": stale_ids,
+                        },
+                    )
+                )
+            else:
+                device.is_stale = is_stale
             if battery_low and not device.is_low_battery:
                 device.is_low_battery = True
                 low_battery_ids = self._low_battery_entity_ids()
@@ -706,7 +746,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         return [
             eid
             for eid, d in self._device_states.items()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         ]
 
     def _low_battery_entity_ids(self) -> list[str]:
@@ -714,7 +754,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         return [
             eid
             for eid, d in self._device_states.items()
-            if d.is_low_battery and not d.is_suppressed
+            if d.is_low_battery and not d.is_suppressed and not d.is_non_essential
+        ]
+
+    def _stale_entity_ids(self) -> list[str]:
+        """Return entity_ids that are currently stale and not suppressed, in insertion order."""
+        return [
+            eid
+            for eid, d in self._device_states.items()
+            if d.is_stale and not d.is_suppressed and not d.is_non_essential
         ]
 
     def _get_battery_level(self, entity_id: str) -> int | None:
