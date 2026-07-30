@@ -13,7 +13,11 @@
         "description": "Crie um grupo de entidades para monitorizar a disponibilidade.",
         "data": {
           "group_name": "Nome do Grupo",
-          "entities": "Entidades a Monitorizar"
+          "entities": "Entidades a Monitorizar",
+          "non_essential_entities": "Entidades não essenciais"
+        },
+        "data_description": {
+          "non_essential_entities": "Entidades exibidas e contadas no cartão, mas excluídas de todos os KPIs (contagem offline, disponibilidade %, MTBF, MTTR) e alertas. Útil para dispositivos que se espera que estejam offline (TV em standby, impressora desligada entre tarefas)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Modificar definições de monitorização para este grupo.",
         "data": {
           "entities": "Entidades a Monitorizar",
+          "non_essential_entities": "Entidades não essenciais",
           "bad_states": "Estados considerados offline",
           "cooldown": "Tempo de espera (segundos)",
           "staleness_threshold": "Limiar de inatividade (minutos, 0 = desativado)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Contar atualizações de atributos como atividade"
         },
         "data_description": {
+          "non_essential_entities": "Entidades exibidas e contadas no cartão, mas excluídas de todos os KPIs (contagem offline, disponibilidade %, MTBF, MTTR) e alertas. Útil para dispositivos que se espera que estejam offline (TV em standby, impressora desligada entre tarefas).",
           "bad_states": "Estados de entidade que indicam que uma entidade está offline (ex. unavailable, unknown).",
           "cooldown": "Quanto tempo (em segundos) uma entidade deve permanecer num estado mau antes de ser marcada como offline. Evita falsos alarmes por desconexões breves.",
           "staleness_threshold": "Se uma entidade não mudou de estado durante este número de minutos, é marcada como degradada. Defina 0 para desativar.",

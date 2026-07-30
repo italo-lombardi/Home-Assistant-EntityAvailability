@@ -13,7 +13,11 @@
         "description": "Skapa en grupp av entiteter att övervaka tillgänglighet för.",
         "data": {
           "group_name": "Gruppnamn",
-          "entities": "Entiteter att övervaka"
+          "entities": "Entiteter att övervaka",
+          "non_essential_entities": "Icke-nödvändiga enheter"
+        },
+        "data_description": {
+          "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och larm. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Ändra övervakningsinställningar för denna grupp.",
         "data": {
           "entities": "Entiteter att övervaka",
+          "non_essential_entities": "Icke-nödvändiga enheter",
           "bad_states": "Tillstånd som anses offline",
           "cooldown": "Väntetid (sekunder)",
           "staleness_threshold": "Inaktivitetsgräns (minuter, 0 = inaktiverad)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet"
         },
         "data_description": {
+          "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och larm. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb).",
           "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
           "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
           "staleness_threshold": "Om en entitet inte har ändrat tillstånd på detta antal minuter markeras den som försämrad. Ställ in 0 för att inaktivera.",

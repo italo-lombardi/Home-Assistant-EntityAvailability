@@ -13,7 +13,11 @@
         "description": "Opprett en gruppe med entiteter for tilgjengelighetsovervåking.",
         "data": {
           "group_name": "Gruppenavn",
-          "entities": "Entiteter å overvåke"
+          "entities": "Entiteter å overvåke",
+          "non_essential_entities": "Ikke-essensielle enheter"
+        },
+        "data_description": {
+          "non_essential_entities": "Enheter som vises og telles på kortet, men utelukkes fra alle KPI-er (antall offline, tilgjengelighet %, MTBF, MTTR) og varsler. Nyttig for enheter som forventes å være offline (TV i standby, skriver avslått mellom jobber)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Endre overvåkingsinnstillinger for denne gruppen.",
         "data": {
           "entities": "Entiteter å overvåke",
+          "non_essential_entities": "Ikke-essensielle enheter",
           "bad_states": "Tilstander ansett som offline",
           "cooldown": "Ventetid (sekunder)",
           "staleness_threshold": "Inaktivitetsterskel (minutter, 0 = deaktivert)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Tell attributtoppdateringer som aktivitet"
         },
         "data_description": {
+          "non_essential_entities": "Enheter som vises og telles på kortet, men utelukkes fra alle KPI-er (antall offline, tilgjengelighet %, MTBF, MTTR) og varsler. Nyttig for enheter som forventes å være offline (TV i standby, skriver avslått mellom jobber).",
           "bad_states": "Entitetstilstander som indikerer at en entitet er frakoblet (f.eks. unavailable, unknown).",
           "cooldown": "Hvor lenge (i sekunder) en enhet må være i en dårlig tilstand før den merkes som frakoblet. Forhindrer falske alarmer ved korte frakoblinger.",
           "staleness_threshold": "Hvis en enhet ikke har endret tilstand på dette antallet minutter, merkes den som forringet. Sett til 0 for å deaktivere.",

@@ -108,12 +108,22 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._data[CONF_ENTRY_TYPE] = ENTRY_TYPE_GROUP
                 self._data[CONF_GROUP_NAME] = group_name
                 self._data[CONF_ENTITIES] = entities
+                self._data[CONF_NON_ESSENTIAL_ENTITIES] = [
+                    e
+                    for e in user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+                    if e in entities
+                ]
                 return await self.async_step_monitoring()
 
         data_schema = vol.Schema(
             {
                 vol.Required(CONF_GROUP_NAME): str,
                 vol.Required(CONF_ENTITIES): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=True)
+                ),
+                vol.Optional(
+                    CONF_NON_ESSENTIAL_ENTITIES, default=[]
+                ): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True)
                 ),
             }
@@ -251,11 +261,6 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             self._data[CONF_USE_DEVICE_NAMES] = user_input.get(
                 CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
             )
-            self._data[CONF_NON_ESSENTIAL_ENTITIES] = [
-                e
-                for e in user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
-                if e in self._data[CONF_ENTITIES]
-            ]
 
             if self._data[CONF_BATTERY_THRESHOLD] > 0:
                 return await self.async_step_battery_mapping()
@@ -293,11 +298,6 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_USE_DEVICE_NAMES, default=DEFAULT_USE_DEVICE_NAMES
                 ): selector.BooleanSelector(),
-                vol.Optional(
-                    CONF_NON_ESSENTIAL_ENTITIES, default=[]
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(multiple=True)
-                ),
             }
         )
 
@@ -405,6 +405,12 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True)
                 ),
+                vol.Optional(
+                    CONF_NON_ESSENTIAL_ENTITIES,
+                    default=current.get(CONF_NON_ESSENTIAL_ENTITIES, []),
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=True)
+                ),
                 vol.Required(
                     CONF_BAD_STATES,
                     default=current.get(CONF_BAD_STATES, DEFAULT_BAD_STATES),
@@ -474,12 +480,6 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                         CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
                     ),
                 ): selector.BooleanSelector(),
-                vol.Optional(
-                    CONF_NON_ESSENTIAL_ENTITIES,
-                    default=current.get(CONF_NON_ESSENTIAL_ENTITIES, []),
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(multiple=True)
-                ),
             }
         )
 

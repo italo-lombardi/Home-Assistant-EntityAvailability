@@ -13,7 +13,11 @@
         "description": "Maak een groep entiteiten aan om de beschikbaarheid te bewaken.",
         "data": {
           "group_name": "Groepsnaam",
-          "entities": "Te bewaken entiteiten"
+          "entities": "Te bewaken entiteiten",
+          "non_essential_entities": "Niet-essentiële entiteiten"
+        },
+        "data_description": {
+          "non_essential_entities": "Entiteiten die worden weergegeven en geteld op de kaart maar worden uitgesloten van alle KPI's (offline aantal, beschikbaarheid %, MTBF, MTTR) en meldingen. Handig voor apparaten die naar verwachting offline zijn (tv in standby, printer uit tussen taken)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Wijzig de bewakingsinstellingen voor deze groep.",
         "data": {
           "entities": "Te bewaken entiteiten",
+          "non_essential_entities": "Niet-essentiële entiteiten",
           "bad_states": "Statussen die als offline worden beschouwd",
           "cooldown": "Wachttijd (seconden)",
           "staleness_threshold": "Inactiviteitsdrempel (minuten, 0 = uitgeschakeld)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Attribuutupdates als activiteit tellen"
         },
         "data_description": {
+          "non_essential_entities": "Entiteiten die worden weergegeven en geteld op de kaart maar worden uitgesloten van alle KPI's (offline aantal, beschikbaarheid %, MTBF, MTTR) en meldingen. Handig voor apparaten die naar verwachting offline zijn (tv in standby, printer uit tussen taken).",
           "bad_states": "Entiteitsstatussen die aangeven dat een entiteit offline is (bijv. unavailable, unknown).",
           "cooldown": "Hoe lang (in seconden) een entiteit in een slechte staat moet blijven voordat deze als offline wordt gemarkeerd. Voorkomt valse alarmen bij korte verbindingsonderbrekingen.",
           "staleness_threshold": "Als een entiteit dit aantal minuten niet van staat is veranderd, wordt deze gemarkeerd als verslechterd. Stel in op 0 om uit te schakelen.",

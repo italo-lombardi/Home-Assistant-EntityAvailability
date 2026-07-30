@@ -13,7 +13,11 @@
         "description": "Utwórz grupę encji do monitorowania dostępności.",
         "data": {
           "group_name": "Nazwa grupy",
-          "entities": "Encje do monitorowania"
+          "entities": "Encje do monitorowania",
+          "non_essential_entities": "Nieistotne encje"
+        },
+        "data_description": {
+          "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI (liczba offline, dostępność %, MTBF, MTTR) i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Zmień ustawienia monitorowania dla tej grupy.",
         "data": {
           "entities": "Encje do monitorowania",
+          "non_essential_entities": "Nieistotne encje",
           "bad_states": "Stany uznawane za offline",
           "cooldown": "Czas oczekiwania (sekundy)",
           "staleness_threshold": "Próg nieaktywności (minuty, 0 = wyłączony)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność"
         },
         "data_description": {
+          "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI (liczba offline, dostępność %, MTBF, MTTR) i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami).",
           "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
           "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom przy krótkich rozłączeniach.",
           "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, jest oznaczana jako zdegradowana. Ustaw 0, aby wyłączyć.",

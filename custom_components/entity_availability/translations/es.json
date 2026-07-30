@@ -13,7 +13,11 @@
         "description": "Cree un grupo de entidades para supervisar su disponibilidad.",
         "data": {
           "group_name": "Nombre del grupo",
-          "entities": "Entidades a supervisar"
+          "entities": "Entidades a supervisar",
+          "non_essential_entities": "Entidades no esenciales"
+        },
+        "data_description": {
+          "non_essential_entities": "Entidades que se muestran y cuentan en la tarjeta pero se excluyen de todos los KPIs (recuento offline, disponibilidad %, MTBF, MTTR) y alertas. Útil para dispositivos que se espera que estén offline (TV en standby, impresora apagada entre trabajos)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Modificar los ajustes de supervisión para este grupo.",
         "data": {
           "entities": "Entidades a supervisar",
+          "non_essential_entities": "Entidades no esenciales",
           "bad_states": "Estados considerados sin conexión",
           "cooldown": "Tiempo de espera (segundos)",
           "staleness_threshold": "Umbral de obsolescencia (minutos, 0 = desactivado)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad"
         },
         "data_description": {
+          "non_essential_entities": "Entidades que se muestran y cuentan en la tarjeta pero se excluyen de todos los KPIs (recuento offline, disponibilidad %, MTBF, MTTR) y alertas. Útil para dispositivos que se espera que estén offline (TV en standby, impresora apagada entre trabajos).",
           "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
           "cooldown": "Tiempo (en segundos) que una entidad debe permanecer en un estado incorrecto antes de marcarse como sin conexión. Evita falsas alarmas por desconexiones breves.",
           "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, se marca como degradada. Establezca 0 para deshabilitar.",

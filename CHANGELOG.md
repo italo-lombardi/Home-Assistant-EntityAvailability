@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Non-Essential entity level** — mark individual entities in a group as Non-Essential via *Advanced Settings → Non-Essential entities*. Non-essential entities appear on the card and count toward `total_entities` but are excluded from all KPIs (offline count, availability %, MTBF, MTTR) and from all alerts (binary sensor, affected areas, events). Useful for devices that are expected to be offline — TV in standby, printer off between jobs, PS3 when not in use — without splitting them into a separate group (which would orphan availability history). Setting is a list of entity IDs stored in group config; existing entries without the field default to `[]` so all devices remain Monitored with zero migration. Exclusion propagates to combined groups transitively.
+
 ## [0.3.14-beta.7] - 2026-07-30
 
 ### Added

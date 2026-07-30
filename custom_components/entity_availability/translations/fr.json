@@ -13,7 +13,11 @@
         "description": "Créez un groupe d'entités à surveiller pour la disponibilité.",
         "data": {
           "group_name": "Nom du groupe",
-          "entities": "Entités à surveiller"
+          "entities": "Entités à surveiller",
+          "non_essential_entities": "Entités non essentielles"
+        },
+        "data_description": {
+          "non_essential_entities": "Entités affichées et comptées sur la carte mais exclues de tous les KPI (nombre hors ligne, disponibilité %, MTBF, MTTR) et alertes. Utile pour les appareils attendus hors ligne (TV en veille, imprimante éteinte entre les tâches)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Modifier les paramètres de surveillance pour ce groupe.",
         "data": {
           "entities": "Entités à surveiller",
+          "non_essential_entities": "Entités non essentielles",
           "bad_states": "États considérés comme hors ligne",
           "cooldown": "Délai (secondes)",
           "staleness_threshold": "Seuil d'obsolescence (minutes, 0 = désactivé)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Compter les mises à jour d'attributs comme activité"
         },
         "data_description": {
+          "non_essential_entities": "Entités affichées et comptées sur la carte mais exclues de tous les KPI (nombre hors ligne, disponibilité %, MTBF, MTTR) et alertes. Utile pour les appareils attendus hors ligne (TV en veille, imprimante éteinte entre les tâches).",
           "bad_states": "États d'entité indiquant qu'une entité est hors ligne (p. ex. unavailable, unknown).",
           "cooldown": "Durée (en secondes) pendant laquelle une entité doit rester dans un mauvais état avant d'être marquée hors ligne. Évite les fausses alarmes lors de déconnexions brèves.",
           "staleness_threshold": "Si une entité n'a pas changé d'état depuis ce nombre de minutes, elle est marquée comme dégradée. Définir à 0 pour désactiver.",

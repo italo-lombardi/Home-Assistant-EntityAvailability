@@ -13,7 +13,11 @@
         "description": "Erstellen Sie eine Gruppe von Entitäten zur Verfügbarkeitsüberwachung.",
         "data": {
           "group_name": "Gruppenname",
-          "entities": "Zu überwachende Entitäten"
+          "entities": "Zu überwachende Entitäten",
+          "non_essential_entities": "Nicht-essentielle Entitäten"
+        },
+        "data_description": {
+          "non_essential_entities": "Entitäten die auf der Karte angezeigt und gezählt werden, aber von allen KPIs (Offline-Anzahl, Verfügbarkeit %, MTBF, MTTR) und Benachrichtigungen ausgeschlossen sind. Nützlich für Geräte, die erwartungsgemäß offline sind (Fernseher im Standby, Drucker zwischen Aufträgen)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Überwachungseinstellungen für diese Gruppe ändern.",
         "data": {
           "entities": "Zu überwachende Entitäten",
+          "non_essential_entities": "Nicht-essentielle Entitäten",
           "bad_states": "Zustände, die als offline gelten",
           "cooldown": "Abklingzeit (Sekunden)",
           "staleness_threshold": "Veralterungsschwelle (Minuten, 0 = deaktiviert)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Attributaktualisierungen als Aktivität zählen"
         },
         "data_description": {
+          "non_essential_entities": "Entitäten die auf der Karte angezeigt und gezählt werden, aber von allen KPIs (Offline-Anzahl, Verfügbarkeit %, MTBF, MTTR) und Benachrichtigungen ausgeschlossen sind. Nützlich für Geräte, die erwartungsgemäß offline sind (Fernseher im Standby, Drucker zwischen Aufträgen).",
           "bad_states": "Entitätszustände, die anzeigen, dass eine Entität offline ist (z. B. unavailable, unknown).",
           "cooldown": "Wie lange (in Sekunden) eine Entität in einem schlechten Zustand bleiben muss, bevor sie als offline markiert wird. Verhindert Fehlalarme bei kurzen Verbindungsunterbrechungen.",
           "staleness_threshold": "Wenn eine Entität sich für diese Anzahl von Minuten nicht geändert hat, wird sie als beeinträchtigt markiert. Auf 0 setzen zum Deaktivieren.",

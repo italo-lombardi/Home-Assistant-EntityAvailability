@@ -31,6 +31,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Device name display** -- optionally show the HA device name instead of entity friendly name in offline/recovered sensor states
 - **Indefinite suppression** -- suppress an entity with no expiry via `suppress_indefinitely`
 - **Maintenance/suppression mode** -- temporarily exclude entities from monitoring
+- **Non-Essential entity level** -- mark entities as non-essential: shown on the card but excluded from KPIs (offline count, availability %, MTBF, MTTR) and alerts; useful for expected-offline devices (TV in standby, printer off between jobs) without needing a separate group
 - **Custom Lovelace card** -- traffic-light status display with at-a-glance health overview
 - **Self-managed storage** -- no recorder dependency; data stored in `.storage`
 - **Recorder-friendly writes** -- sensors only publish state when value or attributes actually change, so steady-state networks don't generate redundant history rows every coordinator tick
@@ -99,6 +100,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Availability tracking windows | `today`, `7d` | Which time windows to create availability sensors for |
 | Recovery window (minutes) | `5` | How long entities remain visible in the recently-offline and recently-recovered sensors after the event |
 | Show device names | `off` | When enabled, offline/recovered sensor states show the HA device name (e.g. "Entrance Smoke Detector") instead of the entity friendly name. Falls back to friendly name for entities not linked to an HA device (helpers, template sensors) |
+| Non-Essential entities | *(none)* | Entities shown and counted on the card but excluded from all KPIs (offline count, availability %, MTBF, MTTR) and alerts. Useful for devices expected to be offline — TV in standby, printer off between jobs, PS3 when not in use — without creating a separate group. Existing groups without this field default to all-Monitored with no migration needed. |
 
 ![Step 4: Advanced Settings](assets/03_advanced_settings.png)
 
@@ -170,17 +172,19 @@ The Group Summary sensor provides a complete overview in its attributes:
 
 | Attribute | Description |
 |-----------|-------------|
-| `total_entities` | Total number of entities in the group |
-| `online` | Number of entities currently online |
-| `offline` | Number of entities currently offline (excluding suppressed) |
+| `total_entities` | Total number of entities in the group (includes non-essential) |
+| `online` | Entities currently online (excludes suppressed and non-essential) |
+| `offline` | Entities currently offline (excludes suppressed and non-essential) |
 | `suppressed` | Number of suppressed entities |
+| `non_essential` | Number of non-essential entities (not suppressed) |
+| `non_essential_entities` | List of non-essential entity IDs |
 | `battery_powered` | Number of entities with a mapped battery sensor |
-| `low_battery` | Number of entities with battery below threshold |
+| `low_battery` | Number of entities with battery below threshold (excludes non-essential) |
 | `entities` | List of all monitored entity IDs in this group |
 | `battery_levels` | Dict of `{entity_id: battery_level}` for entities with battery sensors |
 | `suppressed_until` | Which entities are suppressed and when the suppression expires |
-| `stale_entities` | Entities that haven't reported a state change longer than the staleness threshold |
-| `offline_since` | When each currently offline entity first went offline |
+| `stale_entities` | Entities that haven't reported a state change longer than the staleness threshold (excludes non-essential) |
+| `offline_since` | When each currently offline entity first went offline (excludes non-essential) |
 
 Access these in templates:
 
@@ -265,7 +269,7 @@ For example, a combined group named "All Devices" produces the slug `all_devices
 
 | Entity | Type | State | Notes |
 |--------|------|-------|-------|
-| `sensor..._combined_summary` | Sensor | Total offline count across all source groups | Attributes: `total_entities`, `online`, `offline`, `stale`, `low_battery`, `suppressed`, `battery_powered`, `entities`, `groups`, `offline_entities`, `low_battery_entities`. The `groups` attribute is a dict keyed by `entry_id`: `{entry_id: {name, total, online, offline, stale, low_battery, suppressed, battery_powered}}`. `missing_groups` (list of entry IDs) is present when one or more source groups are not loaded. |
+| `sensor..._combined_summary` | Sensor | Total offline count across all source groups | Attributes: `total_entities`, `online`, `offline`, `stale`, `low_battery`, `suppressed`, `non_essential`, `non_essential_entities`, `battery_powered`, `entities`, `groups`, `offline_entities`, `low_battery_entities`. The `groups` attribute is a dict keyed by `entry_id`: `{entry_id: {name, total, online, offline, stale, low_battery, suppressed, non_essential, non_essential_entities, battery_powered}}`. `missing_groups` (list of entry IDs) is present when one or more source groups are not loaded. |
 | `sensor..._offline_entities` | Sensor | Comma-separated names of offline entities (`"None"` when all online) | Attributes: `entities` (list of entity IDs), `count` |
 | `sensor..._recently_offline` | Sensor | Comma-separated friendly names of entities that went offline within each source group's recovery window (`"None"` when empty) | `entities` (list of entity IDs), `count` — no `window_minutes` (each source group uses its own configured window) |
 | `sensor..._recently_recovered` | Sensor | Comma-separated friendly names of entities that recovered within each source group's recovery window (`"None"` when empty) | `entities` (list of entity IDs), `count` — no `window_minutes` |

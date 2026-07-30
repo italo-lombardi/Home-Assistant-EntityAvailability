@@ -13,7 +13,11 @@
         "description": "Opret en gruppe af entiteter til overvågning af tilgængelighed.",
         "data": {
           "group_name": "Gruppenavn",
-          "entities": "Entiteter at overvåge"
+          "entities": "Entiteter at overvåge",
+          "non_essential_entities": "Ikke-essentielle enheder"
+        },
+        "data_description": {
+          "non_essential_entities": "Enheder der vises og tælles på kortet, men udelukkes fra alle KPI'er (antal offline, tilgængelighed %, MTBF, MTTR) og alarmer. Nyttig til enheder der forventes at være offline (TV i standby, printer slukket mellem jobs)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Ændr overvågningsindstillinger for denne gruppe.",
         "data": {
           "entities": "Entiteter at overvåge",
+          "non_essential_entities": "Ikke-essentielle enheder",
           "bad_states": "Tilstande betragtet som offline",
           "cooldown": "Ventetid (sekunder)",
           "staleness_threshold": "Inaktivitetstærskel (minutter, 0 = deaktiveret)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Tæl attributopdateringer som aktivitet"
         },
         "data_description": {
+          "non_essential_entities": "Enheder der vises og tælles på kortet, men udelukkes fra alle KPI'er (antal offline, tilgængelighed %, MTBF, MTTR) og alarmer. Nyttig til enheder der forventes at være offline (TV i standby, printer slukket mellem jobs).",
           "bad_states": "Entitetstilstande, der indikerer, at en entitet er offline (f.eks. unavailable, unknown).",
           "cooldown": "Hvor længe (i sekunder) en entitet skal forblive i en fejltilstand, før den markeres som offline. Forhindrer falske alarmer ved korte afbrydelser.",
           "staleness_threshold": "Hvis en entitet ikke har skiftet tilstand i dette antal minutter, markeres den som forringet. Sæt til 0 for at deaktivere.",

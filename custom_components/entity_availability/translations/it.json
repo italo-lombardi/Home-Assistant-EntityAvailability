@@ -13,7 +13,11 @@
         "description": "Crea un gruppo di entità da monitorare per la disponibilità.",
         "data": {
           "group_name": "Nome del gruppo",
-          "entities": "Entità da monitorare"
+          "entities": "Entità da monitorare",
+          "non_essential_entities": "Entità non essenziali"
+        },
+        "data_description": {
+          "non_essential_entities": "Entità mostrate e conteggiate nella scheda ma escluse da tutti i KPI (conteggio offline, disponibilità %, MTBF, MTTR) e avvisi. Utile per dispositivi che si prevede siano offline (TV in standby, stampante spenta tra un lavoro e l'altro)."
         }
       },
       "combined": {
@@ -78,6 +82,7 @@
         "description": "Modifica le impostazioni di monitoraggio per questo gruppo.",
         "data": {
           "entities": "Entità da monitorare",
+          "non_essential_entities": "Entità non essenziali",
           "bad_states": "Stati considerati offline",
           "cooldown": "Tempo di attesa (secondi)",
           "staleness_threshold": "Soglia di inattività (minuti, 0 = disabilitato)",
@@ -88,6 +93,7 @@
           "staleness_use_last_updated": "Conta gli aggiornamenti degli attributi come attività"
         },
         "data_description": {
+          "non_essential_entities": "Entità mostrate e conteggiate nella scheda ma escluse da tutti i KPI (conteggio offline, disponibilità %, MTBF, MTTR) e avvisi. Utile per dispositivi che si prevede siano offline (TV in standby, stampante spenta tra un lavoro e l'altro).",
           "bad_states": "Stati delle entità che indicano che un'entità è offline (es. unavailable, unknown).",
           "cooldown": "Per quanto tempo (in secondi) un'entità deve rimanere in uno stato errato prima di essere contrassegnata come offline. Previene falsi allarmi da brevi disconnessioni.",
           "staleness_threshold": "Se un'entità non ha cambiato stato per questo numero di minuti, viene contrassegnata come degradata. Imposta 0 per disabilitare.",

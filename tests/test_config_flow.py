@@ -1648,8 +1648,8 @@ async def test_options_flow_entity_absent_from_map_is_detected(
 # ---------------------------------------------------------------------------
 
 
-async def test_advanced_step_stores_non_essential(hass: HomeAssistant) -> None:
-    """non_essential_entities submitted in advanced step is stored in entry data."""
+async def test_group_step_stores_non_essential(hass: HomeAssistant) -> None:
+    """non_essential_entities submitted in group step is stored in entry data."""
     from custom_components.entity_availability.const import (
         CONF_NON_ESSENTIAL_ENTITIES,
         CONF_RECOVERY_WINDOW,
@@ -1657,11 +1657,19 @@ async def test_advanced_step_stores_non_essential(hass: HomeAssistant) -> None:
     )
 
     result = await _init_flow(hass)
-    result = await _step_group(
-        hass,
+    # Select group type
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_GROUP}
+    )
+    assert result["step_id"] == "group"
+    # Submit group step with non_essential_entities
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        "Test Group",
-        ["binary_sensor.device_a", "binary_sensor.device_b"],
+        {
+            CONF_GROUP_NAME: "Test Group",
+            CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+            CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
+        },
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -1681,15 +1689,14 @@ async def test_advanced_step_stores_non_essential(hass: HomeAssistant) -> None:
                 CONF_AVAILABILITY_WINDOWS: ["today", "7d"],
                 CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
                 CONF_USE_DEVICE_NAMES: False,
-                CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_NON_ESSENTIAL_ENTITIES] == ["binary_sensor.device_a"]
 
 
-async def test_advanced_step_defaults_non_essential_empty(hass: HomeAssistant) -> None:
-    """Omitting non_essential_entities in advanced step stores empty list."""
+async def test_group_step_defaults_non_essential_empty(hass: HomeAssistant) -> None:
+    """Omitting non_essential_entities in group step stores empty list."""
     from custom_components.entity_availability.const import (
         CONF_NON_ESSENTIAL_ENTITIES,
         CONF_RECOVERY_WINDOW,
@@ -1724,7 +1731,7 @@ async def test_advanced_step_defaults_non_essential_empty(hass: HomeAssistant) -
     assert result["data"].get(CONF_NON_ESSENTIAL_ENTITIES, []) == []
 
 
-async def test_advanced_step_prunes_strays(hass: HomeAssistant) -> None:
+async def test_group_step_prunes_strays(hass: HomeAssistant) -> None:
     """Entity in non_essential_entities but not in group is pruned."""
     from custom_components.entity_availability.const import (
         CONF_NON_ESSENTIAL_ENTITIES,
@@ -1733,8 +1740,20 @@ async def test_advanced_step_prunes_strays(hass: HomeAssistant) -> None:
     )
 
     result = await _init_flow(hass)
-    result = await _step_group(
-        hass, result["flow_id"], "Test Group", ["binary_sensor.device_a"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_GROUP}
+    )
+    assert result["step_id"] == "group"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "Test Group",
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_NON_ESSENTIAL_ENTITIES: [
+                "binary_sensor.device_a",
+                "binary_sensor.STRAY",
+            ],
+        },
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -1754,10 +1773,6 @@ async def test_advanced_step_prunes_strays(hass: HomeAssistant) -> None:
                 CONF_AVAILABILITY_WINDOWS: ["today", "7d"],
                 CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
                 CONF_USE_DEVICE_NAMES: False,
-                CONF_NON_ESSENTIAL_ENTITIES: [
-                    "binary_sensor.device_a",
-                    "binary_sensor.STRAY",
-                ],
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
