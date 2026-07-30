@@ -501,172 +501,33 @@ def main():
     low_val = str(int(threshold) - 5)  # clearly below threshold
     combined_prefix = ctx["combined_prefix"]
 
-    # ------------------------------------------------------------------
-    print("=== EC1: entity unavailable → offline_count increments ===", flush=True)
-    ss(ctx["entities"][0], "unavailable", {"friendly_name": "test"})
-    chk(
-        "offline_count=1",
-        wait_for(
-            lambda: gs(f"{prefix}_offline_count").get("state"),
-            "1",
-        ),
-        "1",
-    )
-    if combined_prefix:
-        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-        chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
-        chk("EC1 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
-    restore_and_wait(ctx)
+    # EC1-EC8: mandatory state-setup chain — skip when --skip-setup + EC_FILTER set.
+    _run_setup_chain = not (SKIP_SETUP and EC_FILTER)
 
     # ------------------------------------------------------------------
-    print(
-        "\n=== EC4: online + battery below threshold → low_battery_count=1 ===",
-        flush=True,
-    )
-    restore_and_wait(ctx)
-    ss(
-        battery_sensor,
-        low_val,
-        {
-            "friendly_name": "Test Battery",
-            "device_class": "battery",
-            "unit_of_measurement": "%",
-        },
-    )
-    chk(
-        "low_battery_count=1",
-        wait_for(
-            lambda: gs(f"{prefix}_low_battery_count").get("state"),
-            "1",
-        ),
-        "1",
-    )
-    chk(
-        "low_battery list count=1",
-        wait_for(
-            lambda: gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
-            1,
-        ),
-        1,
-    )
-    lb = gs(f"{prefix}_low_battery")
-    chk(
-        "low_battery state non-null",
-        lb.get("state") not in ("None", "", "unavailable"),
-        True,
-        f"state={lb.get('state')!r}",
-    )
-    chk(
-        "low_battery devices has battery_entity",
-        battery_entity in lb.get("attributes", {}).get("devices", {}),
-        True,
-    )
-    chk(
-        "offline_count=0 (device online)",
-        gs(f"{prefix}_offline_count").get("state"),
-        "0",
-    )
-    if combined_prefix:
-        low_battery_val = wait_for(
-            lambda: (
-                gs(f"{combined_prefix}_combined_summary")
-                .get("attributes", {})
-                .get("low_battery")
+    if _run_setup_chain:
+        print("=== EC1: entity unavailable → offline_count increments ===", flush=True)
+        ss(ctx["entities"][0], "unavailable", {"friendly_name": "test"})
+        chk(
+            "offline_count=1",
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count").get("state"),
+                "1",
             ),
-            1,
-        )
-        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-        chk("EC4 combined low_battery=1", low_battery_val, 1)
-        chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
-
-    # ------------------------------------------------------------------
-    print(
-        "\n=== EC5: device+battery offline → offline=1, low_battery=0 (PR#41) ===",
-        flush=True,
-    )
-    ss(battery_entity, "unavailable", {"friendly_name": "test"})
-    ss(
-        battery_sensor,
-        "unavailable",
-        {"friendly_name": "Test Battery", "device_class": "battery"},
-    )
-    chk(
-        "offline_count=1",
-        wait_for(
-            lambda: gs(f"{prefix}_offline_count").get("state"),
             "1",
-        ),
-        "1",
-    )
-    chk(
-        "low_battery_count=0 (offline excluded)",
-        gs(f"{prefix}_low_battery_count").get("state"),
-        "0",
-    )
-    gs_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
-    chk("group_summary offline=1", str(gs_attrs.get("offline")), "1")
-    chk(
-        "group_summary low_battery=0 (no double-count)",
-        str(gs_attrs.get("low_battery")),
-        "0",
-    )
-    chk(
-        "low_battery list count=0",
-        gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
-        0,
-    )
-    if combined_prefix:
-        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-        chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")
-        chk("EC5 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
+        )
+        if combined_prefix:
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
+            chk("EC1 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
+        restore_and_wait(ctx)
 
-    # ------------------------------------------------------------------
-    print("\n=== EC6: battery replaced, back online → all clear ===", flush=True)
-    ss(battery_entity, "on", {"friendly_name": "test"})
-    ss(
-        battery_sensor,
-        "90",
-        {
-            "friendly_name": "Test Battery",
-            "device_class": "battery",
-            "unit_of_measurement": "%",
-        },
-    )
-    chk(
-        "offline_count=0",
-        wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0"),
-        "0",
-    )
-    chk(
-        "low_battery_count=0 (battery 90%)",
-        gs(f"{prefix}_low_battery_count").get("state"),
-        "0",
-    )
-    gs_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
-    chk(
-        f"online={len(ctx['entities'])}",
-        str(gs_attrs.get("online")),
-        str(len(ctx["entities"])),
-    )
-    chk(
-        "battery_levels updated to 90",
-        str(gs_attrs.get("battery_levels", {}).get(battery_entity)),
-        "90",
-    )
-    if combined_prefix:
-        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-        chk("EC6 combined offline=0", str(c_attrs.get("offline")), "0")
-        chk("EC6 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
-
-    # ------------------------------------------------------------------
-    if combined_prefix:
-        b_coff = int(gs(f"{combined_prefix}_offline_count").get("state", "0"))
-        b_clb = int(gs(f"{combined_prefix}_low_battery_count").get("state", "0"))
+        # ------------------------------------------------------------------
         print(
-            f"\n=== EC7+EC8: combined sensors (baseline offline={b_coff} low_battery={b_clb}) ===",
+            "\n=== EC4: online + battery below threshold → low_battery_count=1 ===",
             flush=True,
         )
-
+        restore_and_wait(ctx)
         ss(
             battery_sensor,
             low_val,
@@ -676,366 +537,522 @@ def main():
                 "unit_of_measurement": "%",
             },
         )
-        wait()
         chk(
-            "EC7 combined low_battery=base+1",
-            int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
-            b_clb + 1,
-            f"(base={b_clb})",
+            "low_battery_count=1",
+            wait_for(
+                lambda: gs(f"{prefix}_low_battery_count").get("state"),
+                "1",
+            ),
+            "1",
         )
         chk(
-            "EC7 combined offline unchanged",
-            int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
-            b_coff,
-            f"(base={b_coff})",
+            "low_battery list count=1",
+            wait_for(
+                lambda: gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
+                1,
+            ),
+            1,
         )
+        lb = gs(f"{prefix}_low_battery")
+        chk(
+            "low_battery state non-null",
+            lb.get("state") not in ("None", "", "unavailable"),
+            True,
+            f"state={lb.get('state')!r}",
+        )
+        chk(
+            "low_battery devices has battery_entity",
+            battery_entity in lb.get("attributes", {}).get("devices", {}),
+            True,
+        )
+        chk(
+            "offline_count=0 (device online)",
+            gs(f"{prefix}_offline_count").get("state"),
+            "0",
+        )
+        if combined_prefix:
+            low_battery_val = wait_for(
+                lambda: (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("low_battery")
+                ),
+                1,
+            )
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk("EC4 combined low_battery=1", low_battery_val, 1)
+            chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
 
+        # ------------------------------------------------------------------
+        print(
+            "\n=== EC5: device+battery offline → offline=1, low_battery=0 (PR#41) ===",
+            flush=True,
+        )
         ss(battery_entity, "unavailable", {"friendly_name": "test"})
         ss(
             battery_sensor,
             "unavailable",
             {"friendly_name": "Test Battery", "device_class": "battery"},
         )
-        wait()
         chk(
-            "EC8 combined low_battery=base (offline excluded)",
-            int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
-            b_clb,
-            f"(base={b_clb})",
-        )
-        chk(
-            "EC8 combined offline=base+1",
-            int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
-            b_coff + 1,
-            f"(base={b_coff})",
-        )
-    else:
-        print("\n=== EC7+EC8: skipped (no combined group found) ===", flush=True)
-
-    # ------------------------------------------------------------------
-    print("\n=== EC9: PR#37 — cleared battery map not re-suggested ===", flush=True)
-    # Find an entity with cleared ("") mapping
-    import subprocess
-
-    try:
-        raw = subprocess.check_output(
-            [
-                "python3",
-                "-c",
-                f"""
-import json
-cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
-for e in cfg['data']['entries']:
-    if e['entry_id'] == '{ctx["entry_id"]}':
-        bmap = e['data'].get('battery_entity_map', {{}})
-        cleared = [k for k, v in bmap.items() if v == '']
-        print(json.dumps(cleared))
-""",
-            ],
-            text=True,
-        ).strip()
-        cleared_entities = json.loads(raw)
-    except Exception:
-        cleared_entities = []
-
-    r = api(
-        "POST", "/api/config/config_entries/options/flow", {"handler": ctx["entry_id"]}
-    )
-    fid = r["flow_id"]
-    r2 = api(
-        "POST",
-        f"/api/config/config_entries/options/flow/{fid}",
-        {
-            "entities": ctx["entities"],
-            "bad_states": ["unavailable", "unknown"],
-            "cooldown": 0,
-            "staleness_threshold": 0,
-            "battery_threshold": threshold,
-            "availability_windows": ["today", "7d"],
-            "use_device_names": False,
-            "staleness_use_last_updated": False,
-        },
-    )
-    schema = r2.get("data_schema", [])
-    if cleared_entities:
-        c_eid = cleared_entities[0]
-        c_field = next((f for f in schema if f.get("name") == c_eid), None)
-        c_suggestion = (c_field or {}).get("description", {}).get("suggested_value", "")
-        chk(
-            "PR#37 cleared entity has no suggestion",
-            c_suggestion,
-            "",
-            f"entity={c_eid} suggested={c_suggestion!r}",
-        )
-    else:
-        print("  EC9: skipped (no cleared mappings found in config)", flush=True)
-    # Confirm mapped entity still has suggestion
-    m_field = next((f for f in schema if f.get("name") == battery_entity), None)
-    m_suggestion = (m_field or {}).get("description", {}).get("suggested_value", "")
-    chk(
-        "PR#37 mapped entity retains suggestion",
-        m_suggestion != "",
-        True,
-        f"entity={battery_entity} suggested={m_suggestion!r}",
-    )
-    api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
-
-    # ------------------------------------------------------------------
-    print(
-        "\n=== EC10: suppression — suppressed+unavailable not in offline ===",
-        flush=True,
-    )
-    restore_all(ctx)
-    suppressed_entity = ctx["entities"][0]
-    api(
-        "POST",
-        "/api/services/entity_availability/suppress",
-        {
-            "entity_id": suppressed_entity,
-            "group": ctx["title"],
-        },
-    )
-    ss(suppressed_entity, "unavailable", {"friendly_name": "test"})
-    wait()
-    chk(
-        "offline_count=0 (suppressed not counted)",
-        gs(f"{prefix}_offline_count").get("state"),
-        "0",
-    )
-    chk(
-        "suppressed=1",
-        str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
-        "1",
-    )
-
-    # ------------------------------------------------------------------
-    print(
-        "\n=== EC11: suppress_indefinitely + unsuppress round-trip ===",
-        flush=True,
-    )
-    restore_all(ctx)
-    indef_entity = ctx["entities"][1]
-    api(
-        "POST",
-        "/api/services/entity_availability/suppress_indefinitely",
-        {"entity_id": indef_entity, "group": ctx["title"]},
-    )
-    wait()
-    summary_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
-    chk(
-        "EC11 suppressed=1 after suppress_indefinitely",
-        str(summary_attrs.get("suppressed")),
-        "1",
-    )
-    chk(
-        "EC11 suppressed_until[entity]=null (indefinite)",
-        summary_attrs.get("suppressed_until", {}).get(indef_entity),
-        None,
-    )
-    ss(indef_entity, "unavailable", {"friendly_name": "test"})
-    wait()
-    chk(
-        "EC11 offline_count=0 (indefinitely suppressed not counted)",
-        gs(f"{prefix}_offline_count").get("state"),
-        "0",
-    )
-    api(
-        "POST",
-        "/api/services/entity_availability/unsuppress",
-        {"entity_id": indef_entity, "group": ctx["title"]},
-    )
-    wait()
-    chk(
-        "EC11 suppressed=0 after unsuppress",
-        str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
-        "0",
-    )
-
-    # ------------------------------------------------------------------
-    print(
-        "\n=== EC12: group-scoped suppress — entity in two groups ===",
-        flush=True,
-    )
-    restore_all(ctx)
-    # Find a second group that also monitors kitchen_1 — use friendly_name matching
-    all_states = api("GET", "/api/states")
-    beta_prefix = None
-    alpha_entities = set(ctx["entities"])
-    for s in all_states:
-        eid = s["entity_id"]
-        if "entity_availability" not in eid or "group_summary" not in eid:
-            continue
-        candidate_prefix = eid.replace("_group_summary", "")
-        if candidate_prefix == ctx["prefix"]:
-            continue  # skip Alpha itself
-        candidate_entities = set(s.get("attributes", {}).get("entities", []))
-        if alpha_entities & candidate_entities:  # shares at least one entity with Alpha
-            beta_prefix = candidate_prefix
-            break
-    if beta_prefix:
-        shared_entity = ctx["entities"][
-            0
-        ]  # kitchen_1 — in both Alpha and the found group
-        # Suppress in Alpha only using the group title (exact match, no fragile string surgery)
-        alpha_title = ctx["title"]
-        api(
-            "POST",
-            "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": shared_entity, "group": alpha_title},
-        )
-        wait()
-        alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
-        beta_attrs = gs(f"{beta_prefix}_group_summary").get("attributes", {})
-        chk(
-            "EC12 suppressed=1 in Alpha",
-            str(alpha_attrs.get("suppressed")),
+            "offline_count=1",
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count").get("state"),
+                "1",
+            ),
             "1",
         )
         chk(
-            "EC12 suppressed=0 in Beta (group-scoped)",
-            str(beta_attrs.get("suppressed")),
+            "low_battery_count=0 (offline excluded)",
+            gs(f"{prefix}_low_battery_count").get("state"),
             "0",
         )
-        # Unsuppress in Alpha only
-        api(
+        gs_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        chk("group_summary offline=1", str(gs_attrs.get("offline")), "1")
+        chk(
+            "group_summary low_battery=0 (no double-count)",
+            str(gs_attrs.get("low_battery")),
+            "0",
+        )
+        chk(
+            "low_battery list count=0",
+            gs(f"{prefix}_low_battery").get("attributes", {}).get("count"),
+            0,
+        )
+        if combined_prefix:
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")
+            chk("EC5 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
+
+        # ------------------------------------------------------------------
+        print("\n=== EC6: battery replaced, back online → all clear ===", flush=True)
+        ss(battery_entity, "on", {"friendly_name": "test"})
+        ss(
+            battery_sensor,
+            "90",
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        chk(
+            "offline_count=0",
+            wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0"),
+            "0",
+        )
+        chk(
+            "low_battery_count=0 (battery 90%)",
+            gs(f"{prefix}_low_battery_count").get("state"),
+            "0",
+        )
+        gs_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        chk(
+            f"online={len(ctx['entities'])}",
+            str(gs_attrs.get("online")),
+            str(len(ctx["entities"])),
+        )
+        chk(
+            "battery_levels updated to 90",
+            str(gs_attrs.get("battery_levels", {}).get(battery_entity)),
+            "90",
+        )
+        if combined_prefix:
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk("EC6 combined offline=0", str(c_attrs.get("offline")), "0")
+            chk("EC6 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
+
+        # ------------------------------------------------------------------
+        if combined_prefix:
+            b_coff = int(gs(f"{combined_prefix}_offline_count").get("state", "0"))
+            b_clb = int(gs(f"{combined_prefix}_low_battery_count").get("state", "0"))
+            print(
+                f"\n=== EC7+EC8: combined sensors (baseline offline={b_coff} low_battery={b_clb}) ===",
+                flush=True,
+            )
+
+            ss(
+                battery_sensor,
+                low_val,
+                {
+                    "friendly_name": "Test Battery",
+                    "device_class": "battery",
+                    "unit_of_measurement": "%",
+                },
+            )
+            wait()
+            chk(
+                "EC7 combined low_battery=base+1",
+                int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+                b_clb + 1,
+                f"(base={b_clb})",
+            )
+            chk(
+                "EC7 combined offline unchanged",
+                int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
+                b_coff,
+                f"(base={b_coff})",
+            )
+
+            ss(battery_entity, "unavailable", {"friendly_name": "test"})
+            ss(
+                battery_sensor,
+                "unavailable",
+                {"friendly_name": "Test Battery", "device_class": "battery"},
+            )
+            wait()
+            chk(
+                "EC8 combined low_battery=base (offline excluded)",
+                int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+                b_clb,
+                f"(base={b_clb})",
+            )
+            chk(
+                "EC8 combined offline=base+1",
+                int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
+                b_coff + 1,
+                f"(base={b_coff})",
+            )
+        else:
+            print("\n=== EC7+EC8: skipped (no combined group found) ===", flush=True)
+
+        # ------------------------------------------------------------------
+    if ec_enabled(9):
+        print("\n=== EC9: PR#37 — cleared battery map not re-suggested ===", flush=True)
+        # Find an entity with cleared ("") mapping
+        import subprocess
+
+        try:
+            raw = subprocess.check_output(
+                [
+                    "python3",
+                    "-c",
+                    f"""
+    import json
+    cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+    for e in cfg['data']['entries']:
+        if e['entry_id'] == '{ctx["entry_id"]}':
+            bmap = e['data'].get('battery_entity_map', {{}})
+            cleared = [k for k, v in bmap.items() if v == '']
+            print(json.dumps(cleared))
+    """,
+                ],
+                text=True,
+            ).strip()
+            cleared_entities = json.loads(raw)
+        except Exception:
+            cleared_entities = []
+
+        r = api(
             "POST",
-            "/api/services/entity_availability/unsuppress",
-            {"entity_id": shared_entity, "group": alpha_title},
+            "/api/config/config_entries/options/flow",
+            {"handler": ctx["entry_id"]},
         )
-        wait()
-        alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
-        chk(
-            "EC12 suppressed=0 in Alpha after unsuppress",
-            str(alpha_attrs.get("suppressed")),
-            "0",
+        fid = r["flow_id"]
+        r2 = api(
+            "POST",
+            f"/api/config/config_entries/options/flow/{fid}",
+            {
+                "entities": ctx["entities"],
+                "bad_states": ["unavailable", "unknown"],
+                "cooldown": 0,
+                "staleness_threshold": 0,
+                "battery_threshold": threshold,
+                "availability_windows": ["today", "7d"],
+                "use_device_names": False,
+                "staleness_use_last_updated": False,
+            },
         )
-    else:
+        schema = r2.get("data_schema", [])
+        if cleared_entities:
+            c_eid = cleared_entities[0]
+            c_field = next((f for f in schema if f.get("name") == c_eid), None)
+            c_suggestion = (
+                (c_field or {}).get("description", {}).get("suggested_value", "")
+            )
+            chk(
+                "PR#37 cleared entity has no suggestion",
+                c_suggestion,
+                "",
+                f"entity={c_eid} suggested={c_suggestion!r}",
+            )
+        else:
+            print("  EC9: skipped (no cleared mappings found in config)", flush=True)
+        # Confirm mapped entity still has suggestion
+        m_field = next((f for f in schema if f.get("name") == battery_entity), None)
+        m_suggestion = (m_field or {}).get("description", {}).get("suggested_value", "")
         chk(
-            "EC12 second group found",
-            False,
+            "PR#37 mapped entity retains suggestion",
+            m_suggestion != "",
             True,
-            "(no group sharing entities with Alpha)",
+            f"entity={battery_entity} suggested={m_suggestion!r}",
         )
+        api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
 
-    # ------------------------------------------------------------------
-    # Discover availability sensor once — reused by EC13-EC15
-    restore_all(ctx)
-    avail_states = [
-        s
-        for s in api("GET", "/api/states")
-        if s["entity_id"].startswith(prefix + "_availability")
-    ]
-    avail_eid = avail_states[0]["entity_id"] if avail_states else None
-    ec_target = ctx["entities"][0]
-
-    # ------------------------------------------------------------------
-    print(
-        "\n=== EC13: suppress offline entity — availability % must not change ===",
-        flush=True,
-    )
-    if avail_eid:
-        ss(ec_target, "unavailable", {"friendly_name": "test"})
-        wait()
-        avail_mid = gs(avail_eid).get("state")
-        # Read immediately before and after suppress — coordinator fires
-        # async_set_updated_data synchronously so value updates in same tick.
-        api(
-            "POST",
-            "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": ec_target, "group": ctx["title"]},
-        )
-        avail_after_suppress = gs(avail_eid).get("state")
-        chk(
-            "EC13 availability % unchanged immediately after suppressing offline entity",
-            avail_after_suppress,
-            avail_mid,
-            f"sensor={avail_eid} after_offline={avail_mid} after_suppress={avail_after_suppress}",
-        )
-        api(
-            "POST",
-            "/api/services/entity_availability/unsuppress",
-            {"entity_id": ec_target, "group": ctx["title"]},
+        # ------------------------------------------------------------------
+    if ec_enabled(10):
+        print(
+            "\n=== EC10: suppression — suppressed+unavailable not in offline ===",
+            flush=True,
         )
         restore_all(ctx)
-    else:
-        print("  EC13: skipped (no availability sensor found)", flush=True)
+        suppressed_entity = ctx["entities"][0]
+        api(
+            "POST",
+            "/api/services/entity_availability/suppress",
+            {
+                "entity_id": suppressed_entity,
+                "group": ctx["title"],
+            },
+        )
+        ss(suppressed_entity, "unavailable", {"friendly_name": "test"})
+        wait()
+        chk(
+            "offline_count=0 (suppressed not counted)",
+            gs(f"{prefix}_offline_count").get("state"),
+            "0",
+        )
+        chk(
+            "suppressed=1",
+            str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
+            "1",
+        )
 
-    # ------------------------------------------------------------------
-    print(
-        "\n=== EC14: suppressed entity appears in per_device availability breakdown ===",
-        flush=True,
-    )
-    if avail_eid:
+        # ------------------------------------------------------------------
+    if ec_enabled(11):
+        print(
+            "\n=== EC11: suppress_indefinitely + unsuppress round-trip ===",
+            flush=True,
+        )
+        restore_all(ctx)
+        indef_entity = ctx["entities"][1]
         api(
             "POST",
             "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": ec_target, "group": ctx["title"]},
+            {"entity_id": indef_entity, "group": ctx["title"]},
         )
-        # Poll until coordinator writes updated per_device (attr update on next tick)
+        wait()
+        summary_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         chk(
-            "EC14 suppressed entity present in per_device breakdown",
-            wait_for(
-                lambda: (
-                    ec_target
-                    in gs(avail_eid).get("attributes", {}).get("per_device", {})
+            "EC11 suppressed=1 after suppress_indefinitely",
+            str(summary_attrs.get("suppressed")),
+            "1",
+        )
+        chk(
+            "EC11 suppressed_until[entity]=null (indefinite)",
+            summary_attrs.get("suppressed_until", {}).get(indef_entity),
+            None,
+        )
+        ss(indef_entity, "unavailable", {"friendly_name": "test"})
+        wait()
+        chk(
+            "EC11 offline_count=0 (indefinitely suppressed not counted)",
+            gs(f"{prefix}_offline_count").get("state"),
+            "0",
+        )
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {"entity_id": indef_entity, "group": ctx["title"]},
+        )
+        wait()
+        chk(
+            "EC11 suppressed=0 after unsuppress",
+            str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
+            "0",
+        )
+
+        # ------------------------------------------------------------------
+    if ec_enabled(12):
+        print(
+            "\n=== EC12: group-scoped suppress — entity in two groups ===",
+            flush=True,
+        )
+        restore_all(ctx)
+        # Find a second group that also monitors kitchen_1 — use friendly_name matching
+        all_states = api("GET", "/api/states")
+        beta_prefix = None
+        alpha_entities = set(ctx["entities"])
+        for s in all_states:
+            eid = s["entity_id"]
+            if "entity_availability" not in eid or "group_summary" not in eid:
+                continue
+            candidate_prefix = eid.replace("_group_summary", "")
+            if candidate_prefix == ctx["prefix"]:
+                continue  # skip Alpha itself
+            candidate_entities = set(s.get("attributes", {}).get("entities", []))
+            if (
+                alpha_entities & candidate_entities
+            ):  # shares at least one entity with Alpha
+                beta_prefix = candidate_prefix
+                break
+        if beta_prefix:
+            shared_entity = ctx["entities"][
+                0
+            ]  # kitchen_1 — in both Alpha and the found group
+            # Suppress in Alpha only using the group title (exact match, no fragile string surgery)
+            alpha_title = ctx["title"]
+            api(
+                "POST",
+                "/api/services/entity_availability/suppress_indefinitely",
+                {"entity_id": shared_entity, "group": alpha_title},
+            )
+            wait()
+            alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+            beta_attrs = gs(f"{beta_prefix}_group_summary").get("attributes", {})
+            chk(
+                "EC12 suppressed=1 in Alpha",
+                str(alpha_attrs.get("suppressed")),
+                "1",
+            )
+            chk(
+                "EC12 suppressed=0 in Beta (group-scoped)",
+                str(beta_attrs.get("suppressed")),
+                "0",
+            )
+            # Unsuppress in Alpha only
+            api(
+                "POST",
+                "/api/services/entity_availability/unsuppress",
+                {"entity_id": shared_entity, "group": alpha_title},
+            )
+            wait()
+            alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+            chk(
+                "EC12 suppressed=0 in Alpha after unsuppress",
+                str(alpha_attrs.get("suppressed")),
+                "0",
+            )
+        else:
+            chk(
+                "EC12 second group found",
+                False,
+                True,
+                "(no group sharing entities with Alpha)",
+            )
+
+        # ------------------------------------------------------------------
+        # Discover availability sensor once — reused by EC13-EC15
+        restore_all(ctx)
+        avail_states = [
+            s
+            for s in api("GET", "/api/states")
+            if s["entity_id"].startswith(prefix + "_availability")
+        ]
+        avail_eid = avail_states[0]["entity_id"] if avail_states else None
+        ec_target = ctx["entities"][0]
+
+        # ------------------------------------------------------------------
+    if ec_enabled(13):
+        print(
+            "\n=== EC13: suppress offline entity — availability % must not change ===",
+            flush=True,
+        )
+        if avail_eid:
+            ss(ec_target, "unavailable", {"friendly_name": "test"})
+            wait()
+            avail_mid = gs(avail_eid).get("state")
+            # Read immediately before and after suppress — coordinator fires
+            # async_set_updated_data synchronously so value updates in same tick.
+            api(
+                "POST",
+                "/api/services/entity_availability/suppress_indefinitely",
+                {"entity_id": ec_target, "group": ctx["title"]},
+            )
+            avail_after_suppress = gs(avail_eid).get("state")
+            chk(
+                "EC13 availability % unchanged immediately after suppressing offline entity",
+                avail_after_suppress,
+                avail_mid,
+                f"sensor={avail_eid} after_offline={avail_mid} after_suppress={avail_after_suppress}",
+            )
+            api(
+                "POST",
+                "/api/services/entity_availability/unsuppress",
+                {"entity_id": ec_target, "group": ctx["title"]},
+            )
+            restore_all(ctx)
+        else:
+            print("  EC13: skipped (no availability sensor found)", flush=True)
+
+        # ------------------------------------------------------------------
+    if ec_enabled(14):
+        print(
+            "\n=== EC14: suppressed entity appears in per_device availability breakdown ===",
+            flush=True,
+        )
+        if avail_eid:
+            api(
+                "POST",
+                "/api/services/entity_availability/suppress_indefinitely",
+                {"entity_id": ec_target, "group": ctx["title"]},
+            )
+            # Poll until coordinator writes updated per_device (attr update on next tick)
+            chk(
+                "EC14 suppressed entity present in per_device breakdown",
+                wait_for(
+                    lambda: (
+                        ec_target
+                        in gs(avail_eid).get("attributes", {}).get("per_device", {})
+                    ),
+                    True,
+                    interval=3,
                 ),
                 True,
-                interval=3,
-            ),
-            True,
-            f"sensor={avail_eid} target={ec_target} keys={list(gs(avail_eid).get('attributes', {}).get('per_device', {}).keys())}",
-        )
-        api(
-            "POST",
-            "/api/services/entity_availability/unsuppress",
-            {"entity_id": ec_target, "group": ctx["title"]},
-        )
-        restore_all(ctx)
-    else:
-        print("  EC14: skipped (no availability sensor found)", flush=True)
+                f"sensor={avail_eid} target={ec_target} keys={list(gs(avail_eid).get('attributes', {}).get('per_device', {}).keys())}",
+            )
+            api(
+                "POST",
+                "/api/services/entity_availability/unsuppress",
+                {"entity_id": ec_target, "group": ctx["title"]},
+            )
+            restore_all(ctx)
+        else:
+            print("  EC14: skipped (no availability sensor found)", flush=True)
 
-    # ------------------------------------------------------------------
-    print(
-        "\n=== EC15: suppress+unsuppress round-trip — availability % must not drift ===",
-        flush=True,
-    )
-    if avail_eid:
-        try:
-            avail_before = float(gs(avail_eid).get("state") or "0")
-        except ValueError:
-            avail_before = 0.0
-        api(
-            "POST",
-            "/api/services/entity_availability/suppress_indefinitely",
-            {"entity_id": ec_target, "group": ctx["title"]},
+        # ------------------------------------------------------------------
+    if ec_enabled(15):
+        print(
+            "\n=== EC15: suppress+unsuppress round-trip — availability % must not drift ===",
+            flush=True,
         )
-        avail_suppressed = wait_for_close(
-            lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
-        )
-        chk(
-            "EC15 availability % identical after suppress (±0.5%)",
-            abs(float(avail_suppressed or 0) - avail_before) <= 0.5,
-            True,
-            f"before={avail_before} after_suppress={avail_suppressed}",
-        )
-        api(
-            "POST",
-            "/api/services/entity_availability/unsuppress",
-            {"entity_id": ec_target, "group": ctx["title"]},
-        )
-        avail_unsuppressed = wait_for_close(
-            lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
-        )
-        chk(
-            "EC15 availability % identical after unsuppress (±0.5%)",
-            abs(float(avail_unsuppressed or 0) - avail_before) <= 0.5,
-            True,
-            f"before={avail_before} after_unsuppress={avail_unsuppressed}",
-        )
-    else:
-        print("  EC15: skipped (no availability sensor found)", flush=True)
+        if avail_eid:
+            try:
+                avail_before = float(gs(avail_eid).get("state") or "0")
+            except ValueError:
+                avail_before = 0.0
+            api(
+                "POST",
+                "/api/services/entity_availability/suppress_indefinitely",
+                {"entity_id": ec_target, "group": ctx["title"]},
+            )
+            avail_suppressed = wait_for_close(
+                lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
+            )
+            chk(
+                "EC15 availability % identical after suppress (±0.5%)",
+                abs(float(avail_suppressed or 0) - avail_before) <= 0.5,
+                True,
+                f"before={avail_before} after_suppress={avail_suppressed}",
+            )
+            api(
+                "POST",
+                "/api/services/entity_availability/unsuppress",
+                {"entity_id": ec_target, "group": ctx["title"]},
+            )
+            avail_unsuppressed = wait_for_close(
+                lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
+            )
+            chk(
+                "EC15 availability % identical after unsuppress (±0.5%)",
+                abs(float(avail_unsuppressed or 0) - avail_before) <= 0.5,
+                True,
+                f"before={avail_before} after_unsuppress={avail_unsuppressed}",
+            )
+        else:
+            print("  EC15: skipped (no availability sensor found)", flush=True)
 
-    # ------------------------------------------------------------------
+        # ------------------------------------------------------------------
     if ec_enabled(16) or ec_enabled(17) or ec_enabled(18):
         print(
             "\n=== EC16-EC18: PR#52 — combined group offline_count/entities reflect member state ===",
