@@ -727,7 +727,7 @@ def main():
             "import json\n"
             "cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))\n"
             "for e in cfg['data']['entries']:\n"
-            f"    if e['entry_id'] == '{eid_val}':\n"
+            f"    if e['entry_id'] == {repr(eid_val)}:\n"
             "        bmap = e['data'].get('battery_entity_map', {})\n"
             "        cleared = [k for k, v in bmap.items() if v == '']\n"
             "        print(json.dumps(cleared))\n"
@@ -1201,6 +1201,12 @@ def main():
                             ev.get("entity_id"),
                             target,
                         )
+                    chk(
+                        "EC20 combined offline event captured for target",
+                        ev_combined is not None,
+                        True,
+                        f"target={target} events={offline_events}",
+                    )
                     if ev_combined is not None:
                         chk(
                             "EC20 combined offline event source_groups is a list",
@@ -1271,6 +1277,12 @@ def main():
                             ev.get("entity_id"),
                             target,
                         )
+                    chk(
+                        "EC21 combined recovered event captured for target",
+                        ev_combined is not None,
+                        True,
+                        f"target={target} events={recovered_events}",
+                    )
                     if ev_combined is not None:
                         chk(
                             "EC21 combined recovered event source_groups is a list",
