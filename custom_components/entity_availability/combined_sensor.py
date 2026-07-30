@@ -270,7 +270,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                 self._prev_source_group_map = {
                     k: v
                     for k, v in source_group_map.items()
-                    if k in (current | current_lb)
+                    if k in (current | current_lb | prev | prev_lb)
                 }
                 group_name = self._entry.data.get(CONF_GROUP_NAME, "")
                 entry_id = self._entry.entry_id
