@@ -2882,3 +2882,62 @@ class TestCombinedAffectedAreasSensors:
             attrs = sensor.extra_state_attributes
         assert attrs["count"] == 1
         assert "Kitchen" in attrs["areas"]
+
+
+# ---------------------------------------------------------------------------
+# Non-essential level in combined sensors
+# ---------------------------------------------------------------------------
+
+
+class TestCombinedNonEssential:
+    """Combined sensors exclude child non-essential entities from KPIs."""
+
+    def _make_offline_count(self, hass, combined_entry, coordinators):
+        return CombinedOfflineCountSensor(
+            hass,
+            combined_entry,
+            "Test Combined",
+            "test_combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+
+    def test_combined_excludes_child_non_essential_from_offline_count(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """CombinedOfflineCountSensor doesn't count non-essential offline entities."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        # Mark the pre-existing offline entity (a2) as non-essential too
+        coordinator_a.device_states["binary_sensor.a2"].is_non_essential = True
+        coordinator_a.device_states["binary_sensor.a1"].is_offline = True
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        sensor = self._make_offline_count(mock_hass, combined_entry, coordinators)
+        assert sensor.native_value == 0
+
+    def test_combined_offline_count_attrs_excludes_non_essential(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """CombinedOfflineCountSensor attrs don't include non-essential entity."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a2"].is_non_essential = True
+        coordinator_a.device_states["binary_sensor.a1"].is_offline = True
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        sensor = self._make_offline_count(mock_hass, combined_entry, coordinators)
+        assert "binary_sensor.a1" not in sensor.extra_state_attributes["entities"]
+        assert "binary_sensor.a2" not in sensor.extra_state_attributes["entities"]
+
+    def test_combined_group_sensor_non_essential_in_attrs(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """CombinedGroupSensor extra_state_attributes includes non_essential counts."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Test Combined",
+            "test_combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["non_essential"] >= 1
+        assert "binary_sensor.a1" in attrs["non_essential_entities"]

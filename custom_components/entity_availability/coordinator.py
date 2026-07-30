@@ -23,6 +23,7 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_COOLDOWN,
     CONF_ENTITIES,
+    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_RECOVERY_WINDOW,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
@@ -72,6 +73,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         self.entry = entry
         self._entities: list[str] = entry.data.get(CONF_ENTITIES, [])
+        self._non_essential: list[str] = entry.data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
         self._bad_states: list[str] = entry.data.get(
             CONF_BAD_STATES, DEFAULT_BAD_STATES
         )
@@ -448,6 +450,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 )
 
             device = self._device_states[entity_id]
+
+            # Set non-essential flag (must be before suppressed continue so both flags are set)
+            device.is_non_essential = entity_id in self._non_essential
 
             # Restore suppression from loaded data
             if entity_id in self._suppressed and not device.is_suppressed:

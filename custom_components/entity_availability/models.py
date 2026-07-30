@@ -18,6 +18,7 @@ class DeviceState:
     is_stale: bool = False
     is_low_battery: bool = False
     is_suppressed: bool = False
+    is_non_essential: bool = False
     suppress_until: datetime | None = None
     offline_since: datetime | None = None
     last_recovery: datetime | None = None

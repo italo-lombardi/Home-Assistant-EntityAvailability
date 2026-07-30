@@ -13,6 +13,7 @@ CONF_BATTERY_THRESHOLD = "battery_threshold"
 CONF_BATTERY_ENTITY_MAP = "battery_entity_map"
 CONF_AVAILABILITY_WINDOWS = "availability_windows"
 CONF_USE_DEVICE_NAMES = "use_device_names"
+CONF_NON_ESSENTIAL_ENTITIES = "non_essential_entities"
 
 # Entry types
 CONF_ENTRY_TYPE = "entry_type"

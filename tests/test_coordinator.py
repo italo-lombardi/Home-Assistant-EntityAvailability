@@ -3927,3 +3927,119 @@ async def test_staleness_skips_none_stale_ts(
         await coord._async_update_data()
     device_a = coord.device_states["binary_sensor.device_a"]
     assert device_a.is_stale is False
+
+
+# ---------------------------------------------------------------------------
+# Non-essential flag tests
+# ---------------------------------------------------------------------------
+
+
+async def test_non_essential_flag_set_for_listed_entity(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Entity in non_essential_entities list gets is_non_essential=True."""
+    from custom_components.entity_availability.const import CONF_NON_ESSENTIAL_ENTITIES
+
+    config = {
+        **mock_config_data,
+        CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="test_entry_ne_flag",
+        unique_id=f"{DOMAIN}_test_ne_flag",
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_a", "on", {"friendly_name": "Device A"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_b", "on", {"friendly_name": "Device B"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_c", "on", {"friendly_name": "Device C"}
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    assert coord.device_states["binary_sensor.device_a"].is_non_essential is True
+    assert coord.device_states["binary_sensor.device_b"].is_non_essential is False
+
+
+async def test_missing_non_essential_field_all_monitored(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Entry without non_essential_entities key → all devices Monitored."""
+    config = dict(mock_config_data)
+    config.pop("non_essential_entities", None)
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="test_entry_ne_missing",
+        unique_id=f"{DOMAIN}_test_ne_missing",
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_a", "on", {"friendly_name": "Device A"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_b", "on", {"friendly_name": "Device B"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_c", "on", {"friendly_name": "Device C"}
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    for d in coord.device_states.values():
+        assert d.is_non_essential is False
+
+
+async def test_suppressed_and_non_essential_both_flagged(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Suppressed+non-essential entity gets is_non_essential=True (flag set before continue)."""
+    from custom_components.entity_availability.const import CONF_NON_ESSENTIAL_ENTITIES
+
+    config = {
+        **mock_config_data,
+        CONF_NON_ESSENTIAL_ENTITIES: ["binary_sensor.device_a"],
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="test_entry_ne_suppressed",
+        unique_id=f"{DOMAIN}_test_ne_suppressed",
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_a", "unavailable", {"friendly_name": "Device A"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_b", "on", {"friendly_name": "Device B"}
+    )
+    mock_hass.states.async_set(
+        "binary_sensor.device_c", "on", {"friendly_name": "Device C"}
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+    # Manually suppress device_a and re-run to simulate suppressed+non-essential
+    coord._suppressed["binary_sensor.device_a"] = None
+    await coord._async_update_data()
+    d = coord.device_states["binary_sensor.device_a"]
+    assert d.is_suppressed is True
+    assert d.is_non_essential is True

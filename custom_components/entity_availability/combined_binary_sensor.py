@@ -137,10 +137,14 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
 
     @property
     def is_on(self) -> bool:
-        """Return True if any non-suppressed entity across all groups is offline."""
+        """Return True if any non-suppressed, non-essential entity across all groups is offline."""
         for coord in self._active_coordinators():
             for device in coord.device_states.values():
-                if not device.is_suppressed and device.is_offline:
+                if (
+                    not device.is_suppressed
+                    and not device.is_non_essential
+                    and device.is_offline
+                ):
                     return True
         return False
 
@@ -151,7 +155,7 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
             d.entity_id
             for coord in self._active_coordinators()
             for d in coord.device_states.values()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         ]
         return {
             "offline_entities": offline_entities,

@@ -32,6 +32,7 @@ from .const import (
     CONF_RECOVERY_WINDOW,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
+    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
@@ -250,6 +251,11 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             self._data[CONF_USE_DEVICE_NAMES] = user_input.get(
                 CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
             )
+            self._data[CONF_NON_ESSENTIAL_ENTITIES] = [
+                e
+                for e in user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+                if e in self._data[CONF_ENTITIES]
+            ]
 
             if self._data[CONF_BATTERY_THRESHOLD] > 0:
                 return await self.async_step_battery_mapping()
@@ -287,6 +293,11 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_USE_DEVICE_NAMES, default=DEFAULT_USE_DEVICE_NAMES
                 ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_NON_ESSENTIAL_ENTITIES, default=[]
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=True)
+                ),
             }
         )
 
@@ -370,6 +381,11 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
         """Manage the options."""
         if user_input is not None:
             self._data = {**self.config_entry.data, **user_input}
+            self._data[CONF_NON_ESSENTIAL_ENTITIES] = [
+                e
+                for e in self._data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+                if e in self._data.get(CONF_ENTITIES, [])
+            ]
 
             if self._data.get(CONF_BATTERY_THRESHOLD, 0) > 0:
                 return await self.async_step_battery_mapping()
@@ -458,6 +474,12 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                         CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
                     ),
                 ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_NON_ESSENTIAL_ENTITIES,
+                    default=current.get(CONF_NON_ESSENTIAL_ENTITIES, []),
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=True)
+                ),
             }
         )
 

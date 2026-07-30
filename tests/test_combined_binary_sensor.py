@@ -567,3 +567,37 @@ async def test_combined_binary_sensor_slug_fallback(
 
     assert len(added) == 1
     assert "abcdef12" in added[0].entity_id
+
+
+class TestNonEssentialCombinedBinarySensor:
+    """Combined binary sensor ignores non-essential offline entities."""
+
+    def _make_sensor(self, hass, combined_entry, coordinators):
+        hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        return CombinedGroupAnyOfflineBinarySensor(
+            hass,
+            combined_entry,
+            "Test Combined",
+            "test_combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+
+    def test_combined_binary_ignores_child_non_essential(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """is_on False when only non-essential entity offline."""
+        coordinator_a.device_states["binary_sensor.a1"].is_offline = True
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
+        assert sensor.is_on is False
+
+    def test_combined_binary_non_essential_not_in_attrs(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """extra_state_attributes omits non-essential offline entity."""
+        coordinator_a.device_states["binary_sensor.a1"].is_offline = True
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        sensor = self._make_sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.a1" not in attrs["offline_entities"]
+        assert attrs["offline_count"] == 0

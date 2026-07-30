@@ -282,3 +282,30 @@ async def test_binary_sensor_setup_entry_slug_sanitizes_slash_in_group_name(
         assert "/" not in entity.entity_id, (
             f"entity_id '{entity.entity_id}' contains forward slash"
         )
+
+
+class TestNonEssentialBinarySensor:
+    """Binary sensor ignores non-essential offline entities."""
+
+    def test_binary_sensor_ignores_non_essential_offline(
+        self, mock_coordinator, mock_hass
+    ):
+        """is_on is False when only non-essential entity is offline."""
+        mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True
+        sensor = AnyOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+
+    def test_binary_sensor_non_essential_not_in_attrs(
+        self, mock_coordinator, mock_hass
+    ):
+        """extra_state_attributes omits non-essential offline entity."""
+        mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True
+        sensor = AnyOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert (
+            "binary_sensor.device_b"
+            not in sensor.extra_state_attributes["offline_entities"]
+        )

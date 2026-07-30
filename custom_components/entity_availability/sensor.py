@@ -158,7 +158,7 @@ class OfflineCountSensor(DedupCoordinatorSensor):
         return sum(
             1
             for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         )
 
     @property
@@ -174,7 +174,7 @@ class OfflineCountSensor(DedupCoordinatorSensor):
                 "last_downtime_seconds": d.last_downtime_seconds,
             }
             for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         }
 
 
@@ -208,7 +208,7 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
                 self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
             )
             for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         ]
         if not offline:
             return "None"
@@ -223,7 +223,7 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
         offline = [
             d.entity_id
             for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
         ]
         return {"entities": offline, "count": len(offline)}
 
@@ -351,6 +351,9 @@ class AvailabilitySensor(DedupCoordinatorSensor):
 
         values: list[float] = []
         for entity_id in self.coordinator.monitored_entities:
+            d = self.coordinator.device_states.get(entity_id)
+            if d and d.is_non_essential:
+                continue
             avail = storage.get_availability(entity_id, self._window, now)
             if avail is not None:
                 values.append(avail)
@@ -373,6 +376,9 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         storage = self.coordinator.availability_storage
         breakdown: dict[str, float | None] = {}
         for entity_id in self.coordinator.monitored_entities:
+            d = self.coordinator.device_states.get(entity_id)
+            if d and d.is_non_essential:
+                continue
             avail = storage.get_availability(entity_id, self._window, now)
             breakdown[entity_id] = round(avail, 1) if avail is not None else None
         return {"per_device": breakdown}
@@ -411,9 +417,11 @@ class MTBFSensor(DedupCoordinatorSensor):
     def native_value(self) -> float | None:
         """Return group mean MTBF in hours (avg over entities with data)."""
         now = datetime.now(timezone.utc)
+        ds = self.coordinator.device_states
         values = [
             stats["mtbf_hours"]
             for entity_id in self.coordinator.monitored_entities
+            if not ds.get(entity_id) or not ds[entity_id].is_non_essential
             if (stats := self.coordinator.reliability_stats(entity_id, now))[
                 "mtbf_hours"
             ]
@@ -429,7 +437,10 @@ class MTBFSensor(DedupCoordinatorSensor):
         now = datetime.now(timezone.utc)
         per_device: dict[str, dict[str, Any]] = {}
         total_events = 0
+        ds = self.coordinator.device_states
         for entity_id in self.coordinator.monitored_entities:
+            if ds.get(entity_id) and ds[entity_id].is_non_essential:
+                continue
             stats = self.coordinator.reliability_stats(entity_id, now)
             per_device[entity_id] = {
                 "mtbf_hours": stats["mtbf_hours"],
@@ -470,9 +481,11 @@ class MTTRSensor(DedupCoordinatorSensor):
     def native_value(self) -> float | None:
         """Return group mean MTTR in minutes (avg over entities with data)."""
         now = datetime.now(timezone.utc)
+        ds = self.coordinator.device_states
         values = [
             stats["mttr_minutes"]
             for entity_id in self.coordinator.monitored_entities
+            if not ds.get(entity_id) or not ds[entity_id].is_non_essential
             if (stats := self.coordinator.reliability_stats(entity_id, now))[
                 "mttr_minutes"
             ]
@@ -488,7 +501,10 @@ class MTTRSensor(DedupCoordinatorSensor):
         now = datetime.now(timezone.utc)
         per_device: dict[str, dict[str, Any]] = {}
         total_events = 0
+        ds = self.coordinator.device_states
         for entity_id in self.coordinator.monitored_entities:
+            if ds.get(entity_id) and ds[entity_id].is_non_essential:
+                continue
             stats = self.coordinator.reliability_stats(entity_id, now)
             per_device[entity_id] = {
                 "mttr_minutes": stats["mttr_minutes"],
@@ -539,13 +555,22 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             if states.get(eid)
             and states[eid].is_offline
             and not states[eid].is_suppressed
+            and not states[eid].is_non_essential
         )
         suppressed = sum(
             1
             for eid in self.coordinator.monitored_entities
             if states.get(eid) and states[eid].is_suppressed
         )
-        online = total - offline - suppressed
+        non_essential_entities = [
+            eid
+            for eid in self.coordinator.monitored_entities
+            if states.get(eid)
+            and states[eid].is_non_essential
+            and not states[eid].is_suppressed
+        ]
+        non_essential = len(non_essential_entities)
+        online = total - offline - suppressed - non_essential
 
         battery_map = self.coordinator.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
         if battery_map:
@@ -566,6 +591,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             and states[eid].is_low_battery
             and not states[eid].is_suppressed
             and not states[eid].is_offline
+            and not states[eid].is_non_essential
         ]
         low_battery = len(low_battery_entities)
 
@@ -576,6 +602,8 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "online": online,
             "offline": offline,
             "suppressed": suppressed,
+            "non_essential": non_essential,
+            "non_essential_entities": non_essential_entities,
             "battery_powered": battery_powered,
             "low_battery": low_battery,
             "low_battery_entities": low_battery_entities,
@@ -602,7 +630,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "offline_since": {
                 eid: d.offline_since.isoformat()
                 for eid, d in states.items()
-                if d.offline_since is not None
+                if d.offline_since is not None and not d.is_non_essential
             },
         }
 
