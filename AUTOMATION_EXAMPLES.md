@@ -793,3 +793,73 @@ automation:
       data:
         message: "{{ trigger.event.data.offline_count }} device(s) offline in {{ trigger.event.data.group }}."
 ```
+
+---
+
+## Non-Essential entities
+
+Non-essential entities appear on the card and count toward `total_entities` but are excluded from offline/battery events and KPIs. There are no special automations needed — the point is that you *don't* get alerts for them. The examples below show how to use `group_summary` attributes if you ever want to reference them.
+
+### Check how many non-essential entities are currently "offline-but-expected"
+
+```yaml
+automation:
+  alias: EA — report non-essential offline count
+  trigger:
+    - platform: state
+      entity_id: sensor.entity_availability_living_room_group_summary
+  condition:
+    - condition: template
+      value_template: >-
+        {{ state_attr('sensor.entity_availability_living_room_group_summary', 'non_essential') | int(0) > 0 }}
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {{ state_attr('sensor.entity_availability_living_room_group_summary', 'non_essential') }}
+          non-essential device(s) offline (expected):
+          {{ state_attr('sensor.entity_availability_living_room_group_summary', 'non_essential_entities') | join(', ') }}
+```
+
+### Confirm all non-essential devices came back online (e.g. morning check)
+
+```yaml
+automation:
+  alias: EA — non-essential all back online
+  trigger:
+    - platform: time
+      at: "09:00:00"
+  condition:
+    - condition: template
+      value_template: >-
+        {{ state_attr('sensor.entity_availability_living_room_group_summary', 'non_essential') | int(0) > 0 }}
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          Still offline (non-essential):
+          {{ state_attr('sensor.entity_availability_living_room_group_summary', 'non_essential_entities') | join(', ') }}
+```
+
+### Filter out non-essential from a combined group event
+
+Combined group events still fire for non-essential entities — if you want to silence them for non-essential, filter using the `group_summary` attribute:
+
+```yaml
+automation:
+  alias: EA — combined offline (skip non-essential)
+  trigger:
+    - platform: event
+      event_type: entity_availability_offline
+      event_data:
+        group: My Combined Group
+  condition:
+    - condition: template
+      value_template: >-
+        {{ trigger.event.data.entity_id not in
+           state_attr('sensor.entity_availability_my_group_group_summary', 'non_essential_entities') | default([]) }}
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: "{{ trigger.event.data.entity_id }} offline in {{ trigger.event.data.group }}"
+```
