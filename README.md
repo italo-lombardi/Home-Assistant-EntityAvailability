@@ -195,7 +195,7 @@ The Group Summary sensor provides a complete overview in its attributes:
 | `stale_entities_non_essential` | Non-essential entities that haven't reported a state change longer than the staleness threshold |
 | `offline_since` | When each currently offline entity first went offline (includes both essential and non-essential entities) |
 | `offline_entities_non_essential` | List of non-essential entity IDs currently offline |
-| `non_essential_online` | Number of non-essential entities currently online (or suppressed) |
+| `non_essential_online` | Number of non-essential entities currently online (unsuppressed, not offline) |
 | `non_essential_offline` | Number of non-essential entities currently offline (unsuppressed) |
 | `low_battery_non_essential` | Number of non-essential entities with battery below threshold |
 

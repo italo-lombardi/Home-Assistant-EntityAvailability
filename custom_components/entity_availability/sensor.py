@@ -315,7 +315,7 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
 
 
 class NonEssentialOfflineEntitiesSensor(DedupCoordinatorSensor):
-    """Sensor showing non-essential offline entities as a list."""
+    """Sensor showing comma-separated list of non-essential offline entity names."""
 
     _attr_icon = "mdi:alert-circle-outline"
     _attr_has_entity_name = True
@@ -337,17 +337,27 @@ class NonEssentialOfflineEntitiesSensor(DedupCoordinatorSensor):
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
 
     @property
-    def native_value(self) -> int:
-        """Return count of non-essential offline entities."""
-        return sum(
-            1
+    def native_value(self) -> str:
+        """Return comma-separated list of non-essential offline entity names."""
+        offline = [
+            _resolve_display_name(
+                self.hass,
+                d.entity_id,
+                self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+            )
             for d in self.coordinator.device_states.values()
             if d.is_non_essential and d.is_offline and not d.is_suppressed
-        )
+        ]
+        if not offline:
+            return "None"
+        result = ", ".join(offline)
+        if len(result) > MAX_STATE_LENGTH - 3:
+            result = result[: MAX_STATE_LENGTH - 3] + "..."
+        return result
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return list of non-essential offline entity IDs."""
+        """Return full list of non-essential offline entity IDs (no truncation)."""
         entities = [
             d.entity_id
             for d in self.coordinator.device_states.values()
@@ -571,7 +581,14 @@ class StaleEntitiesSensor(DedupCoordinatorSensor):
     _attr_icon = "mdi:clock-alert-outline"
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, group_name, group_slug, entry_id):
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_stale_entities"
         self.entity_id = f"sensor.entity_availability_{group_slug}_stale_entities"
@@ -617,7 +634,14 @@ class StaleCountSensor(DedupCoordinatorSensor):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator, group_name, group_slug, entry_id):
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry_id}_stale_count"
         self.entity_id = f"sensor.entity_availability_{group_slug}_stale_count"
@@ -929,14 +953,21 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             and states[eid].is_non_essential
             and not states[eid].is_suppressed
         ]
-        non_essential = len(non_essential_entities)
+        non_essential_suppressed = sum(
+            1
+            for eid in self.coordinator.monitored_entities
+            if states.get(eid)
+            and states[eid].is_non_essential
+            and states[eid].is_suppressed
+        )
+        non_essential = len(non_essential_entities) + non_essential_suppressed
         offline_entities_non_essential = [
-            eid
-            for eid in non_essential_entities
-            if states[eid].is_offline and not states[eid].is_suppressed
+            eid for eid in non_essential_entities if states[eid].is_offline
         ]
         non_essential_offline = len(offline_entities_non_essential)
-        non_essential_online = non_essential - non_essential_offline
+        non_essential_online = (
+            non_essential - non_essential_offline - non_essential_suppressed
+        )
         online = total - offline - suppressed - non_essential
 
         battery_map = self.coordinator.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
@@ -980,6 +1011,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "non_essential": non_essential,
             "non_essential_online": non_essential_online,
             "non_essential_offline": non_essential_offline,
+            "non_essential_suppressed": non_essential_suppressed,
             "non_essential_entities": non_essential_entities,
             "offline_entities_non_essential": offline_entities_non_essential,
             "battery_powered": battery_powered,

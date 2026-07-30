@@ -717,7 +717,7 @@ class EntityAvailabilityCard extends LitElement {
           <div class="divider"></div>
           ${this._renderStats(online, offline, lowBattery, suppressed, nonEssential)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
-          ${suppressed > 0 ? html`<div class="suppressed-banner">${suppressed} ${suppressed > 1 ? "entities" : "entity"} suppressed</div>` : nothing}
+          ${this._renderSuppressedBanner(suppressed, 0)}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
@@ -758,6 +758,7 @@ class EntityAvailabilityCard extends LitElement {
     const nonEssentialOnline = attrs.non_essential_online ?? 0;
     const nonEssentialOffline = attrs.non_essential_offline ?? 0;
     const lowBatteryNonEssential = attrs.low_battery_non_essential ?? 0;
+    const nonEssentialSuppressed = attrs.non_essential_suppressed ?? 0;
 
     const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
@@ -779,7 +780,7 @@ class EntityAvailabilityCard extends LitElement {
         ${this._renderStats(online, offline, lowBattery, suppressed, nonEssential)}
         ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, lowBatteryNonEssential) : nothing}
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
-        ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialEntities.filter(e => e in suppressedUntil).length : 0)}
+        ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
         ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, showNEStats ? nonEssentialEntities : [], showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : []) : nothing}
         ${this._config.show_actions ? this._renderActions(prefix) : nothing}

@@ -2926,13 +2926,13 @@ class TestNonEssentialAndStaleSensors:
     """Tests for the dedicated non-essential and stale sensor entities."""
 
     def test_non_essential_offline_entities_sensor(self, mock_coordinator, mock_hass):
-        """NonEssentialOfflineEntitiesSensor counts/lists non-essential offline."""
+        """NonEssentialOfflineEntitiesSensor lists non-essential offline as string."""
         mock_coordinator.device_states["binary_sensor.device_b"].is_non_essential = True
         sensor = NonEssentialOfflineEntitiesSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         sensor.hass = mock_hass
-        assert sensor.native_value == 1
+        assert sensor.native_value == "Device B"
         attrs = sensor.extra_state_attributes
         assert attrs["count"] == 1
         assert "binary_sensor.device_b" in attrs["entities"]
