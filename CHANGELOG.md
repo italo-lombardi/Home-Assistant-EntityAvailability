@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.14-beta.7] - 2026-07-30
 
 ### Added
 - Combined group events (`entity_availability_offline`, `entity_availability_recovered`, `entity_availability_low_battery`, `entity_availability_battery_ok`) now include a `source_groups` field — a list of the home group names that own the entity. For entities in a single home group this is a one-element list (e.g. `["Switches"]`); for entities shared across multiple home groups all names appear. Use `{{ trigger.event.data.source_groups | join(', ') }}` in automation templates.
