@@ -511,7 +511,11 @@ class NonEssentialStaleEntitiesSensor(DedupCoordinatorSensor):
     @property
     def native_value(self) -> str:
         stale = [
-            _resolve_display_name(self.hass, d.entity_id)
+            _resolve_display_name(
+                self.hass,
+                d.entity_id,
+                self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+            )
             for d in self.coordinator.device_states.values()
             if d.is_non_essential
             and d.is_stale
@@ -598,7 +602,11 @@ class StaleEntitiesSensor(DedupCoordinatorSensor):
     @property
     def native_value(self) -> str:
         stale = [
-            _resolve_display_name(self.hass, d.entity_id)
+            _resolve_display_name(
+                self.hass,
+                d.entity_id,
+                self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
+            )
             for d in self.coordinator.device_states.values()
             if not d.is_non_essential
             and d.is_stale

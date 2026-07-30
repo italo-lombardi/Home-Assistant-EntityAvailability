@@ -15,6 +15,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.entity_availability.const import (
     CONF_BATTERY_ENTITY_MAP,
     CONF_ENTITIES,
+    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     DEFAULT_BAD_STATES,
@@ -4172,3 +4173,66 @@ async def test_bus_events_stale_no_refire_when_unchanged(
         await coord._async_update_data()
         await hass.async_block_till_done()
         assert len(stale_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_bus_events_stale_non_essential_excluded(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """NE entities are excluded from stale event payloads."""
+    hass = mock_hass
+    stale_events: list = []
+    hass.bus.async_listen("entity_availability_stale", lambda e: stale_events.append(e))
+
+    config = dict(mock_config_data)
+    config[CONF_ENTITIES] = ["binary_sensor.device_a", "binary_sensor.device_b"]
+    config[CONF_NON_ESSENTIAL_ENTITIES] = ["binary_sensor.device_b"]
+    config[CONF_STALENESS_THRESHOLD] = 1
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="stale_ne_excl",
+        unique_id=f"{DOMAIN}_stale_ne_excl",
+    )
+    entry.add_to_hass(hass)
+    old_time = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+
+        # Make BOTH entities stale
+        for eid in ["binary_sensor.device_a", "binary_sensor.device_b"]:
+            hass.states._states[eid] = State(
+                eid, "on", {}, last_changed=old_time, last_updated=old_time
+            )
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        # Two stale events should fire (one per entity)
+        assert len(stale_events) == 2
+        for ev in stale_events:
+            data = ev.data
+            # NE entity must NOT appear in stale_entities list
+            assert "binary_sensor.device_b" not in data["stale_entities"], (
+                f"NE entity in stale_entities: {data['stale_entities']}"
+            )
+            # stale_count must only count essential entities
+            assert data["stale_count"] <= 1, (
+                f"stale_count includes NE: {data['stale_count']}"
+            )
+        # The event for device_a (essential) should be present
+        essential_events = [
+            e for e in stale_events if e.data["entity_id"] == "binary_sensor.device_a"
+        ]
+        assert len(essential_events) == 1
+        # The event for device_b (NE) may fire but its payload must exclude NE from lists
+        ne_events = [
+            e for e in stale_events if e.data["entity_id"] == "binary_sensor.device_b"
+        ]
+        for ev in ne_events:
+            assert "binary_sensor.device_b" not in ev.data["stale_entities"]
