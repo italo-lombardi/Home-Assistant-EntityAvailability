@@ -27,17 +27,16 @@ async def async_get_config_entry_diagnostics(
         return {"error": "coordinator not loaded"}
 
     states = coordinator.device_states
+    data = entry.data
     return {
         "entry_type": "group",
         "title": entry.title,
         "config": {
-            "cooldown_seconds": coordinator._cooldown,
-            "staleness_threshold_minutes": coordinator._staleness_threshold,
-            "battery_threshold_pct": coordinator.entry.data.get("battery_threshold", 0),
+            "cooldown_seconds": data.get("cooldown", 0),
+            "staleness_threshold_minutes": data.get("staleness_threshold", 0),
+            "battery_threshold_pct": data.get("battery_threshold", 0),
             "recovery_window_minutes": coordinator.recovery_window_minutes,
-            "availability_windows": coordinator.entry.data.get(
-                "availability_windows", []
-            ),
+            "availability_windows": data.get("availability_windows", []),
         },
         "entity_count": len(states),
         "essential_count": sum(1 for d in states.values() if not d.is_non_essential),
