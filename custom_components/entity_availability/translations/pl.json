@@ -13,7 +13,11 @@
         "description": "Utwórz grupę encji do monitorowania dostępności.",
         "data": {
           "group_name": "Nazwa grupy",
-          "entities": "Encje do monitorowania"
+          "entities": "Encje do monitorowania",
+          "non_essential_entities": "Nieistotne encje"
+        },
+        "data_description": {
+          "non_essential_entities": "Encje wyświetlane na karcie, ale wykluczone ze wszystkich KPI i alertów."
         }
       },
       "combined": {
@@ -47,15 +51,13 @@
           "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
           "availability_windows": "Okna śledzenia dostępności",
           "recovery_window": "Okno odzyskiwania",
-          "use_device_names": "Pokaż nazwy urządzeń",
-          "non_essential_entities": "Nieistotne encje"
+          "use_device_names": "Pokaż nazwy urządzeń"
         },
         "data_description": {
           "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane. Używaj encji raportujących poziom baterii w procentach lub obsługujących stan 'low'.",
           "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
-          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
-          "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami)."
+          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji."
         }
       },
       "battery_mapping": {

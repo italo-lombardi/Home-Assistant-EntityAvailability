@@ -13,7 +13,11 @@
         "description": "Cree un grupo de entidades para supervisar su disponibilidad.",
         "data": {
           "group_name": "Nombre del grupo",
-          "entities": "Entidades a supervisar"
+          "entities": "Entidades a supervisar",
+          "non_essential_entities": "Entidades no esenciales"
+        },
+        "data_description": {
+          "non_essential_entities": "Entidades que se muestran en la tarjeta pero se excluyen de todos los KPI y alertas."
         }
       },
       "combined": {
@@ -47,15 +51,13 @@
           "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
           "availability_windows": "Ventanas de seguimiento de disponibilidad",
           "recovery_window": "Ventana de recuperación",
-          "use_device_names": "Mostrar nombres de dispositivo",
-          "non_essential_entities": "Entidades no esenciales"
+          "use_device_names": "Mostrar nombres de dispositivo"
         },
         "data_description": {
           "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles. Utilice entidades que reporten la batería como porcentaje o admitan el estado 'low'.",
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
-          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
-          "non_essential_entities": "Entidades que se muestran y cuentan en la tarjeta pero se excluyen de todos los KPIs y alertas. Útil para dispositivos que se espera que estén offline (TV en standby, impresora apagada entre trabajos)."
+          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa."
         }
       },
       "battery_mapping": {

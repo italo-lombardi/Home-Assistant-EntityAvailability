@@ -13,7 +13,11 @@
         "description": "Opprett en gruppe med entiteter for tilgjengelighetsovervåking.",
         "data": {
           "group_name": "Gruppenavn",
-          "entities": "Entiteter å overvåke"
+          "entities": "Entiteter å overvåke",
+          "non_essential_entities": "Ikke-essensielle enheter"
+        },
+        "data_description": {
+          "non_essential_entities": "Enheter som vises på kortet, men ekskluderes fra alle KPI-er og varsler."
         }
       },
       "combined": {
@@ -47,15 +51,13 @@
           "battery_threshold": "Grense for lavt batteri (%, 0 = deaktivert)",
           "availability_windows": "Tilgjengelighetssporingsvinduer",
           "recovery_window": "Gjenopprettingsvindu",
-          "use_device_names": "Vis enhetsnavn",
-          "non_essential_entities": "Ikke-essensielle enheter"
+          "use_device_names": "Vis enhetsnavn"
         },
         "data_description": {
           "battery_threshold": "Markerer enheter hvis batteri faller under denne prosentandelen. Tilstanden 'low' oppdages også automatisk. Volt-baserte enheter støttes ikke. Bruk enheter som rapporterer batteri som prosent eller støtter tilstanden 'low'.",
           "availability_windows": "Tidsvinduer for sporing av gruppens tilgjengelighetshistorikk (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
-          "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
-          "non_essential_entities": "Enheter som vises og telles på kortet, men utelukkes fra alle KPI-er og varsler. Nyttig for enheter som forventes å være offline (TV i standby, skriver avslått mellom jobber)."
+          "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet."
         }
       },
       "battery_mapping": {

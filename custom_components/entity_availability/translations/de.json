@@ -13,7 +13,11 @@
         "description": "Erstellen Sie eine Gruppe von Entitäten zur Verfügbarkeitsüberwachung.",
         "data": {
           "group_name": "Gruppenname",
-          "entities": "Zu überwachende Entitäten"
+          "entities": "Zu überwachende Entitäten",
+          "non_essential_entities": "Nicht-wesentliche Entitäten"
+        },
+        "data_description": {
+          "non_essential_entities": "Entitäten, die auf der Karte angezeigt, aber von allen KPIs und Warnungen ausgeschlossen werden."
         }
       },
       "combined": {
@@ -47,15 +51,13 @@
           "battery_threshold": "Niedriger Batterieschwellenwert (%, 0 = deaktiviert)",
           "availability_windows": "Verfügbarkeits-Tracking-Zeiträume",
           "recovery_window": "Wiederherstellungsfenster",
-          "use_device_names": "Gerätenamen anzeigen",
-          "non_essential_entities": "Nicht-essentielle Entitäten"
+          "use_device_names": "Gerätenamen anzeigen"
         },
         "data_description": {
           "battery_threshold": "Markiert Entitäten, deren Batterie unter diesen Prozentwert fällt. Der Zustand 'low' wird automatisch erkannt. Volt-basierte Entitäten werden nicht unterstützt.",
           "availability_windows": "Zeitfenster zur Verfolgung der Gruppenverfügbarkeit (z. B. heute, 3d, 7d).",
           "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
-          "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen.",
-          "non_essential_entities": "Entitäten die auf der Karte angezeigt und gezählt werden, aber von allen KPIs ausgeschlossen sind. Nützlich für Geräte, die erwartungsgemäß offline sind (Fernseher im Standby, Drucker zwischen Aufträgen)."
+          "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen."
         }
       },
       "battery_mapping": {

@@ -13,7 +13,11 @@
         "description": "Skapa en grupp av entiteter att övervaka tillgänglighet för.",
         "data": {
           "group_name": "Gruppnamn",
-          "entities": "Entiteter att övervaka"
+          "entities": "Entiteter att övervaka",
+          "non_essential_entities": "Icke-väsentliga enheter"
+        },
+        "data_description": {
+          "non_essential_entities": "Enheter som visas på kortet men utesluts från alla KPI:er och aviseringar."
         }
       },
       "combined": {
@@ -47,15 +51,13 @@
           "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
           "availability_windows": "Tillgänglighetsspårningsfönster",
           "recovery_window": "Återhämtningsfönster",
-          "use_device_names": "Visa enhetsnamn",
-          "non_essential_entities": "Icke-nödvändiga enheter"
+          "use_device_names": "Visa enhetsnamn"
         },
         "data_description": {
           "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte. Använd entiteter som rapporterar batteri som procent eller stöder tillståndet 'low'.",
           "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
           "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
-          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
-          "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er och larm. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb)."
+          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet."
         }
       },
       "battery_mapping": {
