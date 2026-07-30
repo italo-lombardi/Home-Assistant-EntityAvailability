@@ -812,7 +812,7 @@ class EntityAvailabilityCard extends LitElement {
         <span class="stat-item ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="stat-item ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
         ${stale > 0 ? html`<span class="stat-item battery">Stale: ${stale}</span>` : nothing}
-        <span class="stat-item ${lowBattery > 0 ? "battery" : "neutral"}">Low Battery: ${lowBattery}</span>
+        ${lowBattery > 0 ? html`<span class="stat-item battery">Low Battery: ${lowBattery}</span>` : nothing}
       </div>
     `;
   }
@@ -837,7 +837,7 @@ class EntityAvailabilityCard extends LitElement {
         <span class="non-essential-stat ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="non-essential-stat ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
         ${stale > 0 ? html`<span class="non-essential-stat battery">Stale: ${stale}</span>` : nothing}
-        <span class="non-essential-stat ${lowBattery > 0 ? "battery" : "neutral"}">Low Battery: ${lowBattery}</span>
+        ${lowBattery > 0 ? html`<span class="non-essential-stat battery">Low Battery: ${lowBattery}</span>` : nothing}
       </div>
     `;
   }
