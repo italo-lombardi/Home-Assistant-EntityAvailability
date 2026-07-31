@@ -1046,12 +1046,18 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "stale_entities": [
                 eid
                 for eid, d in states.items()
-                if d.is_stale and not d.is_suppressed and not d.is_non_essential
+                if d.is_stale
+                and not d.is_suppressed
+                and not d.is_non_essential
+                and not d.is_offline
             ],
             "stale_entities_non_essential": [
                 eid
                 for eid, d in states.items()
-                if d.is_stale and not d.is_suppressed and d.is_non_essential
+                if d.is_stale
+                and not d.is_suppressed
+                and d.is_non_essential
+                and not d.is_offline
             ],
             "offline_since": {
                 eid: d.offline_since.isoformat()

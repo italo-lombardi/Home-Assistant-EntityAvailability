@@ -23,6 +23,10 @@ All notable changes to this project will be documented in this file.
 - Battery mapping no longer re-populates cleared entries on edit
 - Low battery flag preserved when device also goes offline
 - Card: space key no longer scrolls page when entity row is focused
+- Card: non-essential entity indicator icon (◌) now renders correctly when `show_non_essential_stats` is off (default) — entities appeared in list without the icon
+- Card: compact render stale count now correctly reads `stale_entities` array length for regular groups (was always 0, so stale entities never triggered "Degraded" status in compact mode)
+- Sensor: `stale_entities` / `stale_entities_non_essential` attributes now exclude offline entities — offline entities with old timestamps were incorrectly included, causing them to show "just now" on the card instead of their actual offline duration
+- Card: Lovelace resource URL now updates on HACS upgrade without requiring a full HA restart
 
 ### Changed
 - Card entity rows and combined group rows are clickable (opens more-info dialog)

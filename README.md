@@ -613,7 +613,7 @@ Selecting a combined group hides editor controls that don't apply (availability 
 ┌───────────────────────────────────────────────┐
 │ ✓ Security Devices                    All OK  │
 ├───────────────────────────────────────────────┤
-│   Online: 4   Offline: 1   Stale: 1   Low Battery: 1     │
+│   Online: 4   Offline: 1   Stale: 1   Low Bat: 1  │
 ├───────────────────────────────────────────────┤
 │  Today   ██████████████████████░░░░   98.2%   │
 │  7 Days  ████████████████████░░░░░░   95.1%   │

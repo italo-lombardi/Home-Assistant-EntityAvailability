@@ -321,21 +321,53 @@ async def test_async_update_options_reloads_entry(
 async def test_async_install_card_skips_when_already_installed(
     mock_hass: HomeAssistant,
 ) -> None:
-    """_async_install_card returns early when the card is already installed."""
+    """_async_install_card returns early when the card is already installed (same version)."""
     from custom_components.entity_availability import (
         _CARD_INSTALLED_KEY,
         _async_install_card,
     )
 
     hass = mock_hass
-    hass.data.setdefault(DOMAIN, {})[_CARD_INSTALLED_KEY] = True
+    hass.data.setdefault(DOMAIN, {})[_CARD_INSTALLED_KEY] = "0.3.14"
 
-    with patch(
-        "custom_components.entity_availability._async_register_lovelace_resource",
-        new_callable=AsyncMock,
-    ) as mock_register:
+    with (
+        patch(
+            "custom_components.entity_availability._get_version", return_value="0.3.14"
+        ),
+        patch(
+            "custom_components.entity_availability._async_register_lovelace_resource",
+            new_callable=AsyncMock,
+        ) as mock_register,
+    ):
         await _async_install_card(hass)
         mock_register.assert_not_called()
+
+
+async def test_async_install_card_reruns_on_version_change(
+    mock_hass: HomeAssistant,
+) -> None:
+    """_async_install_card re-registers the resource when the version changes (HACS upgrade)."""
+    from custom_components.entity_availability import (
+        _CARD_INSTALLED_KEY,
+        _async_install_card,
+    )
+
+    hass = mock_hass
+    hass.data.setdefault(DOMAIN, {})[_CARD_INSTALLED_KEY] = "0.3.13"
+
+    with (
+        patch(
+            "custom_components.entity_availability._get_version", return_value="0.3.14"
+        ),
+        patch(
+            "custom_components.entity_availability._async_register_lovelace_resource",
+            new_callable=AsyncMock,
+        ) as mock_register,
+        patch("custom_components.entity_availability.Path.exists", return_value=True),
+    ):
+        await _async_install_card(hass)
+        mock_register.assert_called_once()
+        assert hass.data[DOMAIN][_CARD_INSTALLED_KEY] == "0.3.14"
 
 
 # ---------------------------------------------------------------------------
