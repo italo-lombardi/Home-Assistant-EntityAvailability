@@ -633,6 +633,7 @@ class EntityAvailabilityCard extends LitElement {
     super();
     this._config = {};
     this._entitiesExpanded = false;
+    this._lastSeen = {};
   }
 
   setConfig(config) {
@@ -753,6 +754,8 @@ class EntityAvailabilityCard extends LitElement {
     const staleEntities = attrs.stale_entities || [];
     const staleEntitiesNonEssential = attrs.stale_entities_non_essential || [];
     const offlineSince = attrs.offline_since || {};
+    const lastSeen = attrs.last_seen || {};
+    this._lastSeen = lastSeen;
     const lowBatteryEntities = attrs.low_battery_entities || [];
     const displayNames = attrs.display_names || {};
 
@@ -1120,9 +1123,7 @@ class EntityAvailabilityCard extends LitElement {
 
   _buildDetailRows(item, suppressedUntilMap) {
     const entityState = this.hass.states[item.entityId];
-    const lastChanged = entityState?.last_changed
-      ? this._computeDuration(item.entityId)
-      : null;
+    const lastChanged = this._computeDuration(item.entityId);
 
     const areaId = this.hass.entities?.[item.entityId]?.area_id;
     const areaName = areaId ? (this.hass.areas?.[areaId]?.name || null) : null;
@@ -1149,9 +1150,7 @@ class EntityAvailabilityCard extends LitElement {
     let rows;
     if (compact) {
       const entityState = this.hass.states[item.entityId];
-      const lastChanged = entityState?.last_changed
-        ? this._computeDuration(item.entityId)
-        : null;
+      const lastChanged = this._computeDuration(item.entityId);
       const haStateValue = lastChanged
         ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
         : this._formatStateWithUnit(entityState);
@@ -1222,10 +1221,10 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _computeDuration(entityId) {
-    const state = this.hass?.states?.[entityId];
-    if (!state?.last_changed) return null;
+    const ts = this._lastSeen?.[entityId] || this.hass?.states?.[entityId]?.last_changed;
+    if (!ts) return null;
 
-    const diff = Date.now() - new Date(state.last_changed).getTime();
+    const diff = Date.now() - new Date(ts).getTime();
     const minutes = Math.floor(diff / 60000);
 
     if (minutes < 1) return "just now";

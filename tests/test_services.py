@@ -1157,3 +1157,22 @@ async def test_reset_statistics_group_only_slug(
         )
         assert coord_a.device_states["binary_sensor.device_a"].offline_event_count == 0
         assert coord_b.device_states["binary_sensor.device_a"].offline_event_count == 4
+
+
+@pytest.mark.asyncio
+async def test_reset_statistics_skips_non_coordinator_entries(
+    setup_services,
+) -> None:
+    """Non-coordinator objects in hass.data[DOMAIN] are skipped silently."""
+    hass, coord = setup_services
+    # Inject a non-coordinator object alongside the real coordinator
+    hass.data[DOMAIN]["__sentinel__"] = object()
+
+    coord.device_states["binary_sensor.device_a"].offline_event_count = 5
+    await hass.services.async_call(
+        DOMAIN,
+        "reset_statistics",
+        {ATTR_ENTITY_ID: "binary_sensor.device_a"},
+        blocking=True,
+    )
+    assert coord.device_states["binary_sensor.device_a"].offline_event_count == 0

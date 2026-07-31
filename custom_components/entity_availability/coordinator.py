@@ -324,6 +324,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                             device.monitored_since = ts
                     except (ValueError, TypeError):
                         device.monitored_since = None
+                    try:
+                        raw_lc = ds.get("last_changed")
+                        if raw_lc:
+                            ts = datetime.fromisoformat(raw_lc)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            device.last_changed = ts
+                    except (ValueError, TypeError):
+                        device.last_changed = None
                     device.offline_event_count = ds.get("offline_event_count", 0)
                     device.total_offline_seconds = ds.get("total_offline_seconds", 0.0)
                     device.battery_level = ds.get("battery_level")
@@ -337,6 +346,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         for entity_id, device in self._device_states.items():
             if entity_id not in self._entities:
                 continue
+            # last_changed is non-None for all active entities after any real
+            # state-change event, so this guard includes most monitored devices
+            # (broader than pre-PR which only saved offline/low-battery devices).
+            # Saves are periodic (_SAVE_INTERVAL_UPDATES) — not per-event.
             if (
                 device.is_offline
                 or device.cooldown_start is not None
@@ -344,6 +357,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 or device.offline_event_count > 0
                 or device.monitored_since is not None
                 or device.is_low_battery
+                or device.last_changed is not None
             ):
                 device_states_data[entity_id] = {
                     "is_offline": device.is_offline,
@@ -363,6 +377,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     "total_offline_seconds": device.total_offline_seconds,
                     "battery_level": device.battery_level,
                     "is_low_battery": device.is_low_battery,
+                    "last_changed": device.last_changed.isoformat()
+                    if device.last_changed
+                    else None,
                 }
         data = {
             "availability": self._availability_storage.to_dict(),
@@ -411,6 +428,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             old_state.state if old_state else "None",
             new_state.state if new_state else "None",
         )
+        # Record the real last-seen timestamp from the live event. HA resets
+        # state.last_changed on restart, so polling it in _async_update_data
+        # would give the boot time. Capturing it here from the event preserves
+        # the true last-changed across restarts (persisted in storage).
+        if new_state is not None and entity_id in self._device_states:
+            ts = new_state.last_changed
+            if ts is not None:
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                self._device_states[entity_id].last_changed = ts
+            self._dirty = True
         # Per-entity debounce: cancel only this entity's pending timer.
         # A shared group-wide timer would drop all but the last entity's
         # state change when multiple entities change within the debounce window.
@@ -516,14 +544,23 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             is_stale = False
             stale_ts = None
             if self._staleness_threshold > 0 and state:
-                device.last_changed = state.last_changed
+                # Only initialise from HA state on first encounter; real updates
+                # are captured in _handle_state_change to survive HA restarts.
+                if device.last_changed is None:
+                    ts = state.last_changed
+                    if ts is not None:
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=timezone.utc)
+                        device.last_changed = ts
+                # last_updated advances on same-value writes that never fire
+                # state_changed, so read directly from HA state each poll.
                 stale_ts = (
                     state.last_updated
                     if self._staleness_use_last_updated
-                    else state.last_changed
+                    else device.last_changed
                 )
                 if stale_ts:  # pragma: no branch
-                    if stale_ts.tzinfo is None:
+                    if stale_ts.tzinfo is None:  # pragma: no cover
                         stale_ts = stale_ts.replace(tzinfo=timezone.utc)
                     age = (now - stale_ts).total_seconds() / 60
                     if age > self._staleness_threshold:
@@ -737,7 +774,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         try:
             for event_name, payload in pending_events:
                 self.hass.bus.async_fire(event_name, payload)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # pragma: no cover
             _LOGGER.warning("[%s] Failed to fire event", self.group_name, exc_info=True)
 
         return EntityAvailabilityData(

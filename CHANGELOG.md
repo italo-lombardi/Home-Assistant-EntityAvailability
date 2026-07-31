@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - Card: compact render stale count now correctly reads `stale_entities` array length for regular groups (was always 0, so stale entities never triggered "Degraded" status in compact mode)
 - Sensor: `stale_entities` / `stale_entities_non_essential` attributes now exclude offline entities — offline entities with old timestamps were incorrectly included, causing them to show "just now" on the card instead of their actual offline duration
 - Card: Lovelace resource URL now updates on HACS upgrade without requiring a full HA restart
+- **Card: "last seen" time resets to boot time after HA restart** — coordinator now captures `last_changed` from live state-change events and persists it to storage; on reload the stored timestamp is restored so the card always shows the real last-seen time, not the restart time. Resolves #34.
 
 ### Changed
 - Card entity rows and combined group rows are clickable (opens more-info dialog)

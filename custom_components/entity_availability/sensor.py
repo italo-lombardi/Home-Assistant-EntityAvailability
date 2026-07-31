@@ -1010,6 +1010,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         )
 
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        use_last_updated = self.coordinator._staleness_use_last_updated
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
@@ -1063,6 +1064,12 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 eid: d.offline_since.isoformat()
                 for eid, d in states.items()
                 if d.offline_since is not None
+            },
+            "last_seen": {
+                eid: ts.isoformat()
+                for eid, d in states.items()
+                if (ts := d.last_updated if use_last_updated else d.last_changed)
+                is not None
             },
         }
 
