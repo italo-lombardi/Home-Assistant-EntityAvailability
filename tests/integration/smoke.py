@@ -807,11 +807,14 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     wait_for(lambda: gs(f"{prefix}_stale_count").get("state"), "0"),
                     "0",
                 )
-        # EC31 restores the entity, so EC33/EC37/EC38/EC39 must re-wait.
+                # Bring entities back to full clean state after off/on cycle.
+                ne_restore()
+        # EC31 restores entities — EC33/EC37/EC38/EC39 must re-wait for stale.
         _cached_stale_val = None
     else:
-        # EC31 did not run — stale_count may already be > 0 from natural progression.
-        _cached_stale_val = gs(f"{prefix}_stale_count").get("state", "0")
+        # EC31 skipped — _cached_stale_val set lazily in _wait_stale on first call;
+        # don't snapshot here since ne_restore() just ran and stale_count is 0.
+        _cached_stale_val = None
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
@@ -871,6 +874,12 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                         "off",
                     ),
                     "off",
+                )
+                # Restore NE battery too — EC40 must start with a clean slate
+                ss(
+                    ne_bat,
+                    "90",
+                    {"device_class": "battery", "unit_of_measurement": "%"},
                 )
 
     # EC33: any_stale binary sensor
@@ -1086,18 +1095,33 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         if threshold == 0:
             print("  EC40: skipped (battery_threshold=0 for this group)", flush=True)
         else:
-            ne_bat = f"sensor.{ne_target.split('.')[-1]}_battery"
-            low_val = str(int(threshold) - 5)
-            ss(ne_bat, low_val, {"device_class": "battery", "unit_of_measurement": "%"})
-            wait(12)
-            chk(
-                "EC40 any_low_battery=off (NE battery low, essential ok)",
-                gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
-                "off",
-                f"ne_bat={ne_bat} low_val={low_val}",
-            )
-            ss(ne_bat, "90", {"device_class": "battery", "unit_of_measurement": "%"})
-            wait(8)
+            bmap = ne_ctx.get("battery_entity_map", {})
+            ne_bat = bmap.get(ne_target)
+            if not ne_bat:
+                print(
+                    "  EC40: skipped (NE entity has no battery sensor mapped — test would be vacuous)",
+                    flush=True,
+                )
+            else:
+                low_val = str(int(threshold) - 5)
+                ss(
+                    ne_bat,
+                    low_val,
+                    {"device_class": "battery", "unit_of_measurement": "%"},
+                )
+                wait(12)
+                chk(
+                    "EC40 any_low_battery=off (NE battery low, essential ok)",
+                    gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
+                    "off",
+                    f"ne_bat={ne_bat} low_val={low_val}",
+                )
+                ss(
+                    ne_bat,
+                    "90",
+                    {"device_class": "battery", "unit_of_measurement": "%"},
+                )
+                wait(8)
 
     # EC41: recently_offline sensor lists entity after it goes offline
     if ec_enabled(41):
