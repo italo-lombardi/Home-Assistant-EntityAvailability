@@ -707,10 +707,10 @@ class EntityAvailabilityCard extends LitElement {
       const staleCount = attrs.stale || 0;
       const groups = attrs.groups || {};
 
-      const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
+      const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
       const compactClass = this._config.compact ? "compact" : "";
-      const statusText = offline > 0 ? `${offline} Offline` : lowBattery > 0 ? "Degraded" : "All OK";
+      const statusText = offline > 0 ? `${offline} Offline` : (lowBattery > 0 || staleCount > 0) ? "Degraded" : "All OK";
 
       return html`
         <ha-card class="${compactClass}">
@@ -763,13 +763,13 @@ class EntityAvailabilityCard extends LitElement {
     const staleCount = staleEntities.length;
     const staleCountNonEssential = staleEntitiesNonEssential.length;
 
-    const statusColor = offline > 0 ? "red" : lowBattery > 0 ? "yellow" : "green";
+    const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
     const compactClass = this._config.compact ? "compact" : "";
 
     const statusText = offline > 0
       ? `${offline} Offline`
-      : lowBattery > 0
+      : (lowBattery > 0 || staleCount > 0)
       ? "Degraded"
       : "All OK";
 
