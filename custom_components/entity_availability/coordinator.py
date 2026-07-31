@@ -346,8 +346,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         for entity_id, device in self._device_states.items():
             if entity_id not in self._entities:
                 continue
-            # last_changed is non-None for all active entities after the first
-            # real state-change event, so this guard includes most devices.
+            # last_changed is non-None for all active entities after any real
+            # state-change event, so this guard includes most monitored devices
+            # (broader than pre-PR which only saved offline/low-battery devices).
             # Saves are periodic (_SAVE_INTERVAL_UPDATES) — not per-event.
             if (
                 device.is_offline
@@ -551,15 +552,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         if ts.tzinfo is None:
                             ts = ts.replace(tzinfo=timezone.utc)
                         device.last_changed = ts
-                # last_updated advances on same-value writes (no state_changed event),
-                # so always read from HA state — do not persist from events.
-                if state.last_updated is not None:
-                    ts = state.last_updated
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                    device.last_updated = ts
+                # last_updated advances on same-value writes that never fire
+                # state_changed, so read directly from HA state each poll.
                 stale_ts = (
-                    device.last_updated
+                    state.last_updated
                     if self._staleness_use_last_updated
                     else device.last_changed
                 )
