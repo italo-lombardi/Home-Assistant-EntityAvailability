@@ -49,8 +49,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essentia
   EC28 NE entity offline → any_offline_non_essential binary sensor turns ON
   EC29 NE entity offline → group_summary non_essential_offline increments
   EC30 NE entity offline → group_summary online count unchanged
-  EC31 entity_availability_stale / stale_recovered events fire on stale transition
-       (skipped when staleness_threshold=0 or websocket-client absent)
+  EC31 entity_availability_stale_recovered event fires after stale entity recovers
+       (stale detected via stale_count sensor poll; skipped when staleness_threshold=0 or websocket-client absent)
   EC32 any_low_battery binary sensor turns ON when essential entity has low battery
   EC33 any_stale binary sensor turns ON when essential entity is stale
        (skipped when staleness_threshold=0)
@@ -580,6 +580,7 @@ for e in cfg['data']['entries']:
         "ne_entities": ne_entities,
         "staleness_threshold": data.get("staleness_threshold", 0),
         "battery_threshold": data.get("battery_threshold", 0),
+        "battery_entity_map": data.get("battery_entity_map", {}),
     }
 
 
@@ -761,15 +762,24 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     flush=True,
                 )
             else:
-                # Capture stale_recovered event by restoring the entity
+                # Stale entities are already in "on" state — they went stale because
+                # last_changed is old, not because they're offline. A plain ss("on") on
+                # an already-"on" entity is a no-op in HA (same state, no last_changed
+                # update). Cycle through "off" then "on" to force last_changed update,
+                # which is what the coordinator needs to clear stale status.
+                def _cycle_all_essential():
+                    for eid in essential_entities:
+                        ss(eid, "off", {"friendly_name": eid.split(".")[-1]})
+                    time.sleep(1)
+                    for eid in essential_entities:
+                        ss(eid, "on", {"friendly_name": eid.split(".")[-1]})
+
+                # Capture stale_recovered event — use longer timeout since coordinator
+                # fires on its next tick (up to 30s after state change).
                 recovered_events = capture_events(
                     "entity_availability_stale_recovered",
-                    lambda: ss(
-                        stale_target,
-                        "on",
-                        {"friendly_name": stale_target.split(".")[-1]},
-                    ),
-                    timeout=WAIT_FOR_TIMEOUT,
+                    _cycle_all_essential,
+                    timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
                 )
                 ev_recovered = next(
                     (e for e in recovered_events if e.get("entity_id") == stale_target),
@@ -813,40 +823,55 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         if threshold == 0:
             print("  EC32: skipped (battery_threshold=0 for this group)", flush=True)
         else:
-            ess_target = essential_entities[0]
-            suffix = ess_target.split(".")[-1]
-            bat_sensor = f"sensor.{suffix}_battery"
-            low_val = str(int(threshold) - 5)
-            ss(
-                bat_sensor,
-                low_val,
-                {"device_class": "battery", "unit_of_measurement": "%"},
+            # Find an essential entity that has a battery sensor mapped in the group config.
+            bmap = ne_ctx.get("battery_entity_map", {})
+            ess_bat_entity = next(
+                (eid for eid in essential_entities if bmap.get(eid)), None
             )
-            chk(
-                "EC32 any_low_battery=on",
-                wait_for(
-                    lambda: gs(f"{ne_bs_prefix}_any_low_battery").get("state"), "on"
-                ),
-                "on",
-                f"bat_sensor={bat_sensor} low_val={low_val}",
-            )
-            # NE low battery should NOT trigger essential any_low_battery
-            ne_bat = f"sensor.{ne_target.split('.')[-1]}_battery"
-            ss(ne_bat, low_val, {"device_class": "battery", "unit_of_measurement": "%"})
-            wait(10)
-            # Restore essential battery, verify any_low_battery turns off
-            ss(
-                bat_sensor,
-                "90",
-                {"device_class": "battery", "unit_of_measurement": "%"},
-            )
-            chk(
-                "EC32 any_low_battery=off after recovery",
-                wait_for(
-                    lambda: gs(f"{ne_bs_prefix}_any_low_battery").get("state"), "off"
-                ),
-                "off",
-            )
+            if not ess_bat_entity:
+                print(
+                    "  EC32: skipped (no essential entity has a battery sensor mapped)",
+                    flush=True,
+                )
+            else:
+                bat_sensor = bmap[ess_bat_entity]
+                low_val = str(int(threshold) - 5)
+                ss(
+                    bat_sensor,
+                    low_val,
+                    {"device_class": "battery", "unit_of_measurement": "%"},
+                )
+                chk(
+                    "EC32 any_low_battery=on",
+                    wait_for(
+                        lambda: gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
+                        "on",
+                    ),
+                    "on",
+                    f"bat_sensor={bat_sensor} low_val={low_val}",
+                )
+                # NE low battery must NOT trigger essential any_low_battery
+                ne_bat = f"sensor.{ne_target.split('.')[-1]}_battery"
+                ss(
+                    ne_bat,
+                    low_val,
+                    {"device_class": "battery", "unit_of_measurement": "%"},
+                )
+                wait(10)
+                # Restore essential battery, verify any_low_battery turns off
+                ss(
+                    bat_sensor,
+                    "90",
+                    {"device_class": "battery", "unit_of_measurement": "%"},
+                )
+                chk(
+                    "EC32 any_low_battery=off after recovery",
+                    wait_for(
+                        lambda: gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
+                        "off",
+                    ),
+                    "off",
+                )
 
     # EC33: any_stale binary sensor
     if ec_enabled(33) and essential_entities:
@@ -1016,8 +1041,9 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         if ne_ctx["staleness_threshold"] == 0:
             print("  EC39: skipped (staleness_threshold=0 for this group)", flush=True)
         else:
-            # NE entities share the same staleness_threshold. After threshold minutes without
-            # an update they go stale. We wait for stale_count_non_essential > 0.
+            # Capture essential stale_count baseline before NE goes stale.
+            # Both essential and NE share the same threshold, so essential may already be > 0.
+            baseline_essential_stale = gs(f"{prefix}_stale_count").get("state", "0")
             threshold = ne_ctx["staleness_threshold"]
             stale_timeout = (threshold + 2) * 60
             print(f"  Waiting up to {threshold + 2} min for NE stale...", flush=True)
@@ -1039,13 +1065,13 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                 True,
                 f"stale_count_non_essential={ne_stale_val}",
             )
-            # stale_count (essential only) must not include NE entities
-            essential_stale_val = gs(f"{prefix}_stale_count").get("state", "0")
+            # stale_count (essential only) must equal baseline — NE stale must not bleed in
+            essential_stale_after = gs(f"{prefix}_stale_count").get("state", "0")
             chk(
-                "EC39 stale_count (essential) does not include NE stale",
-                int(essential_stale_val or 0) <= len(essential_entities),
-                True,
-                f"stale_count={essential_stale_val} essential_count={len(essential_entities)}",
+                "EC39 stale_count (essential) unchanged after NE went stale",
+                essential_stale_after,
+                baseline_essential_stale,
+                f"before={baseline_essential_stale} after={essential_stale_after}",
             )
 
     ne_restore()
@@ -1062,31 +1088,13 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         else:
             ne_bat = f"sensor.{ne_target.split('.')[-1]}_battery"
             low_val = str(int(threshold) - 5)
-            # Guard: only proceed if the battery entity actually exists in HA state machine
-            try:
-                gs(ne_bat)
-                bat_exists = True
-            except Exception:
-                bat_exists = False
-            if not bat_exists:
-                # Create a synthetic battery state for the NE entity
-                ss(
-                    ne_bat,
-                    low_val,
-                    {"device_class": "battery", "unit_of_measurement": "%"},
-                )
-            else:
-                ss(
-                    ne_bat,
-                    low_val,
-                    {"device_class": "battery", "unit_of_measurement": "%"},
-                )
+            ss(ne_bat, low_val, {"device_class": "battery", "unit_of_measurement": "%"})
             wait(12)
             chk(
                 "EC40 any_low_battery=off (NE battery low, essential ok)",
                 gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
                 "off",
-                f"ne_bat={ne_bat} low_val={low_val} bat_exists={bat_exists}",
+                f"ne_bat={ne_bat} low_val={low_val}",
             )
             ss(ne_bat, "90", {"device_class": "battery", "unit_of_measurement": "%"})
             wait(8)
@@ -1097,19 +1105,24 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             "\n=== EC41: recently_offline sensor lists entity after it goes offline ===",
             flush=True,
         )
-        target = essential_entities[0] if essential_entities else ne_entities[0]
-        ss(target, "unavailable", {"friendly_name": "smoke test"})
-        wait(12)
-        recent_offline_state = gs(f"{prefix}_recently_offline")
-        # state = display name; entities attr = list of entity_ids
-        recent_entities = recent_offline_state.get("attributes", {}).get("entities", [])
-        chk(
-            "EC41 recently_offline lists entity",
-            target in recent_entities,
-            True,
-            f"entities={recent_entities} target={target}",
-        )
-        ne_restore()
+        if not essential_entities and not ne_entities:
+            print("  EC41: skipped (no entities in NE group)", flush=True)
+        else:
+            target = essential_entities[0] if essential_entities else ne_entities[0]
+            ss(target, "unavailable", {"friendly_name": "smoke test"})
+            wait(12)
+            recent_entities = (
+                gs(f"{prefix}_recently_offline")
+                .get("attributes", {})
+                .get("entities", [])
+            )
+            chk(
+                "EC41 recently_offline lists entity",
+                target in recent_entities,
+                True,
+                f"entities={recent_entities} target={target}",
+            )
+            ne_restore()
 
     # EC42: recently_recovered sensor lists entity after recovery
     if ec_enabled(42):
@@ -1117,23 +1130,26 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             "\n=== EC42: recently_recovered sensor lists entity after recovery ===",
             flush=True,
         )
-        target = essential_entities[0] if essential_entities else ne_entities[0]
-        # Drive offline then recover
-        ss(target, "unavailable", {"friendly_name": "smoke test"})
-        wait(12)
-        ss(target, "on", {"friendly_name": target.split(".")[-1]})
-        wait(12)
-        recent_recovered_state = gs(f"{prefix}_recently_recovered")
-        recent_entities = recent_recovered_state.get("attributes", {}).get(
-            "entities", []
-        )
-        chk(
-            "EC42 recently_recovered lists entity",
-            target in recent_entities,
-            True,
-            f"entities={recent_entities} target={target}",
-        )
-        ne_restore()
+        if not essential_entities and not ne_entities:
+            print("  EC42: skipped (no entities in NE group)", flush=True)
+        else:
+            target = essential_entities[0] if essential_entities else ne_entities[0]
+            ss(target, "unavailable", {"friendly_name": "smoke test"})
+            wait(12)
+            ss(target, "on", {"friendly_name": target.split(".")[-1]})
+            wait(12)
+            recent_entities = (
+                gs(f"{prefix}_recently_recovered")
+                .get("attributes", {})
+                .get("entities", [])
+            )
+            chk(
+                "EC42 recently_recovered lists entity",
+                target in recent_entities,
+                True,
+                f"entities={recent_entities} target={target}",
+            )
+            ne_restore()
 
 
 # ---------------------------------------------------------------------------
