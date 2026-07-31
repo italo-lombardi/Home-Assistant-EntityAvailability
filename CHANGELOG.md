@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.3.14] - 2026-07-31
+## [0.3.14] - 2026-08-01
 
 ### Added
 - **Non-Essential entity tier** — mark individual entities as Non-Essential when creating or editing a group. Non-essential entities show on the card and count toward totals, but are excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Perfect for devices that are expected to go offline — a TV, a printer, a seasonal sensor — without needing a separate group. Zero migration: existing groups default to all-essential.

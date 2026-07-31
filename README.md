@@ -24,7 +24,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Cooldown timer** -- ignore brief blips before marking an entity offline
 - **Availability % sensors** -- track uptime over today, 3-day, 5-day, and 7-day windows
 - **Reliability sensors (MTBF + MTTR)** -- flag devices that keep flaking out: separate diagnostic sensors for how *often* each device breaks (MTBF) and how *long* each outage lasts (MTTR), so a genuinely flaky device is distinguishable from one that had a single long outage at the same uptime %
-- **Bus events** -- fires `entity_availability_offline` / `entity_availability_recovered` / `entity_availability_low_battery` / `entity_availability_battery_ok` on the HA event bus for use as native automation triggers
+- **Bus events** -- fires `entity_availability_offline` / `entity_availability_recovered` / `entity_availability_low_battery` / `entity_availability_battery_ok` / `entity_availability_stale` / `entity_availability_stale_recovered` on the HA event bus for use as native automation triggers
 - **Battery monitoring** -- auto-detect or manually map battery entities; supports numeric (%) and text states (`low`)
 - **Degraded entity detection** -- flag entities with low battery or stale data
 - **Recently offline / recovered sensors** -- track which entities went offline or recovered within a configurable time window
@@ -299,6 +299,8 @@ For example, a combined group named "All Devices" produces the slug `all_devices
 | `sensor..._affected_areas_recently_recovered` | Sensor | Areas where all entities are back online and most recent recovery is within the relevant source group's recovery window (`"None"` when none) | `areas` (list), `count` |
 
 Suppressed entities are excluded from offline/alert counts in combined sensor states. Their availability history continues to count toward group availability averages.
+
+> **Note:** Combined groups do not create dedicated stale sensors (`stale_count`, `stale_entities`, `any_stale`). Stale data is available via the `stale` attribute on `sensor..._combined_summary`.
 
 The `recently_offline` and `recently_recovered` sensors use each source group's own **Recovery window** setting — if groups have different windows, each group's devices are filtered by that group's window.
 
