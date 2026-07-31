@@ -7,29 +7,28 @@ All notable changes to this project will be documented in this file.
 ## [0.3.14] - 2026-08-01
 
 ### Added
-- **Non-Essential entity tier** — mark individual entities as Non-Essential when creating or editing a group. Non-essential entities show on the card and count toward totals, but are excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Perfect for devices that are expected to go offline — a TV, a printer, a seasonal sensor — without needing a separate group. Zero migration: existing groups default to all-essential.
-- **6 new sensors per group** for non-essential visibility (offline count/list, stale count/list, low battery count/list)
-- **3 new binary sensors per group**: `any_low_battery` (ON when any essential entity has low battery), `any_stale` (ON when any essential entity stopped reporting), `any_offline_non_essential` (ON when any non-essential entity is offline)
-- **Stale events** — `entity_availability_stale` / `entity_availability_stale_recovered` fire when an essential entity transitions in/out of stale state; payload mirrors the offline/recovered shape
-- **Battery and stale events** — `entity_availability_low_battery` / `entity_availability_battery_ok` events fire on battery threshold transitions; combined groups fire offline/recovered events; all events include `entry_id` and `source_groups` in the payload; all event entity lists exclude non-essential entities
-- **Card: Non-Essential stats row** (`show_non_essential_stats`, default off) — opt-in row below the main stats showing Online / Offline / Stale / Low Battery counts for non-essential entities; also shows non-essential entities in the entity list sorted to the bottom
-- **Card: Stale count in stats row** — `Stale: N` appears when entities are stale; hidden when zero (consistent with Low Battery)
-- **Card: Suppressed banner shows tier** — when non-essential stats are enabled, the banner distinguishes: "2 entities suppressed, 1 non-essential"
-- **Card: per-entity suppress toggle** (`show_suppress_toggle`, opt-in, default off)
+- **Non-Essential entity tier** — mark entities as Non-Essential per group; excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Zero migration: existing groups default to all-essential.
+- **9 new sensors per group**: offline/stale/low-battery count+list for non-essential tier; `any_low_battery`, `any_stale`, `any_offline_non_essential` binary sensors
+- **6 new bus events**: `entity_availability_stale/stale_recovered`, `entity_availability_low_battery/battery_ok`; combined groups fire offline/recovered; all payloads include `entry_id` and `source_groups`
+- **Card: Non-Essential stats row** (`show_non_essential_stats`, default off) — opt-in row for NE Online/Offline/Stale/Low Battery counts; NE entities sorted to bottom of entity list
+- **Card: Stale count chip** in stats row; hidden when zero
+- **Card: per-entity suppress toggle** (`show_suppress_toggle`, default off)
 
 ### Fixed
-- Suppressing an entity no longer affects historical availability % or MTBF/MTTR
-- Offline/recovered events now include `offline_count` and `offline_entities` in the payload
-- Combined groups deduplicate entities that appear in multiple member groups
-- Battery mapping no longer re-populates cleared entries on the next edit
-- Low battery flag preserved when a device also goes offline
-- Card: Space key no longer scrolls the page when an entity row is focused
+- Suppressing an entity no longer affects historical availability %, MTBF, or MTTR
+- Stale entities with healthy battery no longer counted as low battery (explicit `is_low_battery` flag)
+- Card: stale entities now trigger yellow "Degraded" header (was "All OK")
+- Offline/recovered events include `offline_count` and `offline_entities`
+- Combined groups deduplicate entities across member groups
+- Battery mapping no longer re-populates cleared entries on edit
+- Low battery flag preserved when device also goes offline
+- Card: space key no longer scrolls page when entity row is focused
 
 ### Changed
 - Card entity rows and combined group rows are clickable (opens more-info dialog)
 
 ### Breaking Changes
-- `suppressed_until` attribute now includes indefinitely-suppressed entities as `null`. Use `entity_id in suppressed_until` instead of `suppressed_until.get(entity_id)` to check suppression status.
+- `suppressed_until` includes indefinitely-suppressed entities as `null`. Use `entity_id in suppressed_until` to check suppression status.
 
 
 ## [0.3.13] - 2026-07-22
@@ -47,6 +46,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Stale entities miscounted as low battery** — stale entities whose battery was *above* the configured threshold were reported as low battery (e.g. a stale entity at 50% shown as low battery with a 40% threshold). The low-battery counters and lists used "degraded and has a battery reading" as a stand-in for "low battery", but degraded means low battery **or** stale, so any stale device with a battery reading was miscounted. Low battery is now tracked with an explicit `is_low_battery` flag set only when the battery is genuinely below threshold. Degraded status, staleness, offline/cooldown, and suppression are unchanged — this only corrects the low-battery count/list. Thanks to @dimatx for the fix.
+- **Card: stale entities now trigger "Degraded" status** — groups with stale entities but no offline or low-battery entities were shown as "All OK" (green). The card header now turns yellow and shows "Degraded" when `stale_count > 0`, consistent with the backend `is_degraded` flag which already included staleness.
 
 ## [0.3.12] - 2026-07-13
 
