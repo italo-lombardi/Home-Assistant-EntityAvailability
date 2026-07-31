@@ -26,6 +26,7 @@ class DeviceState:
     cooldown_start: datetime | None = None
     battery_level: int | None = None
     last_changed: datetime | None = None
+    last_updated: datetime | None = None
     recently_offline_at: datetime | None = None
     # Reliability counters (all-time, event-driven — feed MTBF/MTTR).
     monitored_since: datetime | None = None

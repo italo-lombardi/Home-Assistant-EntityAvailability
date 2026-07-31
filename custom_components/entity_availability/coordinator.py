@@ -333,6 +333,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                             device.last_changed = ts
                     except (ValueError, TypeError):
                         device.last_changed = None
+                    try:
+                        raw_lu = ds.get("last_updated")
+                        if raw_lu:
+                            ts = datetime.fromisoformat(raw_lu)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            device.last_updated = ts
+                    except (ValueError, TypeError):
+                        device.last_updated = None
                     device.offline_event_count = ds.get("offline_event_count", 0)
                     device.total_offline_seconds = ds.get("total_offline_seconds", 0.0)
                     device.battery_level = ds.get("battery_level")
@@ -354,6 +363,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 or device.monitored_since is not None
                 or device.is_low_battery
                 or device.last_changed is not None
+                or device.last_updated is not None
             ):
                 device_states_data[entity_id] = {
                     "is_offline": device.is_offline,
@@ -375,6 +385,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     "is_low_battery": device.is_low_battery,
                     "last_changed": device.last_changed.isoformat()
                     if device.last_changed
+                    else None,
+                    "last_updated": device.last_updated.isoformat()
+                    if device.last_updated
                     else None,
                 }
         data = {
@@ -434,7 +447,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
                 self._device_states[entity_id].last_changed = ts
-                self._dirty = True
+            ts_u = new_state.last_updated
+            if ts_u is not None:
+                if ts_u.tzinfo is None:
+                    ts_u = ts_u.replace(tzinfo=timezone.utc)
+                self._device_states[entity_id].last_updated = ts_u
+            self._dirty = True
         # Per-entity debounce: cancel only this entity's pending timer.
         # A shared group-wide timer would drop all but the last entity's
         # state change when multiple entities change within the debounce window.
@@ -548,8 +566,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         if ts.tzinfo is None:
                             ts = ts.replace(tzinfo=timezone.utc)
                         device.last_changed = ts
+                if device.last_updated is None:
+                    ts = state.last_updated
+                    if ts is not None:
+                        if ts.tzinfo is None:
+                            ts = ts.replace(tzinfo=timezone.utc)
+                        device.last_updated = ts
                 stale_ts = (
-                    state.last_updated
+                    device.last_updated
                     if self._staleness_use_last_updated
                     else device.last_changed
                 )
