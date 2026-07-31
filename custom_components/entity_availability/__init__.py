@@ -75,20 +75,21 @@ async def _async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None
 async def _async_install_card(hass: HomeAssistant) -> None:
     """Serve card JS from component dir and register as Lovelace resource."""
     domain_data = hass.data.setdefault(DOMAIN, {})
-    if domain_data.get(_CARD_INSTALLED_KEY):
+    version = await hass.async_add_executor_job(_get_version)
+    if domain_data.get(_CARD_INSTALLED_KEY) == version:
         return
 
-    # Claim the slot before first await to prevent TOCTOU race when multiple
-    # entries finish setup concurrently — only one proceeds past this point.
-    domain_data[_CARD_INSTALLED_KEY] = True
+    # Claim the slot before proceeding so concurrent entry setups skip this
+    # block. Two racing callers may both read version before either claims, but
+    # static-path registration and Lovelace resource update are both idempotent
+    # so a duplicate run is harmless.
+    domain_data[_CARD_INSTALLED_KEY] = version
 
     source = Path(__file__).parent / "frontend" / CARD_FILENAME
     if not source.exists():
         _LOGGER.warning("Card JS not found at %s", source)
         domain_data.pop(_CARD_INSTALLED_KEY, None)
         return
-
-    version = await hass.async_add_executor_job(_get_version)
 
     try:
         await hass.http.async_register_static_paths(
