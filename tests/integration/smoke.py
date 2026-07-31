@@ -745,7 +745,6 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         elif not essential_entities:
             print("  EC31: skipped (no essential entities in NE group)", flush=True)
         else:
-            stale_target = essential_entities[0]
             went_stale, _sv = _wait_stale("EC31")
             if not went_stale:
                 print(
@@ -773,7 +772,11 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
                 )
                 ev_recovered = next(
-                    (e for e in recovered_events if e.get("entity_id") == stale_target),
+                    (
+                        e
+                        for e in recovered_events
+                        if e.get("entity_id") in essential_entities
+                    ),
                     None,
                 )
                 chk(
@@ -798,8 +801,11 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     wait_for(lambda: gs(f"{prefix}_stale_count").get("state"), "0"),
                     "0",
                 )
-                # Bring entities back to full clean state after off/on cycle.
+                # Bring entities back to full clean state after off/on cycle,
+                # then wait for coordinator to confirm offline_count=0 before
+                # EC25+ proceed (cycling off→on may briefly trigger offline).
                 ne_restore()
+                wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0")
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
