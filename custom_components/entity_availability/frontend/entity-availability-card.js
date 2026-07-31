@@ -753,6 +753,8 @@ class EntityAvailabilityCard extends LitElement {
     const staleEntities = attrs.stale_entities || [];
     const staleEntitiesNonEssential = attrs.stale_entities_non_essential || [];
     const offlineSince = attrs.offline_since || {};
+    const lastSeen = attrs.last_seen || {};
+    this._lastSeen = lastSeen;
     const lowBatteryEntities = attrs.low_battery_entities || [];
     const displayNames = attrs.display_names || {};
 
@@ -1223,9 +1225,10 @@ class EntityAvailabilityCard extends LitElement {
 
   _computeDuration(entityId) {
     const state = this.hass?.states?.[entityId];
-    if (!state?.last_changed) return null;
+    const ts = (this._lastSeen && this._lastSeen[entityId]) || state?.last_changed;
+    if (!ts) return null;
 
-    const diff = Date.now() - new Date(state.last_changed).getTime();
+    const diff = Date.now() - new Date(ts).getTime();
     const minutes = Math.floor(diff / 60000);
 
     if (minutes < 1) return "just now";
