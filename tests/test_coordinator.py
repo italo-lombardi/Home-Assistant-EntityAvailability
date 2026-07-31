@@ -14,6 +14,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.const import (
     CONF_BATTERY_ENTITY_MAP,
+    CONF_BATTERY_THRESHOLD,
     CONF_ENTITIES,
     CONF_NON_ESSENTIAL_ENTITIES,
     CONF_STALENESS_THRESHOLD,
@@ -1954,6 +1955,43 @@ async def test_debounced_refresh_callback_creates_task(
 
 
 # ---------------------------------------------------------------------------
+# battery_threshold == 0 — battery lookup skipped entirely
+# ---------------------------------------------------------------------------
+
+
+async def test_battery_not_populated_when_threshold_zero(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """When battery_threshold=0, _get_battery_level is never called and battery_level stays None."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", "on", {"friendly_name": "Device A"})
+    # Z-Wave style auto-discovered battery
+    hass.states.async_set("sensor.device_a_battery", "42")
+
+    config = dict(mock_config_data)
+    config[CONF_BATTERY_THRESHOLD] = 0
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="bat_threshold_zero_entry",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        with patch.object(
+            coord, "_get_battery_level", wraps=coord._get_battery_level
+        ) as mock_get:
+            await coord._async_update_data()
+
+    assert mock_get.call_count == 0
+    assert coord.device_states["binary_sensor.device_a"].battery_level is None
+
+
 # _get_battery_level — battery map entity present with valid state (lines 509-520)
 # ---------------------------------------------------------------------------
 

@@ -498,7 +498,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             is_bad = state is None or state.state in self._bad_states
 
             # Battery check — retain last-known level when entity is unavailable
-            fresh_level = self._get_battery_level(entity_id)
+            fresh_level = (
+                self._get_battery_level(entity_id)
+                if self._battery_threshold > 0
+                else None
+            )
             if fresh_level is not None:
                 device.battery_level = fresh_level
             battery_low = (
