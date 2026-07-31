@@ -710,19 +710,10 @@ def _run_ne_tests(ne_ctx: dict) -> None:
     # Returns (went_stale: bool, stale_val: str). Reused by EC31/EC33/EC37/EC38/EC39.
     # Callers that run after EC31 restored entities must re-wait; callers that run
     # without an intervening restore can reuse a cached value by passing it in.
-    def _wait_stale(
-        label: str, cached_stale_val: str | None = None
-    ) -> tuple[bool, str]:
+    def _wait_stale(label: str) -> tuple[bool, str]:
         threshold = ne_ctx["staleness_threshold"]
         if threshold == 0:
             return False, "0"
-        # If a previous wait already found stale and nothing restored since, reuse it.
-        if cached_stale_val is not None:
-            try:
-                if int(cached_stale_val or 0) > 0:
-                    return True, cached_stale_val
-            except (TypeError, ValueError):
-                pass
         stale_timeout = (threshold + 2) * 60
         print(
             f"  {label}: waiting up to {threshold + 2} min for stale_count > 0...",
@@ -809,12 +800,6 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                 )
                 # Bring entities back to full clean state after off/on cycle.
                 ne_restore()
-        # EC31 restores entities — EC33/EC37/EC38/EC39 must re-wait for stale.
-        _cached_stale_val = None
-    else:
-        # EC31 skipped — _cached_stale_val set lazily in _wait_stale on first call;
-        # don't snapshot here since ne_restore() just ran and stale_count is 0.
-        _cached_stale_val = None
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
@@ -853,14 +838,17 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     "on",
                     f"bat_sensor={bat_sensor} low_val={low_val}",
                 )
-                # NE low battery must NOT trigger essential any_low_battery
-                ne_bat = f"sensor.{ne_target.split('.')[-1]}_battery"
-                ss(
-                    ne_bat,
-                    low_val,
-                    {"device_class": "battery", "unit_of_measurement": "%"},
-                )
-                wait(10)
+                # NE low battery must NOT trigger essential any_low_battery.
+                # Only meaningful if NE entity has a mapped battery sensor — otherwise
+                # the integration ignores any synthetic state and the check is vacuous.
+                ne_bat = bmap.get(ne_target)
+                if ne_bat:
+                    ss(
+                        ne_bat,
+                        low_val,
+                        {"device_class": "battery", "unit_of_measurement": "%"},
+                    )
+                    wait(10)
                 # Restore essential battery, verify any_low_battery turns off
                 ss(
                     bat_sensor,
@@ -875,12 +863,13 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     ),
                     "off",
                 )
-                # Restore NE battery too — EC40 must start with a clean slate
-                ss(
-                    ne_bat,
-                    "90",
-                    {"device_class": "battery", "unit_of_measurement": "%"},
-                )
+                # Restore NE battery too if it was set
+                if ne_bat:
+                    ss(
+                        ne_bat,
+                        "90",
+                        {"device_class": "battery", "unit_of_measurement": "%"},
+                    )
 
     # EC33: any_stale binary sensor
     if ec_enabled(33) and essential_entities:
@@ -888,8 +877,7 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         if ne_ctx["staleness_threshold"] == 0:
             print("  EC33: skipped (staleness_threshold=0 for this group)", flush=True)
         else:
-            went_stale, stale_count = _wait_stale("EC33", _cached_stale_val)
-            _cached_stale_val = stale_count if went_stale else _cached_stale_val
+            went_stale, stale_count = _wait_stale("EC33")
             chk(
                 "EC33 stale_count > 0",
                 int(stale_count or 0) > 0,
@@ -1002,8 +990,7 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         elif not essential_entities:
             print("  EC37: skipped (no essential entities)", flush=True)
         else:
-            went_stale, stale_val = _wait_stale("EC37", _cached_stale_val)
-            _cached_stale_val = stale_val if went_stale else _cached_stale_val
+            went_stale, stale_val = _wait_stale("EC37")
             chk(
                 "EC37 stale_count > 0",
                 int(stale_val or 0) > 0,
@@ -1023,8 +1010,7 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             print("  EC38: skipped (no essential entities)", flush=True)
         else:
             # Ensure stale (reuse cached value if already stale)
-            went_stale, stale_val = _wait_stale("EC38", _cached_stale_val)
-            _cached_stale_val = stale_val if went_stale else _cached_stale_val
+            went_stale, stale_val = _wait_stale("EC38")
             stale_attrs = gs(f"{prefix}_stale_entities").get("attributes", {})
             # entities attr is a list of entity_ids (same pattern as recently_offline/recovered)
             stale_entity_list = stale_attrs.get("entities", [])
