@@ -21,11 +21,9 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
-    CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BATTERY_THRESHOLD,
-    DEFAULT_STALENESS_USE_LAST_UPDATED,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     NO_AREA_SENTINEL,
@@ -1012,9 +1010,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         )
 
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
-        use_last_updated = self.coordinator.entry.data.get(
-            CONF_STALENESS_USE_LAST_UPDATED, DEFAULT_STALENESS_USE_LAST_UPDATED
-        )
+        use_last_updated = self.coordinator._staleness_use_last_updated
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,

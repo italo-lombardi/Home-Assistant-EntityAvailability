@@ -633,6 +633,7 @@ class EntityAvailabilityCard extends LitElement {
     super();
     this._config = {};
     this._entitiesExpanded = false;
+    this._lastSeen = {};
   }
 
   setConfig(config) {
@@ -1220,7 +1221,7 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _computeDuration(entityId) {
-    const ts = this._lastSeen?.[entityId];
+    const ts = this._lastSeen?.[entityId] || this.hass?.states?.[entityId]?.last_changed;
     if (!ts) return null;
 
     const diff = Date.now() - new Date(ts).getTime();

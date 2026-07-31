@@ -346,6 +346,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         for entity_id, device in self._device_states.items():
             if entity_id not in self._entities:
                 continue
+            # last_changed is non-None for all active entities after the first
+            # real state-change event, so this guard includes most devices.
+            # Saves are periodic (_SAVE_INTERVAL_UPDATES) — not per-event.
             if (
                 device.is_offline
                 or device.cooldown_start is not None
