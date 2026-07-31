@@ -774,7 +774,6 @@ class EntityAvailabilityCard extends LitElement {
       : "All OK";
 
     const showNEStats = this._config.show_non_essential_stats === true && nonEssential > 0;
-    const visibleNonEssentialEntities = showNEStats ? nonEssentialEntities : [];
 
     return html`
       <ha-card class="${compactClass}">

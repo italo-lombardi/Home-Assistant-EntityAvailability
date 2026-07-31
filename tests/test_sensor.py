@@ -2981,6 +2981,31 @@ class TestNonEssentialKpiExclusion:
         attrs = sensor.extra_state_attributes
         assert "binary_sensor.device_a" not in attrs["stale_entities_non_essential"]
 
+    def test_stale_entities_includes_stale_online(self, mock_coordinator, mock_hass):
+        """GroupSummarySensor: stale+not-offline essential entity appears in stale_entities."""
+        mock_coordinator.device_states["binary_sensor.device_a"].is_stale = True
+        mock_coordinator.device_states["binary_sensor.device_a"].is_offline = False
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_a" in attrs["stale_entities"]
+
+    def test_stale_entities_non_essential_includes_stale_online(
+        self, mock_coordinator, mock_hass
+    ):
+        """GroupSummarySensor: stale+not-offline NE entity appears in stale_entities_non_essential."""
+        mock_coordinator.device_states["binary_sensor.device_a"].is_stale = True
+        mock_coordinator.device_states["binary_sensor.device_a"].is_offline = False
+        mock_coordinator.device_states["binary_sensor.device_a"].is_non_essential = True
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_a" in attrs["stale_entities_non_essential"]
+
 
 class TestNonEssentialAndStaleSensors:
     """Tests for the dedicated non-essential and stale sensor entities."""
