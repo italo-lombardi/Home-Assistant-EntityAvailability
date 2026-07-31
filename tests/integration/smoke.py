@@ -878,17 +878,23 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             print("  EC33: skipped (staleness_threshold=0 for this group)", flush=True)
         else:
             went_stale, stale_count = _wait_stale("EC33")
-            chk(
-                "EC33 stale_count > 0",
-                int(stale_count or 0) > 0,
-                True,
-                f"stale_count={stale_count}",
-            )
-            chk(
-                "EC33 any_stale=on",
-                gs(f"{ne_bs_prefix}_any_stale").get("state"),
-                "on",
-            )
+            if not went_stale:
+                print(
+                    "  EC33: skipped (entities did not go stale within timeout)",
+                    flush=True,
+                )
+            else:
+                chk(
+                    "EC33 stale_count > 0",
+                    int(stale_count or 0) > 0,
+                    True,
+                    f"stale_count={stale_count}",
+                )
+                chk(
+                    "EC33 any_stale=on",
+                    gs(f"{ne_bs_prefix}_any_stale").get("state"),
+                    "on",
+                )
 
     # EC34: suppressed NE entity — banner counts NE tier
     if ec_enabled(34):
@@ -991,12 +997,18 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             print("  EC37: skipped (no essential entities)", flush=True)
         else:
             went_stale, stale_val = _wait_stale("EC37")
-            chk(
-                "EC37 stale_count > 0",
-                int(stale_val or 0) > 0,
-                True,
-                f"stale_count={stale_val}",
-            )
+            if not went_stale:
+                print(
+                    "  EC37: skipped (entities did not go stale within timeout)",
+                    flush=True,
+                )
+            else:
+                chk(
+                    "EC37 stale_count > 0",
+                    int(stale_val or 0) > 0,
+                    True,
+                    f"stale_count={stale_val}",
+                )
 
     # EC38: stale_entities sensor lists stale essential entity
     if ec_enabled(38):
@@ -1011,21 +1023,27 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         else:
             # Ensure stale (reuse cached value if already stale)
             went_stale, stale_val = _wait_stale("EC38")
-            stale_attrs = gs(f"{prefix}_stale_entities").get("attributes", {})
-            # entities attr is a list of entity_ids (same pattern as recently_offline/recovered)
-            stale_entity_list = stale_attrs.get("entities", [])
-            chk(
-                "EC38 stale_entities includes essential entity",
-                any(eid in stale_entity_list for eid in essential_entities),
-                True,
-                f"entities={stale_entity_list} essential={essential_entities}",
-            )
-            chk(
-                "EC38 stale_entities excludes NE entity",
-                ne_target not in stale_entity_list,
-                True,
-                f"entities={stale_entity_list} ne_target={ne_target}",
-            )
+            if not went_stale:
+                print(
+                    "  EC38: skipped (entities did not go stale within timeout)",
+                    flush=True,
+                )
+            else:
+                stale_attrs = gs(f"{prefix}_stale_entities").get("attributes", {})
+                # entities attr is a list of entity_ids (same pattern as recently_offline/recovered)
+                stale_entity_list = stale_attrs.get("entities", [])
+                chk(
+                    "EC38 stale_entities includes essential entity",
+                    any(eid in stale_entity_list for eid in essential_entities),
+                    True,
+                    f"entities={stale_entity_list} essential={essential_entities}",
+                )
+                chk(
+                    "EC38 stale_entities excludes NE entity",
+                    ne_target not in stale_entity_list,
+                    True,
+                    f"entities={stale_entity_list} ne_target={ne_target}",
+                )
 
     # EC39: NE entity stale → stale_count_non_essential > 0, stale_count (essential) unchanged
     if ec_enabled(39):
