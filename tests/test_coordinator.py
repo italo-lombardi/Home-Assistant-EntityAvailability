@@ -4352,6 +4352,68 @@ async def test_load_storage_restores_last_updated(
 
 
 @pytest.mark.asyncio
+async def test_last_seen_round_trip_persistence(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """last_changed and last_updated survive a full save → load cycle with tzinfo intact."""
+    hass = mock_hass
+    staleness_config_data = dict(mock_config_data)
+    staleness_config_data[CONF_STALENESS_THRESHOLD] = 10
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=staleness_config_data,
+        entry_id="test_round_trip",
+        unique_id=f"{DOMAIN}_test_round_trip",
+    )
+    entry.add_to_hass(hass)
+
+    lc_ts = datetime.now(timezone.utc) - timedelta(hours=3)
+    lu_ts = datetime.now(timezone.utc) - timedelta(hours=2)
+
+    saved: dict = {}
+
+    async def _capture_save(data: dict) -> None:
+        saved.update(data)
+
+    coord = EntityAvailabilityCoordinator(hass, entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=None)
+    coord._store.async_save = AsyncMock(side_effect=lambda d: saved.update(d) or None)
+
+    from custom_components.entity_availability.models import DeviceState
+
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        last_changed=lc_ts,
+        last_updated=lu_ts,
+    )
+
+    await coord._async_save_storage()
+    assert "binary_sensor.device_a" in saved.get("device_states", {})
+    assert saved["device_states"]["binary_sensor.device_a"]["last_changed"] is not None
+    assert saved["device_states"]["binary_sensor.device_a"]["last_updated"] is not None
+
+    # Now reload from what was saved
+    coord2 = EntityAvailabilityCoordinator(hass, entry)
+    coord2._store = MagicMock()
+    coord2._store.async_load = AsyncMock(return_value=saved)
+    coord2._store.async_save = AsyncMock()
+
+    await coord2._async_load_storage()
+
+    device = coord2._device_states["binary_sensor.device_a"]
+    assert device.last_changed is not None
+    assert device.last_changed.tzinfo is not None
+    assert abs((device.last_changed - lc_ts).total_seconds()) < 1
+    assert device.last_updated is not None
+    assert device.last_updated.tzinfo is not None
+    assert abs((device.last_updated - lu_ts).total_seconds()) < 1
+
+
+@pytest.mark.asyncio
 async def test_handle_state_change_records_last_changed(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:

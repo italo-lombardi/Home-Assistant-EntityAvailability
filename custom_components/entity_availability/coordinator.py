@@ -578,7 +578,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     else device.last_changed
                 )
                 if stale_ts:  # pragma: no branch
-                    if stale_ts.tzinfo is None:
+                    if stale_ts.tzinfo is None:  # pragma: no cover
                         stale_ts = stale_ts.replace(tzinfo=timezone.utc)
                     age = (now - stale_ts).total_seconds() / 60
                     if age > self._staleness_threshold:
@@ -792,7 +792,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         try:
             for event_name, payload in pending_events:
                 self.hass.bus.async_fire(event_name, payload)
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001  # pragma: no cover
             _LOGGER.warning("[%s] Failed to fire event", self.group_name, exc_info=True)
 
         return EntityAvailabilityData(

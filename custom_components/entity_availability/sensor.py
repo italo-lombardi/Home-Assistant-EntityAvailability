@@ -21,9 +21,11 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BATTERY_THRESHOLD,
+    DEFAULT_STALENESS_USE_LAST_UPDATED,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     NO_AREA_SENTINEL,
@@ -1010,6 +1012,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         )
 
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        use_last_updated = self.coordinator.entry.data.get(
+            CONF_STALENESS_USE_LAST_UPDATED, DEFAULT_STALENESS_USE_LAST_UPDATED
+        )
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
@@ -1065,9 +1070,11 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 if d.offline_since is not None
             },
             "last_seen": {
-                eid: d.last_changed.isoformat()
+                eid: (
+                    d.last_updated if use_last_updated else d.last_changed
+                ).isoformat()
                 for eid, d in states.items()
-                if d.last_changed is not None
+                if (d.last_updated if use_last_updated else d.last_changed) is not None
             },
         }
 
