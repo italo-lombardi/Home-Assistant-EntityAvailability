@@ -1122,9 +1122,7 @@ class EntityAvailabilityCard extends LitElement {
 
   _buildDetailRows(item, suppressedUntilMap) {
     const entityState = this.hass.states[item.entityId];
-    const lastChanged = entityState?.last_changed
-      ? this._computeDuration(item.entityId)
-      : null;
+    const lastChanged = this._computeDuration(item.entityId);
 
     const areaId = this.hass.entities?.[item.entityId]?.area_id;
     const areaName = areaId ? (this.hass.areas?.[areaId]?.name || null) : null;
@@ -1151,9 +1149,7 @@ class EntityAvailabilityCard extends LitElement {
     let rows;
     if (compact) {
       const entityState = this.hass.states[item.entityId];
-      const lastChanged = entityState?.last_changed
-        ? this._computeDuration(item.entityId)
-        : null;
+      const lastChanged = this._computeDuration(item.entityId);
       const haStateValue = lastChanged
         ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
         : this._formatStateWithUnit(entityState);
@@ -1224,8 +1220,7 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _computeDuration(entityId) {
-    const state = this.hass?.states?.[entityId];
-    const ts = (this._lastSeen && this._lastSeen[entityId]) || state?.last_changed;
+    const ts = this._lastSeen?.[entityId];
     if (!ts) return null;
 
     const diff = Date.now() - new Date(ts).getTime();

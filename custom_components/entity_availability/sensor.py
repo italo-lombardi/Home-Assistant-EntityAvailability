@@ -1070,11 +1070,10 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 if d.offline_since is not None
             },
             "last_seen": {
-                eid: (
-                    d.last_updated if use_last_updated else d.last_changed
-                ).isoformat()
+                eid: ts.isoformat()
                 for eid, d in states.items()
-                if (d.last_updated if use_last_updated else d.last_changed) is not None
+                if (ts := d.last_updated if use_last_updated else d.last_changed)
+                is not None
             },
         }
 

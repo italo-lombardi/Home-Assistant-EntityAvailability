@@ -4316,46 +4316,10 @@ async def test_load_storage_restores_last_changed(
 
 
 @pytest.mark.asyncio
-async def test_load_storage_restores_last_updated(
-    mock_hass: HomeAssistant, mock_config_entry
-) -> None:
-    """last_updated is restored from storage with UTC tzinfo."""
-    hass = mock_hass
-    stored_ts = datetime.now(timezone.utc) - timedelta(hours=1)
-    naive_ts = stored_ts.replace(tzinfo=None)
-
-    stored_data = {
-        "availability": {},
-        "suppressed": {},
-        "device_states": {
-            "binary_sensor.device_a": {
-                "is_offline": False,
-                "offline_since": None,
-                "cooldown_start": None,
-                "recently_offline_at": None,
-                "last_updated": naive_ts.isoformat(),
-            }
-        },
-    }
-
-    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
-    coord._store = MagicMock()
-    coord._store.async_load = AsyncMock(return_value=stored_data)
-    coord._store.async_save = AsyncMock()
-
-    await coord._async_load_storage()
-
-    device = coord._device_states["binary_sensor.device_a"]
-    assert device.last_updated is not None
-    assert device.last_updated.tzinfo is not None
-    assert abs((device.last_updated - stored_ts).total_seconds()) < 1
-
-
-@pytest.mark.asyncio
 async def test_last_seen_round_trip_persistence(
     mock_hass: HomeAssistant, mock_config_data
 ) -> None:
-    """last_changed and last_updated survive a full save → load cycle with tzinfo intact."""
+    """last_changed survives a full save → load cycle with tzinfo intact."""
     hass = mock_hass
     staleness_config_data = dict(mock_config_data)
     staleness_config_data[CONF_STALENESS_THRESHOLD] = 10
@@ -4371,12 +4335,8 @@ async def test_last_seen_round_trip_persistence(
     entry.add_to_hass(hass)
 
     lc_ts = datetime.now(timezone.utc) - timedelta(hours=3)
-    lu_ts = datetime.now(timezone.utc) - timedelta(hours=2)
 
     saved: dict = {}
-
-    async def _capture_save(data: dict) -> None:
-        saved.update(data)
 
     coord = EntityAvailabilityCoordinator(hass, entry)
     coord._store = MagicMock()
@@ -4388,13 +4348,11 @@ async def test_last_seen_round_trip_persistence(
     coord._device_states["binary_sensor.device_a"] = DeviceState(
         entity_id="binary_sensor.device_a",
         last_changed=lc_ts,
-        last_updated=lu_ts,
     )
 
     await coord._async_save_storage()
     assert "binary_sensor.device_a" in saved.get("device_states", {})
     assert saved["device_states"]["binary_sensor.device_a"]["last_changed"] is not None
-    assert saved["device_states"]["binary_sensor.device_a"]["last_updated"] is not None
 
     # Now reload from what was saved
     coord2 = EntityAvailabilityCoordinator(hass, entry)
@@ -4408,9 +4366,6 @@ async def test_last_seen_round_trip_persistence(
     assert device.last_changed is not None
     assert device.last_changed.tzinfo is not None
     assert abs((device.last_changed - lc_ts).total_seconds()) < 1
-    assert device.last_updated is not None
-    assert device.last_updated.tzinfo is not None
-    assert abs((device.last_updated - lu_ts).total_seconds()) < 1
 
 
 @pytest.mark.asyncio
@@ -4487,36 +4442,6 @@ async def test_load_storage_bad_last_changed_ignored(
 
     device = coord._device_states["binary_sensor.device_a"]
     assert device.last_changed is None
-
-
-@pytest.mark.asyncio
-async def test_load_storage_bad_last_updated_ignored(
-    mock_hass: HomeAssistant, mock_config_entry
-) -> None:
-    """Malformed last_updated in storage is silently ignored."""
-    hass = mock_hass
-    stored_data = {
-        "availability": {},
-        "suppressed": {},
-        "device_states": {
-            "binary_sensor.device_a": {
-                "is_offline": False,
-                "offline_since": None,
-                "cooldown_start": None,
-                "recently_offline_at": None,
-                "last_updated": "not-a-date",
-            }
-        },
-    }
-    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
-    coord._store = MagicMock()
-    coord._store.async_load = AsyncMock(return_value=stored_data)
-    coord._store.async_save = AsyncMock()
-
-    await coord._async_load_storage()
-
-    device = coord._device_states["binary_sensor.device_a"]
-    assert device.last_updated is None
 
 
 @pytest.mark.asyncio
@@ -4610,49 +4535,3 @@ async def test_polling_does_not_overwrite_restored_last_changed(
 
     device = coord._device_states["binary_sensor.device_a"]
     assert abs((device.last_changed - stored_ts).total_seconds()) < 1
-
-
-@pytest.mark.asyncio
-async def test_handle_state_change_updates_last_updated(
-    mock_hass: HomeAssistant, mock_config_entry
-) -> None:
-    """_handle_state_change captures both last_changed and last_updated from the event."""
-    from homeassistant.core import Event, EventOrigin
-    from custom_components.entity_availability.models import DeviceState
-
-    hass = mock_hass
-    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
-
-    known_ts = datetime.now(timezone.utc) - timedelta(minutes=20)
-    coord._device_states["binary_sensor.device_a"] = DeviceState(
-        entity_id="binary_sensor.device_a"
-    )
-
-    new_state = State(
-        "binary_sensor.device_a",
-        STATE_ON,
-        {},
-        last_changed=known_ts,
-        last_updated=known_ts,
-    )
-    event = Event(
-        "state_changed",
-        {
-            "entity_id": "binary_sensor.device_a",
-            "new_state": new_state,
-            "old_state": None,
-        },
-        EventOrigin.local,
-    )
-
-    with patch(
-        "custom_components.entity_availability.coordinator.async_call_later",
-        return_value=lambda: None,
-    ):
-        coord._handle_state_change(event)
-
-    device = coord._device_states["binary_sensor.device_a"]
-    assert device.last_changed is not None
-    assert device.last_updated is not None
-    assert abs((device.last_updated - known_ts).total_seconds()) < 1
-    assert device.last_updated.tzinfo is not None
