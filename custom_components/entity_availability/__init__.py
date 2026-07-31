@@ -79,8 +79,10 @@ async def _async_install_card(hass: HomeAssistant) -> None:
     if domain_data.get(_CARD_INSTALLED_KEY) == version:
         return
 
-    # Claim the slot before first await to prevent TOCTOU race when multiple
-    # entries finish setup concurrently — only one proceeds past this point.
+    # Claim the slot before proceeding so concurrent entry setups skip this
+    # block. Two racing callers may both read version before either claims, but
+    # static-path registration and Lovelace resource update are both idempotent
+    # so a duplicate run is harmless.
     domain_data[_CARD_INSTALLED_KEY] = version
 
     source = Path(__file__).parent / "frontend" / CARD_FILENAME
