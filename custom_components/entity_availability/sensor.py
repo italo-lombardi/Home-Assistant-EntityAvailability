@@ -1011,12 +1011,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
 
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
         use_last_updated = self.coordinator._staleness_use_last_updated
-        battery_enabled = (
-            self.coordinator.entry.data.get(
-                CONF_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD
-            )
-            > 0
-        )
+        battery_enabled = self.coordinator.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0
         staleness_enabled = self.coordinator._staleness_threshold > 0
         return {
             "entry_id": self.coordinator.entry.entry_id,
