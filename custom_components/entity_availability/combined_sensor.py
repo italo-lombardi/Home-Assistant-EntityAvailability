@@ -458,6 +458,29 @@ class CombinedGroupSensor(CombinedSensorBase):
                 for d in states.values()
                 if d.is_non_essential and not d.is_suppressed
             ]
+            g_non_essential_offline = sum(
+                1
+                for d in states.values()
+                if d.is_non_essential and not d.is_suppressed and d.is_offline
+            )
+            g_non_essential_online = sum(
+                1
+                for d in states.values()
+                if d.is_non_essential and not d.is_suppressed and not d.is_offline
+            )
+            g_non_essential_stale = sum(
+                1
+                for d in states.values()
+                if d.is_non_essential and not d.is_suppressed and d.is_stale
+            )
+            g_non_essential_low_battery = sum(
+                1
+                for d in states.values()
+                if d.is_non_essential
+                and not d.is_suppressed
+                and not d.is_offline
+                and d.is_low_battery
+            )
             groups[coord.entry.entry_id] = {
                 "name": gname,
                 "entity_id": gsummary,
@@ -470,6 +493,13 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "non_essential": g_non_essential,
                 "non_essential_suppressed": g_non_essential_suppressed,
                 "non_essential_entities": g_non_essential_entities,
+                "non_essential_offline": g_non_essential_offline,
+                "non_essential_online": g_non_essential_online,
+                "non_essential_stale": g_non_essential_stale,
+                "non_essential_low_battery": g_non_essential_low_battery,
+                "battery_enabled": coord.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0,
+                "staleness_enabled": coord.entry.data.get(CONF_STALENESS_THRESHOLD, 0)
+                > 0,
                 "battery_powered": g_battery_powered,
             }
 

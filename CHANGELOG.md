@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - **Card: Stale count chip** in stats row; hidden when zero
 - **Card: per-entity suppress toggle** (`show_suppress_toggle`, default off)
 - **Card: combined groups table** — Total column (entities per group), conditional Bat. and Stale columns (shown only when feature is enabled and count > 0)
+- **Card: combined groups NE sub-row** (`show_non_essential_stats`, default off) — opt-in sub-row per group showing NE Online/Offline and (when feature enabled) Bat./Stale counts; toggle now available for combined card in config editor
 - **Sensor: `battery_enabled` / `staleness_enabled` attrs** — group summary and combined summary sensors now expose these boolean flags so the card hides battery/stale indicators when the feature is disabled (`threshold=0`), even if stale battery levels exist in entity state
 
 ### Fixed
