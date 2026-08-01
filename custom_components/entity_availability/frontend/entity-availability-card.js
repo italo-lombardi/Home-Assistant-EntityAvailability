@@ -290,6 +290,10 @@ const cardStyles = css`
     font-size: 13px;
   }
 
+  .group-breakdown-row.has-stale {
+    grid-template-columns: 1fr repeat(4, 56px);
+  }
+
   .group-breakdown-row.clickable {
     cursor: pointer;
   }
@@ -967,6 +971,8 @@ class EntityAvailabilityCard extends LitElement {
     });
 
     const expanded = this._entitiesExpanded;
+    const hasStale = entries.some(([, g]) => (g.stale ?? 0) > 0);
+    const staleClass = hasStale ? "has-stale" : "";
 
     return html`
       <div class="divider"></div>
@@ -975,19 +981,21 @@ class EntityAvailabilityCard extends LitElement {
         <ha-icon class="chevron ${expanded ? "expanded" : ""}" icon="mdi:chevron-down"></ha-icon>
       </div>
       <div class="group-breakdown ${expanded ? "expanded" : "collapsed"}">
-        <div class="group-breakdown-row group-breakdown-header">
+        <div class="group-breakdown-row group-breakdown-header ${staleClass}">
           <span>Group</span>
           <span style="text-align:center">Online</span>
           <span style="text-align:center">Offline</span>
           <span style="text-align:center">Bat.</span>
+          ${hasStale ? html`<span style="text-align:center">Stale</span>` : nothing}
         </div>
         ${entries.map(([, g]) => html`
-          <div class="group-breakdown-row ${g.entity_id ? "clickable" : ""}"
+          <div class="group-breakdown-row ${staleClass} ${g.entity_id ? "clickable" : ""}"
                @click=${g.entity_id ? (e) => this._handleEntityClick(e, g.entity_id) : nothing}>
             <span class="group-breakdown-name">${g.name ?? ""}</span>
             <span class="group-breakdown-count online">${g.online ?? 0}</span>
             <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
             <span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>
+            ${hasStale ? html`<span class="group-breakdown-count ${g.stale > 0 ? "battery" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
           </div>
         `)}
       </div>
