@@ -1019,7 +1019,7 @@ class EntityAvailabilityCard extends LitElement {
           <span class="sep" style="text-align:center">Online</span>
           <span style="text-align:center">Offline</span>
           ${hasBattery ? html`<span class="sep" style="text-align:center">Bat.</span>` : nothing}
-          ${hasStale ? html`<span style="text-align:center">Stale</span>` : nothing}
+          ${hasStale ? html`<span class="${!hasBattery ? "sep" : ""}" style="text-align:center">Stale</span>` : nothing}
         </div>
         ${entries.map(([, g]) => {
           const neCount = g.non_essential ?? 0;
@@ -1032,7 +1032,7 @@ class EntityAvailabilityCard extends LitElement {
               <span class="group-breakdown-count sep online">${g.online ?? 0}</span>
               <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
               ${hasBattery ? html`<span class="group-breakdown-count sep ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>` : nothing}
-              ${hasStale ? html`<span class="group-breakdown-count ${g.stale > 0 ? "stale" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
+              ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.stale > 0 ? "stale" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
             </div>
             ${showNERow ? html`
               <div class="group-breakdown-row group-breakdown-ne-row" style="${gridStyle}">
@@ -1041,7 +1041,7 @@ class EntityAvailabilityCard extends LitElement {
                 <span class="group-breakdown-count sep neutral">${g.non_essential_online ?? 0}</span>
                 <span class="group-breakdown-count ${(g.non_essential_offline ?? 0) > 0 ? "offline" : "neutral"}">${g.non_essential_offline ?? 0}</span>
                 ${hasBattery ? html`<span class="group-breakdown-count sep ${hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
-                ${hasStale ? html`<span class="group-breakdown-count ${hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
+                ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
               </div>
             ` : nothing}
           `;
