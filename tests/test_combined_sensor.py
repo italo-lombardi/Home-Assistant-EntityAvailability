@@ -3080,8 +3080,12 @@ class TestCombinedNonEssential:
         assert g["non_essential_stale"] == 1  # a1 stale
         assert g["non_essential_low_battery"] == 1  # a1 low-battery (not offline)
         # fixture entry has no battery/staleness threshold → both disabled
-        assert g["battery_enabled"] == (coordinator_a.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0)
-        assert g["staleness_enabled"] == (coordinator_a.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0)
+        assert g["battery_enabled"] == (
+            coordinator_a.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0
+        )
+        assert g["staleness_enabled"] == (
+            coordinator_a.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0
+        )
         assert g["battery_enabled"] is False
         assert g["staleness_enabled"] is False
 
