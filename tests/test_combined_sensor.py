@@ -3081,3 +3081,22 @@ class TestCombinedNonEssential:
         assert g["non_essential_low_battery"] == 1  # a1 low-battery (not offline)
         assert "battery_enabled" in g
         assert "staleness_enabled" in g
+
+    def test_per_group_ne_low_battery_counts_offline_entities(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """NE low_battery count includes offline entities — matches sensor.py behaviour."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        # a2: NE, offline AND low-battery — must still be counted
+        coordinator_a.device_states["binary_sensor.a2"].is_non_essential = True
+        coordinator_a.device_states["binary_sensor.a2"].is_low_battery = True
+
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Test Combined",
+            "test_combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+        g = sensor.extra_state_attributes["groups"][coordinator_a.entry.entry_id]
+        assert g["non_essential_low_battery"] == 1

@@ -994,8 +994,8 @@ class EntityAvailabilityCard extends LitElement {
     const showNEStats = this._config.show_non_essential_stats === true;
     // Feature-enabled flags guard: battery/stale columns must NEVER appear when
     // the feature is disabled (threshold=0), even if counts are non-zero.
-    const hasBattery = batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0);
-    const hasStale = stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0);
+    const hasBattery = batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0 || (showNEStats && g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0));
+    const hasStale = stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0 || (showNEStats && g.staleness_enabled && (g.non_essential_stale ?? 0) > 0));
     // NE battery/stale columns: only show if at least one group has the feature enabled and NE counts > 0.
     const hasNEBattery = showNEStats && entries.some(([, g]) => g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0);
     const hasNEStale = showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);

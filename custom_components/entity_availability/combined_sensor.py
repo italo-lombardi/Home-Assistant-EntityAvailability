@@ -476,10 +476,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             g_non_essential_low_battery = sum(
                 1
                 for d in states.values()
-                if d.is_non_essential
-                and not d.is_suppressed
-                and not d.is_offline
-                and d.is_low_battery
+                if d.is_non_essential and not d.is_suppressed and d.is_low_battery
             )
             groups[coord.entry.entry_id] = {
                 "name": gname,
