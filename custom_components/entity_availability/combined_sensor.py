@@ -409,7 +409,8 @@ class CombinedGroupSensor(CombinedSensorBase):
         registry = er.async_get(self.hass)
         for coord in active:
             states = coord.device_states
-            g_total = len(coord.monitored_entities)
+            g_non_essential = sum(1 for d in states.values() if d.is_non_essential)
+            g_total = len(coord.monitored_entities) - g_non_essential
             g_offline = sum(
                 1
                 for d in states.values()
@@ -418,11 +419,10 @@ class CombinedGroupSensor(CombinedSensorBase):
             g_suppressed = sum(
                 1 for d in states.values() if d.is_suppressed and not d.is_non_essential
             )
-            g_non_essential = sum(1 for d in states.values() if d.is_non_essential)
             g_non_essential_suppressed = sum(
                 1 for d in states.values() if d.is_non_essential and d.is_suppressed
             )
-            g_online = g_total - g_offline - g_suppressed - g_non_essential
+            g_online = g_total - g_offline - g_suppressed
             g_stale = sum(
                 1
                 for d in states.values()

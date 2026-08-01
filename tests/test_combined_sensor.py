@@ -3100,3 +3100,23 @@ class TestCombinedNonEssential:
         )
         g = sensor.extra_state_attributes["groups"][coordinator_a.entry.entry_id]
         assert g["non_essential_low_battery"] == 1
+
+    def test_per_group_total_excludes_non_essential(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """Per-group total must exclude NE entities — Total column must match Online+Offline scope."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        # a1: NE — should not count toward total
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Test Combined",
+            "test_combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+        g = sensor.extra_state_attributes["groups"][coordinator_a.entry.entry_id]
+        # group A has a1 (NE) + a2 (essential, offline) → total = 1
+        assert g["total"] == 1
+        assert g["non_essential"] == 1
