@@ -3086,8 +3086,6 @@ class TestCombinedNonEssential:
         assert g["staleness_enabled"] == (
             coordinator_a.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0
         )
-        assert g["battery_enabled"] is False
-        assert g["staleness_enabled"] is False
 
     def test_per_group_ne_low_battery_counts_offline_entities(
         self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
@@ -3127,3 +3125,31 @@ class TestCombinedNonEssential:
         # group A has a1 (NE) + a2 (essential, offline) → total = 1
         assert g["total"] == 1
         assert g["non_essential"] == 1
+
+    def test_per_group_suppressed_ne_excluded_from_ne_count(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """Suppressed NE entities must not count toward non_essential — NE sub-row Total must equal Online+Offline."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        # a1: NE, online, unsuppressed
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        # a2: NE, suppressed — must NOT appear in non_essential count
+        coordinator_a.device_states["binary_sensor.a2"].is_non_essential = True
+        coordinator_a.device_states["binary_sensor.a2"].is_suppressed = True
+
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Test Combined",
+            "test_combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+        g = sensor.extra_state_attributes["groups"][coordinator_a.entry.entry_id]
+        # Only a1 is unsuppressed NE → non_essential=1, online=1, offline=0
+        assert g["non_essential"] == 1
+        assert g["non_essential_online"] == 1
+        assert g["non_essential_offline"] == 0
+        # Total = non_essential (shown in sub-row) = online + offline
+        assert (
+            g["non_essential"] == g["non_essential_online"] + g["non_essential_offline"]
+        )
