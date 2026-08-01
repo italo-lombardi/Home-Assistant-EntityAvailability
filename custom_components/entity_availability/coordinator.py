@@ -434,7 +434,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # the true last-changed across restarts (persisted in storage).
         if new_state is not None and entity_id in self._device_states:
             ts = new_state.last_changed
-            if ts is not None:
+            if ts is not None:  # pragma: no branch — HA always sets last_changed
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
                 self._device_states[entity_id].last_changed = ts
@@ -539,13 +539,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 and device.battery_level < self._battery_threshold
             )
 
-            # Seed last_changed on first encounter regardless of staleness config.
-            # Real updates come from _handle_state_change; this covers stable
-            # devices that never fire a state_changed event so last_seen persists
-            # across restarts. Guard prevents re-seeding after storage restores it.
+            # Seed on first encounter; real updates come from _handle_state_change.
             if device.last_changed is None and state:
                 ts = state.last_changed
-                if ts is not None:  # pragma: no branch
+                if ts is not None:  # pragma: no branch — HA always sets last_changed
                     if ts.tzinfo is None:
                         ts = ts.replace(tzinfo=timezone.utc)
                     device.last_changed = ts

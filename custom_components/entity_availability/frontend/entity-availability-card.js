@@ -324,6 +324,7 @@ const cardStyles = css`
   .group-breakdown-count.online { color: var(--eac-green); }
   .group-breakdown-count.offline { color: var(--eac-red); }
   .group-breakdown-count.battery { color: var(--eac-yellow); }
+  .group-breakdown-count.stale { color: var(--eac-yellow); }
 
   .entity-legend {
     display: flex;
@@ -995,7 +996,7 @@ class EntityAvailabilityCard extends LitElement {
             <span class="group-breakdown-count online">${g.online ?? 0}</span>
             <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
             <span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>
-            ${hasStale ? html`<span class="group-breakdown-count ${g.stale > 0 ? "battery" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
+            ${hasStale ? html`<span class="group-breakdown-count ${g.stale > 0 ? "stale" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
           </div>
         `)}
       </div>

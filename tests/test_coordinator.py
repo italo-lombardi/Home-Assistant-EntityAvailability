@@ -4321,14 +4321,11 @@ async def test_last_seen_seeded_without_staleness_config(
 ) -> None:
     """Stable device with no staleness config gets last_changed seeded on first poll."""
     hass = mock_hass
-    no_staleness_data = dict(mock_config_data)
-    no_staleness_data[CONF_STALENESS_THRESHOLD] = 0
-
     entry = MockConfigEntry(
         version=1,
         domain=DOMAIN,
         title="Test Group",
-        data=no_staleness_data,
+        data={**mock_config_data, CONF_STALENESS_THRESHOLD: 0},
         entry_id="test_seed_no_staleness",
         unique_id=f"{DOMAIN}_test_seed_no_staleness",
     )

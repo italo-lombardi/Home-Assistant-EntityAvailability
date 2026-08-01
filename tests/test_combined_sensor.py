@@ -708,6 +708,24 @@ class TestCombinedGroupSensor:
         assert attrs["groups"]["entry_a"]["entity_id"] is None
         assert any("entry_a" in r.message for r in caplog.records)
 
+    def test_groups_entity_id_set_when_summary_registered(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """groups[entry_id]['entity_id'] is populated when group summary is in the registry."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        registry_mock = MagicMock()
+        registry_mock.async_get_entity_id.return_value = "sensor.group_a_summary"
+        with patch(
+            "custom_components.entity_availability.combined_sensor.er.async_get",
+            return_value=registry_mock,
+        ):
+            attrs = sensor.extra_state_attributes
+        assert attrs["groups"]["entry_a"]["entity_id"] == "sensor.group_a_summary"
+
     def test_unique_id(self, mock_hass, combined_entry, coordinators):
         """unique_id uses entry_id + suffix."""
         mock_hass.data[DOMAIN] = {}
