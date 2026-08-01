@@ -553,6 +553,7 @@ group: Security Devices
 show_affected_areas: false
 show_availability: true
 show_entities: true
+show_non_essential_stats: false
 entities_expanded: false
 show_actions: false
 compact: false
