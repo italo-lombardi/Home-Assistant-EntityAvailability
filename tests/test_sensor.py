@@ -19,6 +19,7 @@ from custom_components.entity_availability.const import (
     CONF_BATTERY_THRESHOLD,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_STALENESS_THRESHOLD,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
 )
@@ -685,6 +686,76 @@ class TestGroupSummarySensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.unique_id == "test_entry_id_group_summary"
+
+    def test_battery_enabled_false_when_threshold_zero(
+        self, mock_hass, mock_config_data
+    ):
+        """battery_enabled must be False when battery_threshold=0 — card must never show battery."""
+        entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Test",
+            data={**mock_config_data, CONF_BATTERY_THRESHOLD: 0},
+            entry_id="test_bat_disabled",
+            unique_id=f"{DOMAIN}_test_bat_disabled",
+        )
+        entry.add_to_hass(mock_hass)
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, entry)
+            coord._device_states["binary_sensor.device_a"] = DeviceState(
+                entity_id="binary_sensor.device_a", is_low_battery=True, battery_level=5
+            )
+        sensor = GroupSummarySensor(coord, "Test", "test", entry.entry_id)
+        sensor.hass = mock_hass
+        assert sensor.extra_state_attributes["battery_enabled"] is False
+
+    def test_staleness_enabled_false_when_threshold_zero(
+        self, mock_hass, mock_config_data
+    ):
+        """staleness_enabled must be False when staleness_threshold=0 — card must never show stale."""
+        entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Test",
+            data={**mock_config_data, CONF_STALENESS_THRESHOLD: 0},
+            entry_id="test_stale_disabled",
+            unique_id=f"{DOMAIN}_test_stale_disabled",
+        )
+        entry.add_to_hass(mock_hass)
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, entry)
+            coord._device_states["binary_sensor.device_a"] = DeviceState(
+                entity_id="binary_sensor.device_a", is_stale=True
+            )
+        sensor = GroupSummarySensor(coord, "Test", "test", entry.entry_id)
+        sensor.hass = mock_hass
+        assert sensor.extra_state_attributes["staleness_enabled"] is False
+
+    def test_battery_enabled_false_when_key_absent(self, mock_hass, mock_config_data):
+        """battery_enabled must be False when CONF_BATTERY_THRESHOLD is absent from config."""
+        data = {
+            k: v for k, v in mock_config_data.items() if k != CONF_BATTERY_THRESHOLD
+        }
+        entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Test",
+            data=data,
+            entry_id="test_bat_absent",
+            unique_id=f"{DOMAIN}_test_bat_absent",
+        )
+        entry.add_to_hass(mock_hass)
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, entry)
+        sensor = GroupSummarySensor(coord, "Test", "test", entry.entry_id)
+        sensor.hass = mock_hass
+        assert sensor.extra_state_attributes["battery_enabled"] is False
 
 
 class TestRecentlyOfflineSensor:

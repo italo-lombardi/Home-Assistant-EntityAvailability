@@ -42,6 +42,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essentia
   EC23 PR#54: entity_availability_battery_ok event fires when battery recovers above threshold
   EC24 combined offline event carries source_groups list (websocket; skipped if websocket-client absent)
 
+  EC43 group_summary battery_enabled matches battery_threshold config
+  EC44 group_summary staleness_enabled matches staleness_threshold config
+  EC45 last_seen attr populated with past timestamps
+
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
   EC26 NE entity offline → offline_count_non_essential increments
@@ -389,6 +393,9 @@ for e in cfg['data']['entries']:
         "battery_threshold": data.get("battery_threshold", 20)
         if "data" in dir()
         else 20,
+        "staleness_threshold": data.get("staleness_threshold", 0)
+        if "data" in dir()
+        else 0,
         "mapped_battery_entity": mapped_battery_entity,
         "mapped_battery_sensor": mapped_battery_sensor,
         "combined_prefix": combined_prefix,
@@ -1391,10 +1398,14 @@ def main():
                     "unit_of_measurement": "%",
                 },
             )
-            wait()
             chk(
                 "EC7 combined low_battery=base+1",
-                int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+                wait_for(
+                    lambda: int(
+                        gs(f"{combined_prefix}_low_battery_count").get("state", "0")
+                    ),
+                    b_clb + 1,
+                ),
                 b_clb + 1,
                 f"(base={b_clb})",
             )
@@ -1411,16 +1422,25 @@ def main():
                 "unavailable",
                 {"friendly_name": "Test Battery", "device_class": "battery"},
             )
-            wait()
             chk(
                 "EC8 combined low_battery=base (offline excluded)",
-                int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+                wait_for(
+                    lambda: int(
+                        gs(f"{combined_prefix}_low_battery_count").get("state", "0")
+                    ),
+                    b_clb,
+                ),
                 b_clb,
                 f"(base={b_clb})",
             )
             chk(
                 "EC8 combined offline=base+1",
-                int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
+                wait_for(
+                    lambda: int(
+                        gs(f"{combined_prefix}_offline_count").get("state", "0")
+                    ),
+                    b_coff + 1,
+                ),
                 b_coff + 1,
                 f"(base={b_coff})",
             )
@@ -1514,6 +1534,12 @@ def main():
                 "group": ctx["title"],
             },
         )
+        wait_for(
+            lambda: str(
+                gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")
+            ),
+            "1",
+        )
         ss(suppressed_entity, "unavailable", {"friendly_name": "test"})
         wait()
         chk(
@@ -1606,7 +1632,14 @@ def main():
                 "/api/services/entity_availability/suppress_indefinitely",
                 {"entity_id": shared_entity, "group": alpha_title},
             )
-            wait()
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "1",
+            )
             alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
             beta_attrs = gs(f"{beta_prefix}_group_summary").get("attributes", {})
             chk(
@@ -1625,7 +1658,14 @@ def main():
                 "/api/services/entity_availability/unsuppress",
                 {"entity_id": shared_entity, "group": alpha_title},
             )
-            wait()
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "0",
+            )
             alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
             chk(
                 "EC12 suppressed=0 in Alpha after unsuppress",
@@ -2149,6 +2189,91 @@ def main():
             )
     elif ec_enabled(24):
         print("  EC24: skipped (no combined group found)", flush=True)
+
+    # ------------------------------------------------------------------
+    # EC43: battery_enabled flag matches config
+    # EC44: staleness_enabled flag matches config
+    # EC45: last_seen attr is populated with past timestamps
+    # ------------------------------------------------------------------
+    if ec_enabled(43):
+        print(
+            "\n=== EC43: group_summary battery_enabled matches battery_threshold config ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        if "battery_enabled" not in attrs:
+            print(
+                "  EC43: skipped (battery_enabled attr not present — deploy backend)",
+                flush=True,
+            )
+        else:
+            expected = threshold > 0
+            chk(
+                "EC43 battery_enabled matches threshold>0",
+                attrs["battery_enabled"],
+                expected,
+                f"threshold={threshold} battery_enabled={attrs['battery_enabled']}",
+            )
+
+    if ec_enabled(44):
+        print(
+            "\n=== EC44: group_summary staleness_enabled matches staleness_threshold config ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        if "staleness_enabled" not in attrs:
+            print(
+                "  EC44: skipped (staleness_enabled attr not present — deploy backend)",
+                flush=True,
+            )
+        else:
+            staleness_threshold = ctx["staleness_threshold"]
+            expected = staleness_threshold > 0
+            chk(
+                "EC44 staleness_enabled matches staleness_threshold>0",
+                attrs["staleness_enabled"],
+                expected,
+                f"staleness_threshold={staleness_threshold} staleness_enabled={attrs['staleness_enabled']}",
+            )
+
+    if ec_enabled(45):
+        print(
+            "\n=== EC45: group_summary last_seen populated with past timestamps ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        last_seen = attrs.get("last_seen", {})
+        if not last_seen:
+            print(
+                "  EC45: skipped (last_seen attr empty — entities may not have reported yet)",
+                flush=True,
+            )
+        else:
+            import datetime as _dt
+
+            now = _dt.datetime.now(_dt.timezone.utc)
+            bad = []
+            for eid, ts_str in last_seen.items():
+                try:
+                    ts = _dt.datetime.fromisoformat(ts_str)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=_dt.timezone.utc)
+                    if ts > now:
+                        bad.append(f"{eid}: {ts_str} is in the future")
+                except Exception as e:
+                    bad.append(f"{eid}: {ts_str} parse error {e}")
+            chk(
+                "EC45 all last_seen timestamps are in the past",
+                len(bad) == 0,
+                True,
+                f"bad={bad[:3]}",
+            )
+            chk(
+                "EC45 last_seen covers all monitored entities",
+                len(last_seen) > 0,
+                True,
+                f"last_seen keys={len(last_seen)} entities={len(ctx['entities'])}",
+            )
 
     # ------------------------------------------------------------------
     # EC25-EC35: Non-Essential entity tier

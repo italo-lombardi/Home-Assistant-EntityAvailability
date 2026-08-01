@@ -434,7 +434,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # the true last-changed across restarts (persisted in storage).
         if new_state is not None and entity_id in self._device_states:
             ts = new_state.last_changed
-            if ts is not None:
+            if ts is not None:  # pragma: no branch — HA always sets last_changed
                 if ts.tzinfo is None:
                     ts = ts.replace(tzinfo=timezone.utc)
                 self._device_states[entity_id].last_changed = ts
@@ -539,19 +539,20 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 and device.battery_level < self._battery_threshold
             )
 
+            # Seed on first encounter; real updates come from _handle_state_change.
+            if device.last_changed is None and state:
+                ts = state.last_changed
+                if ts is not None:  # pragma: no branch — HA always sets last_changed
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    device.last_changed = ts
+                    self._dirty = True
+
             # Staleness check. Uses last_updated when configured (advances on any
             # state write, including unchanged-value reports); otherwise last_changed.
             is_stale = False
             stale_ts = None
             if self._staleness_threshold > 0 and state:
-                # Only initialise from HA state on first encounter; real updates
-                # are captured in _handle_state_change to survive HA restarts.
-                if device.last_changed is None:
-                    ts = state.last_changed
-                    if ts is not None:
-                        if ts.tzinfo is None:
-                            ts = ts.replace(tzinfo=timezone.utc)
-                        device.last_changed = ts
                 # last_updated advances on same-value writes that never fire
                 # state_changed, so read directly from HA state each poll.
                 stale_ts = (

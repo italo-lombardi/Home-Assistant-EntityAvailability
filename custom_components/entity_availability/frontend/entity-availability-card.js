@@ -320,6 +320,7 @@ const cardStyles = css`
   .group-breakdown-count.online { color: var(--eac-green); }
   .group-breakdown-count.offline { color: var(--eac-red); }
   .group-breakdown-count.battery { color: var(--eac-yellow); }
+  .group-breakdown-count.stale { color: var(--eac-yellow); }
 
   .entity-legend {
     display: flex;
@@ -705,22 +706,27 @@ class EntityAvailabilityCard extends LitElement {
       const lowBattery = attrs.low_battery || 0;
       const suppressed = attrs.suppressed || 0;
       const nonEssential = attrs.non_essential || 0;
-      const staleCount = (attrs.stale_entities || []).length || attrs.stale || 0;
       const groups = attrs.groups || {};
+      // Feature-enabled flags: battery/staleness must NEVER appear when the
+      // feature is disabled (threshold=0), even if counts are non-zero.
+      const batteryEnabled = attrs.battery_enabled || false;
+      const stalenessEnabled = attrs.staleness_enabled || false;
+      const staleCount = stalenessEnabled ? ((attrs.stale_entities || []).length || attrs.stale || 0) : 0;
+      const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
 
-      const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
+      const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
       const compactClass = this._config.compact ? "compact" : "";
-      const statusText = offline > 0 ? `${offline} Offline` : (lowBattery > 0 || staleCount > 0) ? "Degraded" : "All OK";
+      const statusText = offline > 0 ? `${offline} Offline` : (effectiveLowBattery > 0 || staleCount > 0) ? "Degraded" : "All OK";
 
       return html`
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
-          ${this._renderStats(online, offline, lowBattery, staleCount)}
+          ${this._renderStats(online, offline, effectiveLowBattery, staleCount)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
-          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
+          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -758,21 +764,26 @@ class EntityAvailabilityCard extends LitElement {
     this._lastSeen = lastSeen;
     const lowBatteryEntities = attrs.low_battery_entities || [];
     const displayNames = attrs.display_names || {};
+    // Feature-enabled flags: battery/staleness must NEVER appear when the
+    // feature is disabled (threshold=0), even if counts are non-zero.
+    const batteryEnabled = attrs.battery_enabled || false;
+    const stalenessEnabled = attrs.staleness_enabled || false;
 
     const nonEssentialOnline = attrs.non_essential_online ?? 0;
     const nonEssentialOffline = attrs.non_essential_offline ?? 0;
     const lowBatteryNonEssential = attrs.low_battery_non_essential ?? 0;
     const nonEssentialSuppressed = attrs.non_essential_suppressed ?? 0;
-    const staleCount = staleEntities.length;
-    const staleCountNonEssential = staleEntitiesNonEssential.length;
+    const staleCount = stalenessEnabled ? staleEntities.length : 0;
+    const staleCountNonEssential = stalenessEnabled ? staleEntitiesNonEssential.length : 0;
+    const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
 
-    const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
+    const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0) ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
     const compactClass = this._config.compact ? "compact" : "";
 
     const statusText = offline > 0
       ? `${offline} Offline`
-      : (lowBattery > 0 || staleCount > 0)
+      : (effectiveLowBattery > 0 || staleCount > 0)
       ? "Degraded"
       : "All OK";
 
@@ -782,12 +793,12 @@ class EntityAvailabilityCard extends LitElement {
       <ha-card class="${compactClass}">
         ${this._renderHeader(title, statusColor, statusText)}
         <div class="divider"></div>
-        ${this._renderStats(online, offline, lowBattery, staleCount)}
-        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, lowBatteryNonEssential, staleCountNonEssential) : nothing}
+        ${this._renderStats(online, offline, effectiveLowBattery, staleCount)}
+        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, batteryEnabled ? lowBatteryNonEssential : 0, staleCountNonEssential) : nothing}
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
-        ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : []) : nothing}
+        ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled) : nothing}
         ${this._config.show_actions ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
@@ -878,7 +889,7 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = []) {
+  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], batteryEnabled = false) {
     if (entities.length === 0 && total === 0) return nothing;
 
     const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential);
@@ -891,7 +902,7 @@ class EntityAvailabilityCard extends LitElement {
       : allItems;
 
     const expanded = this._entitiesExpanded;
-    const hasBattery = allItems.some((i) => i.battery !== null);
+    const hasBattery = batteryEnabled && allItems.some((i) => i.battery !== null);
 
     const sectionTitle = filter === "offline" ? "Problem Entities"
       : filter === "online" ? "Healthy Entities"
@@ -950,7 +961,7 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderCombinedGroupBreakdown(groups) {
+  _renderCombinedGroupBreakdown(groups, batteryEnabled = false, stalenessEnabled = false) {
     const entries = Object.entries(groups);
     if (entries.length === 0) return nothing;
 
@@ -967,6 +978,12 @@ class EntityAvailabilityCard extends LitElement {
     });
 
     const expanded = this._entitiesExpanded;
+    // Feature-enabled flags guard: battery/stale columns must NEVER appear when
+    // the feature is disabled (threshold=0), even if counts are non-zero.
+    const hasBattery = batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0);
+    const hasStale = stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0);
+    const extraCols = 3 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
+    const gridStyle = `grid-template-columns: 1fr repeat(${extraCols}, 56px)`;
 
     return html`
       <div class="divider"></div>
@@ -975,19 +992,23 @@ class EntityAvailabilityCard extends LitElement {
         <ha-icon class="chevron ${expanded ? "expanded" : ""}" icon="mdi:chevron-down"></ha-icon>
       </div>
       <div class="group-breakdown ${expanded ? "expanded" : "collapsed"}">
-        <div class="group-breakdown-row group-breakdown-header">
+        <div class="group-breakdown-row group-breakdown-header" style="${gridStyle}">
           <span>Group</span>
+          <span style="text-align:center">Total</span>
           <span style="text-align:center">Online</span>
           <span style="text-align:center">Offline</span>
-          <span style="text-align:center">Bat.</span>
+          ${hasBattery ? html`<span style="text-align:center">Bat.</span>` : nothing}
+          ${hasStale ? html`<span style="text-align:center">Stale</span>` : nothing}
         </div>
         ${entries.map(([, g]) => html`
-          <div class="group-breakdown-row ${g.entity_id ? "clickable" : ""}"
+          <div class="group-breakdown-row ${g.entity_id ? "clickable" : ""}" style="${gridStyle}"
                @click=${g.entity_id ? (e) => this._handleEntityClick(e, g.entity_id) : nothing}>
             <span class="group-breakdown-name">${g.name ?? ""}</span>
+            <span class="group-breakdown-count neutral">${g.total ?? 0}</span>
             <span class="group-breakdown-count online">${g.online ?? 0}</span>
             <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
-            <span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>
+            ${hasBattery ? html`<span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>` : nothing}
+            ${hasStale ? html`<span class="group-breakdown-count ${g.stale > 0 ? "stale" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
           </div>
         `)}
       </div>

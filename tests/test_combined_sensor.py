@@ -30,10 +30,12 @@ from custom_components.entity_availability.combined_sensor import (
 from custom_components.entity_availability.const import (
     CONF_AVAILABILITY_WINDOWS,
     CONF_BATTERY_ENTITY_MAP,
+    CONF_BATTERY_THRESHOLD,
     CONF_COMBINED_GROUPS,
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_STALENESS_THRESHOLD,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DOMAIN,
@@ -708,11 +710,61 @@ class TestCombinedGroupSensor:
         assert attrs["groups"]["entry_a"]["entity_id"] is None
         assert any("entry_a" in r.message for r in caplog.records)
 
+    def test_groups_entity_id_set_when_summary_registered(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """groups[entry_id]['entity_id'] is populated when group summary is in the registry."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        registry_mock = MagicMock()
+        registry_mock.async_get_entity_id.return_value = "sensor.group_a_summary"
+        with patch(
+            "custom_components.entity_availability.combined_sensor.er.async_get",
+            return_value=registry_mock,
+        ):
+            attrs = sensor.extra_state_attributes
+        assert attrs["groups"]["entry_a"]["entity_id"] == "sensor.group_a_summary"
+
     def test_unique_id(self, mock_hass, combined_entry, coordinators):
         """unique_id uses entry_id + suffix."""
         mock_hass.data[DOMAIN] = {}
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.unique_id == "combined_1_combined_summary"
+
+    def test_battery_enabled_false_when_all_thresholds_zero(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """battery_enabled must be False when all groups have battery_threshold=0 — card must never show battery."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        for coord in coordinators:
+            object.__setattr__(
+                coord.entry, "_data", {**coord.entry.data, CONF_BATTERY_THRESHOLD: 0}
+            )
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["battery_enabled"] is False
+
+    def test_staleness_enabled_false_when_all_thresholds_zero(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """staleness_enabled must be False when all groups have staleness_threshold=0 — card must never show stale."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        for coord in coordinators:
+            object.__setattr__(
+                coord.entry, "_data", {**coord.entry.data, CONF_STALENESS_THRESHOLD: 0}
+            )
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["staleness_enabled"] is False
 
     def test_no_state_class(self, mock_hass, combined_entry, coordinators):
         """Count only changes on group edit — must not generate statistics."""

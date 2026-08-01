@@ -4316,6 +4316,42 @@ async def test_load_storage_restores_last_changed(
 
 
 @pytest.mark.asyncio
+async def test_last_seen_seeded_without_staleness_config(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Stable device with no staleness config gets last_changed seeded on first poll."""
+    hass = mock_hass
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data={**mock_config_data, CONF_STALENESS_THRESHOLD: 0},
+        entry_id="test_seed_no_staleness",
+        unique_id=f"{DOMAIN}_test_seed_no_staleness",
+    )
+    entry.add_to_hass(hass)
+
+    real_ts = datetime.now(timezone.utc) - timedelta(hours=5)
+
+    hass.states.async_set("binary_sensor.device_a", STATE_ON)
+    hass.states._states["binary_sensor.device_a"] = State(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {},
+        last_changed=real_ts,
+        last_updated=real_ts,
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        device = await _run_update(hass, entry)
+
+    assert device.last_changed is not None
+    assert abs((device.last_changed - real_ts).total_seconds()) < 1
+
+
+@pytest.mark.asyncio
 async def test_last_seen_round_trip_persistence(
     mock_hass: HomeAssistant, mock_config_data
 ) -> None:
