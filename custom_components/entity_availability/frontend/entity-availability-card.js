@@ -329,7 +329,7 @@ const cardStyles = css`
 
   .group-breakdown-ne-row {
     background: transparent;
-    border-bottom-style: dashed;
+    border-bottom: 1px dashed var(--divider-color, rgba(0,0,0,0.12));
     opacity: 0.75;
   }
 
@@ -1040,8 +1040,8 @@ class EntityAvailabilityCard extends LitElement {
                 <span class="group-breakdown-count neutral">${neCount}</span>
                 <span class="group-breakdown-count sep neutral">${g.non_essential_online ?? 0}</span>
                 <span class="group-breakdown-count ${(g.non_essential_offline ?? 0) > 0 ? "offline" : "neutral"}">${g.non_essential_offline ?? 0}</span>
-                ${hasBattery ? html`<span class="group-breakdown-count sep ${hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
-                ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
+                ${hasBattery ? html`<span class="group-breakdown-count sep ${g.battery_enabled && hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
+                ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.staleness_enabled && hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
               </div>
             ` : nothing}
           `;

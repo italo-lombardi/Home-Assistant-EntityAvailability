@@ -3079,8 +3079,11 @@ class TestCombinedNonEssential:
         assert g["non_essential_offline"] == 1  # a2 offline
         assert g["non_essential_stale"] == 1  # a1 stale
         assert g["non_essential_low_battery"] == 1  # a1 low-battery (not offline)
-        assert "battery_enabled" in g
-        assert "staleness_enabled" in g
+        # fixture entry has no battery/staleness threshold → both disabled
+        assert g["battery_enabled"] == (coordinator_a.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0)
+        assert g["staleness_enabled"] == (coordinator_a.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0)
+        assert g["battery_enabled"] is False
+        assert g["staleness_enabled"] is False
 
     def test_per_group_ne_low_battery_counts_offline_entities(
         self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
