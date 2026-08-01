@@ -679,8 +679,6 @@ class EntityAvailabilityCard extends LitElement {
       entity_filter: "all",
       show_affected_areas: false,
       show_non_essential_stats: false,
-      show_group_total: true,
-      show_group_health: true,
       ...config,
     };
     // backwards compat: show_entity_tooltips: true → entity_detail: "tooltip"
@@ -1014,8 +1012,8 @@ class EntityAvailabilityCard extends LitElement {
     const hasBattery = showHealth && batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0 || (showNEStats && g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0));
     const hasStale = showHealth && stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0 || (showNEStats && g.staleness_enabled && (g.non_essential_stale ?? 0) > 0));
     // NE battery/stale columns: only show if at least one group has the feature enabled and NE counts > 0.
-    const hasNEBattery = showNEStats && entries.some(([, g]) => g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0);
-    const hasNEStale = showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);
+    const hasNEBattery = showHealth && showNEStats && entries.some(([, g]) => g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0);
+    const hasNEStale = showHealth && showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);
     const extraCols = (showTotal ? 1 : 0) + 2 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
     const gridStyle = `grid-template-columns: minmax(60px, 1fr) repeat(${extraCols}, minmax(36px, 56px))`;
 

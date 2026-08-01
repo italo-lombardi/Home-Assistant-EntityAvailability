@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Card: combined table `show_group_total` config** (default on) — toggle to hide the Total column in the combined groups breakdown table
+- **Card: combined table `show_group_health` config** (default on) — toggle to hide the Bat. and Stale columns in the combined groups breakdown table
+
+### Fixed
+- Card: combined groups table — groups with battery/staleness feature disabled now show `—` instead of `0` in Bat./Stale columns (consistent with NE sub-row behaviour)
+- Card: combined groups table — stats row Low Battery / Stale order now matches table column order (Bat. before Stale)
+- Card: combined groups table — group name column uses `minmax(60px, 1fr)` and value columns use `minmax(36px, 56px)` so all columns stay visible on narrow screens (iPhone portrait/landscape)
+- Card: combined groups table — header separator borders now span full cell height (display: block), fixing misalignment vs data rows on narrow viewports
+
 ## [0.3.14] - 2026-08-02
 
 ### Added
