@@ -42,6 +42,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essentia
   EC23 PR#54: entity_availability_battery_ok event fires when battery recovers above threshold
   EC24 combined offline event carries source_groups list (websocket; skipped if websocket-client absent)
 
+  EC43 group_summary battery_enabled matches battery_threshold config
+  EC44 group_summary staleness_enabled matches staleness_threshold config
+  EC45 last_seen attr populated with past timestamps
+
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
   EC26 NE entity offline → offline_count_non_essential increments
@@ -2149,6 +2153,94 @@ def main():
             )
     elif ec_enabled(24):
         print("  EC24: skipped (no combined group found)", flush=True)
+
+    # ------------------------------------------------------------------
+    # EC43: battery_enabled flag matches config
+    # EC44: staleness_enabled flag matches config
+    # EC45: last_seen attr is populated with past timestamps
+    # ------------------------------------------------------------------
+    if ec_enabled(43):
+        print(
+            "\n=== EC43: group_summary battery_enabled matches battery_threshold config ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        if "battery_enabled" not in attrs:
+            print("  EC43: skipped (battery_enabled attr not present — deploy backend)", flush=True)
+        else:
+            expected = threshold > 0
+            chk(
+                "EC43 battery_enabled matches threshold>0",
+                attrs["battery_enabled"],
+                expected,
+                f"threshold={threshold} battery_enabled={attrs['battery_enabled']}",
+            )
+
+    if ec_enabled(44):
+        print(
+            "\n=== EC44: group_summary staleness_enabled matches staleness_threshold config ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        if "staleness_enabled" not in attrs:
+            print("  EC44: skipped (staleness_enabled attr not present — deploy backend)", flush=True)
+        else:
+            import subprocess
+            try:
+                raw = subprocess.check_output(
+                    ["python3", "-c", f"""
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+for e in cfg['data']['entries']:
+    if e['entry_id'] == {repr(ctx['entry_id'])}:
+        print(e['data'].get('staleness_threshold', 0))
+"""], text=True,
+                )
+                staleness_threshold = int(raw.strip() or 0)
+            except Exception:
+                staleness_threshold = 0
+            expected = staleness_threshold > 0
+            chk(
+                "EC44 staleness_enabled matches staleness_threshold>0",
+                attrs["staleness_enabled"],
+                expected,
+                f"staleness_threshold={staleness_threshold} staleness_enabled={attrs['staleness_enabled']}",
+            )
+
+    if ec_enabled(45):
+        print(
+            "\n=== EC45: group_summary last_seen populated with past timestamps ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        last_seen = attrs.get("last_seen", {})
+        if not last_seen:
+            print("  EC45: skipped (last_seen attr empty — entities may not have reported yet)", flush=True)
+        else:
+            import datetime as _dt
+            now = _dt.datetime.now(_dt.timezone.utc)
+            bad = []
+            for eid, ts_str in last_seen.items():
+                try:
+                    ts = _dt.datetime.fromisoformat(ts_str)
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=_dt.timezone.utc)
+                    if ts > now:
+                        bad.append(f"{eid}: {ts_str} is in the future")
+                except Exception as e:
+                    bad.append(f"{eid}: {ts_str} parse error {e}")
+            chk(
+                "EC45 all last_seen timestamps are in the past",
+                len(bad) == 0,
+                True,
+                f"bad={bad[:3]}",
+            )
+            chk(
+                "EC45 last_seen covers all monitored entities",
+                len(last_seen) > 0,
+                True,
+                f"last_seen keys={len(last_seen)} entities={len(ctx['entities'])}",
+            )
 
     # ------------------------------------------------------------------
     # EC25-EC35: Non-Essential entity tier
