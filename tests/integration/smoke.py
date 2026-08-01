@@ -393,6 +393,9 @@ for e in cfg['data']['entries']:
         "battery_threshold": data.get("battery_threshold", 20)
         if "data" in dir()
         else 20,
+        "staleness_threshold": data.get("staleness_threshold", 0)
+        if "data" in dir()
+        else 0,
         "mapped_battery_entity": mapped_battery_entity,
         "mapped_battery_sensor": mapped_battery_sensor,
         "combined_prefix": combined_prefix,
@@ -2191,26 +2194,7 @@ def main():
                 flush=True,
             )
         else:
-            import subprocess
-
-            try:
-                raw = subprocess.check_output(
-                    [
-                        "python3",
-                        "-c",
-                        f"""
-import json
-cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
-for e in cfg['data']['entries']:
-    if e['entry_id'] == {repr(ctx["entry_id"])}:
-        print(e['data'].get('staleness_threshold', 0))
-""",
-                    ],
-                    text=True,
-                )
-                staleness_threshold = int(raw.strip() or 0)
-            except Exception:
-                staleness_threshold = 0
+            staleness_threshold = ctx["staleness_threshold"]
             expected = staleness_threshold > 0
             chk(
                 "EC44 staleness_enabled matches staleness_threshold>0",
