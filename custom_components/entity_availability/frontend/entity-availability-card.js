@@ -322,6 +322,10 @@ const cardStyles = css`
   .group-breakdown-count.battery { color: var(--eac-yellow); }
   .group-breakdown-count.stale { color: var(--eac-yellow); }
   .group-breakdown-count.neutral { color: var(--eac-text-secondary); }
+  .group-breakdown-count.sep,
+  .group-breakdown-header .sep {
+    border-left: 1px solid var(--divider-color, rgba(0,0,0,0.12));
+  }
 
   .group-breakdown-ne-row {
     background: transparent;
@@ -1014,7 +1018,7 @@ class EntityAvailabilityCard extends LitElement {
           <span style="text-align:center">Total</span>
           <span style="text-align:center">Online</span>
           <span style="text-align:center">Offline</span>
-          ${hasBattery ? html`<span style="text-align:center">Bat.</span>` : nothing}
+          ${hasBattery ? html`<span class="sep" style="text-align:center">Bat.</span>` : nothing}
           ${hasStale ? html`<span style="text-align:center">Stale</span>` : nothing}
         </div>
         ${entries.map(([, g]) => {
@@ -1027,7 +1031,7 @@ class EntityAvailabilityCard extends LitElement {
               <span class="group-breakdown-count neutral">${g.total ?? 0}</span>
               <span class="group-breakdown-count online">${g.online ?? 0}</span>
               <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
-              ${hasBattery ? html`<span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>` : nothing}
+              ${hasBattery ? html`<span class="group-breakdown-count sep ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>` : nothing}
               ${hasStale ? html`<span class="group-breakdown-count ${g.stale > 0 ? "stale" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
             </div>
             ${showNERow ? html`
@@ -1036,7 +1040,7 @@ class EntityAvailabilityCard extends LitElement {
                 <span class="group-breakdown-count neutral">${neCount}</span>
                 <span class="group-breakdown-count neutral">${g.non_essential_online ?? 0}</span>
                 <span class="group-breakdown-count ${(g.non_essential_offline ?? 0) > 0 ? "offline" : "neutral"}">${g.non_essential_offline ?? 0}</span>
-                ${hasBattery ? html`<span class="group-breakdown-count ${hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
+                ${hasBattery ? html`<span class="group-breakdown-count sep ${hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
                 ${hasStale ? html`<span class="group-breakdown-count ${hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
               </div>
             ` : nothing}
