@@ -30,10 +30,12 @@ from custom_components.entity_availability.combined_sensor import (
 from custom_components.entity_availability.const import (
     CONF_AVAILABILITY_WINDOWS,
     CONF_BATTERY_ENTITY_MAP,
+    CONF_BATTERY_THRESHOLD,
     CONF_COMBINED_GROUPS,
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_STALENESS_THRESHOLD,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DOMAIN,
@@ -731,6 +733,38 @@ class TestCombinedGroupSensor:
         mock_hass.data[DOMAIN] = {}
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.unique_id == "combined_1_combined_summary"
+
+    def test_battery_enabled_false_when_all_thresholds_zero(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """battery_enabled must be False when all groups have battery_threshold=0 — card must never show battery."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        for coord in coordinators:
+            object.__setattr__(
+                coord.entry, "_data", {**coord.entry.data, CONF_BATTERY_THRESHOLD: 0}
+            )
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["battery_enabled"] is False
+
+    def test_staleness_enabled_false_when_all_thresholds_zero(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """staleness_enabled must be False when all groups have staleness_threshold=0 — card must never show stale."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        for coord in coordinators:
+            object.__setattr__(
+                coord.entry, "_data", {**coord.entry.data, CONF_STALENESS_THRESHOLD: 0}
+            )
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["staleness_enabled"] is False
 
     def test_no_state_class(self, mock_hass, combined_entry, coordinators):
         """Count only changes on group edit — must not generate statistics."""

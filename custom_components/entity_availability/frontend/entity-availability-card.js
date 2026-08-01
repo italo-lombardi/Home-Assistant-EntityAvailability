@@ -706,22 +706,27 @@ class EntityAvailabilityCard extends LitElement {
       const lowBattery = attrs.low_battery || 0;
       const suppressed = attrs.suppressed || 0;
       const nonEssential = attrs.non_essential || 0;
-      const staleCount = (attrs.stale_entities || []).length || attrs.stale || 0;
       const groups = attrs.groups || {};
+      // Feature-enabled flags: battery/staleness must NEVER appear when the
+      // feature is disabled (threshold=0), even if counts are non-zero.
+      const batteryEnabled = attrs.battery_enabled || false;
+      const stalenessEnabled = attrs.staleness_enabled || false;
+      const staleCount = stalenessEnabled ? ((attrs.stale_entities || []).length || attrs.stale || 0) : 0;
+      const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
 
-      const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
+      const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
       const compactClass = this._config.compact ? "compact" : "";
-      const statusText = offline > 0 ? `${offline} Offline` : (lowBattery > 0 || staleCount > 0) ? "Degraded" : "All OK";
+      const statusText = offline > 0 ? `${offline} Offline` : (effectiveLowBattery > 0 || staleCount > 0) ? "Degraded" : "All OK";
 
       return html`
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
-          ${this._renderStats(online, offline, lowBattery, staleCount)}
+          ${this._renderStats(online, offline, effectiveLowBattery, staleCount)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
-          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
+          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -759,21 +764,26 @@ class EntityAvailabilityCard extends LitElement {
     this._lastSeen = lastSeen;
     const lowBatteryEntities = attrs.low_battery_entities || [];
     const displayNames = attrs.display_names || {};
+    // Feature-enabled flags: battery/staleness must NEVER appear when the
+    // feature is disabled (threshold=0), even if counts are non-zero.
+    const batteryEnabled = attrs.battery_enabled || false;
+    const stalenessEnabled = attrs.staleness_enabled || false;
 
     const nonEssentialOnline = attrs.non_essential_online ?? 0;
     const nonEssentialOffline = attrs.non_essential_offline ?? 0;
     const lowBatteryNonEssential = attrs.low_battery_non_essential ?? 0;
     const nonEssentialSuppressed = attrs.non_essential_suppressed ?? 0;
-    const staleCount = staleEntities.length;
-    const staleCountNonEssential = staleEntitiesNonEssential.length;
+    const staleCount = stalenessEnabled ? staleEntities.length : 0;
+    const staleCountNonEssential = stalenessEnabled ? staleEntitiesNonEssential.length : 0;
+    const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
 
-    const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
+    const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0) ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
     const compactClass = this._config.compact ? "compact" : "";
 
     const statusText = offline > 0
       ? `${offline} Offline`
-      : (lowBattery > 0 || staleCount > 0)
+      : (effectiveLowBattery > 0 || staleCount > 0)
       ? "Degraded"
       : "All OK";
 
@@ -783,8 +793,8 @@ class EntityAvailabilityCard extends LitElement {
       <ha-card class="${compactClass}">
         ${this._renderHeader(title, statusColor, statusText)}
         <div class="divider"></div>
-        ${this._renderStats(online, offline, lowBattery, staleCount)}
-        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, lowBatteryNonEssential, staleCountNonEssential) : nothing}
+        ${this._renderStats(online, offline, effectiveLowBattery, staleCount)}
+        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, batteryEnabled ? lowBatteryNonEssential : 0, staleCountNonEssential) : nothing}
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
@@ -951,7 +961,7 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderCombinedGroupBreakdown(groups) {
+  _renderCombinedGroupBreakdown(groups, batteryEnabled = false, stalenessEnabled = false) {
     const entries = Object.entries(groups);
     if (entries.length === 0) return nothing;
 
@@ -968,8 +978,10 @@ class EntityAvailabilityCard extends LitElement {
     });
 
     const expanded = this._entitiesExpanded;
-    const hasBattery = entries.some(([, g]) => (g.low_battery ?? 0) > 0);
-    const hasStale = entries.some(([, g]) => (g.stale ?? 0) > 0);
+    // Feature-enabled flags guard: battery/stale columns must NEVER appear when
+    // the feature is disabled (threshold=0), even if counts are non-zero.
+    const hasBattery = batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0);
+    const hasStale = stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0);
     const extraCols = 3 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
     const gridStyle = `grid-template-columns: 1fr repeat(${extraCols}, 56px)`;
 
