@@ -17,10 +17,8 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_BATTERY_ENTITY_MAP,
-    CONF_BATTERY_THRESHOLD,
     CONF_COMBINED_GROUPS,
     CONF_GROUP_NAME,
-    CONF_STALENESS_THRESHOLD,
     CONF_USE_DEVICE_NAMES,
     DOMAIN,
     EVENT_BATTERY_OK,
@@ -538,12 +536,6 @@ class CombinedGroupSensor(CombinedSensorBase):
                     if d.battery_level is not None and not d.is_suppressed:
                         battery_powered_eids.add(eid)
         battery_powered = len(battery_powered_eids)
-        battery_enabled = any(
-            coord.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0 for coord in active
-        )
-        staleness_enabled = any(
-            coord.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0 for coord in active
-        )
         display_names: dict[str, str] = {}
         for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
@@ -562,8 +554,6 @@ class CombinedGroupSensor(CombinedSensorBase):
             "non_essential": non_essential,
             "non_essential_entities": non_essential_entities,
             "battery_powered": battery_powered,
-            "battery_enabled": battery_enabled,
-            "staleness_enabled": staleness_enabled,
             "groups": groups,
             "entities": all_entities,
             "display_names": display_names,

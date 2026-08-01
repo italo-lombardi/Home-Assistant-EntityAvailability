@@ -708,8 +708,6 @@ class EntityAvailabilityCard extends LitElement {
       const nonEssential = attrs.non_essential || 0;
       const staleCount = (attrs.stale_entities || []).length || attrs.stale || 0;
       const groups = attrs.groups || {};
-      const batteryEnabled = attrs.battery_enabled || false;
-      const stalenessEnabled = attrs.staleness_enabled || false;
 
       const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
@@ -723,7 +721,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderStats(online, offline, lowBattery, staleCount)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
-          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled) : nothing}
+          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -953,7 +951,7 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderCombinedGroupBreakdown(groups, batteryEnabled = false, stalenessEnabled = false) {
+  _renderCombinedGroupBreakdown(groups) {
     const entries = Object.entries(groups);
     if (entries.length === 0) return nothing;
 
@@ -970,8 +968,8 @@ class EntityAvailabilityCard extends LitElement {
     });
 
     const expanded = this._entitiesExpanded;
-    const hasBattery = batteryEnabled;
-    const hasStale = stalenessEnabled;
+    const hasBattery = entries.some(([, g]) => (g.low_battery ?? 0) > 0);
+    const hasStale = entries.some(([, g]) => (g.stale ?? 0) > 0);
     const extraCols = 3 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
     const gridStyle = `grid-template-columns: 1fr repeat(${extraCols}, 56px)`;
 
