@@ -290,10 +290,6 @@ const cardStyles = css`
     font-size: 13px;
   }
 
-  .group-breakdown-row.has-stale {
-    grid-template-columns: 1fr repeat(4, 56px);
-  }
-
   .group-breakdown-row.clickable {
     cursor: pointer;
   }
@@ -712,6 +708,8 @@ class EntityAvailabilityCard extends LitElement {
       const nonEssential = attrs.non_essential || 0;
       const staleCount = (attrs.stale_entities || []).length || attrs.stale || 0;
       const groups = attrs.groups || {};
+      const batteryEnabled = attrs.battery_enabled || false;
+      const stalenessEnabled = attrs.staleness_enabled || false;
 
       const statusColor = offline > 0 ? "red" : (lowBattery > 0 || staleCount > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
@@ -725,7 +723,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderStats(online, offline, lowBattery, staleCount)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
-          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups) : nothing}
+          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -955,7 +953,7 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderCombinedGroupBreakdown(groups) {
+  _renderCombinedGroupBreakdown(groups, batteryEnabled = false, stalenessEnabled = false) {
     const entries = Object.entries(groups);
     if (entries.length === 0) return nothing;
 
@@ -972,8 +970,10 @@ class EntityAvailabilityCard extends LitElement {
     });
 
     const expanded = this._entitiesExpanded;
-    const hasStale = entries.some(([, g]) => (g.stale ?? 0) > 0);
-    const staleClass = hasStale ? "has-stale" : "";
+    const hasBattery = batteryEnabled;
+    const hasStale = stalenessEnabled;
+    const extraCols = 3 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
+    const gridStyle = `grid-template-columns: 1fr repeat(${extraCols}, 56px)`;
 
     return html`
       <div class="divider"></div>
@@ -982,20 +982,22 @@ class EntityAvailabilityCard extends LitElement {
         <ha-icon class="chevron ${expanded ? "expanded" : ""}" icon="mdi:chevron-down"></ha-icon>
       </div>
       <div class="group-breakdown ${expanded ? "expanded" : "collapsed"}">
-        <div class="group-breakdown-row group-breakdown-header ${staleClass}">
+        <div class="group-breakdown-row group-breakdown-header" style="${gridStyle}">
           <span>Group</span>
+          <span style="text-align:center">Total</span>
           <span style="text-align:center">Online</span>
           <span style="text-align:center">Offline</span>
-          <span style="text-align:center">Bat.</span>
+          ${hasBattery ? html`<span style="text-align:center">Bat.</span>` : nothing}
           ${hasStale ? html`<span style="text-align:center">Stale</span>` : nothing}
         </div>
         ${entries.map(([, g]) => html`
-          <div class="group-breakdown-row ${staleClass} ${g.entity_id ? "clickable" : ""}"
+          <div class="group-breakdown-row ${g.entity_id ? "clickable" : ""}" style="${gridStyle}"
                @click=${g.entity_id ? (e) => this._handleEntityClick(e, g.entity_id) : nothing}>
             <span class="group-breakdown-name">${g.name ?? ""}</span>
+            <span class="group-breakdown-count neutral">${g.total ?? 0}</span>
             <span class="group-breakdown-count online">${g.online ?? 0}</span>
             <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
-            <span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>
+            ${hasBattery ? html`<span class="group-breakdown-count ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>` : nothing}
             ${hasStale ? html`<span class="group-breakdown-count ${g.stale > 0 ? "stale" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
           </div>
         `)}
