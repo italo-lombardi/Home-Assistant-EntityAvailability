@@ -2166,7 +2166,10 @@ def main():
         )
         attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         if "battery_enabled" not in attrs:
-            print("  EC43: skipped (battery_enabled attr not present — deploy backend)", flush=True)
+            print(
+                "  EC43: skipped (battery_enabled attr not present — deploy backend)",
+                flush=True,
+            )
         else:
             expected = threshold > 0
             chk(
@@ -2183,18 +2186,27 @@ def main():
         )
         attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         if "staleness_enabled" not in attrs:
-            print("  EC44: skipped (staleness_enabled attr not present — deploy backend)", flush=True)
+            print(
+                "  EC44: skipped (staleness_enabled attr not present — deploy backend)",
+                flush=True,
+            )
         else:
             import subprocess
+
             try:
                 raw = subprocess.check_output(
-                    ["python3", "-c", f"""
+                    [
+                        "python3",
+                        "-c",
+                        f"""
 import json
 cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
 for e in cfg['data']['entries']:
-    if e['entry_id'] == {repr(ctx['entry_id'])}:
+    if e['entry_id'] == {repr(ctx["entry_id"])}:
         print(e['data'].get('staleness_threshold', 0))
-"""], text=True,
+""",
+                    ],
+                    text=True,
                 )
                 staleness_threshold = int(raw.strip() or 0)
             except Exception:
@@ -2215,9 +2227,13 @@ for e in cfg['data']['entries']:
         attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         last_seen = attrs.get("last_seen", {})
         if not last_seen:
-            print("  EC45: skipped (last_seen attr empty — entities may not have reported yet)", flush=True)
+            print(
+                "  EC45: skipped (last_seen attr empty — entities may not have reported yet)",
+                flush=True,
+            )
         else:
             import datetime as _dt
+
             now = _dt.datetime.now(_dt.timezone.utc)
             bad = []
             for eid, ts_str in last_seen.items():
