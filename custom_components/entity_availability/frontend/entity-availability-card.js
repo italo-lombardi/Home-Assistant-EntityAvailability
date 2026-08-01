@@ -1699,7 +1699,7 @@ class EntityAvailabilityCardEditor extends LitElement {
               .checked=${this._config.show_group_health !== false}
               @change=${(e) => this._updateConfig("show_group_health", e.target.checked)}
             />
-            Show Battery &amp; Stale Columns
+            Show Health Columns (Bat. &amp; Stale, when active)
           </label>
         </div>
         ` : nothing}
