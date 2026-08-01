@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.3.14] - 2026-08-01
+## [0.3.14] - 2026-08-02
 
 ### Added
 - **Non-Essential entity tier** — mark entities as Non-Essential per group; excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Zero migration: existing groups default to all-essential.
@@ -13,6 +13,8 @@ All notable changes to this project will be documented in this file.
 - **Card: Non-Essential stats row** (`show_non_essential_stats`, default off) — opt-in row for NE Online/Offline/Stale/Low Battery counts; NE entities sorted to bottom of entity list
 - **Card: Stale count chip** in stats row; hidden when zero
 - **Card: per-entity suppress toggle** (`show_suppress_toggle`, default off)
+- **Card: combined groups table** — Total column (entities per group), conditional Bat. and Stale columns (shown only when feature is enabled and count > 0)
+- **Sensor: `battery_enabled` / `staleness_enabled` attrs** — group summary and combined summary sensors now expose these boolean flags so the card hides battery/stale indicators when the feature is disabled (`threshold=0`), even if stale battery levels exist in entity state
 
 ### Fixed
 - Suppressing an entity no longer affects historical availability %, MTBF, or MTTR
@@ -27,7 +29,8 @@ All notable changes to this project will be documented in this file.
 - Card: compact render stale count now correctly reads `stale_entities` array length for regular groups (was always 0, so stale entities never triggered "Degraded" status in compact mode)
 - Sensor: `stale_entities` / `stale_entities_non_essential` attributes now exclude offline entities — offline entities with old timestamps were incorrectly included, causing them to show "just now" on the card instead of their actual offline duration
 - Card: Lovelace resource URL now updates on HACS upgrade without requiring a full HA restart
-- **Card: "last seen" time resets to boot time after HA restart** — coordinator now captures `last_changed` from live state-change events and persists it to storage; on reload the stored timestamp is restored so the card always shows the real last-seen time, not the restart time. Resolves #34.
+- **Card: "last seen" time resets to boot time after HA restart** — coordinator now seeds `last_changed` on first poll for all entities regardless of staleness config, persists it to storage, and the card hides the battery column when `battery_threshold=0`. Resolves #34.
+- **Card: battery/stale columns hidden when feature disabled** — setting `battery_threshold=0` or `staleness_threshold=0` now correctly suppresses those columns in both the entity list and combined groups table, even when battery levels exist in entity state.
 
 ### Changed
 - Card entity rows and combined group rows are clickable (opens more-info dialog)
