@@ -1032,8 +1032,8 @@ class EntityAvailabilityCard extends LitElement {
             </div>
             ${showNERow ? html`
               <div class="group-breakdown-row group-breakdown-ne-row" style="${gridStyle}">
-                <span class="group-breakdown-name group-breakdown-ne-label">↳ NE (${neCount})</span>
-                <span class="group-breakdown-count neutral">—</span>
+                <span class="group-breakdown-name group-breakdown-ne-label">↳ Non-Essential</span>
+                <span class="group-breakdown-count neutral">${neCount}</span>
                 <span class="group-breakdown-count neutral">${g.non_essential_online ?? 0}</span>
                 <span class="group-breakdown-count ${(g.non_essential_offline ?? 0) > 0 ? "offline" : "neutral"}">${g.non_essential_offline ?? 0}</span>
                 ${hasBattery ? html`<span class="group-breakdown-count ${hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
