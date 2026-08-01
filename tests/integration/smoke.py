@@ -1398,10 +1398,14 @@ def main():
                     "unit_of_measurement": "%",
                 },
             )
-            wait()
             chk(
                 "EC7 combined low_battery=base+1",
-                int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+                wait_for(
+                    lambda: int(
+                        gs(f"{combined_prefix}_low_battery_count").get("state", "0")
+                    ),
+                    b_clb + 1,
+                ),
                 b_clb + 1,
                 f"(base={b_clb})",
             )
@@ -1418,16 +1422,25 @@ def main():
                 "unavailable",
                 {"friendly_name": "Test Battery", "device_class": "battery"},
             )
-            wait()
             chk(
                 "EC8 combined low_battery=base (offline excluded)",
-                int(gs(f"{combined_prefix}_low_battery_count").get("state", "0")),
+                wait_for(
+                    lambda: int(
+                        gs(f"{combined_prefix}_low_battery_count").get("state", "0")
+                    ),
+                    b_clb,
+                ),
                 b_clb,
                 f"(base={b_clb})",
             )
             chk(
                 "EC8 combined offline=base+1",
-                int(gs(f"{combined_prefix}_offline_count").get("state", "0")),
+                wait_for(
+                    lambda: int(
+                        gs(f"{combined_prefix}_offline_count").get("state", "0")
+                    ),
+                    b_coff + 1,
+                ),
                 b_coff + 1,
                 f"(base={b_coff})",
             )
@@ -1521,6 +1534,12 @@ def main():
                 "group": ctx["title"],
             },
         )
+        wait_for(
+            lambda: str(
+                gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")
+            ),
+            "1",
+        )
         ss(suppressed_entity, "unavailable", {"friendly_name": "test"})
         wait()
         chk(
@@ -1613,7 +1632,14 @@ def main():
                 "/api/services/entity_availability/suppress_indefinitely",
                 {"entity_id": shared_entity, "group": alpha_title},
             )
-            wait()
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "1",
+            )
             alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
             beta_attrs = gs(f"{beta_prefix}_group_summary").get("attributes", {})
             chk(
@@ -1632,7 +1658,14 @@ def main():
                 "/api/services/entity_availability/unsuppress",
                 {"entity_id": shared_entity, "group": alpha_title},
             )
-            wait()
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "0",
+            )
             alpha_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
             chk(
                 "EC12 suppressed=0 in Alpha after unsuppress",
