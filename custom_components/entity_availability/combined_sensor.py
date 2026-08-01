@@ -458,26 +458,24 @@ class CombinedGroupSensor(CombinedSensorBase):
                 for d in states.values()
                 if d.is_non_essential and not d.is_suppressed
             ]
-            g_non_essential_offline = sum(
-                1
-                for d in states.values()
-                if d.is_non_essential and not d.is_suppressed and d.is_offline
-            )
-            g_non_essential_online = sum(
-                1
-                for d in states.values()
-                if d.is_non_essential and not d.is_suppressed and not d.is_offline
-            )
-            g_non_essential_stale = sum(
-                1
-                for d in states.values()
-                if d.is_non_essential and not d.is_suppressed and d.is_stale
-            )
-            g_non_essential_low_battery = sum(
-                1
-                for d in states.values()
-                if d.is_non_essential and not d.is_suppressed and d.is_low_battery
-            )
+            g_non_essential_offline = 0
+            g_non_essential_online = 0
+            g_non_essential_stale = 0
+            g_non_essential_low_battery = 0
+            for d in states.values():
+                if d.is_non_essential and not d.is_suppressed:
+                    if d.is_offline:
+                        g_non_essential_offline += 1
+                    else:
+                        g_non_essential_online += (
+                            1  # online includes stale/low-battery by design
+                        )
+                    if d.is_stale:
+                        g_non_essential_stale += 1
+                    if d.is_low_battery:
+                        g_non_essential_low_battery += (
+                            1  # counts offline+low-battery too, mirrors sensor.py
+                        )
             groups[coord.entry.entry_id] = {
                 "name": gname,
                 "entity_id": gsummary,
