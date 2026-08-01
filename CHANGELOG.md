@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 - **Card: Non-Essential stats row** (`show_non_essential_stats`, default off) — opt-in row for NE Online/Offline/Stale/Low Battery counts; NE entities sorted to bottom of entity list
 - **Card: Stale count chip** in stats row; hidden when zero
 - **Card: per-entity suppress toggle** (`show_suppress_toggle`, default off)
-- **Card: combined groups table** — Total column (entities per group), conditional Bat. and Stale columns (shown only when feature is enabled and count > 0)
+- **Card: combined groups table** — Total column (entities per group), conditional Bat. and Stale columns (shown only when feature is enabled and count > 0); `show_group_total` and `show_group_health` toggles to hide those columns
 - **Card: combined groups NE sub-row** (`show_non_essential_stats`, default off) — opt-in `↳ Non-Essential` sub-row per group showing NE total, Online/Offline and (when feature enabled) Bat./Stale counts; `show_non_essential_stats` toggle now available for combined card in config editor
 - **Combined sensor: per-group NE breakdown** — `groups` dict now includes `non_essential_online`, `non_essential_offline`, `non_essential_stale`, `non_essential_low_battery`, `battery_enabled`, `staleness_enabled` per group; `total` now excludes non-essential entities (matches Online/Offline scope)
 - **Sensor: `battery_enabled` / `staleness_enabled` attrs** — group summary and combined summary sensors now expose these boolean flags so the card hides battery/stale indicators when the feature is disabled (`threshold=0`), even if stale battery levels exist in entity state
@@ -33,6 +33,7 @@ All notable changes to this project will be documented in this file.
 - Card: Lovelace resource URL now updates on HACS upgrade without requiring a full HA restart
 - **Card: "last seen" time resets to boot time after HA restart** — coordinator now seeds `last_changed` on first poll for all entities regardless of staleness config, persists it to storage, and the card hides the battery column when `battery_threshold=0`. Resolves #34.
 - **Card: battery/stale columns hidden when feature disabled** — setting `battery_threshold=0` or `staleness_threshold=0` now correctly suppresses those columns in both the entity list and combined groups table, even when battery levels exist in entity state.
+- Card: combined groups table — groups with feature disabled show `—` instead of `0` in Bat./Stale columns; stats row order now matches table (Low Battery before Stale); columns stay visible on narrow screens; header separator borders aligned with data rows
 
 ### Changed
 - Card entity rows and combined group rows are clickable (opens more-info dialog)

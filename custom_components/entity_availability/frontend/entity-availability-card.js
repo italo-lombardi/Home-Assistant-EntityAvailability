@@ -283,7 +283,7 @@ const cardStyles = css`
 
   .group-breakdown-row {
     display: grid;
-    grid-template-columns: 1fr repeat(3, 56px);
+    grid-template-columns: minmax(60px, 1fr) repeat(3, minmax(36px, 56px));
     align-items: center;
     padding: 5px 0;
     border-bottom: 1px solid var(--eac-divider);
@@ -302,6 +302,15 @@ const cardStyles = css`
     font-weight: 500;
     color: var(--eac-text-secondary);
     font-size: 12px;
+  }
+
+  .group-breakdown-header span {
+    display: block;
+    text-align: center;
+  }
+
+  .group-breakdown-header span:first-child {
+    text-align: left;
   }
 
   .group-breakdown-name {
@@ -842,8 +851,8 @@ class EntityAvailabilityCard extends LitElement {
       <div class="stats-row">
         <span class="stat-item ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="stat-item ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
-        ${stale > 0 ? html`<span class="stat-item battery">Stale: ${stale}</span>` : nothing}
         ${lowBattery > 0 ? html`<span class="stat-item battery">Low Battery: ${lowBattery}</span>` : nothing}
+        ${stale > 0 ? html`<span class="stat-item battery">Stale: ${stale}</span>` : nothing}
       </div>
     `;
   }
@@ -867,8 +876,8 @@ class EntityAvailabilityCard extends LitElement {
         <span class="non-essential-stats-label">↳ Non-Essential</span>
         <span class="non-essential-stat ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="non-essential-stat ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
-        ${stale > 0 ? html`<span class="non-essential-stat battery">Stale: ${stale}</span>` : nothing}
         ${lowBattery > 0 ? html`<span class="non-essential-stat battery">Low Battery: ${lowBattery}</span>` : nothing}
+        ${stale > 0 ? html`<span class="non-essential-stat battery">Stale: ${stale}</span>` : nothing}
       </div>
     `;
   }
@@ -996,15 +1005,17 @@ class EntityAvailabilityCard extends LitElement {
 
     const expanded = this._entitiesExpanded;
     const showNEStats = this._config.show_non_essential_stats === true;
+    const showTotal = this._config.show_group_total !== false;
+    const showHealth = this._config.show_group_health !== false;
     // Feature-enabled flags guard: battery/stale columns must NEVER appear when
     // the feature is disabled (threshold=0), even if counts are non-zero.
-    const hasBattery = batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0 || (showNEStats && g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0));
-    const hasStale = stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0 || (showNEStats && g.staleness_enabled && (g.non_essential_stale ?? 0) > 0));
+    const hasBattery = showHealth && batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0 || (showNEStats && g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0));
+    const hasStale = showHealth && stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0 || (showNEStats && g.staleness_enabled && (g.non_essential_stale ?? 0) > 0));
     // NE battery/stale columns: only show if at least one group has the feature enabled and NE counts > 0.
-    const hasNEBattery = showNEStats && entries.some(([, g]) => g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0);
-    const hasNEStale = showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);
-    const extraCols = 3 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
-    const gridStyle = `grid-template-columns: 1fr repeat(${extraCols}, 56px)`;
+    const hasNEBattery = showHealth && showNEStats && entries.some(([, g]) => g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0);
+    const hasNEStale = showHealth && showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);
+    const extraCols = (showTotal ? 1 : 0) + 2 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
+    const gridStyle = `grid-template-columns: minmax(60px, 1fr) repeat(${extraCols}, minmax(36px, 56px))`;
 
     return html`
       <div class="divider"></div>
@@ -1015,11 +1026,11 @@ class EntityAvailabilityCard extends LitElement {
       <div class="group-breakdown ${expanded ? "expanded" : "collapsed"}">
         <div class="group-breakdown-row group-breakdown-header" style="${gridStyle}">
           <span>Group</span>
-          <span style="text-align:center">Total</span>
-          <span class="sep" style="text-align:center">Online</span>
-          <span style="text-align:center">Offline</span>
-          ${hasBattery ? html`<span class="sep" style="text-align:center">Bat.</span>` : nothing}
-          ${hasStale ? html`<span class="${!hasBattery ? "sep" : ""}" style="text-align:center">Stale</span>` : nothing}
+          ${showTotal ? html`<span>Total</span>` : nothing}
+          <span class="${showTotal ? "sep" : ""}">Online</span>
+          <span>Offline</span>
+          ${hasBattery ? html`<span class="sep">Bat.</span>` : nothing}
+          ${hasStale ? html`<span class="${!hasBattery ? "sep" : ""}">Stale</span>` : nothing}
         </div>
         ${entries.map(([, g]) => {
           const neCount = g.non_essential ?? 0;
@@ -1028,17 +1039,17 @@ class EntityAvailabilityCard extends LitElement {
             <div class="group-breakdown-row ${g.entity_id ? "clickable" : ""}" style="${gridStyle}"
                  @click=${g.entity_id ? (e) => this._handleEntityClick(e, g.entity_id) : nothing}>
               <span class="group-breakdown-name">${g.name ?? ""}</span>
-              <span class="group-breakdown-count neutral">${g.total ?? 0}</span>
-              <span class="group-breakdown-count sep online">${g.online ?? 0}</span>
+              ${showTotal ? html`<span class="group-breakdown-count neutral">${g.total ?? 0}</span>` : nothing}
+              <span class="group-breakdown-count ${showTotal ? "sep " : ""}online">${g.online ?? 0}</span>
               <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
-              ${hasBattery ? html`<span class="group-breakdown-count sep ${g.low_battery > 0 ? "battery" : "neutral"}">${g.low_battery ?? 0}</span>` : nothing}
-              ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.stale > 0 ? "stale" : "neutral"}">${g.stale ?? 0}</span>` : nothing}
+              ${hasBattery ? html`<span class="group-breakdown-count sep ${g.battery_enabled && (g.low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.low_battery ?? 0) : "—"}</span>` : nothing}
+              ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.staleness_enabled && (g.stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.stale ?? 0) : "—"}</span>` : nothing}
             </div>
             ${showNERow ? html`
               <div class="group-breakdown-row group-breakdown-ne-row" style="${gridStyle}">
                 <span class="group-breakdown-name group-breakdown-ne-label">↳ Non-Essential</span>
-                <span class="group-breakdown-count neutral">${neCount}</span>
-                <span class="group-breakdown-count sep neutral">${g.non_essential_online ?? 0}</span>
+                ${showTotal ? html`<span class="group-breakdown-count neutral">${neCount}</span>` : nothing}
+                <span class="group-breakdown-count ${showTotal ? "sep " : ""}neutral">${g.non_essential_online ?? 0}</span>
                 <span class="group-breakdown-count ${(g.non_essential_offline ?? 0) > 0 ? "offline" : "neutral"}">${g.non_essential_offline ?? 0}</span>
                 ${hasBattery ? html`<span class="group-breakdown-count sep ${g.battery_enabled && hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
                 ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.staleness_enabled && hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
@@ -1670,6 +1681,28 @@ class EntityAvailabilityCardEditor extends LitElement {
             Show Non-Essential Stats Row &amp; Entities
           </label>
         </div>
+        ${this._isSelectedGroupCombined() ? html`
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_group_total !== false}
+              @change=${(e) => this._updateConfig("show_group_total", e.target.checked)}
+            />
+            Show Total Column
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_group_health !== false}
+              @change=${(e) => this._updateConfig("show_group_health", e.target.checked)}
+            />
+            Show Health Columns (Bat. &amp; Stale, when active)
+          </label>
+        </div>
+        ` : nothing}
         ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row">
           <label>Filter Entities (requires Show Entity List)</label>
