@@ -539,19 +539,23 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 and device.battery_level < self._battery_threshold
             )
 
+            # Seed last_changed on first encounter regardless of staleness config.
+            # Real updates come from _handle_state_change; this covers stable
+            # devices that never fire a state_changed event so last_seen persists
+            # across restarts. Guard prevents re-seeding after storage restores it.
+            if device.last_changed is None and state:
+                ts = state.last_changed
+                if ts is not None:  # pragma: no branch
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    device.last_changed = ts
+                    self._dirty = True
+
             # Staleness check. Uses last_updated when configured (advances on any
             # state write, including unchanged-value reports); otherwise last_changed.
             is_stale = False
             stale_ts = None
             if self._staleness_threshold > 0 and state:
-                # Only initialise from HA state on first encounter; real updates
-                # are captured in _handle_state_change to survive HA restarts.
-                if device.last_changed is None:
-                    ts = state.last_changed
-                    if ts is not None:
-                        if ts.tzinfo is None:
-                            ts = ts.replace(tzinfo=timezone.utc)
-                        device.last_changed = ts
                 # last_updated advances on same-value writes that never fire
                 # state_changed, so read directly from HA state each poll.
                 stale_ts = (
