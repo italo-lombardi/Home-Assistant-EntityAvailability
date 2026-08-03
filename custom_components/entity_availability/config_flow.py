@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -16,7 +15,8 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
-from homeassistant.helpers import entity_registry as er, selector
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import selector
 
 from .const import (
     AVAILABLE_WINDOWS,
@@ -29,12 +29,12 @@ from .const import (
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_RECOVERY_WINDOW,
     CONF_SIGNAL_ENABLED,
     CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
-    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
@@ -65,7 +65,8 @@ def _detect_signal_entity(hass: Any, entity_id: str) -> str:
 
     Detection order:
     1. Device registry sibling with device_class=SIGNAL_STRENGTH
-    2. Naming convention: *_linkquality, *_signal_strength, *_rssi, *_lqi, *_signal
+    2. Naming convention on slug: *_linkquality, *_signal_strength, *_rssi, *_lqi, *_signal
+    3. Same as 2 but with known HA suffixes (_last_seen, _last_updated) stripped first
     """
     ent_reg = er.async_get(hass)
     entry = ent_reg.async_get(entity_id)
@@ -82,16 +83,23 @@ def _detect_signal_entity(hass: Any, entity_id: str) -> str:
     parts = entity_id.split(".", 1)
     if len(parts) == 2:  # pragma: no branch
         slug = parts[1]
-        for suffix in (
+        signal_suffixes = (
             "_linkquality",
             "_signal_strength",
             "_rssi",
             "_lqi",
             "_signal",
-        ):
-            candidate = f"sensor.{slug}{suffix}"
-            if hass.states.get(candidate):
-                return candidate
+        )
+        slugs_to_try = [slug]
+        for strip_suffix in ("_last_seen", "_last_updated"):
+            if slug.endswith(strip_suffix):
+                slugs_to_try.append(slug[: -len(strip_suffix)])
+                break
+        for base in slugs_to_try:
+            for suffix in signal_suffixes:
+                candidate = f"sensor.{base}{suffix}"
+                if hass.states.get(candidate):
+                    return candidate
 
     return ""
 
@@ -102,9 +110,9 @@ def _build_signal_map_from_input(
     """Build signal entity map from wizard step user_input."""
     signal_map: dict[str, dict[str, str]] = {}
     for entity_id in entities:
-        sensor = user_input.get(f"{entity_id}__signal_sensor", "")
+        sensor = user_input.get(entity_id, "")
         if sensor:
-            nt = user_input.get(f"{entity_id}__signal_network", "") or "generic"
+            nt = user_input.get(f"{entity_id}#network", "") or "generic"
             signal_map[entity_id] = {
                 "sensor": sensor,
                 "network_type": nt,
@@ -461,7 +469,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             detected = _detect_signal_entity(self.hass, entity_id)
             schema_dict[
                 vol.Optional(
-                    f"{entity_id}__signal_sensor",
+                    entity_id,
                     description={"suggested_value": detected} if detected else None,
                 )
             ] = selector.EntitySelector(
@@ -470,7 +478,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
             )
             schema_dict[
-                vol.Optional(f"{entity_id}__signal_network", default="generic")
+                vol.Optional(f"{entity_id}#network", default="generic")
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
             )
@@ -700,9 +708,9 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             # explicitly removes the mapping so stale entries are cleaned up.
             merged = dict(existing_map)
             for entity_id in entities:
-                sensor = user_input.get(f"{entity_id}__signal_sensor", "")
+                sensor = user_input.get(entity_id, "")
                 if sensor:
-                    nt = user_input.get(f"{entity_id}__signal_network", "") or "generic"
+                    nt = user_input.get(f"{entity_id}#network", "") or "generic"
                     merged[entity_id] = {"sensor": sensor, "network_type": nt}
                 else:
                     merged.pop(entity_id, None)
@@ -720,7 +728,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             )
             schema_dict[
                 vol.Optional(
-                    f"{entity_id}__signal_sensor",
+                    entity_id,
                     description={"suggested_value": suggested} if suggested else None,
                 )
             ] = selector.EntitySelector(
@@ -730,7 +738,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             )
             schema_dict[
                 vol.Optional(
-                    f"{entity_id}__signal_network",
+                    f"{entity_id}#network",
                     default=existing.get("network_type", "generic"),
                 )
             ] = selector.SelectSelector(
