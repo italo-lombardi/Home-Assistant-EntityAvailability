@@ -1021,18 +1021,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             return None
 
     def _classify_signal(self, entity_id: str, level: int) -> SignalQuality:
-        """Classify signal level as 'good', 'ok', or 'poor' based on network type."""
-        assert level is not None  # caller guards; annotation enforced here
+        """Classify signal level as 'good', 'ok', or 'poor' based on network type.
+
+        >= works for both higher-is-better (LQI/%) and lower-is-better (dBm) scales.
+        """
         mapping = self._signal_map.get(entity_id, {})
         nt = mapping.get("network_type", "generic")
         thresholds = SIGNAL_NETWORK_TYPES.get(nt, SIGNAL_NETWORK_TYPES["generic"])
-        if thresholds.get("higher_is_better", False):
-            if level >= thresholds["good"]:
-                return "good"
-            if level >= thresholds["ok"]:
-                return "ok"
-            return "poor"
-        # lower-is-better (dBm): more negative = worse
         if level >= thresholds["good"]:
             return "good"
         if level >= thresholds["ok"]:
