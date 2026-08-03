@@ -69,7 +69,7 @@
       },
       "signal_mapping": {
         "title": "Sinyal Gücü Eşleştirmesi",
-        "description": "İzlenen her varlık için isteğe bağlı olarak bir sinyal sensörü (ör. sensor.device_rssi) seçin ve doğru eşiklerin uygulanması için ağ türünü belirleyin. Bir varlık için sinyal izlemeyi atlamak üzere sensörü boş bırakın."
+        "description": "Her varlık için isteğe bağlı olarak bir sinyal sensörü seçin ve ağ türünü belirleyin. Atlamak için sensörü boş bırakın.\n\nEşikler (iyi / orta / zayıf):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / below 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
       }
     },
     "error": {
@@ -129,7 +129,7 @@
       },
       "signal_mapping": {
         "title": "Sinyal Gücü Eşleştirmesi",
-        "description": "İzlenen her varlık için isteğe bağlı olarak bir sinyal sensörü seçin ve ağ türünü belirleyin. Bir varlık için sinyal izlemeyi atlamak üzere sensörü boş bırakın."
+        "description": "Her varlık için isteğe bağlı olarak bir sinyal sensörü seçin ve ağ türünü belirleyin. Atlamak için sensörü boş bırakın.\n\nEşikler (iyi / orta / zayıf):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / below 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
       }
     }
   },

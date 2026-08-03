@@ -69,7 +69,7 @@
       },
       "signal_mapping": {
         "title": "Signalstärke-Zuordnung",
-        "description": "Wählen Sie optional für jede überwachte Entität einen Signalsensor (z. B. sensor.device_rssi) aus und legen Sie den Netzwerktyp fest, damit die richtigen Schwellenwerte angewendet werden. Lassen Sie das Sensorfeld leer, um die Signalüberwachung für diese Entität zu überspringen."
+        "description": "Für jede Entität optional einen Signalsensor auswählen und den Netzwerktyp festlegen. Sensor leer lassen, um zu überspringen.\\n\\nSchwellenwerte (gut / ok / schwach):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / below 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
       }
     },
     "error": {
@@ -129,7 +129,7 @@
       },
       "signal_mapping": {
         "title": "Signalstärke-Zuordnung",
-        "description": "Wählen Sie optional für jede überwachte Entität einen Signalsensor aus und legen Sie den Netzwerktyp fest. Lassen Sie das Sensorfeld leer, um die Signalüberwachung für diese Entität zu überspringen."
+        "description": "Für jede Entität optional einen Signalsensor auswählen und den Netzwerktyp festlegen. Sensor leer lassen, um zu überspringen.\\n\\nSchwellenwerte (gut / ok / schwach):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / below 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
       }
     }
   },

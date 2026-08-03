@@ -70,7 +70,7 @@
       },
       "signal_mapping": {
         "title": "Signalstyrke-mapping",
-        "description": "For hver overvåget enhed kan du valgfrit vælge en signalsensor (f.eks. sensor.device_rssi) og vælge netværkstype, så de korrekte tærskler anvendes. Lad sensoren stå tom for at springe signalmonitorering over for den pågældende enhed."
+        "description": "For hver enhed skal du valgfrit vælge en signalsensor og vælge netværkstypen. Lad sensoren være tom for at springe over.\n\nTærskler (god / ok / dårlig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / below 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
       }
     },
     "error": {
@@ -130,7 +130,7 @@
       },
       "signal_mapping": {
         "title": "Signalstyrke-mapping",
-        "description": "For hver overvåget enhed kan du valgfrit vælge en signalsensor og vælge netværkstype. Lad sensoren stå tom for at springe signalmonitorering over for den pågældende enhed."
+        "description": "For hver enhed skal du valgfrit vælge en signalsensor og vælge netværkstypen. Lad sensoren være tom for at springe over.\n\nTærskler (god / ok / dårlig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / below 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
       }
     }
   },
