@@ -388,6 +388,18 @@ const cardStyles = css`
     letter-spacing: 0.5px;
     min-width: 35px;
     text-align: right;
+    border-left: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+    padding-left: 8px;
+  }
+
+  .entity-battery {
+    font-size: 12px;
+    color: var(--eac-text-secondary);
+    white-space: nowrap;
+    min-width: 35px;
+    text-align: right;
+    border-left: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+    padding-left: 8px;
   }
 
   .entity-list.icon-mode .entity-status {
@@ -514,14 +526,6 @@ const cardStyles = css`
     font-size: 12px;
     color: var(--eac-text-secondary);
     white-space: nowrap;
-  }
-
-  .entity-battery {
-    font-size: 12px;
-    color: var(--eac-text-secondary);
-    white-space: nowrap;
-    min-width: 35px;
-    text-align: right;
   }
 
   /* Actions */
@@ -758,6 +762,8 @@ class EntityAvailabilityCard extends LitElement {
       const stalenessEnabled = attrs.staleness_enabled || false;
       const staleCount = stalenessEnabled ? ((attrs.stale_entities || []).length || attrs.stale || 0) : 0;
       const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
+      // Signal rollup not yet available in combined_summary — always 0 for combined groups
+      const combinedPoorSignal = 0;
 
       const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
@@ -768,7 +774,7 @@ class EntityAvailabilityCard extends LitElement {
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
-          ${this._renderStats(online, offline, effectiveLowBattery, staleCount, 0, this._config.show_stat_icons === true)}
+          ${this._renderStats(online, offline, effectiveLowBattery, staleCount, combinedPoorSignal, this._config.show_stat_icons === true)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
@@ -1221,7 +1227,7 @@ class EntityAvailabilityCard extends LitElement {
         status = "Poor Signal";
       } else if (isOkSignal) {
         dotColor = "yellow";
-        status = "Weak Signal";
+        status = "Signal: OK";
       }
 
       return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
@@ -1277,7 +1283,7 @@ class EntityAvailabilityCard extends LitElement {
       { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) },
       { label: "Condition", value: suppressedUntil ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
-      item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel} ${item.signalUnit ?? "dBm"}${item.isPoorSignal ? " (poor)" : item.isOkSignal ? " (weak)" : ""}` } : null,
+      item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel} ${item.signalUnit ?? "dBm"}${item.isPoorSignal ? " (poor)" : item.isOkSignal ? " (ok)" : ""}` } : null,
       suppressedUntil ? { label: "Suppressed", value: suppressedUntil === "indefinitely" ? "Indefinitely" : `until ${suppressedUntil}` } : null,
     ].filter(Boolean);
   }

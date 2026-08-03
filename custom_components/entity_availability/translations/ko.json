@@ -69,7 +69,7 @@
       },
       "signal_mapping": {
         "title": "신호 강도 매핑",
-        "description": "각 엔티티에 대해 선택적으로 신호 센서를 선택하고 네트워크 유형을 선택하세요. 센서를 비워 두면 건너뜁니다.\n\n임계값 (좋음 / 보통 / 나쁨):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / below 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
+        "description": "각 엔티티에 대해 선택적으로 신호 센서를 선택하고 네트워크 유형을 선택하세요. 센서를 비워 두면 건너뜁니다.\n\n임계값 (좋음 / 보통 / 나쁨):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / < −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -129,7 +129,7 @@
       },
       "signal_mapping": {
         "title": "신호 강도 매핑",
-        "description": "각 엔티티에 대해 선택적으로 신호 센서를 선택하고 네트워크 유형을 선택하세요. 센서를 비워 두면 건너뜁니다.\n\n임계값 (좋음 / 보통 / 나쁨):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / below −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / below −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / below −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / below −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / below 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / below −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / below −85 dBm"
+        "description": "각 엔티티에 대해 선택적으로 신호 센서를 선택하고 네트워크 유형을 선택하세요. 센서를 비워 두면 건너뜁니다.\n\n임계값 (좋음 / 보통 / 나쁨):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / < −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
