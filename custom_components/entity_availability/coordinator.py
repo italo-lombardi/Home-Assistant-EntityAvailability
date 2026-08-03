@@ -13,6 +13,7 @@ from homeassistant.helpers.event import (
     async_call_later,
     async_track_state_change_event,
 )
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers import entity_registry as er
@@ -79,6 +80,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             name=f"Entity Availability - {entry.title}",
             update_interval=timedelta(seconds=SCAN_INTERVAL),
             config_entry=entry,
+            # Our own per-entity 0.5s debounce already batches rapid changes.
+            # Override the default 10s cooldown so back-to-back state changes
+            # each trigger a fresh coordinator refresh without being dropped.
+            request_refresh_debouncer=Debouncer(
+                hass,
+                _LOGGER,
+                cooldown=0,
+                immediate=True,
+            ),
         )
         self.entry = entry
         self._entities: list[str] = entry.data.get(CONF_ENTITIES, [])

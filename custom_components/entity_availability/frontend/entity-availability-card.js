@@ -392,7 +392,8 @@ const cardStyles = css`
     padding-left: 8px;
   }
 
-  .entity-battery {
+  .entity-battery,
+  .entity-signal {
     font-size: 12px;
     color: var(--eac-text-secondary);
     white-space: nowrap;

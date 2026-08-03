@@ -577,7 +577,13 @@ class CombinedGroupSensor(CombinedSensorBase):
         )
         signal_enabled = any(coord._signal_enabled for coord in active)
         poor_signal_count = (
-            sum(len(coord._poor_signal_entity_ids()) for coord in active)
+            sum(
+                1
+                for d in merged_states.values()
+                if d.signal_quality == "poor"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            )
             if signal_enabled
             else 0
         )
