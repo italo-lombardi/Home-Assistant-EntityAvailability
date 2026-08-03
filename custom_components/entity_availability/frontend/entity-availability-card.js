@@ -1861,6 +1861,7 @@ class EntityAvailabilityCardEditor extends LitElement {
             Use Icons in Stats Row
           </label>
         </div>
+        ${this._isSelectedGroupCombined() ? html`
         <div class="editor-row checkbox">
           <label>
             <input
@@ -1868,9 +1869,10 @@ class EntityAvailabilityCardEditor extends LitElement {
               .checked=${this._config.show_table_icons === true}
               @change=${(e) => this._updateConfig("show_table_icons", e.target.checked)}
             />
-            ${this._isSelectedGroupCombined() ? "Use Icons in Groups Table Header" : "Use Icons in Entity List Header"}
+            Use Icons in Groups Table Header
           </label>
         </div>
+        ` : nothing}
         ${this._isSelectedGroupCombined() ? html`
         <div class="editor-row">
           <label>Sort Groups By</label>
