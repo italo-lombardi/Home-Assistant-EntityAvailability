@@ -405,7 +405,6 @@ const cardStyles = css`
 
   .entity-list.icon-mode .entity-status {
     min-width: 24px;
-    font-size: 11px;
   }
 
   .entity-list.icon-mode .entity-battery {
