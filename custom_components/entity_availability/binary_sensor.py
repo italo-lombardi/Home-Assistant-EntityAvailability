@@ -48,10 +48,18 @@ async def async_setup_entry(
         NonEssentialAnyOfflineBinarySensor(
             coordinator, group_name, group_slug, entry.entry_id
         ),
+        AnyLowBatteryNonEssentialBinarySensor(
+            coordinator, group_name, group_slug, entry.entry_id
+        ),
     ]
     if entry.data.get(CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED):
         entities.append(
             AnyPoorSignalBinarySensor(
+                coordinator, group_name, group_slug, entry.entry_id
+            )
+        )
+        entities.append(
+            AnyPoorSignalNonEssentialBinarySensor(
                 coordinator, group_name, group_slug, entry.entry_id
             )
         )
@@ -281,3 +289,80 @@ class AnyPoorSignalBinarySensor(DedupCoordinatorBinarySensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         entities = self.coordinator._poor_signal_entity_ids()
         return {"poor_signal_entities": entities, "poor_signal_count": len(entities)}
+
+
+class AnyPoorSignalNonEssentialBinarySensor(DedupCoordinatorBinarySensor):
+    """Binary sensor: ON when at least one non-essential entity has poor signal."""
+
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_icon = "mdi:signal-off"
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_any_poor_signal_non_essential"
+        self.entity_id = f"binary_sensor.entity_availability_{group_slug}_any_poor_signal_non_essential"
+        self._attr_translation_key = "any_poor_signal_non_essential"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry_id)},
+            name=f"Entity Availability - {group_name}",
+            manufacturer="Entity Availability",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.coordinator._poor_signal_ne_entity_ids())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        entities = self.coordinator._poor_signal_ne_entity_ids()
+        return {"poor_signal_entities": entities, "poor_signal_count": len(entities)}
+
+
+class AnyLowBatteryNonEssentialBinarySensor(DedupCoordinatorBinarySensor):
+    """Binary sensor: ON when at least one non-essential entity has low battery."""
+
+    _attr_device_class = BinarySensorDeviceClass.BATTERY
+    _attr_icon = "mdi:battery-alert-variant-outline"
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_any_low_battery_non_essential"
+        self.entity_id = f"binary_sensor.entity_availability_{group_slug}_any_low_battery_non_essential"
+        self._attr_translation_key = "any_low_battery_non_essential"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry_id)},
+            name=f"Entity Availability - {group_name}",
+            manufacturer="Entity Availability",
+            entry_type=DeviceEntryType.SERVICE,
+        )
+
+    @property
+    def is_on(self) -> bool:
+        return any(
+            d.is_low_battery and not d.is_suppressed and d.is_non_essential
+            for d in self.coordinator.device_states.values()
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        entities = [
+            d.entity_id
+            for d in self.coordinator.device_states.values()
+            if d.is_low_battery and not d.is_suppressed and d.is_non_essential
+        ]
+        return {"low_battery_entities": entities, "low_battery_count": len(entities)}
