@@ -653,7 +653,11 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             if self._data.get(CONF_SIGNAL_ENABLED):
                 return await self.async_step_signal_mapping()
 
-            self._data[CONF_SIGNAL_ENTITY_MAP] = {}
+            # Preserve signal map even when disabled so re-enabling restores bindings.
+            self._data.setdefault(
+                CONF_SIGNAL_ENTITY_MAP,
+                self.config_entry.data.get(CONF_SIGNAL_ENTITY_MAP, {}),
+            )
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=self._data
             )
