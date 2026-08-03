@@ -4856,9 +4856,9 @@ async def test_classify_signal_ok(mock_hass: HomeAssistant, mock_config_entry) -
     ):
         coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
 
-    # wifi: good=-67, ok=-70 (narrow ok band: -68 to -70)
+    # wifi: good=-67, ok=-80 (ok band: -68 to -80)
     assert coord._classify_signal("binary_sensor.device_a", -68) == "ok"
-    assert coord._classify_signal("binary_sensor.device_a", -70) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", -80) == "ok"
 
 
 async def test_classify_signal_poor(
@@ -4889,8 +4889,8 @@ async def test_classify_signal_poor(
     ):
         coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
 
-    # wifi: ok=-70, poor is below that
-    assert coord._classify_signal("binary_sensor.device_a", -71) == "poor"
+    # wifi: ok=-80, poor is below that
+    assert coord._classify_signal("binary_sensor.device_a", -81) == "poor"
     assert coord._classify_signal("binary_sensor.device_a", -90) == "poor"
 
 
@@ -5004,8 +5004,8 @@ async def test_signal_level_and_quality_set_on_update(
 
     device_a = coord.device_states["binary_sensor.device_a"]
     assert device_a.signal_level == -75
-    # wifi poor threshold is -70 dBm; -75 < -70 → poor
-    assert device_a.signal_quality == "poor"
+    # wifi poor threshold is -80 dBm; -75 > -80 → ok
+    assert device_a.signal_quality == "ok"
 
 
 async def test_signal_disabled_does_not_set_signal_fields(
@@ -5081,7 +5081,7 @@ async def test_bus_events_poor_signal_transition(
     assert poor_events == []
 
     # Drop to poor signal
-    hass.states.async_set("sensor.device_a_rssi", "-80")
+    hass.states.async_set("sensor.device_a_rssi", "-85")
     with patch.object(
         EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
     ):
@@ -5091,7 +5091,7 @@ async def test_bus_events_poor_signal_transition(
     assert device_a.signal_quality == "poor"
     assert len(poor_events) == 1
     assert poor_events[0].data["entity_id"] == "binary_sensor.device_a"
-    assert poor_events[0].data["signal_level"] == -80
+    assert poor_events[0].data["signal_level"] == -85
     assert poor_events[0].data["signal_quality"] == "poor"
     assert ok_events == []
 
@@ -5230,7 +5230,7 @@ async def test_poor_signal_suppressed_entity_no_poor_signal_event(
     )
 
     hass = mock_hass
-    hass.states.async_set("sensor.device_a_rssi", "-80")
+    hass.states.async_set("sensor.device_a_rssi", "-85")
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True
@@ -5313,7 +5313,7 @@ async def test_prev_signal_poor_persists_while_suppressed(
         assert poor_events == []
 
         # Signal drops to poor, suppress simultaneously
-        hass.states.async_set("sensor.device_a_rssi", "-80")
+        hass.states.async_set("sensor.device_a_rssi", "-85")
         coord.suppress_entity("binary_sensor.device_a")
         await coord._async_update_data()
         await hass.async_block_till_done()

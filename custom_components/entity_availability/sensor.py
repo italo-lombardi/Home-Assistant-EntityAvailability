@@ -51,7 +51,7 @@ def _format_poor_signal_device(
 ) -> str:
     """Format device name with signal level for poor-signal sensor lists."""
     name = _resolve_display_name(hass, device.entity_id, use_device_names)
-    unit = device.signal_unit or "dBm"
+    unit = device.signal_unit or ""
     return f"{name} ({device.signal_level} {unit})"
 
 
@@ -1109,6 +1109,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 if signal_enabled and d.signal_unit is not None
             },
             "poor_signal_entities": self.coordinator._poor_signal_entity_ids()
+            if signal_enabled
+            else [],
+            "poor_signal_entities_non_essential": self.coordinator._poor_signal_ne_entity_ids()
             if signal_enabled
             else [],
             "ok_signal_entities": self.coordinator._ok_signal_entity_ids()

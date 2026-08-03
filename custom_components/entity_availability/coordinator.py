@@ -1022,6 +1022,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
     def _classify_signal(self, entity_id: str, level: int) -> SignalQuality:
         """Classify signal level as 'good', 'ok', or 'poor' based on network type."""
+        assert level is not None  # caller guards; annotation enforced here
         mapping = self._signal_map.get(entity_id, {})
         nt = mapping.get("network_type", "generic")
         thresholds = SIGNAL_NETWORK_TYPES.get(nt, SIGNAL_NETWORK_TYPES["generic"])

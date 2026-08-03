@@ -1951,7 +1951,23 @@ async def test_signal_mapping_stores_sensor_and_network_type(
     assert "binary_sensor.b" not in signal_map
 
 
-async def test_battery_then_signal_mapping_chain(hass: HomeAssistant) -> None:
+async def test_signal_mapping_empty_network_type_falls_back_to_generic(
+    hass: HomeAssistant,
+) -> None:
+    """Empty string network_type falls back to 'generic' instead of being stored as ''."""
+    from custom_components.entity_availability.config_flow import (
+        _build_signal_map_from_input,
+    )
+
+    result = _build_signal_map_from_input(
+        ["binary_sensor.x"],
+        {
+            "binary_sensor.x__signal_sensor": "sensor.x_rssi",
+            "binary_sensor.x__signal_network": "",
+        },
+    )
+    assert result["binary_sensor.x"]["network_type"] == "generic"
+
     """With both battery > 0 and signal_enabled, flow goes battery_mapping → signal_mapping → entry."""
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
@@ -2475,9 +2491,8 @@ async def test_options_flow_signal_map_preserves_untouched_entities(
     final_map = entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
     # device_a updated to bluetooth
     assert final_map["binary_sensor.device_a"]["network_type"] == "bluetooth"
-    # device_b binding preserved (sensor blank = not touched, existing kept)
-    assert "binary_sensor.device_b" in final_map
-    assert final_map["binary_sensor.device_b"]["sensor"] == "sensor.b_rssi"
+    # device_b sensor submitted as blank → mapping removed (explicit clear)
+    assert "binary_sensor.device_b" not in final_map
 
 
 async def test_options_detect_signal_entity_non_signal_sibling_skipped(

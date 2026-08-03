@@ -499,6 +499,8 @@ class CombinedGroupSensor(CombinedSensorBase):
                 > 0,
                 "battery_powered": g_battery_powered,
                 "signal_enabled": coord._signal_enabled,
+                # Per-group poor_signal is NOT deduped — a shared entity counts in each group's row.
+                # The combined total (poor_signal_count below) IS deduped via merged_states.
                 "poor_signal": len(coord._poor_signal_entity_ids()),
             }
 

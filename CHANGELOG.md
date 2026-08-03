@@ -14,7 +14,11 @@ All notable changes to this project will be documented in this file.
   - 2 new bus events: `entity_availability_poor_signal` / `entity_availability_signal_ok` on quality transitions
   - Signal level and unit exposed in `group_summary` attributes (`signal_levels`, `signal_units`, `poor_signal_entities`, `signal_enabled`)
   - Card: "Poor Signal: N" stat pill (hidden when 0); entity dot turns yellow; detail view shows signal value with correct unit (dBm or %)
-- **Card: icon mode for stats row** — new `show_stat_icons` option (default off). When enabled, replaces "Online:", "Offline:", "Low Battery:", "Stale:", "Poor Signal:" text labels with MDI icons with tooltip. Applies to both main stats row and Non-Essential stats sub-row. Toggle available in the visual editor.
+- **Card: icon mode for stats row** — new `show_stat_icons` option (default off). When enabled, replaces "Online:", "Offline:", "Low Battery:", "Stale:", "Poor Signal:" text labels with MDI icons with tooltip. Applies to both main stats row and Non-Essential stats sub-row (including Poor Signal NE count). Toggle available in the visual editor.
+- **Card: icon mode for entity list / groups table header** — new `show_table_icons` option (default off). Replaces "Bat." / "Signal" / "Stale" column header text with MDI icons in the entity list (single groups) and the breakdown table header (combined groups). Both checkboxes appear in the visual editor for all card types.
+- **`AnyLowBatteryNonEssentialBinarySensor`** — new binary sensor (always created, same as the existing essential variant); ON when any non-essential entity has low battery
+- **`AnyPoorSignalNonEssentialBinarySensor`** — new binary sensor (created when signal enabled); ON when any non-essential entity has poor signal
+- **`EVENT_STALE_RECOVERED` payload** now includes `stale_since` field (ISO timestamp) for consistency with `EVENT_STALE`
 
 ### Changed
 - Signal `signal_enabled` toggle positioned directly below `battery_threshold` in Advanced settings for logical grouping

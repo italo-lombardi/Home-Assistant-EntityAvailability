@@ -49,7 +49,7 @@ SIGNAL_NETWORK_TYPES: dict[str, dict[str, int | str]] = {
     "lte": {"label": "LTE/4G", "unit": "dBm", "good": -80, "ok": -90},
     "percent": {"label": "Percentage", "unit": "%", "good": 70, "ok": 40},
     "thread": {"label": "Thread", "unit": "dBm", "good": -70, "ok": -85},
-    "wifi": {"label": "Wi-Fi", "unit": "dBm", "good": -67, "ok": -70},
+    "wifi": {"label": "Wi-Fi", "unit": "dBm", "good": -67, "ok": -80},
     "zigbee": {"label": "Zigbee", "unit": "dBm", "good": -70, "ok": -85},
     "zwave": {"label": "Z-Wave", "unit": "dBm", "good": -70, "ok": -85},
 }

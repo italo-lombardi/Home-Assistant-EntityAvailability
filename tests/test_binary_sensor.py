@@ -449,7 +449,7 @@ async def test_any_poor_signal_binary_sensor_on_when_essential_poor(
     )
 
     hass.states.async_set("binary_sensor.device_a", "on")
-    hass.states.async_set("sensor.a_rssi", "-80")  # poor wifi
+    hass.states.async_set("sensor.a_rssi", "-85")  # poor wifi
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True
@@ -542,7 +542,7 @@ async def test_any_poor_signal_binary_sensor_off_when_only_ne_is_poor(
     )
 
     hass.states.async_set("binary_sensor.device_c", "on")
-    hass.states.async_set("sensor.c_rssi", "-80")
+    hass.states.async_set("sensor.c_rssi", "-85")
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True

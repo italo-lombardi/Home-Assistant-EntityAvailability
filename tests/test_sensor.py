@@ -3314,7 +3314,7 @@ async def test_poor_signal_sensor_lists_poor_entities(
     )
 
     hass.states.async_set("binary_sensor.device_a", "on", {"friendly_name": "Device A"})
-    hass.states.async_set("sensor.device_a_rssi", "-80")
+    hass.states.async_set("sensor.device_a_rssi", "-85")
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True
@@ -3366,8 +3366,8 @@ async def test_poor_signal_count_sensor_counts_essential_only(
 
     hass.states.async_set("binary_sensor.device_a", "on")
     hass.states.async_set("binary_sensor.device_c", "on")
-    hass.states.async_set("sensor.a_rssi", "-80")
-    hass.states.async_set("sensor.c_rssi", "-80")
+    hass.states.async_set("sensor.a_rssi", "-85")
+    hass.states.async_set("sensor.c_rssi", "-85")
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True
@@ -3415,7 +3415,7 @@ async def test_ne_poor_signal_count_sensor(
     )
 
     hass.states.async_set("binary_sensor.device_c", "on")
-    hass.states.async_set("sensor.c_rssi", "-80")
+    hass.states.async_set("sensor.c_rssi", "-85")
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True
