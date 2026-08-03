@@ -764,6 +764,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                             "entry_id": self.entry.entry_id,
                             "stale_count": len(stale_ids),
                             "stale_entities": stale_ids,
+                            "stale_since": (stale_ts or now).isoformat(),
                         },
                     )
                 )
