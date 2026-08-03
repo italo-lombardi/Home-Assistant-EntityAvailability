@@ -13,7 +13,6 @@ from homeassistant.helpers.event import (
     async_call_later,
     async_track_state_change_event,
 )
-from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers import entity_registry as er
@@ -80,15 +79,6 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             name=f"Entity Availability - {entry.title}",
             update_interval=timedelta(seconds=SCAN_INTERVAL),
             config_entry=entry,
-            # Our own per-entity 0.5s debounce already batches rapid changes.
-            # Override the default 10s cooldown so back-to-back state changes
-            # each trigger a fresh coordinator refresh without being dropped.
-            request_refresh_debouncer=Debouncer(
-                hass,
-                _LOGGER,
-                cooldown=0,
-                immediate=True,
-            ),
         )
         self.entry = entry
         self._entities: list[str] = entry.data.get(CONF_ENTITIES, [])
@@ -479,7 +469,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         def _debounced_refresh(_now: Any) -> None:
             """Trigger a coordinator refresh after debounce."""
             self._debounce_cancel_map.pop(entity_id, None)
-            self.hass.async_create_task(self.async_request_refresh())
+            # Schedule refresh as a background task. Using async_refresh() directly
+            # instead of async_request_refresh() avoids the Debouncer's execute-lock
+            # guard which silently drops calls made while a refresh is already running.
+            self.hass.async_create_task(self.async_refresh())
 
         self._debounce_cancel_map[entity_id] = async_call_later(
             self.hass, _STATE_CHANGE_DEBOUNCE, _debounced_refresh
