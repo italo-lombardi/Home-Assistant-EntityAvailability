@@ -275,20 +275,9 @@ class AnyPoorSignalBinarySensor(DedupCoordinatorBinarySensor):
 
     @property
     def is_on(self) -> bool:
-        return any(
-            d.signal_quality == "poor"
-            and not d.is_suppressed
-            and not d.is_non_essential
-            for d in self.coordinator.device_states.values()
-        )
+        return bool(self.coordinator._poor_signal_entity_ids())
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        entities = [
-            d.entity_id
-            for d in self.coordinator.device_states.values()
-            if d.signal_quality == "poor"
-            and not d.is_suppressed
-            and not d.is_non_essential
-        ]
+        entities = self.coordinator._poor_signal_entity_ids()
         return {"poor_signal_entities": entities, "poor_signal_count": len(entities)}

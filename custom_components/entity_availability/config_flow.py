@@ -54,6 +54,12 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+_SIGNAL_NETWORK_TYPE_OPTIONS = [
+    selector.SelectOptionDict(value=k, label=v["label"])
+    for k, v in sorted(SIGNAL_NETWORK_TYPES.items(), key=lambda x: x[1]["label"])
+]
+
+
 def _build_signal_map_from_input(
     entities: list[str], user_input: dict[str, Any]
 ) -> dict[str, dict[str, str]]:
@@ -442,8 +448,6 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Step 5: Signal entity mapping."""
-        network_type_options = list(SIGNAL_NETWORK_TYPES.keys())
-
         if user_input is not None:
             self._data[CONF_SIGNAL_ENTITY_MAP] = _build_signal_map_from_input(
                 self._data[CONF_ENTITIES], user_input
@@ -465,7 +469,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             schema_dict[
                 vol.Optional(f"{entity_id}__signal_network", default="generic")
             ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=network_type_options)
+                selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
             )
 
         return self.async_show_form(
@@ -675,7 +679,6 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Signal entity mapping step in options flow."""
-        network_type_options = list(SIGNAL_NETWORK_TYPES.keys())
         entities = self._data.get(
             CONF_ENTITIES, self.config_entry.data.get(CONF_ENTITIES, [])
         )
@@ -706,7 +709,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                     default=existing.get("network_type", "generic"),
                 )
             ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=network_type_options)
+                selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
             )
 
         return self.async_show_form(

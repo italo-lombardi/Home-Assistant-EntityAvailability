@@ -1026,3 +1026,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             and not d.is_suppressed
             and not d.is_non_essential
         ]
+
+    def _ok_signal_entity_ids(self) -> list[str]:
+        """Return entity_ids with ok signal, not suppressed, essential only."""
+        return [
+            eid
+            for eid, d in self._device_states.items()
+            if d.signal_quality == "ok"
+            and not d.is_suppressed
+            and not d.is_non_essential
+        ]

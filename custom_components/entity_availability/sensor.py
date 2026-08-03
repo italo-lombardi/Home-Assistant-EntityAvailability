@@ -1091,6 +1091,14 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 and not d.is_suppressed
                 and not d.is_non_essential
             ],
+            "ok_signal_entities": [
+                eid
+                for eid, d in states.items()
+                if signal_enabled
+                and d.signal_quality == "ok"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            ],
             "suppressed_until": {
                 eid: d.suppress_until.isoformat()
                 if d.suppress_until is not None
@@ -1506,12 +1514,11 @@ class PoorSignalSensor(DedupCoordinatorSensor):
     @property
     def native_value(self) -> str:
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        states = self.coordinator.device_states
         poor = [
-            _format_poor_signal_device(self.hass, d, use_device_names)
-            for d in self.coordinator.device_states.values()
-            if d.signal_quality == "poor"
-            and not d.is_suppressed
-            and not d.is_non_essential
+            _format_poor_signal_device(self.hass, states[eid], use_device_names)
+            for eid in self.coordinator._poor_signal_entity_ids()
+            if eid in states
         ]
         if not poor:
             return "None"
@@ -1522,17 +1529,15 @@ class PoorSignalSensor(DedupCoordinatorSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        devices: dict[str, Any] = {}
-        for d in self.coordinator.device_states.values():
-            if (
-                d.signal_quality == "poor"
-                and not d.is_suppressed
-                and not d.is_non_essential
-            ):
-                devices[d.entity_id] = {
-                    "signal_level": d.signal_level,
-                    "signal_quality": d.signal_quality,
-                }
+        states = self.coordinator.device_states
+        devices = {
+            eid: {
+                "signal_level": states[eid].signal_level,
+                "signal_quality": states[eid].signal_quality,
+            }
+            for eid in self.coordinator._poor_signal_entity_ids()
+            if eid in states
+        }
         return {"devices": devices, "count": len(devices)}
 
 

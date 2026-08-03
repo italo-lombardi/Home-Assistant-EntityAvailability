@@ -5417,3 +5417,47 @@ async def test_signal_level_cleared_when_sensor_becomes_unavailable(
 
     assert device_a.signal_level is None
     assert device_a.signal_quality is None
+
+
+async def test_ok_signal_entity_ids_returns_ok_essential(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_ok_signal_entity_ids returns essential non-suppressed entities with ok signal."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.models import DeviceState
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    coord._device_states["sensor.a"] = DeviceState(
+        entity_id="sensor.a", signal_quality="ok"
+    )
+    coord._device_states["sensor.b"] = DeviceState(
+        entity_id="sensor.b", signal_quality="poor"
+    )
+    coord._device_states["sensor.c"] = DeviceState(
+        entity_id="sensor.c", signal_quality="ok", is_non_essential=True
+    )
+    coord._device_states["sensor.d"] = DeviceState(
+        entity_id="sensor.d", signal_quality="ok", is_suppressed=True
+    )
+
+    result = coord._ok_signal_entity_ids()
+    assert result == ["sensor.a"]
