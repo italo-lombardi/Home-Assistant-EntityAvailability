@@ -477,10 +477,10 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                     domain=["sensor", "input_number", "number"]
                 )
             )
-            schema_dict[
-                vol.Optional(f"{entity_id}#network", default="generic")
-            ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
+            schema_dict[vol.Optional(f"{entity_id}#network", default="generic")] = (
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
+                )
             )
 
         return self.async_show_form(

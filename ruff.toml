@@ -1,0 +1,3 @@
+[lint]
+[lint.per-file-ignores]
+"tests/integration/smoke.py" = ["BLE001", "S110"]
