@@ -32,7 +32,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Indefinite suppression** -- suppress an entity with no expiry via `suppress_indefinitely`
 - **Maintenance/suppression mode** -- temporarily exclude entities from monitoring
 - **Non-Essential entity level** -- mark entities as non-essential: shown on the card but excluded from KPIs (offline count, availability %, MTBF, MTTR) and alerts; useful for expected-offline devices (TV in standby, printer off between jobs) without needing a separate group
-- **Signal strength monitoring** -- optional per-group feature (disabled by default). Bind a signal sensor and select the network type for each entity. Supported protocols: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Auto-detects sensors via `SIGNAL_STRENGTH` device class or naming conventions (`*_linkquality` for Z2MQTT, `*_signal_strength` for BLE, `*_rssi`, `*_lqi`, `*_signal`). Fires `entity_availability_poor_signal` / `entity_availability_signal_ok` events.
+- **Signal strength monitoring** -- optional per-group feature (disabled by default). Bind a signal sensor and select the network type for each entity. Supported protocols: Wi-Fi, Zigbee (LQI and RSSI/dBm), Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Auto-detects sensors via `SIGNAL_STRENGTH` device class or naming conventions (`*_linkquality` for Z2MQTT, `*_signal_strength` for BLE, `*_rssi`, `*_lqi`, `*_signal`). Fires `entity_availability_poor_signal` / `entity_availability_signal_ok` events.
 - **Custom Lovelace card** -- traffic-light status display with at-a-glance health overview
 - **Card: icon mode for stats row** -- `show_stat_icons: true` replaces text labels (Online/Offline/Low Battery/Stale/Poor Signal) with MDI icons in the stats row (default off)
 - **Self-managed storage** -- no recorder dependency; data stored in `.storage`
@@ -141,7 +141,8 @@ Supported network types and thresholds:
 | Thread | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
 | Wi-Fi | ≥ −67 dBm | ≥ −70 dBm | < −70 dBm |
 | Z-Wave | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
-| Zigbee | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
+| Zigbee (LQI) | ≥ 201 | ≥ 51 | < 51 (higher is better) |
+| Zigbee (RSSI/dBm) | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
 
 > 📸 _Screenshot placeholder: signal strength mapping step_
 

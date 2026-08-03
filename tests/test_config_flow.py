@@ -2006,14 +2006,14 @@ async def test_signal_mapping_empty_network_type_falls_back_to_generic(
             result["flow_id"],
             {
                 "binary_sensor.a__signal_sensor": "sensor.a_rssi",
-                "binary_sensor.a__signal_network": "zigbee",
+                "binary_sensor.a__signal_network": "zigbee_lqi",
             },
         )
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert (
         result["data"][CONF_SIGNAL_ENTITY_MAP]["binary_sensor.a"]["network_type"]
-        == "zigbee"
+        == "zigbee_lqi"
     )
 
 
@@ -2435,7 +2435,10 @@ async def test_options_flow_signal_map_preserves_untouched_entities(
     # Pre-configure: device_a has a signal binding, device_b has one too
     existing_signal_map = {
         "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"},
-        "binary_sensor.device_b": {"sensor": "sensor.b_rssi", "network_type": "zigbee"},
+        "binary_sensor.device_b": {
+            "sensor": "sensor.b_rssi",
+            "network_type": "zigbee_lqi",
+        },
     }
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True

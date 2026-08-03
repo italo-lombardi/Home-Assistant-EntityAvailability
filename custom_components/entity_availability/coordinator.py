@@ -1026,6 +1026,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         mapping = self._signal_map.get(entity_id, {})
         nt = mapping.get("network_type", "generic")
         thresholds = SIGNAL_NETWORK_TYPES.get(nt, SIGNAL_NETWORK_TYPES["generic"])
+        if thresholds.get("higher_is_better", False):
+            if level >= thresholds["good"]:
+                return "good"
+            if level >= thresholds["ok"]:
+                return "ok"
+            return "poor"
+        # lower-is-better (dBm): more negative = worse
         if level >= thresholds["good"]:
             return "good"
         if level >= thresholds["ok"]:

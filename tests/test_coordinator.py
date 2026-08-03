@@ -5515,7 +5515,10 @@ def test_setup_state_listeners_includes_signal_sensors(
     data[CONF_SIGNAL_ENABLED] = True
     data[CONF_SIGNAL_ENTITY_MAP] = {
         "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"},
-        "binary_sensor.device_b": {"sensor": "sensor.b_rssi", "network_type": "zigbee"},
+        "binary_sensor.device_b": {
+            "sensor": "sensor.b_rssi",
+            "network_type": "zigbee_lqi",
+        },
     }
     entry = MockConfigEntry(
         version=1,
