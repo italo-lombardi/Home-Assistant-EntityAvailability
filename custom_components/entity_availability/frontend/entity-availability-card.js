@@ -1082,14 +1082,14 @@ class EntityAvailabilityCard extends LitElement {
     // the feature is disabled (threshold=0), even if counts are non-zero.
     const hasBattery = showHealth && batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0 || (showNEStats && g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0));
     const hasStale = showHealth && stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0 || (showNEStats && g.staleness_enabled && (g.non_essential_stale ?? 0) > 0));
-    const hasSignal = showHealth && entries.some(([, g]) => g.signal_enabled && (g.poor_signal ?? 0) > 0);
+    const hasSignal = showHealth && entries.some(([, g]) => g.signal_enabled);
+    // NE signal column: only show if at least one group has signal enabled and NE poor signal > 0.
+    const hasNESignal = showHealth && showNEStats && entries.some(([, g]) => g.signal_enabled && (g.non_essential_poor_signal ?? 0) > 0);
     // NE battery/stale columns: only show if at least one group has the feature enabled and NE counts > 0.
     const hasNEBattery = showHealth && showNEStats && entries.some(([, g]) => g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0);
     const hasNEStale = showHealth && showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);
     const extraCols = (showTotal ? 1 : 0) + 2 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0) + (hasSignal ? 1 : 0);
     const gridStyle = `grid-template-columns: minmax(60px, 1fr) repeat(${extraCols}, minmax(36px, 56px))`;
-
-    return html`
       <div class="divider"></div>
       <div class="entity-section-header" @click=${this._toggleEntities}>
         <span class="entity-section-title">Groups (${entries.length})</span>
@@ -1127,6 +1127,7 @@ class EntityAvailabilityCard extends LitElement {
                 <span class="group-breakdown-count ${(g.non_essential_offline ?? 0) > 0 ? "offline" : "neutral"}">${g.non_essential_offline ?? 0}</span>
                 ${hasBattery ? html`<span class="group-breakdown-count sep ${g.battery_enabled && hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
                 ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.staleness_enabled && hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
+                ${hasSignal ? html`<span class="group-breakdown-count ${!hasBattery && !hasStale ? "sep " : ""}${g.signal_enabled && hasNESignal && (g.non_essential_poor_signal ?? 0) > 0 ? "battery" : "neutral"}">${g.signal_enabled ? (g.non_essential_poor_signal ?? 0) : "—"}</span>` : nothing}
               </div>
             ` : nothing}
           `;

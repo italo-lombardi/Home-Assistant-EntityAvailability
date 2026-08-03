@@ -502,6 +502,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                 # Per-group poor_signal is NOT deduped — a shared entity counts in each group's row.
                 # The combined total (poor_signal_count below) IS deduped via merged_states.
                 "poor_signal": len(coord._poor_signal_entity_ids()),
+                "non_essential_poor_signal": len(coord._poor_signal_ne_entity_ids()),
             }
 
         # Build merged state map (first-wins for shared entities) to dedup all counts.

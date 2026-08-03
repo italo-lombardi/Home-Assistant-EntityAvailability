@@ -763,8 +763,6 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
 
         return ""
 
-        return ""
-
 
 class CombinedGroupOptionsFlow(OptionsFlow):
     """Handle options flow for a combined group entry."""
