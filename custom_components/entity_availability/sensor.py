@@ -51,7 +51,8 @@ def _format_poor_signal_device(
 ) -> str:
     """Format device name with signal level for poor-signal sensor lists."""
     name = _resolve_display_name(hass, device.entity_id, use_device_names)
-    return f"{name} ({device.signal_level} dBm)"
+    unit = device.signal_unit or "dBm"
+    return f"{name} ({device.signal_level} {unit})"
 
 
 async def async_setup_entry(
@@ -1076,6 +1077,11 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 eid: d.signal_level
                 for eid, d in states.items()
                 if signal_enabled and d.signal_level is not None
+            },
+            "signal_units": {
+                eid: d.signal_unit
+                for eid, d in states.items()
+                if signal_enabled and d.signal_unit is not None
             },
             "poor_signal_entities": [
                 eid

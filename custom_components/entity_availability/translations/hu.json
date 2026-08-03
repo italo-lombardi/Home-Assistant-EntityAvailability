@@ -52,18 +52,24 @@
           "battery_threshold": "Alacsony akkumulátorszint küszöb (%, 0 = letiltva)",
           "availability_windows": "Elérhetőség-követési időablakok",
           "recovery_window": "Visszaállási időablak",
-          "use_device_names": "Eszköznevek megjelenítése"
+          "use_device_names": "Eszköznevek megjelenítése",
+          "signal_enabled": "Jelerősség-figyelés engedélyezése"
         },
         "data_description": {
           "battery_threshold": "Jelölje meg azokat az entitásokat, amelyek akkumulátora e százalék alá csökken. Az 'alacsony' állapot automatikusan is észlelhető. A feszültségalapú entitások nem támogatottak. Olyan entitásokat használjon, amelyek az akkumulátort százalékban vagy 'low' állapotként jelzik.",
           "availability_windows": "Időablakok a csoport elérhetőségi előzményeinek nyomon követéséhez (pl. ma, 3n, 7n).",
           "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
-          "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre."
+          "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
+          "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
         }
       },
       "battery_mapping": {
         "title": "Akkumulátor-entitás hozzárendelés",
         "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat."
+      },
+      "signal_mapping": {
+        "title": "Jelerősség-leképezés",
+        "description": "Minden figyelt entitáshoz opcionálisan válasszon ki egy jelerősség-szenzort (pl. sensor.device_rssi), és adja meg a hálózat típusát, hogy a megfelelő küszöbértékek kerüljenek alkalmazásra. Hagyja üresen a szenzort, ha az adott entitásnál ki kívánja hagyni a jelerősség-figyelést."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Elérhetőség-követési időablakok",
           "recovery_window": "Visszaállási időablak (perc)",
           "use_device_names": "Eszköznevek megjelenítése",
-          "staleness_use_last_updated": "Attribútumfrissítések számítanak aktivitásnak"
+          "staleness_use_last_updated": "Attribútumfrissítések számítanak aktivitásnak",
+          "signal_enabled": "Jelerősség-figyelés engedélyezése"
         },
         "data_description": {
           "entities": "Az elérhetőség szempontjából nyomon követendő entitások. Ezek teljes körűen figyeltek, és minden KPI-ba és riasztásba beleszámítanak.",
@@ -104,7 +111,8 @@
           "availability_windows": "Időablakok a csoport elérhetőségi előzményeinek nyomon követéséhez (pl. ma, 3n, 7n).",
           "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
           "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
-          "staleness_use_last_updated": "Bekapcsolt állapotban az entitás bármilyen frissítése — beleértve az attribútum-módosításokat vagy az ismételt azonos értékű jelentéseket — visszaállítja az elavultsági időzítőt. Kikapcsolt állapotban (alapértelmezett) csak a fő állapot változása számít. Kapcsolja be olyan eszközökhöz, amelyek sűrűn jelentenek, de ritkán változtatnak értéket (pl. stabil hőmérséklet vagy teljesítmény)."
+          "staleness_use_last_updated": "Bekapcsolt állapotban az entitás bármilyen frissítése — beleértve az attribútum-módosításokat vagy az ismételt azonos értékű jelentéseket — visszaállítja az elavultsági időzítőt. Kikapcsolt állapotban (alapértelmezett) csak a fő állapot változása számít. Kapcsolja be olyan eszközökhöz, amelyek sűrűn jelentenek, de ritkán változtatnak értéket (pl. stabil hőmérséklet vagy teljesítmény).",
+          "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Akkumulátor-entitás hozzárendelés",
         "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat."
+      },
+      "signal_mapping": {
+        "title": "Jelerősség-leképezés",
+        "description": "Minden figyelt entitáshoz opcionálisan válasszon ki egy jelerősség-szenzort, és adja meg a hálózat típusát. Hagyja üresen a szenzort, ha az adott entitásnál ki kívánja hagyni a jelerősség-figyelést."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Elavult entitások száma (Nem kritikus)"
+      },
+      "poor_signal": {
+        "name": "Gyenge jel"
+      },
+      "poor_signal_count": {
+        "name": "Gyenge jelek száma"
+      },
+      "poor_signal_non_essential": {
+        "name": "Gyenge jel (nem elsődleges)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Gyenge jelek száma (nem elsődleges)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Van elavult entitás"
+      },
+      "any_poor_signal": {
+        "name": "Bármely gyenge jel"
       }
     }
   },

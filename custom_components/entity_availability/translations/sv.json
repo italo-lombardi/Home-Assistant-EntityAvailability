@@ -52,18 +52,24 @@
           "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
           "availability_windows": "Tillgänglighetsspårningsfönster",
           "recovery_window": "Återhämtningsfönster",
-          "use_device_names": "Visa enhetsnamn"
+          "use_device_names": "Visa enhetsnamn",
+          "signal_enabled": "Aktivera övervakning av signalstyrka"
         },
         "data_description": {
           "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte. Använd entiteter som rapporterar batteri som procent eller stöder tillståndet 'low'.",
           "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
           "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
-          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet."
+          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
+          "signal_enabled": "Spåra signalstyrka (dBm) för övervakade enheter och larma när signalkvaliteten sjunker till \"dålig\". Efter aktivering ombeds du att binda en signalsensor och välja nätverkstyp för varje enhet."
         }
       },
       "battery_mapping": {
         "title": "Batterientitetsmappning",
         "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mappning av signalstyrka",
+        "description": "För varje övervakad enhet kan du valfritt välja en signalsensor (t.ex. sensor.device_rssi) och välja nätverkstyp så att rätt tröskelvärden tillämpas. Lämna sensorn tom för att hoppa över signalövervakning för den enheten."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Tillgänglighetsspårningsfönster",
           "recovery_window": "Återhämtningsfönster (minuter)",
           "use_device_names": "Visa enhetsnamn",
-          "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet"
+          "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet",
+          "signal_enabled": "Aktivera övervakning av signalstyrka"
         },
         "data_description": {
           "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och aviseringar. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb).",
@@ -104,7 +111,8 @@
           "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
           "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
           "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil).",
-          "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar."
+          "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar.",
+          "signal_enabled": "Spåra signalstyrka (dBm) för övervakade enheter och larma när signalkvaliteten sjunker till \"dålig\". Efter aktivering ombeds du att binda en signalsensor och välja nätverkstyp för varje enhet."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Batterientitetsmappning",
         "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mappning av signalstyrka",
+        "description": "För varje övervakad enhet kan du valfritt välja en signalsensor och välja nätverkstyp. Lämna sensorn tom för att hoppa över signalövervakning för den enheten."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Antal inaktuella (ej väsentliga)"
+      },
+      "poor_signal": {
+        "name": "Dålig signal"
+      },
+      "poor_signal_count": {
+        "name": "Antal dåliga signaler"
+      },
+      "poor_signal_non_essential": {
+        "name": "Dålig signal (icke-kritisk)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Antal dåliga signaler (icke-kritisk)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Inaktuell entitet förekommande"
+      },
+      "any_poor_signal": {
+        "name": "Någon dålig signal"
       }
     }
   },

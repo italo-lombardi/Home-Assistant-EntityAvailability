@@ -52,10 +52,12 @@
           "battery_threshold": "Llindar de bateria baixa (%, 0 = desactivat)",
           "availability_windows": "Finestres de seguiment de disponibilitat",
           "recovery_window": "Finestra de recuperació",
-          "use_device_names": "Mostra els noms del dispositiu"
+          "use_device_names": "Mostra els noms del dispositiu",
+          "signal_enabled": "Activa el monitoratge de la intensitat del senyal"
         },
         "data_description": {
           "battery_threshold": "Marca les entitats amb la bateria per sota d'aquest percentatge. L'estat 'baix' també es detecta automàticament. Les entitats basades en volts no estan admeses. Useu entitats que informen la bateria com a percentatge o admeten l'estat 'baix'.",
+          "signal_enabled": "Fes el seguiment de la intensitat del senyal (dBm) per a les entitats monitorades i rep alertes quan la qualitat del senyal baixi a «dolenta». Després d'activar-ho, se us demanarà que vinculeu un sensor de senyal i seleccioneu el tipus de xarxa per a cada entitat.",
           "availability_windows": "Finestres de temps per fer el seguiment de l'historial de disponibilitat del grup (p. ex., avui, 3d, 7d).",
           "recovery_window": "Temps (en minuts) que una entitat roman als sensors Recentment fora de línia o Recuperat recentment després d'una transició d'estat.",
           "use_device_names": "Mostra el nom del dispositiu HA en lloc del nom amigable de l'entitat als estats del sensor fora de línia/recuperat. Torna al nom amigable per a entitats no vinculades a un dispositiu."
@@ -64,6 +66,10 @@
       "battery_mapping": {
         "title": "Mapatge d'entitats de bateria",
         "description": "Confirmeu o canvieu el sensor de bateria per a cada entitat supervisada. Deixeu-lo buit per a entitats sense bateria. Admet estats numèrics (%) i de text ('baix')."
+      },
+      "signal_mapping": {
+        "title": "Assignació de la intensitat del senyal",
+        "description": "Per a cada entitat monitorada, seleccioneu opcionalment un sensor de senyal (p. ex. sensor.device_rssi) i trieu el tipus de xarxa perquè s'apliquin els llindars correctes. Deixeu el sensor buit per ometre el monitoratge del senyal per a aquesta entitat."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Finestres de seguiment de disponibilitat",
           "recovery_window": "Finestra de recuperació (minuts)",
           "use_device_names": "Mostra els noms del dispositiu",
-          "staleness_use_last_updated": "Compta les actualitzacions d'atributs com a activitat"
+          "staleness_use_last_updated": "Compta les actualitzacions d'atributs com a activitat",
+          "signal_enabled": "Activa el monitoratge de la intensitat del senyal"
         },
         "data_description": {
           "entities": "Entitats per fer el seguiment de la disponibilitat. Es supervisen completament i s'inclouen en tots els KPI i alertes.",
@@ -104,7 +111,8 @@
           "availability_windows": "Finestres de temps per fer el seguiment de l'historial de disponibilitat del grup (p. ex., avui, 3d, 7d).",
           "recovery_window": "Temps (en minuts) que una entitat roman als sensors Recentment fora de línia o Recuperat recentment després d'una transició d'estat.",
           "use_device_names": "Mostra el nom del dispositiu HA en lloc del nom amigable de l'entitat als estats del sensor fora de línia/recuperat. Torna al nom amigable per a entitats no vinculades a un dispositiu.",
-          "staleness_use_last_updated": "Quan està activat, qualsevol actualització de l'entitat — incloent-hi canvis només d'atributs o informes del mateix valor repetit — reinicia el temporitzador d'inactivitat. Quan està desactivat (per defecte), només compta un canvi a l'estat principal. Activeu-ho per a dispositius que informen sovint però rarament canvien de valor (p. ex., temperatura o potència estable)."
+          "staleness_use_last_updated": "Quan està activat, qualsevol actualització de l'entitat — incloent-hi canvis només d'atributs o informes del mateix valor repetit — reinicia el temporitzador d'inactivitat. Quan està desactivat (per defecte), només compta un canvi a l'estat principal. Activeu-ho per a dispositius que informen sovint però rarament canvien de valor (p. ex., temperatura o potència estable).",
+          "signal_enabled": "Fes el seguiment de la intensitat del senyal (dBm) per a les entitats monitorades i rep alertes quan la qualitat del senyal baixi a «dolenta». Després d'activar-ho, se us demanarà que vinculeu un sensor de senyal i seleccioneu el tipus de xarxa per a cada entitat."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Mapatge d'entitats de bateria",
         "description": "Confirmeu o canvieu el sensor de bateria per a cada entitat supervisada. Deixeu-lo buit per a entitats sense bateria. Admet estats numèrics (%) i de text ('baix')."
+      },
+      "signal_mapping": {
+        "title": "Assignació de la intensitat del senyal",
+        "description": "Per a cada entitat monitorada, seleccioneu opcionalment un sensor de senyal i trieu el tipus de xarxa. Deixeu el sensor buit per ometre el monitoratge del senyal per a aquesta entitat."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Recompte sense actualitzar (No essencial)"
+      },
+      "poor_signal": {
+        "name": "Senyal feble"
+      },
+      "poor_signal_count": {
+        "name": "Recompte de senyal feble"
+      },
+      "poor_signal_non_essential": {
+        "name": "Senyal feble (no essencial)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Recompte de senyal feble (no essencial)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Alguna sense actualitzar"
+      },
+      "any_poor_signal": {
+        "name": "Algun senyal feble"
       }
     }
   },

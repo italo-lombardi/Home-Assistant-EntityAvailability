@@ -50,3 +50,4 @@ cov.json
 # Claude Code
 .claude/settings.local.json
 coverage.json
+signal_strength_extension.md

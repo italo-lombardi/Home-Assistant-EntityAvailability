@@ -52,18 +52,24 @@
           "battery_threshold": "Matalan akun kynnys (%, 0 = poistettu käytöstä)",
           "availability_windows": "Saatavuuden seurantaikkunat",
           "recovery_window": "Palautumisikkuna",
-          "use_device_names": "Näytä laitteiden nimet"
+          "use_device_names": "Näytä laitteiden nimet",
+          "signal_enabled": "Ota signaalivoimakkuuden seuranta käyttöön"
         },
         "data_description": {
           "battery_threshold": "Merkitse entiteetit, joiden akku laskee alle tämän prosenttiosuuden. 'Matala' tila havaitaan myös automaattisesti. Jännitepohjaisia entiteettejä ei tueta. Käytä entiteettejä, jotka raportoivat akun prosentteina tai tukevat 'matala'-tilaa.",
           "availability_windows": "Aikaikkunat ryhmän saatavuushistorian seuraamista varten (esim. tänään, 3pv, 7pv).",
           "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
-          "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen."
+          "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen.",
+          "signal_enabled": "Seuraa signaalivoimakkuutta (dBm) valvotuille entiteeteille ja varoita, kun signaalin laatu heikkenee tasolle \"heikko\". Käyttöönoton jälkeen sinua pyydetään sitomaan signaalianturi ja valitsemaan verkkotyyppi kullekin entiteetille."
         }
       },
       "battery_mapping": {
         "title": "Akkuentiteetin yhdistäminen",
         "description": "Vahvista tai muuta akkuanturi kullekin seurattavalle entiteetille. Jätä tyhjäksi entiteeteille, joissa ei ole akkua. Tukee numeerisia (%) ja tekstimuotoisia tiloja ('matala')."
+      },
+      "signal_mapping": {
+        "title": "Signaalivoimakkuuden kartoitus",
+        "description": "Valitse kullekin valvotulle entiteetille valinnaisesti signaalianturi (esim. sensor.device_rssi) ja valitse verkkotyyppi, jotta oikeat kynnysarvot otetaan käyttöön. Jätä anturi tyhjäksi, jos haluat ohittaa signaalin seurannan kyseiselle entiteetille."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Saatavuuden seurantaikkunat",
           "recovery_window": "Palautumisikkuna (minuuttia)",
           "use_device_names": "Näytä laitteiden nimet",
-          "staleness_use_last_updated": "Laske attribuuttipäivitykset toiminnaksi"
+          "staleness_use_last_updated": "Laske attribuuttipäivitykset toiminnaksi",
+          "signal_enabled": "Ota signaalivoimakkuuden seuranta käyttöön"
         },
         "data_description": {
           "entities": "Entiteetit, joiden saatavuutta seurataan. Nämä ovat täysin valvottuja ja mukana kaikissa KPI-mittareissa ja hälytyksistä.",
@@ -104,7 +111,8 @@
           "availability_windows": "Aikaikkunat ryhmän saatavuushistorian seuraamista varten (esim. tänään, 3pv, 7pv).",
           "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
           "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen.",
-          "staleness_use_last_updated": "Kun käytössä, mikä tahansa päivitys entiteetiltä — mukaan lukien pelkät attribuuttimuutokset tai toistuvat saman arvon raportit — nollaa vanhentumisajastimen. Kun pois käytöstä (oletus), vain muutos päätilassa lasketaan. Ota käyttöön laitteille, jotka raportoivat usein mutta muuttuvat harvoin (esim. lämpötila tai teho, joka pysyy vakaana)."
+          "staleness_use_last_updated": "Kun käytössä, mikä tahansa päivitys entiteetiltä — mukaan lukien pelkät attribuuttimuutokset tai toistuvat saman arvon raportit — nollaa vanhentumisajastimen. Kun pois käytöstä (oletus), vain muutos päätilassa lasketaan. Ota käyttöön laitteille, jotka raportoivat usein mutta muuttuvat harvoin (esim. lämpötila tai teho, joka pysyy vakaana).",
+          "signal_enabled": "Seuraa signaalivoimakkuutta (dBm) valvotuille entiteeteille ja varoita, kun signaalin laatu heikkenee tasolle \"heikko\". Käyttöönoton jälkeen sinua pyydetään sitomaan signaalianturi ja valitsemaan verkkotyyppi kullekin entiteetille."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Akkuentiteetin yhdistäminen",
         "description": "Vahvista tai muuta akkuanturi kullekin seurattavalle entiteetille. Jätä tyhjäksi entiteeteille, joissa ei ole akkua. Tukee numeerisia (%) ja tekstimuotoisia tiloja ('matala')."
+      },
+      "signal_mapping": {
+        "title": "Signaalivoimakkuuden kartoitus",
+        "description": "Valitse kullekin valvotulle entiteetille valinnaisesti signaalianturi ja valitse verkkotyyppi. Jätä anturi tyhjäksi, jos haluat ohittaa signaalin seurannan kyseiselle entiteetille."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Vanhentuneiden määrä (Ei-kriittinen)"
+      },
+      "poor_signal": {
+        "name": "Heikko signaali"
+      },
+      "poor_signal_count": {
+        "name": "Heikon signaalin lukumäärä"
+      },
+      "poor_signal_non_essential": {
+        "name": "Heikko signaali (ei-oleellinen)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Heikon signaalin lukumäärä (ei-oleellinen)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Jokin vanhentunut"
+      },
+      "any_poor_signal": {
+        "name": "Jokin signaali heikko"
       }
     }
   },

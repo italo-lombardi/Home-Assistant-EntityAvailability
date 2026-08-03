@@ -52,18 +52,24 @@
           "battery_threshold": "Prag baterie descărcată (%, 0 = dezactivat)",
           "availability_windows": "Ferestre de urmărire a disponibilității",
           "recovery_window": "Fereastră de recuperare",
-          "use_device_names": "Afișați numele dispozitivelor"
+          "use_device_names": "Afișați numele dispozitivelor",
+          "signal_enabled": "„Activați monitorizarea puterii semnalului\""
         },
         "data_description": {
           "battery_threshold": "Marcați entitățile al căror nivel de baterie scade sub acest procent. Starea 'low' este detectată automat. Entitățile bazate pe tensiune nu sunt acceptate. Folosiți entități care raportează bateria ca procent sau acceptă starea 'low'.",
           "availability_windows": "Ferestre de timp pentru urmărirea istoricului disponibilității grupului (ex.: azi, 3z, 7z).",
           "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
-          "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv."
+          "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv.",
+          "signal_enabled": "„Urmăriți puterea semnalului (dBm) pentru entitățile monitorizate și primiți alerte când calitatea semnalului scade la „slabă\". După activare, vi se va cere să asociați un senzor de semnal și să selectați tipul de rețea pentru fiecare entitate.\""
         }
       },
       "battery_mapping": {
         "title": "Mapare entități baterie",
         "description": "Confirmați sau modificați senzorul de baterie pentru fiecare entitate monitorizată. Lăsați gol pentru entitățile fără baterie. Acceptă stări numerice (%) și text ('low')."
+      },
+      "signal_mapping": {
+        "title": "„Mapare putere semnal\"",
+        "description": "„Pentru fiecare entitate monitorizată, selectați opțional un senzor de semnal (ex. sensor.device_rssi) și alegeți tipul de rețea pentru a aplica pragurile corecte. Lăsați senzorul necompletat pentru a omite monitorizarea semnalului pentru acea entitate.\""
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Ferestre de urmărire a disponibilității",
           "recovery_window": "Fereastră de recuperare (minute)",
           "use_device_names": "Afișați numele dispozitivelor",
-          "staleness_use_last_updated": "Actualizările de atribute contează ca activitate"
+          "staleness_use_last_updated": "Actualizările de atribute contează ca activitate",
+          "signal_enabled": "„Activați monitorizarea puterii semnalului\""
         },
         "data_description": {
           "entities": "Entitățile urmărite pentru disponibilitate. Acestea sunt monitorizate complet și incluse în toți KPI-ii și alertele.",
@@ -104,7 +111,8 @@
           "availability_windows": "Ferestre de timp pentru urmărirea istoricului disponibilității grupului (ex.: azi, 3z, 7z).",
           "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
           "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv.",
-          "staleness_use_last_updated": "Când este activat, orice actualizare de la entitate — inclusiv modificări doar de atribute sau raportări repetate cu aceeași valoare — resetează cronometrul de expirare. Când este dezactivat (implicit), contează doar o schimbare a stării principale. Activați pentru dispozitivele care raportează frecvent, dar își schimbă rar valoarea (ex.: temperatură sau putere stabilă)."
+          "staleness_use_last_updated": "Când este activat, orice actualizare de la entitate — inclusiv modificări doar de atribute sau raportări repetate cu aceeași valoare — resetează cronometrul de expirare. Când este dezactivat (implicit), contează doar o schimbare a stării principale. Activați pentru dispozitivele care raportează frecvent, dar își schimbă rar valoarea (ex.: temperatură sau putere stabilă).",
+          "signal_enabled": "„Urmăriți puterea semnalului (dBm) pentru entitățile monitorizate și primiți alerte când calitatea semnalului scade la „slabă\". După activare, vi se va cere să asociați un senzor de semnal și să selectați tipul de rețea pentru fiecare entitate.\""
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Mapare entități baterie",
         "description": "Confirmați sau modificați senzorul de baterie pentru fiecare entitate monitorizată. Lăsați gol pentru entitățile fără baterie. Acceptă stări numerice (%) și text ('low')."
+      },
+      "signal_mapping": {
+        "title": "„Mapare putere semnal\"",
+        "description": "„Pentru fiecare entitate monitorizată, selectați opțional un senzor de semnal și alegeți tipul de rețea. Lăsați senzorul necompletat pentru a omite monitorizarea semnalului pentru acea entitate.\""
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Număr entități expirate (Neesențial)"
+      },
+      "poor_signal": {
+        "name": "„Semnal slab\""
+      },
+      "poor_signal_count": {
+        "name": "„Număr semnale slabe\""
+      },
+      "poor_signal_non_essential": {
+        "name": "„Semnal slab (non-esențial)\""
+      },
+      "poor_signal_count_non_essential": {
+        "name": "„Număr semnale slabe (non-esențiale)\""
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Există entitate expirată"
+      },
+      "any_poor_signal": {
+        "name": "„Orice semnal slab\""
       }
     }
   },

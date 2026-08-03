@@ -52,18 +52,24 @@
           "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
           "availability_windows": "Okna śledzenia dostępności",
           "recovery_window": "Okno odzyskiwania",
-          "use_device_names": "Pokaż nazwy urządzeń"
+          "use_device_names": "Pokaż nazwy urządzeń",
+          "signal_enabled": "Włącz monitorowanie siły sygnału"
         },
         "data_description": {
           "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane. Używaj encji raportujących poziom baterii w procentach lub obsługujących stan 'low'.",
           "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
-          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji."
+          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
+          "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
         }
       },
       "battery_mapping": {
         "title": "Mapowanie czujnika baterii",
         "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mapowanie siły sygnału",
+        "description": "Dla każdej monitorowanej encji opcjonalnie wybierz czujnik sygnału (np. sensor.device_rssi) i wybierz typ sieci, aby zastosować odpowiednie progi. Pozostaw czujnik pusty, aby pominąć monitorowanie sygnału dla tej encji."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Okna śledzenia dostępności",
           "recovery_window": "Okno odzyskiwania (minuty)",
           "use_device_names": "Pokaż nazwy urządzeń",
-          "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność"
+          "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność",
+          "signal_enabled": "Włącz monitorowanie siły sygnału"
         },
         "data_description": {
           "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI (liczba offline, dostępność %, MTBF, MTTR) i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami).",
@@ -104,7 +111,8 @@
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
           "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
           "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna).",
-          "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach."
+          "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach.",
+          "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Mapowanie czujnika baterii",
         "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mapowanie siły sygnału",
+        "description": "Dla każdej monitorowanej encji opcjonalnie wybierz czujnik sygnału i wybierz typ sieci. Pozostaw czujnik pusty, aby pominąć monitorowanie sygnału dla tej encji."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Liczba nieaktywnych (Nieistotne)"
+      },
+      "poor_signal": {
+        "name": "Słaby sygnał"
+      },
+      "poor_signal_count": {
+        "name": "Liczba słabych sygnałów"
+      },
+      "poor_signal_non_essential": {
+        "name": "Słaby sygnał (niekrytyczne)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Liczba słabych sygnałów (niekrytyczne)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Nieaktywna encja wykryta"
+      },
+      "any_poor_signal": {
+        "name": "Jakikolwiek słaby sygnał"
       }
     }
   },

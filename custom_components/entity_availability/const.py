@@ -42,14 +42,16 @@ DEFAULT_USE_DEVICE_NAMES = False
 # Each entry: {"label": str, "unit": str, "good": int, "ok": int}
 # good = ≥ good dBm → green; ok = ≥ ok dBm → yellow; below ok → red/poor
 SIGNAL_NETWORK_TYPES: dict[str, dict[str, int | str]] = {
-    "wifi": {"label": "Wi-Fi", "unit": "dBm", "good": -50, "ok": -70},
-    "zigbee": {"label": "Zigbee", "unit": "dBm", "good": -50, "ok": -70},
-    "zwave": {"label": "Z-Wave", "unit": "dBm", "good": -70, "ok": -85},
-    "bluetooth": {"label": "Bluetooth", "unit": "dBm", "good": -60, "ok": -80},
-    "thread": {"label": "Thread", "unit": "dBm", "good": -60, "ok": -75},
-    "lte": {"label": "LTE/4G", "unit": "dBm", "good": -80, "ok": -100},
-    "lorawan": {"label": "LoRaWAN", "unit": "dBm", "good": -100, "ok": -120},
+    "5g": {"label": "5G", "unit": "dBm", "good": -80, "ok": -100},
+    "bluetooth": {"label": "Bluetooth", "unit": "dBm", "good": -70, "ok": -85},
     "generic": {"label": "Generic/RSSI", "unit": "dBm", "good": -60, "ok": -80},
+    "lorawan": {"label": "LoRaWAN", "unit": "dBm", "good": -100, "ok": -115},
+    "lte": {"label": "LTE/4G", "unit": "dBm", "good": -80, "ok": -90},
+    "percent": {"label": "Percentage", "unit": "%", "good": 70, "ok": 40},
+    "thread": {"label": "Thread", "unit": "dBm", "good": -70, "ok": -85},
+    "wifi": {"label": "Wi-Fi", "unit": "dBm", "good": -67, "ok": -70},
+    "zigbee": {"label": "Zigbee", "unit": "dBm", "good": -70, "ok": -85},
+    "zwave": {"label": "Z-Wave", "unit": "dBm", "good": -70, "ok": -85},
 }
 AVAILABLE_WINDOWS = ["today", "3d", "5d", "7d"]
 

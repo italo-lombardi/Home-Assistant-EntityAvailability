@@ -27,11 +27,11 @@ class DeviceState:
     cooldown_start: datetime | None = None
     battery_level: int | None = None
     last_changed: datetime | None = None
-    signal_level: int | None = None  # raw dBm from bound signal sensor
+    signal_level: int | None = None  # raw value from bound signal sensor
     signal_quality: SignalQuality | None = None  # "good" | "ok" | "poor" | None
-    _prev_signal_poor: bool = (
-        False  # transition tracker for EVENT_POOR_SIGNAL / EVENT_SIGNAL_OK
-    )
+    signal_unit: str | None = None  # unit for signal_level (e.g. "dBm", "%")
+    # transition tracker for EVENT_POOR_SIGNAL / EVENT_SIGNAL_OK
+    prev_signal_poor: bool = False
     recently_offline_at: datetime | None = None
     # Reliability counters (all-time, event-driven — feed MTBF/MTTR).
     monitored_since: datetime | None = None

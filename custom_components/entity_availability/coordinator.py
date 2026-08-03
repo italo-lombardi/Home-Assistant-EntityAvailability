@@ -552,14 +552,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 and device.battery_level < self._battery_threshold
             )
 
-            # Signal check
+            # Signal check — clear level when sensor unavailable (same as battery: no stale value)
             if self._signal_enabled:
                 fresh_signal = self._get_signal_level(entity_id)
-                if fresh_signal is not None:
-                    device.signal_level = fresh_signal
+                device.signal_level = fresh_signal
+                nt = self._signal_map.get(entity_id, {}).get("network_type", "generic")
+                device.signal_unit = SIGNAL_NETWORK_TYPES.get(
+                    nt, SIGNAL_NETWORK_TYPES["generic"]
+                )["unit"]
                 device.signal_quality = (
-                    self._classify_signal(entity_id, device.signal_level)
-                    if device.signal_level is not None
+                    self._classify_signal(entity_id, fresh_signal)
+                    if fresh_signal is not None
                     else None
                 )
 
@@ -785,7 +788,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             # Signal quality transition events
             if self._signal_enabled:
                 signal_poor = device.signal_quality == "poor"
-                was_poor = device._prev_signal_poor
+                was_poor = device.prev_signal_poor
                 if signal_poor and not was_poor:
                     poor_ids = self._poor_signal_entity_ids()
                     pending_events.append(
@@ -821,7 +824,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                             },
                         )
                     )
-                device._prev_signal_poor = signal_poor
+                device.prev_signal_poor = signal_poor
 
         # Mark as dirty; save periodically (every ~5 min)
         self._dirty = True
@@ -988,7 +991,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         return None
 
     def _get_signal_level(self, entity_id: str) -> int | None:
-        """Get signal level (dBm) from the configured signal sensor for an entity."""
+        """Get signal level from the configured signal sensor for an entity."""
         mapping = self._signal_map.get(entity_id)
         if not mapping:
             return None
@@ -996,7 +999,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         if not sensor_id:
             return None
         state = self.hass.states.get(sensor_id)
-        if not state or state.state in ("unavailable", "unknown", None):
+        if not state or state.state in ("unavailable", "unknown"):
             return None
         try:
             return int(float(state.state))

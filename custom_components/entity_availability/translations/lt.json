@@ -52,18 +52,24 @@
           "battery_threshold": "Žemo baterijos lygio riba (%, 0 = išjungta)",
           "availability_windows": "Pasiekiamumo sekimo langai",
           "recovery_window": "Atkūrimo langas",
-          "use_device_names": "Rodyti įrenginių pavadinimus"
+          "use_device_names": "Rodyti įrenginių pavadinimus",
+          "signal_enabled": "Įjungti signalo stiprumo stebėjimą"
         },
         "data_description": {
-          "battery_threshold": "Pažymėti objektus, kurių baterija nukrinta žemiau šio procento. Būsena „žemas” taip pat aptinkama automatiškai. Volt pagrįsti objektai nepalaikomi. Naudokite objektus, kurie praneša bateriją kaip procentą arba palaiko būseną „žemas”.",
+          "battery_threshold": "Pažymėti objektus, kurių baterija nukrinta žemiau šio procento. Būsena „žemas\" taip pat aptinkama automatiškai. Volt pagrįsti objektai nepalaikomi. Naudokite objektus, kurie praneša bateriją kaip procentą arba palaiko būseną „žemas\".",
           "availability_windows": "Laiko langai grupės pasiekiamumo istorijai sekti (pvz., šiandien, 3d, 7d).",
-          "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių” arba „Neseniai atkurtų” jutikliuose po būsenos perėjimo.",
-          "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu."
+          "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių\" arba „Neseniai atkurtų\" jutikliuose po būsenos perėjimo.",
+          "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu.",
+          "signal_enabled": "Stebėti signalo stiprumą (dBm) stebimiems objektams ir įspėti, kai signalo kokybė nukrenta iki „prasto\" lygio. Įjungus, būsite paprašyti susieti signalo jutiklį ir pasirinkti tinklo tipą kiekvienam objektui."
         }
       },
       "battery_mapping": {
         "title": "Baterijos objektų susiejimas",
         "description": "Patvirtinkite arba pakeiskite baterijos jutiklį kiekvienam stebimam objektui. Palikite tuščią objektams be baterijos. Palaiko skaitines (%) ir tekstines būsenas ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signalo stiprumo žemėlapis",
+        "description": "Kiekvienam stebimam objektui pasirinktinai pasirinkite signalo jutiklį (pvz., sensor.device_rssi) ir tinklo tipą, kad būtų taikomi teisingi slenkstiai. Palikite jutiklį tuščią, jei norite praleisti signalo stebėjimą tam objektui."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Pasiekiamumo sekimo langai",
           "recovery_window": "Atkūrimo langas (minutės)",
           "use_device_names": "Rodyti įrenginių pavadinimus",
-          "staleness_use_last_updated": "Atributų atnaujinimą skaičiuoti kaip aktyvumą"
+          "staleness_use_last_updated": "Atributų atnaujinimą skaičiuoti kaip aktyvumą",
+          "signal_enabled": "Įjungti signalo stiprumo stebėjimą"
         },
         "data_description": {
           "entities": "Objektai, kurių pasiekiamumas bus sekamas. Jie yra visiškai stebimi ir įtraukiami į visus KPI bei įspėjimus.",
@@ -100,11 +107,12 @@
           "bad_states": "Objektų būsenos, reiškiančios, kad objektas yra neprisijungęs (pvz., nepasiekiamas, nežinomas).",
           "cooldown": "Kiek laiko (sekundėmis) objektas turi išbūti blogoje būsenoje, prieš jį pažymint neprisijungusiu. Apsaugo nuo klaidingų įspėjimų dėl trumpų atjungimų.",
           "staleness_threshold": "Jei objektas nepakeitė būsenos šį skaičių minučių, jis pažymimas kaip degradavęs. Nustatykite 0, kad išjungtumėte.",
-          "battery_threshold": "Pažymėti objektus, kurių baterija nukrinta žemiau šio procento. Būsena „žemas” taip pat aptinkama automatiškai. Volt pagrįsti objektai nepalaikomi.",
+          "battery_threshold": "Pažymėti objektus, kurių baterija nukrinta žemiau šio procento. Būsena „žemas\" taip pat aptinkama automatiškai. Volt pagrįsti objektai nepalaikomi.",
           "availability_windows": "Laiko langai grupės pasiekiamumo istorijai sekti (pvz., šiandien, 3d, 7d).",
-          "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių” arba „Neseniai atkurtų” jutikliuose po būsenos perėjimo.",
+          "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių\" arba „Neseniai atkurtų\" jutikliuose po būsenos perėjimo.",
           "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu.",
-          "staleness_use_last_updated": "Įjungus, bet koks objekto atnaujinimas — įskaitant tik atributų pakeitimus ar pasikartojančias tas pačias reikšmes — atnaujina pasenimo laikmatį. Išjungus (numatytoji reikšmė), skaičiuojamas tik pagrindinės būsenos pasikeitimas. Įjunkite įrenginiams, kurie dažnai praneša, bet retai keičia reikšmę (pvz., temperatūra ar galia, kuri išlieka stabili)."
+          "staleness_use_last_updated": "Įjungus, bet koks objekto atnaujinimas — įskaitant tik atributų pakeitimus ar pasikartojančias tas pačias reikšmes — atnaujina pasenimo laikmatį. Išjungus (numatytoji reikšmė), skaičiuojamas tik pagrindinės būsenos pasikeitimas. Įjunkite įrenginiams, kurie dažnai praneša, bet retai keičia reikšmę (pvz., temperatūra ar galia, kuri išlieka stabili).",
+          "signal_enabled": "Stebėti signalo stiprumą (dBm) stebimiems objektams ir įspėti, kai signalo kokybė nukrenta iki „prasto\" lygio. Įjungus, būsite paprašyti susieti signalo jutiklį ir pasirinkti tinklo tipą kiekvienam objektui."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Baterijos objektų susiejimas",
         "description": "Patvirtinkite arba pakeiskite baterijos jutiklį kiekvienam stebimam objektui. Palikite tuščią objektams be baterijos. Palaiko skaitines (%) ir tekstines būsenas ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signalo stiprumo žemėlapis",
+        "description": "Kiekvienam stebimam objektui pasirinktinai pasirinkite signalo jutiklį ir tinklo tipą. Palikite jutiklį tuščią, jei norite praleisti signalo stebėjimą tam objektui."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Pasenusių skaičius (Neesminiai)"
+      },
+      "poor_signal": {
+        "name": "Prastas signalas"
+      },
+      "poor_signal_count": {
+        "name": "Prasto signalo skaičius"
+      },
+      "poor_signal_non_essential": {
+        "name": "Prastas signalas (neesminiai)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Prasto signalo skaičius (neesminiai)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Yra pasenę duomenys"
+      },
+      "any_poor_signal": {
+        "name": "Bet koks prastas signalas"
       }
     }
   },

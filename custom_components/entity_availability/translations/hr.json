@@ -52,18 +52,24 @@
           "battery_threshold": "Prag slabe baterije (%, 0 = deaktivirano)",
           "availability_windows": "Prozori za praćenje dostupnosti",
           "recovery_window": "Prozor za oporavak",
-          "use_device_names": "Prikaži nazive uređaja"
+          "use_device_names": "Prikaži nazive uređaja",
+          "signal_enabled": "Omogući praćenje jačine signala"
         },
         "data_description": {
           "battery_threshold": "Označava entitete čija baterija padne ispod ovog postotka. Stanje 'slaba' automatski se prepoznaje. Entiteti temeljeni na naponu nisu podržani. Koristite entitete koji prijavljuju bateriju kao postotak ili podržavaju stanje 'slaba'.",
           "availability_windows": "Vremenski prozori za praćenje povijesti dostupnosti grupe (npr. danas, 3d, 7d).",
           "recovery_window": "Koliko dugo (u minutama) entitet ostaje u senzorima 'Nedavno offline' ili 'Nedavno oporavljen' nakon promjene stanja.",
-          "use_device_names": "Prikazuje naziv HA uređaja umjesto prijaznog naziva entiteta u stanjima offline/oporavljen senzora. Za entitete koji nisu povezani s uređajem koristi se prijazni naziv."
+          "use_device_names": "Prikazuje naziv HA uređaja umjesto prijaznog naziva entiteta u stanjima offline/oporavljen senzora. Za entitete koji nisu povezani s uređajem koristi se prijazni naziv.",
+          "signal_enabled": "Prati jačinu signala (dBm) za nadzirane entitete i upozori kada kvaliteta signala padne na \"slabu\". Nakon aktivacije, bit će zatraženo da povežete senzor signala i odaberete vrstu mreže za svaki entitet."
         }
       },
       "battery_mapping": {
         "title": "Mapiranje entiteta baterije",
         "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba')."
+      },
+      "signal_mapping": {
+        "title": "Mapiranje jačine signala",
+        "description": "Za svaki nadzirani entitet, opcionalno odaberite senzor signala (npr. sensor.device_rssi) i odaberite vrstu mreže kako bi se primijenili ispravni pragovi. Ostavite senzor praznim kako biste preskočili praćenje signala za taj entitet."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Prozori za praćenje dostupnosti",
           "recovery_window": "Prozor za oporavak (minute)",
           "use_device_names": "Prikaži nazive uređaja",
-          "staleness_use_last_updated": "Računanje ažuriranja atributa kao aktivnost"
+          "staleness_use_last_updated": "Računanje ažuriranja atributa kao aktivnost",
+          "signal_enabled": "Omogući praćenje jačine signala"
         },
         "data_description": {
           "entities": "Entiteti čija se dostupnost prati. Potpuno su praćeni i uključeni u sve KPI-je i upozorenja.",
@@ -104,7 +111,8 @@
           "availability_windows": "Vremenski prozori za praćenje povijesti dostupnosti grupe (npr. danas, 3d, 7d).",
           "recovery_window": "Koliko dugo (u minutama) entitet ostaje u senzorima 'Nedavno offline' ili 'Nedavno oporavljen' nakon promjene stanja.",
           "use_device_names": "Prikazuje naziv HA uređaja umjesto prijaznog naziva entiteta u stanjima offline/oporavljen senzora. Za entitete koji nisu povezani s uređajem koristi se prijazni naziv.",
-          "staleness_use_last_updated": "Kada je uključeno, svako ažuriranje od entiteta — uključujući promjene samo atributa ili ponavljajuće iste vrijednosti — resetira tajmer zastarjelosti. Kada je isključeno (zadano), računa se samo promjena glavnog stanja. Uključite za uređaje koji često šalju podatke, ali rijetko mijenjaju vrijednost (npr. temperatura ili snaga koja ostaje stabilna)."
+          "staleness_use_last_updated": "Kada je uključeno, svako ažuriranje od entiteta — uključujući promjene samo atributa ili ponavljajuće iste vrijednosti — resetira tajmer zastarjelosti. Kada je isključeno (zadano), računa se samo promjena glavnog stanja. Uključite za uređaje koji često šalju podatke, ali rijetko mijenjaju vrijednost (npr. temperatura ili snaga koja ostaje stabilna).",
+          "signal_enabled": "Prati jačinu signala (dBm) za nadzirane entitete i upozori kada kvaliteta signala padne na \"slabu\". Nakon aktivacije, bit će zatraženo da povežete senzor signala i odaberete vrstu mreže za svaki entitet."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Mapiranje entiteta baterije",
         "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba')."
+      },
+      "signal_mapping": {
+        "title": "Mapiranje jačine signala",
+        "description": "Za svaki nadzirani entitet, opcionalno odaberite senzor signala i odaberite vrstu mreže. Ostavite senzor praznim kako biste preskočili praćenje signala za taj entitet."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Broj sa zastarjelim podacima (Nebitni)"
+      },
+      "poor_signal": {
+        "name": "Slab signal"
+      },
+      "poor_signal_count": {
+        "name": "Broj slabih signala"
+      },
+      "poor_signal_non_essential": {
+        "name": "Slab signal (nije ključno)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Broj slabih signala (nije ključno)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Ima zastarjelih podataka"
+      },
+      "any_poor_signal": {
+        "name": "Bilo koji slab signal"
       }
     }
   },

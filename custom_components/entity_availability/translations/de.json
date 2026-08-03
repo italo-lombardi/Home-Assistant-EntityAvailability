@@ -52,18 +52,24 @@
           "battery_threshold": "Niedriger Batterieschwellenwert (%, 0 = deaktiviert)",
           "availability_windows": "Verfügbarkeits-Tracking-Zeiträume",
           "recovery_window": "Wiederherstellungsfenster",
-          "use_device_names": "Gerätenamen anzeigen"
+          "use_device_names": "Gerätenamen anzeigen",
+          "signal_enabled": "Signalstärke-Überwachung aktivieren"
         },
         "data_description": {
           "battery_threshold": "Markiert Entitäten, deren Batterie unter diesen Prozentwert fällt. Der Zustand 'low' wird automatisch erkannt. Volt-basierte Entitäten werden nicht unterstützt.",
           "availability_windows": "Zeitfenster zur Verfolgung der Gruppenverfügbarkeit (z. B. heute, 3d, 7d).",
           "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
-          "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen."
+          "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen.",
+          "signal_enabled": "Signalstärke (dBm) für überwachte Entitäten verfolgen und warnen, wenn die Signalqualität auf „schlecht\" sinkt. Nach der Aktivierung werden Sie aufgefordert, für jede Entität einen Signalsensor zu verknüpfen und den Netzwerktyp auszuwählen."
         }
       },
       "battery_mapping": {
         "title": "Batterie-Entitätszuordnung",
         "description": "Bestätigen oder ändern Sie den Batteriesensor für jede überwachte Entität. Leer lassen für Entitäten ohne Batterien. Unterstützt numerische (%) und Textzustände ('niedrig')."
+      },
+      "signal_mapping": {
+        "title": "Signalstärke-Zuordnung",
+        "description": "Wählen Sie optional für jede überwachte Entität einen Signalsensor (z. B. sensor.device_rssi) aus und legen Sie den Netzwerktyp fest, damit die richtigen Schwellenwerte angewendet werden. Lassen Sie das Sensorfeld leer, um die Signalüberwachung für diese Entität zu überspringen."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Verfügbarkeits-Tracking-Zeiträume",
           "recovery_window": "Wiederherstellungsfenster (Minuten)",
           "use_device_names": "Gerätenamen anzeigen",
-          "staleness_use_last_updated": "Attributaktualisierungen als Aktivität zählen"
+          "staleness_use_last_updated": "Attributaktualisierungen als Aktivität zählen",
+          "signal_enabled": "Signalstärke-Überwachung aktivieren"
         },
         "data_description": {
           "non_essential_entities": "Entitäten, die auf der Karte angezeigt und gezählt werden, aber von allen KPIs (Offline-Anzahl, Verfügbarkeit %, MTBF, MTTR) und Benachrichtigungen ausgeschlossen sind. Nützlich für Geräte, die erwartungsgemäß offline sind (Fernseher im Standby, Drucker zwischen Aufträgen).",
@@ -104,7 +111,8 @@
           "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
           "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen.",
           "staleness_use_last_updated": "Wenn aktiviert, setzt jede Aktualisierung der Entität — einschließlich reiner Attributänderungen oder wiederholter Meldungen desselben Werts — den Veralterungstimer zurück. Wenn deaktiviert (Standard), zählt nur eine Änderung des Hauptzustands. Aktivieren Sie dies für Geräte, die häufig melden, aber ihren Wert selten ändern (z. B. Temperatur oder Leistung, die konstant bleibt).",
-          "entities": "Entitäten, die auf Verfügbarkeit überwacht werden. Diese werden vollständig überwacht und in alle KPIs und Warnungen einbezogen."
+          "entities": "Entitäten, die auf Verfügbarkeit überwacht werden. Diese werden vollständig überwacht und in alle KPIs und Warnungen einbezogen.",
+          "signal_enabled": "Signalstärke (dBm) für überwachte Entitäten verfolgen und warnen, wenn die Signalqualität auf „schlecht\" sinkt. Nach der Aktivierung werden Sie aufgefordert, für jede Entität einen Signalsensor zu verknüpfen und den Netzwerktyp auszuwählen."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Batterie-Entitätszuordnung",
         "description": "Bestätigen oder ändern Sie den Batteriesensor für jede überwachte Entität. Leer lassen für Entitäten ohne Batterien. Unterstützt numerische (%) und Textzustände ('niedrig')."
+      },
+      "signal_mapping": {
+        "title": "Signalstärke-Zuordnung",
+        "description": "Wählen Sie optional für jede überwachte Entität einen Signalsensor aus und legen Sie den Netzwerktyp fest. Lassen Sie das Sensorfeld leer, um die Signalüberwachung für diese Entität zu überspringen."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Veraltungsanzahl (Nicht-wesentlich)"
+      },
+      "poor_signal": {
+        "name": "Schlechtes Signal"
+      },
+      "poor_signal_count": {
+        "name": "Anzahl schlechter Signale"
+      },
+      "poor_signal_non_essential": {
+        "name": "Schlechtes Signal (Nicht-Essenziell)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Anzahl schlechter Signale (Nicht-Essenziell)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Veraltete Entität vorhanden"
+      },
+      "any_poor_signal": {
+        "name": "Irgendein schlechtes Signal"
       }
     }
   },

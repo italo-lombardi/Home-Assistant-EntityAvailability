@@ -52,9 +52,11 @@
           "battery_threshold": "Grænse for lavt batteri (%, 0 = deaktiveret)",
           "availability_windows": "Tilgængelighedssporingsvinduer",
           "recovery_window": "Genoprettelsesvindue",
-          "use_device_names": "Vis enhedsnavne"
+          "use_device_names": "Vis enhedsnavne",
+          "signal_enabled": "Aktivér overvågning af signalstyrke"
         },
         "data_description": {
+          "signal_enabled": "Spor signalstyrke (dBm) for overvågede enheder og giv besked, når signalkvaliteten falder til 'dårlig'. Efter aktivering bliver du bedt om at tilknytte en signalsensor og vælge netværkstype for hver enhed.",
           "battery_threshold": "Markerer entiteter, hvis batteri falder under denne procentdel. Tilstanden 'low' registreres også automatisk. Volt-baserede entiteter understøttes ikke. Brug entiteter, der rapporterer batteri som procent eller understøtter tilstanden 'low'.",
           "staleness_threshold": "Hvis en entitet ikke har ændret tilstand i dette antal minutter, markeres den som forringet. Dette opdager entiteter, der rapporterer 'tilgængelig', men faktisk er stoppet med at sende data. Sæt til 0 for at deaktivere.",
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
@@ -65,6 +67,10 @@
       "battery_mapping": {
         "title": "Batterientitetstilknytning",
         "description": "Bekræft eller ændr batterisensoren for hver overvåget entitet. Lad stå tom for entiteter uden batterier. Understøtter numeriske (%) og teksttilstande ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signalstyrke-mapping",
+        "description": "For hver overvåget enhed kan du valgfrit vælge en signalsensor (f.eks. sensor.device_rssi) og vælge netværkstype, så de korrekte tærskler anvendes. Lad sensoren stå tom for at springe signalmonitorering over for den pågældende enhed."
       }
     },
     "error": {
@@ -93,9 +99,11 @@
           "availability_windows": "Tilgængelighedssporingsvinduer",
           "recovery_window": "Genoprettelsesvindue (minutter)",
           "use_device_names": "Vis enhedsnavne",
-          "staleness_use_last_updated": "Tæl attributopdateringer som aktivitet"
+          "staleness_use_last_updated": "Tæl attributopdateringer som aktivitet",
+          "signal_enabled": "Aktivér overvågning af signalstyrke"
         },
         "data_description": {
+          "signal_enabled": "Spor signalstyrke (dBm) for overvågede enheder og giv besked, når signalkvaliteten falder til 'dårlig'. Efter aktivering bliver du bedt om at tilknytte en signalsensor og vælge netværkstype for hver enhed.",
           "non_essential_entities": "Enheder der vises og tælles på kortet, men udelukkes fra alle KPI'er (antal offline, tilgængelighed %, MTBF, MTTR) og alarmer. Nyttig til enheder der forventes at være offline (TV i standby, printer slukket mellem jobs).",
           "bad_states": "Entitetstilstande, der indikerer, at en entitet er offline (f.eks. unavailable, unknown).",
           "cooldown": "Hvor længe (i sekunder) en entitet skal forblive i en fejltilstand, før den markeres som offline. Forhindrer falske alarmer ved korte afbrydelser.",
@@ -119,6 +127,10 @@
       "battery_mapping": {
         "title": "Batterientitetstilknytning",
         "description": "Bekræft eller ændr batterisensoren for hver overvåget entitet. Lad stå tom for entiteter uden batterier. Understøtter numeriske (%) og teksttilstande ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signalstyrke-mapping",
+        "description": "For hver overvåget enhed kan du valgfrit vælge en signalsensor og vælge netværkstype. Lad sensoren stå tom for at springe signalmonitorering over for den pågældende enhed."
       }
     }
   },
@@ -201,6 +213,18 @@
       },
       "stale_count_non_essential": {
         "name": "Antal inaktive (ikke-essentielle)"
+      },
+      "poor_signal": {
+        "name": "Dårligt signal"
+      },
+      "poor_signal_count": {
+        "name": "Antal dårlige signaler"
+      },
+      "poor_signal_non_essential": {
+        "name": "Dårligt signal (ikke-essentiel)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Antal dårlige signaler (ikke-essentiel)"
       }
     },
     "binary_sensor": {
@@ -218,6 +242,9 @@
       },
       "any_stale": {
         "name": "Inaktiv entitet til stede"
+      },
+      "any_poor_signal": {
+        "name": "Mindst ét dårligt signal"
       }
     }
   },

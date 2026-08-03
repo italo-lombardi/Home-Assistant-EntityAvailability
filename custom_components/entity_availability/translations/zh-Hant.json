@@ -52,18 +52,24 @@
           "battery_threshold": "低電量閾值（%，0 = 停用）",
           "availability_windows": "可用性追蹤時間窗口",
           "recovery_window": "恢復窗口",
-          "use_device_names": "顯示設備名稱"
+          "use_device_names": "顯示設備名稱",
+          "signal_enabled": "啟用訊號強度監控"
         },
         "data_description": {
           "battery_threshold": "標記電池電量低於此百分比的實體。「low」狀態也會被自動偵測。不支援基於電壓的實體。請使用以百分比回報電量或支援「low」狀態的實體。",
           "availability_windows": "用於追蹤組可用性歷史記錄的時間窗口（例如 today、3d、7d）。",
           "recovery_window": "實體在狀態轉換後，在「最近離線」或「最近恢復」感測器中保留的時長（分鐘）。",
-          "use_device_names": "在離線/已恢復感測器狀態中顯示 HA 設備名稱，而非實體友善名稱。對未關聯設備的實體，回退使用友善名稱。"
+          "use_device_names": "在離線/已恢復感測器狀態中顯示 HA 設備名稱，而非實體友善名稱。對未關聯設備的實體，回退使用友善名稱。",
+          "signal_enabled": "追蹤受監控實體的訊號強度（dBm），並在訊號品質降至「差」時發出警示。啟用後，系統將要求您為每個實體綁定訊號感測器並選擇網路類型。"
         }
       },
       "battery_mapping": {
         "title": "電池實體對應",
         "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。"
+      },
+      "signal_mapping": {
+        "title": "訊號強度對應",
+        "description": "針對每個受監控實體，可選擇性地指定訊號感測器（例如 sensor.device_rssi）並選擇網路類型，以套用正確的閾值。將感測器留空可略過該實體的訊號監控。"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "可用性追蹤時間窗口",
           "recovery_window": "恢復窗口（分鐘）",
           "use_device_names": "顯示設備名稱",
-          "staleness_use_last_updated": "將屬性更新計為活動"
+          "staleness_use_last_updated": "將屬性更新計為活動",
+          "signal_enabled": "啟用訊號強度監控"
         },
         "data_description": {
           "entities": "要追蹤可用性的實體。這些實體會被完整監控，並納入所有 KPI 與告警。",
@@ -104,7 +111,8 @@
           "availability_windows": "用於追蹤組可用性歷史記錄的時間窗口（例如 today、3d、7d）。",
           "recovery_window": "實體在狀態轉換後，在「最近離線」或「最近恢復」感測器中保留的時長（分鐘）。",
           "use_device_names": "在離線/已恢復感測器狀態中顯示 HA 設備名稱，而非實體友善名稱。對未關聯設備的實體，回退使用友善名稱。",
-          "staleness_use_last_updated": "啟用後，實體的任何更新——包括僅屬性變化或重複相同值的回報——都會重置資料逾時計時器。停用（預設）時，只有主狀態發生變化才計數。適用於頻繁回報但值很少變化的設備（如溫度或長期穩定的功率）。"
+          "staleness_use_last_updated": "啟用後，實體的任何更新——包括僅屬性變化或重複相同值的回報——都會重置資料逾時計時器。停用（預設）時，只有主狀態發生變化才計數。適用於頻繁回報但值很少變化的設備（如溫度或長期穩定的功率）。",
+          "signal_enabled": "追蹤受監控實體的訊號強度（dBm），並在訊號品質降至「差」時發出警示。啟用後，系統將要求您為每個實體綁定訊號感測器並選擇網路類型。"
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "電池實體對應",
         "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。"
+      },
+      "signal_mapping": {
+        "title": "訊號強度對應",
+        "description": "針對每個受監控實體，可選擇性地指定訊號感測器並選擇網路類型。將感測器留空可略過該實體的訊號監控。"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "資料逾時數量（非必要）"
+      },
+      "poor_signal": {
+        "name": "訊號差"
+      },
+      "poor_signal_count": {
+        "name": "訊號差計數"
+      },
+      "poor_signal_non_essential": {
+        "name": "訊號差（非必要）"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "訊號差計數（非必要）"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "存在資料逾時實體"
+      },
+      "any_poor_signal": {
+        "name": "任一訊號差"
       }
     }
   },
