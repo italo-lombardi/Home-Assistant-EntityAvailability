@@ -2405,3 +2405,76 @@ async def test_options_detect_signal_entity_skips_self_in_registry(
         )
 
     assert result["step_id"] == "signal_mapping"
+
+
+async def test_options_flow_signal_map_preserves_untouched_entities(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Options flow merges signal map — untouched entities keep their existing binding."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    # Pre-configure: device_a has a signal binding, device_b has one too
+    existing_signal_map = {
+        "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"},
+        "binary_sensor.device_b": {"sensor": "sensor.b_rssi", "network_type": "zigbee"},
+    }
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = existing_signal_map
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="signal_merge_test_entry",
+        unique_id=f"{DOMAIN}_signal_merge_test",
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    # Submit options — only change device_a's network type, leave device_b blank
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: 0,
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_SIGNAL_ENABLED: True,
+            },
+        )
+    assert result["step_id"] == "signal_mapping"
+
+    # Submit signal mapping: update device_a's network type, leave device_b sensor blank
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                "binary_sensor.device_a__signal_sensor": "sensor.a_rssi",
+                "binary_sensor.device_a__signal_network": "bluetooth",
+                # device_b sensor left blank
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    final_map = entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
+    # device_a updated to bluetooth
+    assert final_map["binary_sensor.device_a"]["network_type"] == "bluetooth"
+    # device_b binding preserved (sensor blank = not touched, existing kept)
+    assert "binary_sensor.device_b" in final_map
+    assert final_map["binary_sensor.device_b"]["sensor"] == "sensor.b_rssi"

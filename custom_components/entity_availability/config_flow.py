@@ -465,7 +465,11 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                     f"{entity_id}__signal_sensor",
                     description={"suggested_value": detected} if detected else None,
                 )
-            ] = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
+            ] = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    domain=["sensor", "input_number", "number"]
+                )
+            )
             schema_dict[
                 vol.Optional(f"{entity_id}__signal_network", default="generic")
             ] = selector.SelectSelector(
@@ -685,9 +689,10 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
         existing_map = self.config_entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
 
         if user_input is not None:
-            self._data[CONF_SIGNAL_ENTITY_MAP] = _build_signal_map_from_input(
-                entities, user_input
-            )
+            # Merge into existing map: submitted sensors update/add, absent keys preserved
+            merged = dict(existing_map)
+            merged.update(_build_signal_map_from_input(entities, user_input))
+            self._data[CONF_SIGNAL_ENTITY_MAP] = merged
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=self._data
             )
@@ -702,7 +707,11 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                     f"{entity_id}__signal_sensor",
                     description={"suggested_value": suggested} if suggested else None,
                 )
-            ] = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
+            ] = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    domain=["sensor", "input_number", "number"]
+                )
+            )
             schema_dict[
                 vol.Optional(
                     f"{entity_id}__signal_network",

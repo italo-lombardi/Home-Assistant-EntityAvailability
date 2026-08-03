@@ -390,6 +390,23 @@ const cardStyles = css`
     text-align: right;
   }
 
+  .entity-list.icon-mode .entity-status {
+    min-width: 24px;
+    font-size: 11px;
+  }
+
+  .entity-list.icon-mode .entity-battery {
+    min-width: 28px;
+  }
+
+  .entity-list.icon-mode .entity-legend-status {
+    min-width: 24px;
+  }
+
+  .entity-list.icon-mode .entity-legend-battery {
+    min-width: 28px;
+  }
+
   .entity-legend-spacer {
     width: 24px;
     flex-shrink: 0;
@@ -960,6 +977,7 @@ class EntityAvailabilityCard extends LitElement {
 
     const expanded = this._entitiesExpanded;
     const hasBattery = batteryEnabled && allItems.some((i) => i.battery !== null);
+    const hasSignal = signalEnabled && allItems.some((i) => i.signalLevel !== null);
 
     const sectionTitle = filter === "offline" ? "Problem Entities"
       : filter === "online" ? "Healthy Entities"
@@ -979,7 +997,7 @@ class EntityAvailabilityCard extends LitElement {
           icon="mdi:chevron-down"
         ></ha-icon>
       </div>
-      <div class="entity-list ${expanded ? "expanded" : "collapsed"}">
+      <div class="entity-list ${expanded ? "expanded" : "collapsed"} ${this._config.show_stat_icons ? "icon-mode" : ""}">
         ${items.length === 0
           ? nothing
           : html`
@@ -988,6 +1006,7 @@ class EntityAvailabilityCard extends LitElement {
           <span class="entity-legend-name">Entity</span>
           <span class="entity-legend-status">State</span>
           ${hasBattery ? html`<span class="entity-legend-battery">Bat.</span>` : nothing}
+          ${hasSignal ? html`<span class="entity-legend-battery">Signal</span>` : nothing}
           ${this._config.show_suppress_toggle ? html`<span class="entity-legend-spacer"></span>` : nothing}
         </div>
         ${items.map(
@@ -1000,6 +1019,9 @@ class EntityAvailabilityCard extends LitElement {
                 <span class="entity-status">${item.status}</span>
                 ${hasBattery
                   ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
+                  : nothing}
+                ${hasSignal
+                  ? html`<span class="entity-battery">${item.signalLevel !== null ? `${item.signalLevel} ${item.signalUnit ?? ""}` : ""}</span>`
                   : nothing}
                 ${this._config.show_suppress_toggle ? html`
                 <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
@@ -1747,7 +1769,7 @@ class EntityAvailabilityCardEditor extends LitElement {
               .checked=${this._config.show_group_health !== false}
               @change=${(e) => this._updateConfig("show_group_health", e.target.checked)}
             />
-            Show Health Columns (Bat. &amp; Stale, when active)
+            Show Health Columns (Bat., Stale &amp; Signal, when active)
           </label>
         </div>
         ` : nothing}
