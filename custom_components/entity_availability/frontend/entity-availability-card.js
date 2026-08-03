@@ -823,18 +823,18 @@ class EntityAvailabilityCard extends LitElement {
     const signalEnabled = attrs.signal_enabled || false;
     const signalLevels = attrs.signal_levels || {};
     const signalUnits = attrs.signal_units || {};
-    const poorSignalEntities = [
-      ...(attrs.poor_signal_entities || []),
-      ...(attrs.poor_signal_entities_non_essential || []),
-    ];
+    const poorSignalEntitiesNE = attrs.poor_signal_entities_non_essential || [];
+    const poorSignalEntitiesEssential = attrs.poor_signal_entities || [];
+    // Merge essential+NE for dot coloring; use essential-only for stat pill/statusColor
+    const poorSignalEntities = [...poorSignalEntitiesEssential, ...poorSignalEntitiesNE];
     const okSignalEntities = attrs.ok_signal_entities || [];
 
     const nonEssentialOnline = attrs.non_essential_online ?? 0;
     const nonEssentialOffline = attrs.non_essential_offline ?? 0;
     const lowBatteryNonEssential = attrs.low_battery_non_essential ?? 0;
     const nonEssentialSuppressed = attrs.non_essential_suppressed ?? 0;
-    const poorSignalCountNonEssential = signalEnabled ? (attrs.poor_signal_count_non_essential ?? 0) : 0;
-    const poorSignalCount = signalEnabled ? poorSignalEntities.length : 0;
+    const poorSignalCountNonEssential = signalEnabled ? poorSignalEntitiesNE.length : 0;
+    const poorSignalCount = signalEnabled ? poorSignalEntitiesEssential.length : 0;
     const staleCount = stalenessEnabled ? staleEntities.length : 0;
     const staleCountNonEssential = stalenessEnabled ? staleEntitiesNonEssential.length : 0;
     const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
@@ -860,7 +860,7 @@ class EntityAvailabilityCard extends LitElement {
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
-        ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
+        ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_stat_icons === true) : nothing}
         ${this._config.show_actions ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
