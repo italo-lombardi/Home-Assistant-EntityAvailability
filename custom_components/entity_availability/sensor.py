@@ -945,6 +945,31 @@ class GroupSummarySensor(DedupCoordinatorSensor):
     # statistics would be constant rows sampled every 5 min. Stays a valid state sensor.
     _attr_has_entity_name = True
 
+    # last_seen timestamps advance every tick — exclude from dedup comparison
+    # so the sensor only writes when monitoring data actually changes.
+    _EA_SKIP_DEDUP_KEYS = frozenset({"last_seen"})
+
+    def _ea_should_write(self) -> bool:
+        """Write only when attrs excluding last_seen change."""
+        value = self._ea_current_value()
+        raw_attrs = self.extra_state_attributes
+        attrs = (
+            {k: v for k, v in raw_attrs.items() if k not in self._EA_SKIP_DEDUP_KEYS}
+            if raw_attrs
+            else raw_attrs
+        )
+        available = getattr(self, "available", True)
+        if (
+            value == self._ea_last_value
+            and attrs == self._ea_last_attrs
+            and available == self._ea_last_available
+        ):
+            return False
+        self._ea_last_value = value
+        self._ea_last_attrs = attrs
+        self._ea_last_available = available
+        return True
+
     def __init__(
         self,
         coordinator: EntityAvailabilityCoordinator,
