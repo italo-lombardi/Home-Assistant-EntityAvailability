@@ -921,7 +921,7 @@ class EntityAvailabilityCard extends LitElement {
     if (iconMode) {
       return html`
         <div class="non-essential-stats-row">
-          <span class="non-essential-stats-label">↳ NE</span>
+          <span class="non-essential-stats-label">↳ Non-Essential</span>
           <span class="non-essential-stat ${online > 0 ? "online" : "neutral"}" title="Online"><ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${online}</span>
           <span class="non-essential-stat ${offline > 0 ? "offline" : "neutral"}" title="Offline"><ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${offline}</span>
           ${lowBattery > 0 ? html`<span class="non-essential-stat battery" title="Low Battery"><ha-icon icon="mdi:battery-alert-variant-outline" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${lowBattery}</span>` : nothing}
