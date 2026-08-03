@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Jebkāds vājš signāls"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Zems Akumulators (Nav Svarīgi)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Vājš Signāls (Nav Svarīgi)"
       }
     }
   },

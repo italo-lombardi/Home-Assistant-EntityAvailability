@@ -4169,6 +4169,7 @@ async def test_bus_events_stale_transition(
         assert rec["entity_id"] == "binary_sensor.device_a"
         assert rec["stale_count"] == 0
         assert rec["stale_entities"] == []
+        assert "stale_since" in rec  # added for parity with EVENT_STALE payload
 
 
 @pytest.mark.asyncio

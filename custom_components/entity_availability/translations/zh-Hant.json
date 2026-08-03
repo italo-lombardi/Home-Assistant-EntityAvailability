@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "任一訊號差"
+      },
+      "any_low_battery_non_essential": {
+        "name": "低電量（非必要）"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "訊號弱（非必要）"
       }
     }
   },

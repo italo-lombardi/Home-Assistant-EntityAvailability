@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Algum Sinal Fraco"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Bateria Fraca (Não Essencial)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Sinal Fraco (Não Essencial)"
       }
     }
   },

@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Willekeurig slecht signaal"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Lage Batterij (Niet Essentieel)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Zwak Signaal (Niet Essentieel)"
       }
     }
   },

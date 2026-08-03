@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Любой слабый сигнал"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Слабая Батарея (Несущественное)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Слабый Сигнал (Несущественное)"
       }
     }
   },

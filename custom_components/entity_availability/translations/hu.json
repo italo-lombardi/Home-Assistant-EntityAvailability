@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Bármely gyenge jel"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Alacsony Akkumulátor (Nem Lényeges)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Gyenge Jel (Nem Lényeges)"
       }
     }
   },

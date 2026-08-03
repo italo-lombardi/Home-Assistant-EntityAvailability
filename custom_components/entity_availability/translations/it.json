@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Qualsiasi segnale scarso"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Batteria Scarica (Non Essenziale)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Segnale Debole (Non Essenziale)"
       }
     }
   },

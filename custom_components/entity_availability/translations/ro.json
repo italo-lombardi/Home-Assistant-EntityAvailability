@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "„Orice semnal slab\""
+      },
+      "any_low_battery_non_essential": {
+        "name": "Baterie Slabă (Neesențial)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Semnal Slab (Neesențial)"
       }
     }
   },

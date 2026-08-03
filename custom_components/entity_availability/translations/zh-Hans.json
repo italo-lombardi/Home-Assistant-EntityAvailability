@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "存在信号差"
+      },
+      "any_low_battery_non_essential": {
+        "name": "低电量（非必要）"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "信号弱（非必要）"
       }
     }
   },

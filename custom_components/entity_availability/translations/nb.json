@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Noe dårlig signal"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Lavt Batteri (Ikke-essensiell)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Svakt Signal (Ikke-essensiell)"
       }
     }
   },

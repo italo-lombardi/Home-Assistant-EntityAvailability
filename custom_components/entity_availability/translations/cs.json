@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Jakýkoli špatný signál"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Slabá Baterie (Nedůležité)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Slabý Signál (Nedůležité)"
       }
     }
   },

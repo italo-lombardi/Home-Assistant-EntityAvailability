@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "불량 신호 감지됨"
+      },
+      "any_low_battery_non_essential": {
+        "name": "배터리 부족 (비필수)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "약한 신호 (비필수)"
       }
     }
   },

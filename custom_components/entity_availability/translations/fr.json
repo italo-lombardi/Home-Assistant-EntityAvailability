@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Au moins un signal faible"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Batterie Faible (Non Essentiel)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Signal Faible (Non Essentiel)"
       }
     }
   },

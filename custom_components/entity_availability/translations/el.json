@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Οποιοδήποτε Κακό Σήμα"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Χαμηλή Μπαταρία (Μη Ουσιώδες)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Αδύναμο Σήμα (Μη Ουσιώδες)"
       }
     }
   },

@@ -244,6 +244,12 @@
       },
       "any_poor_signal": {
         "name": "Jokin signaali heikko"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Heikko Akku (Ei-olennainen)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Heikko Signaali (Ei-olennainen)"
       }
     }
   },
