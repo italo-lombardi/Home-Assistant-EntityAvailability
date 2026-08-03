@@ -5361,11 +5361,12 @@ async def test_new_entity_in_signal_enabled_group_gets_no_prefill(
         coord._last_update = None
         await coord._async_update_data()
 
-    # device_b has no mapping → signal_level and signal_quality stay None
+    # device_b has no mapping → signal_level, signal_quality, signal_unit all None
     device_b = coord.device_states.get("binary_sensor.device_b")
     assert device_b is not None
     assert device_b.signal_level is None
     assert device_b.signal_quality is None
+    assert device_b.signal_unit is None
 
 
 async def test_signal_level_cleared_when_sensor_becomes_unavailable(

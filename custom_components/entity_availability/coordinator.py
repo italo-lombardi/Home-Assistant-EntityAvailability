@@ -554,12 +554,16 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
             # Signal check — clear level when sensor unavailable (same as battery: no stale value)
             if self._signal_enabled:
+                mapping = self._signal_map.get(entity_id)
                 fresh_signal = self._get_signal_level(entity_id)
                 device.signal_level = fresh_signal
-                nt = self._signal_map.get(entity_id, {}).get("network_type", "generic")
-                device.signal_unit = SIGNAL_NETWORK_TYPES.get(
-                    nt, SIGNAL_NETWORK_TYPES["generic"]
-                )["unit"]
+                if mapping:
+                    nt = mapping.get("network_type", "generic")
+                    device.signal_unit = SIGNAL_NETWORK_TYPES.get(
+                        nt, SIGNAL_NETWORK_TYPES["generic"]
+                    )["unit"]
+                else:
+                    device.signal_unit = None
                 device.signal_quality = (
                     self._classify_signal(entity_id, fresh_signal)
                     if fresh_signal is not None
