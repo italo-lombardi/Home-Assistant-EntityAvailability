@@ -1139,11 +1139,11 @@ class EntityAvailabilityCard extends LitElement {
     return html`
       <div class="divider"></div>
       <div class="actions-section">
-        <button class="action-btn suppress" title="Suppress all currently offline monitored entities for 60 minutes (non-essential entities excluded)" @click=${this._handleSuppressAll}>
-          Suppress All
+        <button class="action-btn suppress" title="${this._config.show_non_essential_stats ? "Suppress all offline entities (including Non-Essential) for 60 minutes" : "Suppress all currently offline monitored entities for 60 minutes (non-essential entities excluded)"}" @click=${this._handleSuppressAll}>
+          Suppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
         </button>
-        <button class="action-btn unsuppress" title="Remove suppression from all entities in this group" @click=${this._handleUnsuppressAll}>
-          Unsuppress All
+        <button class="action-btn unsuppress" title="${this._config.show_non_essential_stats ? "Remove suppression from all entities (including Non-Essential) in this group" : "Remove suppression from all entities in this group"}" @click=${this._handleUnsuppressAll}>
+          Unsuppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
         </button>
       </div>
     `;
@@ -1544,7 +1544,13 @@ class EntityAvailabilityCard extends LitElement {
     e.stopPropagation();
     const group = this._resolveGroupId();
     const offlineIds = this._getOfflineEntityIds();
-    for (const entityId of offlineIds) {
+    const includeNE = this._config.show_non_essential_stats === true;
+    const neOfflineIds = includeNE ? (() => {
+      const summary = this._getGroupSummary();
+      return summary?.attributes?.offline_entities_non_essential || [];
+    })() : [];
+    const allIds = [...new Set([...offlineIds, ...neOfflineIds])];
+    for (const entityId of allIds) {
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
@@ -1558,7 +1564,10 @@ class EntityAvailabilityCard extends LitElement {
     const group = this._resolveGroupId();
     const summary = this._getGroupSummary();
     const entities = summary?.attributes?.entities || [];
-    for (const entityId of entities) {
+    const includeNE = this._config.show_non_essential_stats === true;
+    const neEntities = includeNE ? (summary?.attributes?.non_essential_entities || []) : [];
+    const allIds = [...new Set([...entities, ...neEntities])];
+    for (const entityId of allIds) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
