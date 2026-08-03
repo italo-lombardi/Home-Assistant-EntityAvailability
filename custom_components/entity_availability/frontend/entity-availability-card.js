@@ -1032,7 +1032,7 @@ class EntityAvailabilityCard extends LitElement {
                   ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
                   : nothing}
                 ${hasSignal
-                  ? html`<span class="entity-battery">${item.signalLevel !== null ? `${item.signalLevel} ${item.signalUnit ?? ""}` : ""}</span>`
+                  ? html`<span class="entity-battery entity-signal">${item.signalLevel !== null ? `${item.signalLevel} ${item.signalUnit ?? ""}` : ""}</span>`
                   : nothing}
                 ${this._config.show_suppress_toggle ? html`
                 <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"

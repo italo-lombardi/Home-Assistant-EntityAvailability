@@ -5499,3 +5499,50 @@ async def test_classify_signal_percent_network_type(
     assert coord._classify_signal("binary_sensor.device_a", 40) == "ok"
     assert coord._classify_signal("binary_sensor.device_a", 39) == "poor"
     assert coord._classify_signal("binary_sensor.device_a", 0) == "poor"
+
+
+def test_setup_state_listeners_includes_signal_sensors(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """When signal_enabled, signal sensor IDs are added to the tracked entity list."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"},
+        "binary_sensor.device_b": {"sensor": "sensor.b_rssi", "network_type": "zigbee"},
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    tracked_ids = []
+
+    def capture_track(hass, entity_ids, callback):
+        tracked_ids.extend(entity_ids)
+        return lambda: None
+
+    with patch(
+        "custom_components.entity_availability.coordinator.async_track_state_change_event",
+        side_effect=capture_track,
+    ):
+        coord._setup_state_listeners()
+
+    assert "sensor.a_rssi" in tracked_ids
+    assert "sensor.b_rssi" in tracked_ids
+    # Original entities still tracked
+    assert "binary_sensor.device_a" in tracked_ids

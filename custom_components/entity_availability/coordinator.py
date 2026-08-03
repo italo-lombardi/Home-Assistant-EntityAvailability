@@ -424,8 +424,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             self.group_name,
             len(self._entities),
         )
+        tracked = list(self._entities)
+        if self._signal_enabled:
+            signal_sensors = [
+                m["sensor"] for m in self._signal_map.values() if m.get("sensor")
+            ]
+            tracked = list(dict.fromkeys(tracked + signal_sensors))
         self._unsub_state_change = async_track_state_change_event(
-            self.hass, self._entities, self._handle_state_change
+            self.hass, tracked, self._handle_state_change
         )
 
     @callback

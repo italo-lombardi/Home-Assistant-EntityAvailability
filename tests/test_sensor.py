@@ -3748,3 +3748,58 @@ async def test_ne_poor_signal_sensor_returns_none_string_when_empty(
     sensor = NonEssentialPoorSignalSensor(coord, "Test", "test", "entry1")
     sensor.hass = hass
     assert sensor.native_value == "None"
+
+
+async def test_ne_poor_signal_sensor_non_truncated_path(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """NonEssentialPoorSignalSensor returns short non-truncated result."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalSensor,
+    )
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+    from custom_components.entity_availability.models import DeviceState
+
+    hass.states.async_set("binary_sensor.ne_a", "on", {"friendly_name": "NE A"})
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    # Inject NE device with poor signal directly
+    coord._device_states["binary_sensor.ne_a"] = DeviceState(
+        entity_id="binary_sensor.ne_a",
+        is_non_essential=True,
+        signal_level=-80,
+        signal_unit="dBm",
+        signal_quality="poor",
+    )
+
+    sensor = NonEssentialPoorSignalSensor(coord, "Test", "test", "entry1")
+    sensor.hass = hass
+    val = sensor.native_value
+    assert val != "None"
+    assert "..." not in val
+    assert "dBm" in val
+    assert "..." not in val
+    assert "dBm" in val
