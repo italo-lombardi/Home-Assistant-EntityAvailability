@@ -46,6 +46,13 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essentia
   EC44 group_summary staleness_enabled matches staleness_threshold config
   EC45 last_seen attr populated with past timestamps
 
+  Signal strength (EC46-EC50 — require signal_enabled=True on the test group):
+  EC46 group_summary exposes signal_enabled flag
+  EC47 poor_signal_count sensor is reachable
+  EC48 signal_levels attr is a dict in group_summary
+  EC49 poor_signal_entities attr is a list in group_summary
+  EC50 any_poor_signal binary sensor reachable when signal enabled
+
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
   EC26 NE entity offline → offline_count_non_essential increments
@@ -138,6 +145,16 @@ def api(method, path, body=None):
 
 def gs(eid):
     return api("GET", f"/api/states/{eid}")
+
+
+def gs_safe(eid):
+    """Like gs() but returns None instead of raising on 404."""
+    try:
+        return api("GET", f"/api/states/{eid}")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
 
 
 def ss(eid, state, attrs):
@@ -2297,6 +2314,118 @@ def main():
             "\n  EC25-EC42: skipped (set EA_SMOKE_NE_GROUP to a group with non-essential entities)",
             flush=True,
         )
+
+    # ------------------------------------------------------------------
+    # EC46-EC50: Signal strength monitoring
+    # Requires group_summary to expose signal_enabled, signal_levels, poor_signal_entities.
+    # ------------------------------------------------------------------
+    signal_ecs = {46, 47, 48, 49, 50}
+    run_signal = not EC_FILTER or signal_ecs & EC_FILTER
+
+    if run_signal:
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        if "signal_enabled" not in attrs:
+            print(
+                "\n  EC46-EC50: skipped (signal_enabled attr not present — deploy backend first)",
+                flush=True,
+            )
+        else:
+            signal_enabled = attrs.get("signal_enabled", False)
+
+            if ec_enabled(46):
+                print(
+                    "\n=== EC46: signal_enabled flag present in group_summary ===",
+                    flush=True,
+                )
+                chk(
+                    "EC46 signal_enabled attr present",
+                    "signal_enabled" in attrs,
+                    True,
+                    f"attrs keys={list(attrs.keys())[:10]}",
+                )
+
+            if ec_enabled(47):
+                print("\n=== EC47: poor_signal_count sensor exists ===", flush=True)
+                ps_count = gs_safe(f"{prefix}_poor_signal_count")
+                if ps_count is None or ps_count.get("state") in (
+                    None,
+                    "unknown",
+                    "unavailable",
+                ):
+                    print(
+                        "  EC47: skipped (poor_signal_count sensor not found — signal may be disabled for this group)",
+                        flush=True,
+                    )
+                else:
+                    chk(
+                        "EC47 poor_signal_count sensor reachable",
+                        ps_count.get("state") is not None,
+                        True,
+                        f"state={ps_count.get('state')}",
+                    )
+
+            if ec_enabled(48):
+                print(
+                    "\n=== EC48: signal_levels attr is dict in group_summary ===",
+                    flush=True,
+                )
+                signal_levels = attrs.get("signal_levels")
+                if signal_levels is None:
+                    print(
+                        "  EC48: skipped (signal_levels not in attrs — signal disabled)",
+                        flush=True,
+                    )
+                else:
+                    chk(
+                        "EC48 signal_levels is a dict",
+                        isinstance(signal_levels, dict),
+                        True,
+                        f"type={type(signal_levels).__name__}",
+                    )
+
+            if ec_enabled(49):
+                print(
+                    "\n=== EC49: poor_signal_entities attr is list in group_summary ===",
+                    flush=True,
+                )
+                pse = attrs.get("poor_signal_entities")
+                if pse is None:
+                    print(
+                        "  EC49: skipped (poor_signal_entities not in attrs — signal disabled)",
+                        flush=True,
+                    )
+                else:
+                    chk(
+                        "EC49 poor_signal_entities is a list",
+                        isinstance(pse, list),
+                        True,
+                        f"type={type(pse).__name__}",
+                    )
+
+            if ec_enabled(50):
+                print(
+                    "\n=== EC50: any_poor_signal binary sensor exists when signal enabled ===",
+                    flush=True,
+                )
+                if not signal_enabled:
+                    print(
+                        "  EC50: skipped (signal_enabled=False for this group)",
+                        flush=True,
+                    )
+                else:
+                    bs = gs_safe(f"binary_sensor.{prefix}_any_poor_signal")
+                    if bs is None:
+                        print(
+                            "  EC50: skipped (any_poor_signal sensor not found)",
+                            flush=True,
+                        )
+                    else:
+                        chk(
+                            "EC50 any_poor_signal binary sensor reachable",
+                            bs.get("state") in ("on", "off"),
+                            True,
+                            f"state={bs.get('state')}",
+                        )
 
     # ------------------------------------------------------------------
     print("\n=== CLEANUP ===", flush=True)

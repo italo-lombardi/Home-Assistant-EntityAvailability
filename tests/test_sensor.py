@@ -3292,3 +3292,459 @@ class TestNonEssentialAndStaleSensors:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.native_value == 1
+
+
+# ---------------------------------------------------------------------------
+# Signal strength sensor tests
+# ---------------------------------------------------------------------------
+
+
+async def test_poor_signal_sensor_lists_poor_entities(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """PoorSignalSensor shows names of essential entities with poor signal."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import PoorSignalSensor
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+
+    hass.states.async_set("binary_sensor.device_a", "on", {"friendly_name": "Device A"})
+    hass.states.async_set("sensor.device_a_rssi", "-80")
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    sensor = PoorSignalSensor(coord, "Test", "test", "entry1")
+    sensor.hass = hass
+
+    # -80 dBm on wifi → poor (threshold ok=-70)
+    val = sensor.native_value
+    assert "Device A" in val
+    assert "dBm" in val
+
+
+async def test_poor_signal_count_sensor_counts_essential_only(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """PoorSignalCountSensor counts only essential, non-suppressed entities with poor signal."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_NON_ESSENTIAL_ENTITIES,
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import PoorSignalCountSensor
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+
+    hass.states.async_set("binary_sensor.device_a", "on")
+    hass.states.async_set("binary_sensor.device_c", "on")
+    hass.states.async_set("sensor.a_rssi", "-80")
+    hass.states.async_set("sensor.c_rssi", "-80")
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_NON_ESSENTIAL_ENTITIES] = ["binary_sensor.device_c"]
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"},
+        "binary_sensor.device_c": {"sensor": "sensor.c_rssi", "network_type": "wifi"},
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    count_sensor = PoorSignalCountSensor(coord, "Test", "test", "entry1")
+    # device_c is NE → not counted; device_a is essential poor → count=1
+    assert count_sensor.native_value == 1
+
+
+async def test_ne_poor_signal_count_sensor(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """NonEssentialPoorSignalCountSensor counts only NE entities with poor signal."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_NON_ESSENTIAL_ENTITIES,
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalCountSensor,
+    )
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+
+    hass.states.async_set("binary_sensor.device_c", "on")
+    hass.states.async_set("sensor.c_rssi", "-80")
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_NON_ESSENTIAL_ENTITIES] = ["binary_sensor.device_c"]
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_c": {"sensor": "sensor.c_rssi", "network_type": "wifi"},
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    sensor = NonEssentialPoorSignalCountSensor(coord, "Test", "test", "entry1")
+    assert sensor.native_value == 1
+
+
+async def test_poor_signal_sensor_returns_none_when_signal_good(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """PoorSignalSensor returns 'None' string when all entities have good signal."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import PoorSignalSensor
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+
+    hass.states.async_set("binary_sensor.device_a", "on")
+    hass.states.async_set("sensor.a_rssi", "-40")  # good wifi
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"},
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    sensor = PoorSignalSensor(coord, "Test", "test", "entry1")
+    sensor.hass = hass
+    assert sensor.native_value == "None"
+
+
+async def test_sensor_setup_entry_group_with_signal_enabled(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """When signal_enabled=True, PoorSignalSensor and count variants ARE added."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    config = dict(mock_config_data)
+    config[CONF_SIGNAL_ENABLED] = True
+    config[CONF_SIGNAL_ENTITY_MAP] = {}
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Signal Group",
+        data=config,
+        entry_id="signal_entry",
+    )
+    entry.add_to_hass(hass)
+    hass.data.setdefault(DOMAIN, {})
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+    hass.data[DOMAIN][entry.entry_id] = coord
+
+    added = []
+    await async_setup_entry(hass, entry, added.extend)
+
+    types = [type(e).__name__ for e in added]
+    assert "PoorSignalSensor" in types
+    assert "PoorSignalCountSensor" in types
+    assert "NonEssentialPoorSignalSensor" in types
+    assert "NonEssentialPoorSignalCountSensor" in types
+
+
+async def test_sensor_setup_entry_group_signal_disabled_by_default(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """When signal_enabled is absent/False, signal sensors are NOT added."""
+    hass = mock_hass
+    config = dict(mock_config_data)
+    # No CONF_SIGNAL_ENABLED key → defaults to False
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="No Signal Group",
+        data=config,
+        entry_id="no_signal_entry",
+    )
+    entry.add_to_hass(hass)
+    hass.data.setdefault(DOMAIN, {})
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+    hass.data[DOMAIN][entry.entry_id] = coord
+
+    added = []
+    await async_setup_entry(hass, entry, added.extend)
+
+    types = [type(e).__name__ for e in added]
+    assert "PoorSignalSensor" not in types
+    assert "PoorSignalCountSensor" not in types
+
+
+async def test_poor_signal_sensor_truncates_long_names(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """PoorSignalSensor truncates value when it exceeds MAX_STATE_LENGTH."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import PoorSignalSensor
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+    from custom_components.entity_availability.models import DeviceState
+
+    # Create a coordinator with many poor-signal entities with long names
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    # Inject many devices with very long names and poor signal
+    for i in range(60):
+        eid = f"sensor.very_long_entity_name_{i:03d}"
+        coord._device_states[eid] = DeviceState(
+            entity_id=eid,
+            signal_level=-80,
+            signal_quality="poor",
+        )
+
+    sensor = PoorSignalSensor(coord, "Test", "test", "entry1")
+    sensor.hass = hass
+    val = sensor.native_value
+    assert len(val) <= 255
+    assert val.endswith("...")
+
+
+async def test_poor_signal_sensor_extra_state_attributes(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """PoorSignalSensor.extra_state_attributes returns devices dict with signal info."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import PoorSignalSensor
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+    from custom_components.entity_availability.models import DeviceState
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    coord._device_states["sensor.a"] = DeviceState(
+        entity_id="sensor.a", signal_level=-80, signal_quality="poor"
+    )
+
+    sensor = PoorSignalSensor(coord, "Test", "test", "entry1")
+    sensor.hass = hass
+    attrs = sensor.extra_state_attributes
+    assert "sensor.a" in attrs["devices"]
+    assert attrs["devices"]["sensor.a"]["signal_level"] == -80
+    assert attrs["count"] == 1
+
+
+async def test_ne_poor_signal_sensor_extra_state_attributes(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """NonEssentialPoorSignalSensor.extra_state_attributes returns NE devices."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalSensor,
+    )
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+    from custom_components.entity_availability.models import DeviceState
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    coord._device_states["sensor.ne"] = DeviceState(
+        entity_id="sensor.ne",
+        signal_level=-85,
+        signal_quality="poor",
+        is_non_essential=True,
+    )
+
+    sensor = NonEssentialPoorSignalSensor(coord, "Test", "test", "entry1")
+    sensor.hass = hass
+    attrs = sensor.extra_state_attributes
+    assert "sensor.ne" in attrs["devices"]
+    assert attrs["count"] == 1
+
+    # Cover truncation path
+    for i in range(60):
+        eid = f"sensor.ne_long_{i:03d}"
+        coord._device_states[eid] = DeviceState(
+            entity_id=eid,
+            signal_level=-85,
+            signal_quality="poor",
+            is_non_essential=True,
+        )
+    val = sensor.native_value
+    assert val.endswith("...")
+
+
+async def test_ne_poor_signal_sensor_returns_none_string_when_empty(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """NonEssentialPoorSignalSensor returns 'None' when no NE entities have poor signal."""
+    from unittest.mock import AsyncMock, patch
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalSensor,
+    )
+    from custom_components.entity_availability.coordinator import (
+        EntityAvailabilityCoordinator,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    # No devices → native_value should be "None"
+    sensor = NonEssentialPoorSignalSensor(coord, "Test", "test", "entry1")
+    sensor.hass = hass
+    assert sensor.native_value == "None"

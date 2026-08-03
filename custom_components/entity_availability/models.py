@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from .const import SignalQuality
 from .storage import AvailabilityBucket
 
 
@@ -26,6 +27,11 @@ class DeviceState:
     cooldown_start: datetime | None = None
     battery_level: int | None = None
     last_changed: datetime | None = None
+    signal_level: int | None = None  # raw dBm from bound signal sensor
+    signal_quality: SignalQuality | None = None  # "good" | "ok" | "poor" | None
+    _prev_signal_poor: bool = (
+        False  # transition tracker for EVENT_POOR_SIGNAL / EVENT_SIGNAL_OK
+    )
     recently_offline_at: datetime | None = None
     # Reliability counters (all-time, event-driven — feed MTBF/MTTR).
     monitored_since: datetime | None = None

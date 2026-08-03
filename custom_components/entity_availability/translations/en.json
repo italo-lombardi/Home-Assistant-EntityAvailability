@@ -52,18 +52,24 @@
           "battery_threshold": "Low battery threshold (%, 0 = disabled)",
           "availability_windows": "Availability tracking windows",
           "recovery_window": "Recovery window",
-          "use_device_names": "Show device names"
+          "use_device_names": "Show device names",
+          "signal_enabled": "Enable signal strength monitoring"
         },
         "data_description": {
           "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
           "availability_windows": "Time windows for tracking group availability history (e.g. today, 3d, 7d).",
           "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
-          "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device."
+          "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
+          "signal_enabled": "Track signal strength (dBm) for monitored entities and alert when signal quality drops to 'poor'. After enabling, you will be asked to bind a signal sensor and select the network type for each entity."
         }
       },
       "battery_mapping": {
         "title": "Battery Entity Mapping",
         "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signal Strength Mapping",
+        "description": "For each monitored entity, optionally select a signal sensor (e.g. sensor.device_rssi) and choose the network type so the correct thresholds are applied. Leave the sensor empty to skip signal monitoring for that entity."
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Availability tracking windows",
           "recovery_window": "Recovery window (minutes)",
           "use_device_names": "Show device names",
-          "staleness_use_last_updated": "Count attribute updates as activity"
+          "staleness_use_last_updated": "Count attribute updates as activity",
+          "signal_enabled": "Enable signal strength monitoring"
         },
         "data_description": {
           "entities": "Entities to track for availability. These are fully monitored and included in all KPIs and alerts.",
@@ -104,7 +111,8 @@
           "availability_windows": "Time windows for tracking group availability history (e.g. today, 3d, 7d).",
           "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
           "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
-          "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
+          "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady).",
+          "signal_enabled": "Track signal strength (dBm) for monitored entities and alert when signal quality drops to 'poor'. After enabling, you will be asked to bind a signal sensor and select the network type for each entity."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Battery Entity Mapping",
         "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signal Strength Mapping",
+        "description": "For each monitored entity, optionally select a signal sensor and choose the network type. Leave the sensor empty to skip signal monitoring for that entity."
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Stale Count (Non-Essential)"
+      },
+      "poor_signal": {
+        "name": "Poor Signal"
+      },
+      "poor_signal_count": {
+        "name": "Poor Signal Count"
+      },
+      "poor_signal_non_essential": {
+        "name": "Poor Signal (Non-Essential)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Poor Signal Count (Non-Essential)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,9 @@
       },
       "any_stale": {
         "name": "Any Stale"
+      },
+      "any_poor_signal": {
+        "name": "Any Poor Signal"
       }
     }
   },

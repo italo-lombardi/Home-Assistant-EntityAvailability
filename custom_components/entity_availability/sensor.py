@@ -21,9 +21,11 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_SIGNAL_ENABLED,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BATTERY_THRESHOLD,
+    DEFAULT_SIGNAL_ENABLED,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     NO_AREA_SENTINEL,
@@ -42,6 +44,14 @@ def _resolve_display_name(
 ) -> str:
     """Return a display name for entity_id."""
     return resolve_display_name(hass, entity_id, use_device_names)
+
+
+def _format_poor_signal_device(
+    hass: HomeAssistant, device, use_device_names: bool = False
+) -> str:
+    """Format device name with signal level for poor-signal sensor lists."""
+    name = _resolve_display_name(hass, device.entity_id, use_device_names)
+    return f"{name} ({device.signal_level} dBm)"
 
 
 async def async_setup_entry(
@@ -131,6 +141,25 @@ async def async_setup_entry(
         )
         entities.append(
             NonEssentialLowBatteryCountSensor(
+                coordinator, group_name, group_slug, entry.entry_id
+            )
+        )
+
+    if entry.data.get(CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED):
+        _LOGGER.debug("Signal monitoring enabled for group '%s'", group_name)
+        entities.append(
+            PoorSignalSensor(coordinator, group_name, group_slug, entry.entry_id)
+        )
+        entities.append(
+            PoorSignalCountSensor(coordinator, group_name, group_slug, entry.entry_id)
+        )
+        entities.append(
+            NonEssentialPoorSignalSensor(
+                coordinator, group_name, group_slug, entry.entry_id
+            )
+        )
+        entities.append(
+            NonEssentialPoorSignalCountSensor(
                 coordinator, group_name, group_slug, entry.entry_id
             )
         )
@@ -1013,6 +1042,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         use_last_updated = self.coordinator._staleness_use_last_updated
         battery_enabled = self.coordinator.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0
         staleness_enabled = self.coordinator._staleness_threshold > 0
+        signal_enabled = self.coordinator._signal_enabled
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
@@ -1028,6 +1058,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "battery_powered": battery_powered,
             "battery_enabled": battery_enabled,
             "staleness_enabled": staleness_enabled,
+            "signal_enabled": signal_enabled,
             "low_battery": low_battery,
             "low_battery_non_essential": low_battery_non_essential,
             "low_battery_entities": low_battery_entities,
@@ -1041,6 +1072,19 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 for eid, d in states.items()
                 if d.battery_level is not None
             },
+            "signal_levels": {
+                eid: d.signal_level
+                for eid, d in states.items()
+                if signal_enabled and d.signal_level is not None
+            },
+            "poor_signal_entities": [
+                eid
+                for eid, d in states.items()
+                if signal_enabled
+                and d.signal_quality == "poor"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            ],
             "suppressed_until": {
                 eid: d.suppress_until.isoformat()
                 if d.suppress_until is not None
@@ -1432,3 +1476,169 @@ class AffectedAreasRecentlyRecoveredSensor(DedupCoordinatorSensor):
             "count": len(areas),
             "window_minutes": self.coordinator.recovery_window_minutes,
         }
+
+
+class PoorSignalSensor(DedupCoordinatorSensor):
+    """Sensor listing essential devices with poor signal strength."""
+
+    _attr_icon = "mdi:signal-off"
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_poor_signal"
+        self.entity_id = f"sensor.entity_availability_{group_slug}_poor_signal"
+        self._attr_translation_key = "poor_signal"
+        self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+
+    @property
+    def native_value(self) -> str:
+        use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        poor = [
+            _format_poor_signal_device(self.hass, d, use_device_names)
+            for d in self.coordinator.device_states.values()
+            if d.signal_quality == "poor"
+            and not d.is_suppressed
+            and not d.is_non_essential
+        ]
+        if not poor:
+            return "None"
+        result = ", ".join(poor)
+        if len(result) > MAX_STATE_LENGTH - 3:
+            result = result[: MAX_STATE_LENGTH - 3] + "..."
+        return result
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        devices: dict[str, Any] = {}
+        for d in self.coordinator.device_states.values():
+            if (
+                d.signal_quality == "poor"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            ):
+                devices[d.entity_id] = {
+                    "signal_level": d.signal_level,
+                    "signal_quality": d.signal_quality,
+                }
+        return {"devices": devices, "count": len(devices)}
+
+
+class PoorSignalCountSensor(DedupCoordinatorSensor):
+    """Sensor showing count of essential devices with poor signal strength."""
+
+    _attr_icon = "mdi:signal-off"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_poor_signal_count"
+        self.entity_id = f"sensor.entity_availability_{group_slug}_poor_signal_count"
+        self._attr_translation_key = "poor_signal_count"
+        self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+
+    @property
+    def native_value(self) -> int:
+        return sum(
+            1
+            for d in self.coordinator.device_states.values()
+            if d.signal_quality == "poor"
+            and not d.is_suppressed
+            and not d.is_non_essential
+        )
+
+
+class NonEssentialPoorSignalSensor(DedupCoordinatorSensor):
+    """Sensor listing non-essential devices with poor signal strength."""
+
+    _attr_icon = "mdi:signal-off"
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_poor_signal_non_essential"
+        self.entity_id = (
+            f"sensor.entity_availability_{group_slug}_poor_signal_non_essential"
+        )
+        self._attr_translation_key = "poor_signal_non_essential"
+        self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+
+    @property
+    def native_value(self) -> str:
+        use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        poor = [
+            _format_poor_signal_device(self.hass, d, use_device_names)
+            for d in self.coordinator.device_states.values()
+            if d.signal_quality == "poor" and d.is_non_essential and not d.is_suppressed
+        ]
+        if not poor:
+            return "None"
+        result = ", ".join(poor)
+        if len(result) > MAX_STATE_LENGTH - 3:
+            result = result[: MAX_STATE_LENGTH - 3] + "..."
+        return result
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        devices: dict[str, Any] = {}
+        for d in self.coordinator.device_states.values():
+            if (
+                d.signal_quality == "poor"
+                and d.is_non_essential
+                and not d.is_suppressed
+            ):
+                devices[d.entity_id] = {
+                    "signal_level": d.signal_level,
+                    "signal_quality": d.signal_quality,
+                }
+        return {"devices": devices, "count": len(devices)}
+
+
+class NonEssentialPoorSignalCountSensor(DedupCoordinatorSensor):
+    """Sensor showing count of non-essential devices with poor signal strength."""
+
+    _attr_icon = "mdi:signal-off"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        coordinator: EntityAvailabilityCoordinator,
+        group_name: str,
+        group_slug: str,
+        entry_id: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry_id}_poor_signal_count_non_essential"
+        self.entity_id = (
+            f"sensor.entity_availability_{group_slug}_poor_signal_count_non_essential"
+        )
+        self._attr_translation_key = "poor_signal_count_non_essential"
+        self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+
+    @property
+    def native_value(self) -> int:
+        return sum(
+            1
+            for d in self.coordinator.device_states.values()
+            if d.signal_quality == "poor" and d.is_non_essential and not d.is_suppressed
+        )

@@ -1823,3 +1823,272 @@ async def test_options_flow_duplicate_entities_error(
     )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {CONF_ENTITIES: "duplicate_entities"}
+
+
+# ---------------------------------------------------------------------------
+# Signal strength config flow tests
+# ---------------------------------------------------------------------------
+
+
+async def test_advanced_signal_enabled_goes_to_signal_mapping(
+    hass: HomeAssistant,
+) -> None:
+    """Enabling signal_enabled in advanced step routes to signal_mapping step."""
+    from custom_components.entity_availability.const import CONF_SIGNAL_ENABLED
+
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "Signal Group", ["binary_sensor.a"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: 0,
+        },
+    )
+    assert result["step_id"] == "advanced"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            CONF_SIGNAL_ENABLED: True,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "signal_mapping"
+
+
+async def test_advanced_signal_disabled_skips_signal_mapping(
+    hass: HomeAssistant,
+) -> None:
+    """Leaving signal_enabled=False skips the signal_mapping step."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "No Signal Group", ["binary_sensor.a"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: 0,
+        },
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_SIGNAL_ENABLED: False,
+            },
+        )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_SIGNAL_ENTITY_MAP] == {}
+
+
+async def test_signal_mapping_stores_sensor_and_network_type(
+    hass: HomeAssistant,
+) -> None:
+    """Signal mapping step stores sensor + network_type for each entity."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "WiFi Group", ["binary_sensor.a", "binary_sensor.b"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: 0,
+        },
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            CONF_SIGNAL_ENABLED: True,
+        },
+    )
+    assert result["step_id"] == "signal_mapping"
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "binary_sensor.a__signal_sensor": "sensor.a_rssi",
+                "binary_sensor.a__signal_network": "wifi",
+                # b left empty → not in map
+            },
+        )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    signal_map = result["data"][CONF_SIGNAL_ENTITY_MAP]
+    assert signal_map["binary_sensor.a"] == {
+        "sensor": "sensor.a_rssi",
+        "network_type": "wifi",
+    }
+    assert "binary_sensor.b" not in signal_map
+
+
+async def test_battery_then_signal_mapping_chain(hass: HomeAssistant) -> None:
+    """With both battery > 0 and signal_enabled, flow goes battery_mapping → signal_mapping → entry."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "Both Group", ["binary_sensor.a"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: 0,
+        },
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            CONF_SIGNAL_ENABLED: True,
+        },
+    )
+    assert result["step_id"] == "battery_mapping"
+
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+    assert result["step_id"] == "signal_mapping"
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "binary_sensor.a__signal_sensor": "sensor.a_rssi",
+                "binary_sensor.a__signal_network": "zigbee",
+            },
+        )
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert (
+        result["data"][CONF_SIGNAL_ENTITY_MAP]["binary_sensor.a"]["network_type"]
+        == "zigbee"
+    )
+
+
+async def test_options_flow_signal_enabled_goes_to_signal_mapping(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Options flow routes to signal_mapping when signal_enabled toggled on."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+    )
+
+    mock_config_entry.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    assert result["type"] == FlowResultType.FORM
+
+    current = mock_config_entry.data
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_ENTITIES: list(current.get(CONF_ENTITIES, [])),
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: 0,
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_SIGNAL_ENABLED: True,
+            },
+        )
+    assert result["step_id"] == "signal_mapping"
+
+
+async def test_options_flow_battery_then_signal_chain(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Options flow: battery_mapping with signal_enabled=True chains to signal_mapping and submits."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    mock_config_entry.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    current = mock_config_entry.data
+
+    # Submit init step with battery > 0 AND signal enabled
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_ENTITIES: list(current.get(CONF_ENTITIES, [])),
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COOLDOWN: DEFAULT_COOLDOWN,
+                CONF_STALENESS_THRESHOLD: 0,
+                CONF_BATTERY_THRESHOLD: 20,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_SIGNAL_ENABLED: True,
+            },
+        )
+    assert result["step_id"] == "battery_mapping"
+
+    # Submit battery mapping → should chain to signal_mapping
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    assert result["step_id"] == "signal_mapping"
+
+    # Submit signal mapping → should create entry
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                f"{current.get(CONF_ENTITIES, ['binary_sensor.device_a'])[0]}__signal_sensor": "sensor.rssi",
+                f"{current.get(CONF_ENTITIES, ['binary_sensor.device_a'])[0]}__signal_network": "wifi",
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert mock_config_entry.data.get(CONF_SIGNAL_ENTITY_MAP) is not None

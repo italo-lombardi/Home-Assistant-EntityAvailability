@@ -25,21 +25,28 @@ from .const import (
     CONF_ENTITIES,
     CONF_NON_ESSENTIAL_ENTITIES,
     CONF_RECOVERY_WINDOW,
+    CONF_SIGNAL_ENABLED,
+    CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
+    DEFAULT_SIGNAL_ENABLED,
     DEFAULT_STALENESS_THRESHOLD,
     DEFAULT_STALENESS_USE_LAST_UPDATED,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
+    EVENT_POOR_SIGNAL,
+    EVENT_SIGNAL_OK,
     EVENT_STALE,
     EVENT_STALE_RECOVERED,
     EVENT_OFFLINE,
     EVENT_RECOVERED,
     SCAN_INTERVAL,
+    SIGNAL_NETWORK_TYPES,
+    SignalQuality,
     STARTUP_GRACE_PERIOD,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
@@ -88,6 +95,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         self._battery_threshold: int = entry.data.get(
             CONF_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD
+        )
+        self._signal_enabled: bool = entry.data.get(
+            CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED
+        )
+        self._signal_map: dict[str, dict[str, str]] = entry.data.get(
+            CONF_SIGNAL_ENTITY_MAP, {}
         )
         self._availability_storage = AvailabilityStorage()
         self._store = Store(
@@ -539,6 +552,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 and device.battery_level < self._battery_threshold
             )
 
+            # Signal check
+            if self._signal_enabled:
+                fresh_signal = self._get_signal_level(entity_id)
+                if fresh_signal is not None:
+                    device.signal_level = fresh_signal
+                device.signal_quality = (
+                    self._classify_signal(entity_id, device.signal_level)
+                    if device.signal_level is not None
+                    else None
+                )
+
             # Seed on first encounter; real updates come from _handle_state_change.
             if device.last_changed is None and state:
                 ts = state.last_changed
@@ -758,6 +782,47 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.is_low_battery = battery_low
             device.is_degraded = (not device.is_offline) and (battery_low or is_stale)
 
+            # Signal quality transition events
+            if self._signal_enabled:
+                signal_poor = device.signal_quality == "poor"
+                was_poor = device._prev_signal_poor
+                if signal_poor and not was_poor:
+                    poor_ids = self._poor_signal_entity_ids()
+                    pending_events.append(
+                        (
+                            EVENT_POOR_SIGNAL,
+                            {
+                                "entity_id": entity_id,
+                                "group": self.group_name,
+                                "entry_id": self.entry.entry_id,
+                                "signal_level": device.signal_level,
+                                "signal_quality": device.signal_quality,
+                                "poor_signal_count": len(poor_ids),
+                                "poor_signal_entities": poor_ids,
+                            },
+                        )
+                    )
+                elif not signal_poor and was_poor:
+                    # device.signal_quality is already updated above, so
+                    # _poor_signal_entity_ids() correctly excludes this entity —
+                    # poor_signal_count in the OK payload reflects post-recovery state.
+                    poor_ids = self._poor_signal_entity_ids()
+                    pending_events.append(
+                        (
+                            EVENT_SIGNAL_OK,
+                            {
+                                "entity_id": entity_id,
+                                "group": self.group_name,
+                                "entry_id": self.entry.entry_id,
+                                "signal_level": device.signal_level,
+                                "signal_quality": device.signal_quality,
+                                "poor_signal_count": len(poor_ids),
+                                "poor_signal_entities": poor_ids,
+                            },
+                        )
+                    )
+                device._prev_signal_poor = signal_poor
+
         # Mark as dirty; save periodically (every ~5 min)
         self._dirty = True
         self._update_count += 1
@@ -921,3 +986,40 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         return level
 
         return None
+
+    def _get_signal_level(self, entity_id: str) -> int | None:
+        """Get signal level (dBm) from the configured signal sensor for an entity."""
+        mapping = self._signal_map.get(entity_id)
+        if not mapping:
+            return None
+        sensor_id = mapping.get("sensor", "")
+        if not sensor_id:
+            return None
+        state = self.hass.states.get(sensor_id)
+        if not state or state.state in ("unavailable", "unknown", None):
+            return None
+        try:
+            return int(float(state.state))
+        except (ValueError, TypeError):
+            return None
+
+    def _classify_signal(self, entity_id: str, level: int) -> SignalQuality:
+        """Classify signal level as 'good', 'ok', or 'poor' based on network type."""
+        mapping = self._signal_map.get(entity_id, {})
+        nt = mapping.get("network_type", "generic")
+        thresholds = SIGNAL_NETWORK_TYPES.get(nt, SIGNAL_NETWORK_TYPES["generic"])
+        if level >= thresholds["good"]:
+            return "good"
+        if level >= thresholds["ok"]:
+            return "ok"
+        return "poor"
+
+    def _poor_signal_entity_ids(self) -> list[str]:
+        """Return entity_ids with poor signal, not suppressed, essential only."""
+        return [
+            eid
+            for eid, d in self._device_states.items()
+            if d.signal_quality == "poor"
+            and not d.is_suppressed
+            and not d.is_non_essential
+        ]
