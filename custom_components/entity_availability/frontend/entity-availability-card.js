@@ -1090,7 +1090,8 @@ class EntityAvailabilityCard extends LitElement {
     const hasNEStale = showHealth && showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);
     const extraCols = (showTotal ? 1 : 0) + 2 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0) + (hasSignal ? 1 : 0);
     const gridStyle = `grid-template-columns: minmax(60px, 1fr) repeat(${extraCols}, minmax(36px, 56px))`;
-      <div class="divider"></div>
+
+    return html`
       <div class="entity-section-header" @click=${this._toggleEntities}>
         <span class="entity-section-title">Groups (${entries.length})</span>
         <ha-icon class="chevron ${expanded ? "expanded" : ""}" icon="mdi:chevron-down"></ha-icon>
