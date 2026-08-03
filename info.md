@@ -13,21 +13,23 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - Battery monitoring with entity mapping — auto-detects battery sensors, user confirms/overrides per entity
 - Low Battery Count sensor — numeric count for easy automation triggers
 - Battery entities that report `low` (text) are supported in addition to numeric percentages
+- **Signal strength monitoring** — optional feature (disabled by default). Enable per group, bind a signal sensor and network type to each entity. Supported: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage, Generic/RSSI. Auto-detects sensors via device class or naming conventions (Z2MQTT `_linkquality`, BLE `_signal_strength`, etc.). Poor signal triggers `any_poor_signal` binary sensor and `entity_availability_poor_signal` event.
 - Device name display — optionally show the HA device name instead of entity friendly name in offline/recovered sensor states
-- Area sensors — four sensors per group exposing which physical areas are affected: Affected Areas Count, Affected Areas, Areas Recently Offline, Areas Recently Recovered; area resolution follows entity → device → excluded; no new configuration required
-- Card: Affected Areas pill row — opt-in (`show_affected_areas: false` by default); shows offline area names as colored pills between stats and availability bars; named areas in red, unassigned entities as italic "Unassigned"; works for regular and combined groups
-- Degraded entity detection — flag entities with low battery or stale data
+- Area sensors — four sensors per group: Affected Areas Count, Affected Areas, Areas Recently Offline, Areas Recently Recovered
+- Card: Affected Areas pill row — opt-in (`show_affected_areas: false` by default)
+- Degraded entity detection — flag entities with low battery, stale data, or poor signal
 - Group Summary sensor — total, online, offline, suppressed, non_essential counts + full entity list
 - Maintenance/suppression mode — suppress individual entities or entire groups
 - Any Offline binary sensor (Problem class) — triggers automations when entities go offline
 - Custom Lovelace card — dashboard-style display with status icon, stats, availability bars, entity list, and visual editor; supports both regular and combined groups
+- **Card: icon mode for stats row** — enable `show_stat_icons` to replace text labels with MDI icons in the stats row (default off)
 - Card editor auto-detects group type and hides options that don't apply to combined groups
 - Group Slug picker — dropdown populated from discovered groups, split into regular and combined optgroups
 - Configurable entity sort order in card — by status, name, or battery level (ascending/descending)
 - Customizable availability bar colors and thresholds
 - Optional suppress/unsuppress action buttons in card
 - Survives HA restarts — history persisted via HA Store, no recorder dependency; startup false-positive alerts suppressed for 60 seconds
-- Recorder-friendly writes — sensors only publish when value, attributes, or availability actually change, so steady-state networks don't generate redundant history rows every coordinator tick
+- Recorder-friendly writes — sensors only publish when value, attributes, or availability actually change
 
 ## Setup
 

@@ -32,7 +32,9 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Indefinite suppression** -- suppress an entity with no expiry via `suppress_indefinitely`
 - **Maintenance/suppression mode** -- temporarily exclude entities from monitoring
 - **Non-Essential entity level** -- mark entities as non-essential: shown on the card but excluded from KPIs (offline count, availability %, MTBF, MTTR) and alerts; useful for expected-offline devices (TV in standby, printer off between jobs) without needing a separate group
+- **Signal strength monitoring** -- optional per-group feature (disabled by default). Bind a signal sensor and select the network type for each entity. Supported protocols: Wi-Fi, Zigbee (LQI and RSSI/dBm), Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Auto-detects sensors via `SIGNAL_STRENGTH` device class or naming conventions (`*_linkquality` for Z2MQTT, `*_signal_strength` for BLE, `*_rssi`, `*_lqi`, `*_signal`). Fires `entity_availability_poor_signal` / `entity_availability_signal_ok` events.
 - **Custom Lovelace card** -- traffic-light status display with at-a-glance health overview
+- **Card: icon mode for stats row** -- `show_stat_icons: true` replaces text labels (Online/Offline/Low Battery/Stale/Poor Signal) with MDI icons in the stats row (default off)
 - **Self-managed storage** -- no recorder dependency; data stored in `.storage`
 - **Recorder-friendly writes** -- sensors only publish state when value or attributes actually change, so steady-state networks don't generate redundant history rows every coordinator tick
 - **Survives HA restarts** -- availability history persisted via HA Store
@@ -98,6 +100,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Field | Default | Description |
 |-------|---------|-------------|
 | Low battery threshold (%) | `20` | Battery level below which an entity is considered degraded (0 = disabled) |
+| Enable signal strength monitoring | `off` | Track signal quality (dBm or %) for monitored entities. When enabled, a mapping step appears to bind a signal sensor and network type to each entity. |
 | Availability tracking windows | `today`, `7d` | Which time windows to create availability sensors for |
 | Recovery window (minutes) | `5` | How long entities remain visible in the recently-offline and recently-recovered sensors after the event |
 | Show device names | `off` | When enabled, offline/recovered sensor states show the HA device name (e.g. "Entrance Smoke Detector") instead of the entity friendly name. Falls back to friendly name for entities not linked to an HA device (helpers, template sensors) |
@@ -116,6 +119,32 @@ Auto-detection checks battery sensors linked to the same device in Home Assistan
 Battery sensors that report `low` (text) are supported in addition to numeric percentages.
 
 ![Step 5: Battery Entity Mapping](assets/04_battery_entity_mapping.png)
+
+### Step 6: Signal Strength Mapping (when signal monitoring is enabled)
+
+When signal strength monitoring is enabled, a mapping step appears for each monitored entity. For each entity you can:
+
+- **Select a signal sensor** — supports `sensor`, `input_number`, and `number` domains. Auto-detects sensors via `SIGNAL_STRENGTH` device class or naming conventions (`*_linkquality` for Zigbee2MQTT, `*_signal_strength` for Bluetooth, `*_rssi`, `*_lqi`, `*_signal`).
+- **Choose the network type** — selects the correct quality thresholds (good / ok / poor).
+- **Leave the sensor empty** — skips signal monitoring for that entity.
+
+Supported network types and thresholds:
+
+| Protocol | Good | OK | Poor |
+|----------|------|----|------|
+| 5G | ≥ −80 dBm | ≥ −100 dBm | < −100 dBm |
+| Bluetooth | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
+| Generic/RSSI | ≥ −60 dBm | ≥ −80 dBm | < −80 dBm |
+| LoRaWAN | ≥ −100 dBm | ≥ −115 dBm | < −115 dBm |
+| LTE/4G | ≥ −80 dBm | ≥ −90 dBm | < −90 dBm |
+| Percentage | ≥ 70% | ≥ 40% | < 40% |
+| Thread | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
+| Wi-Fi | ≥ −67 dBm | ≥ −70 dBm | < −70 dBm |
+| Z-Wave | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
+| Zigbee (LQI) | ≥ 201 | ≥ 51 | < 51 (higher is better) |
+| Zigbee (RSSI/dBm) | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
+
+> 📸 _Screenshot placeholder: signal strength mapping step_
 
 ### Step 2b: Create Combined Group (Combine groups path)
 
@@ -159,6 +188,9 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `binary_sensor..._any_low_battery` | Binary Sensor (Battery) | ON when at least one essential entity has low battery | `low_battery_entities`, `low_battery_count` |
 | `binary_sensor..._any_stale` | Binary Sensor (Problem) | ON when at least one essential entity is stale (stopped reporting) | `stale_entities`, `stale_count` |
 | `binary_sensor..._any_offline_non_essential` | Binary Sensor (Problem) | ON when at least one non-essential entity is offline and not suppressed | `offline_entities` (list), `offline_count` |
+| `binary_sensor..._any_poor_signal` | Binary Sensor (Problem) | ON when at least one essential entity has poor signal (requires signal monitoring enabled) | `poor_signal_entities`, `poor_signal_count` |
+| `sensor..._poor_signal` | Sensor | Comma-separated list of essential entities with poor signal (`"None"` when all OK) — requires signal monitoring enabled | Per-entity signal_level and signal_quality, count |
+| `sensor..._poor_signal_count` | Sensor | Count of essential entities with poor signal | — |
 | `sensor..._affected_areas_count` | Sensor | Number of unique HA areas containing ≥1 offline, unsuppressed entity | — |
 | `sensor..._affected_areas` | Sensor | Comma-separated sorted list of affected area names (`"None"` when none) | `areas` (list), `count`, `unassigned_entities` (entity IDs with no area) |
 | `sensor..._affected_areas_recently_offline` | Sensor | Areas where ≥1 entity went offline within the recovery window (`"None"` when none) | `areas` (list), `count`, `window_minutes` |

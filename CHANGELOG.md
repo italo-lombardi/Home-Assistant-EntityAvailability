@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-03
+
+### Added
+- **Signal strength monitoring** — optional feature (disabled by default, no migration required). Enable per group in Advanced settings → Enable signal strength monitoring. A new wizard step binds a signal sensor and network type to each entity. Supported protocols: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Thresholds are validated against real-world engineering references per protocol.
+  - Auto-detects signal sensors by device class (`SIGNAL_STRENGTH`) or naming convention (`*_linkquality`, `*_signal_strength`, `*_rssi`, `*_lqi`, `*_signal`) — Z2MQTT and BLE conventions supported out of the box.
+  - 4 new sensors per group: `poor_signal` (list), `poor_signal_count`, `poor_signal_non_essential`, `poor_signal_count_non_essential`
+  - 1 new binary sensor per group: `any_poor_signal` (Problem class) — ON when any essential, non-suppressed entity has poor signal
+  - 2 new bus events: `entity_availability_poor_signal` / `entity_availability_signal_ok` on quality transitions
+  - Signal level and unit exposed in `group_summary` attributes (`signal_levels`, `signal_units`, `poor_signal_entities`, `signal_enabled`)
+  - Card: "Poor Signal: N" stat pill (hidden when 0); entity dot turns yellow; detail view shows signal value with correct unit (dBm or %)
+- **Card: icon mode for stats row** — new `show_stat_icons` option (default off). When enabled, replaces "Online:", "Offline:", "Low Battery:", "Stale:", "Poor Signal:" text labels with MDI icons with tooltip. Applies to both main stats row and Non-Essential stats sub-row (including Poor Signal NE count). Toggle available in the visual editor.
+- **Card: icon mode for entity list / groups table header** — new `show_table_icons` option (default off). Replaces "Bat." / "Signal" / "Stale" column header text with MDI icons in the entity list (single groups) and the breakdown table header (combined groups). Both checkboxes appear in the visual editor for all card types.
+- **`AnyLowBatteryNonEssentialBinarySensor`** — new binary sensor (always created, same as the existing essential variant); ON when any non-essential entity has low battery
+- **`AnyPoorSignalNonEssentialBinarySensor`** — new binary sensor (created when signal enabled); ON when any non-essential entity has poor signal
+- **`EVENT_STALE_RECOVERED` payload** now includes `stale_since` field (ISO timestamp) for consistency with `EVENT_STALE`
+
+### Changed
+- Signal `signal_enabled` toggle positioned directly below `battery_threshold` in Advanced settings for logical grouping
+- All signal sensor display uses the correct unit for the selected network type (dBm or %)
+- 28 supported languages receive full translations for all new strings
+
 ## [0.3.14] - 2026-08-02
 
 ### Added

@@ -52,18 +52,24 @@
           "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
           "availability_windows": "Ventanas de seguimiento de disponibilidad",
           "recovery_window": "Ventana de recuperación",
-          "use_device_names": "Mostrar nombres de dispositivo"
+          "use_device_names": "Mostrar nombres de dispositivo",
+          "signal_enabled": "Habilitar monitoreo de intensidad de señal"
         },
         "data_description": {
           "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles. Utilice entidades que reporten la batería como porcentaje o admitan el estado 'low'.",
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
-          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa."
+          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
+          "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
         }
       },
       "battery_mapping": {
         "title": "Asignación de entidades de batería",
         "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo')."
+      },
+      "signal_mapping": {
+        "title": "Mapeo de Intensidad de Señal",
+        "description": "Para cada entidad, selecciona opcionalmente un sensor de señal y elige el tipo de red. Deja el sensor vacío para omitir.\n\nUmbrales (bueno / regular / deficiente):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mayor es mejor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Ventanas de seguimiento de disponibilidad",
           "recovery_window": "Ventana de recuperación (minutos)",
           "use_device_names": "Mostrar nombres de dispositivo",
-          "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad"
+          "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad",
+          "signal_enabled": "Habilitar monitoreo de intensidad de señal"
         },
         "data_description": {
           "non_essential_entities": "Entidades que se muestran y cuentan en la tarjeta pero se excluyen de todos los KPIs (recuento sin conexión, disponibilidad %, MTBF, MTTR) y alertas. Útil para dispositivos que se espera que estén offline (TV en standby, impresora apagada entre trabajos).",
@@ -104,7 +111,8 @@
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
           "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
           "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable).",
-          "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas."
+          "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
+          "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Asignación de entidades de batería",
         "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo')."
+      },
+      "signal_mapping": {
+        "title": "Mapeo de Intensidad de Señal",
+        "description": "Para cada entidad, selecciona opcionalmente un sensor de señal y elige el tipo de red. Deja el sensor vacío para omitir.\n\nUmbrales (bueno / regular / deficiente):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mayor es mejor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Recuento de entidades obsoletas (no esenciales)"
+      },
+      "poor_signal": {
+        "name": "Señal Deficiente"
+      },
+      "poor_signal_count": {
+        "name": "Recuento de Señal Deficiente"
+      },
+      "poor_signal_non_essential": {
+        "name": "Señal Deficiente (No Esencial)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Recuento de Señal Deficiente (No Esencial)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "Alguno obsoleto"
+      },
+      "any_poor_signal": {
+        "name": "Cualquier Señal Deficiente"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Batería Baja (No Esencial)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Señal Débil (No Esencial)"
       }
     }
   },

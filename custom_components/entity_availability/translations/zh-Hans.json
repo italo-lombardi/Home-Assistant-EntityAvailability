@@ -52,18 +52,24 @@
           "battery_threshold": "低电量阈值（%，0 = 禁用）",
           "availability_windows": "可用性追踪时间窗口",
           "recovery_window": "恢复窗口",
-          "use_device_names": "显示设备名称"
+          "use_device_names": "显示设备名称",
+          "signal_enabled": "启用信号强度监控"
         },
         "data_description": {
           "battery_threshold": "标记电池电量低于此百分比的实体。「low」状态也会被自动检测。不支持基于电压的实体。请使用以百分比报告电量或支持「low」状态的实体。",
           "availability_windows": "用于追踪组可用性历史记录的时间窗口（例如 today、3d、7d）。",
           "recovery_window": "实体在状态转换后，在「最近离线」或「最近恢复」传感器中保留的时长（分钟）。",
-          "use_device_names": "在离线/已恢复传感器状态中显示 HA 设备名称，而非实体友好名称。对未关联设备的实体，回退使用友好名称。"
+          "use_device_names": "在离线/已恢复传感器状态中显示 HA 设备名称，而非实体友好名称。对未关联设备的实体，回退使用友好名称。",
+          "signal_enabled": "跟踪受监控实体的信号强度（dBm），并在信号质量降至\"差\"时发出提醒。启用后，系统将提示您为每个实体绑定信号传感器并选择网络类型。"
         }
       },
       "battery_mapping": {
         "title": "电池实体映射",
         "description": "确认或更改每个被监控实体的电池传感器。没有电池的实体请留空。支持数字（%）和文本状态（「low」）。"
+      },
+      "signal_mapping": {
+        "title": "信号强度映射",
+        "description": "对于每个实体，可选择一个信号传感器并选择网络类型。留空传感器则跳过。\n\n阈值（良好 / 一般 / 较差）：\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (值越大越好)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "可用性追踪时间窗口",
           "recovery_window": "恢复窗口（分钟）",
           "use_device_names": "显示设备名称",
-          "staleness_use_last_updated": "将属性更新计为活动"
+          "staleness_use_last_updated": "将属性更新计为活动",
+          "signal_enabled": "启用信号强度监控"
         },
         "data_description": {
           "entities": "要跟踪可用性的实体。这些实体会被完整监控，并纳入所有 KPI 和告警。",
@@ -104,7 +111,8 @@
           "availability_windows": "用于追踪组可用性历史记录的时间窗口（例如 today、3d、7d）。",
           "recovery_window": "实体在状态转换后，在「最近离线」或「最近恢复」传感器中保留的时长（分钟）。",
           "use_device_names": "在离线/已恢复传感器状态中显示 HA 设备名称，而非实体友好名称。对未关联设备的实体，回退使用友好名称。",
-          "staleness_use_last_updated": "启用后，实体的任何更新——包括仅属性变化或重复相同值的上报——都会重置数据过期计时器。禁用（默认）时，只有主状态发生变化才计数。适用于频繁上报但值很少变化的设备（如温度或长期稳定的功率）。"
+          "staleness_use_last_updated": "启用后，实体的任何更新——包括仅属性变化或重复相同值的上报——都会重置数据过期计时器。禁用（默认）时，只有主状态发生变化才计数。适用于频繁上报但值很少变化的设备（如温度或长期稳定的功率）。",
+          "signal_enabled": "跟踪受监控实体的信号强度（dBm），并在信号质量降至\"差\"时发出提醒。启用后，系统将提示您为每个实体绑定信号传感器并选择网络类型。"
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "电池实体映射",
         "description": "确认或更改每个被监控实体的电池传感器。没有电池的实体请留空。支持数字（%）和文本状态（「low」）。"
+      },
+      "signal_mapping": {
+        "title": "信号强度映射",
+        "description": "对于每个实体，可选择一个信号传感器并选择网络类型。留空传感器则跳过。\n\n阈值（良好 / 一般 / 较差）：\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (值越大越好)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "数据过期数量（非必要）"
+      },
+      "poor_signal": {
+        "name": "信号差"
+      },
+      "poor_signal_count": {
+        "name": "信号差计数"
+      },
+      "poor_signal_non_essential": {
+        "name": "信号差（非必要）"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "信号差计数（非必要）"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "存在数据过期实体"
+      },
+      "any_poor_signal": {
+        "name": "存在信号差"
+      },
+      "any_low_battery_non_essential": {
+        "name": "低电量（非必要）"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "信号弱（非必要）"
       }
     }
   },

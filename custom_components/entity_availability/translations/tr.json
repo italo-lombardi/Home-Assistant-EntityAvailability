@@ -52,18 +52,24 @@
           "battery_threshold": "Düşük pil eşiği (%, 0 = devre dışı)",
           "availability_windows": "Kullanılabilirlik takip pencereleri",
           "recovery_window": "Kurtarma penceresi",
-          "use_device_names": "Cihaz adlarını göster"
+          "use_device_names": "Cihaz adlarını göster",
+          "signal_enabled": "Sinyal gücü izlemeyi etkinleştir"
         },
         "data_description": {
           "battery_threshold": "Pili bu yüzdenin altına düşen varlıkları işaretleyin. 'Düşük' durumu da otomatik olarak algılanır. Volt tabanlı varlıklar desteklenmez. Pili yüzde olarak raporlayan veya 'düşük' durumu destekleyen varlıkları kullanın.",
           "availability_windows": "Grup kullanılabilirlik geçmişini takip etmek için zaman pencereleri (ör. bugün, 3g, 7g).",
           "recovery_window": "Bir varlığın durum geçişinden sonra Son Zamanda Çevrimdışı veya Son Zamanda Kurtarıldı sensörlerinde kalma süresi (dakika cinsinden).",
-          "use_device_names": "Çevrimdışı/kurtarıldı sensör durumlarında varlık kolay adı yerine HA cihaz adını gösterin. Bir cihaza bağlı olmayan varlıklar için kolay ada geri döner."
+          "use_device_names": "Çevrimdışı/kurtarıldı sensör durumlarında varlık kolay adı yerine HA cihaz adını gösterin. Bir cihaza bağlı olmayan varlıklar için kolay ada geri döner.",
+          "signal_enabled": "İzlenen varlıklar için sinyal gücünü (dBm) takip eder ve sinyal kalitesi 'zayıf' seviyesine düştüğünde uyarı verir. Etkinleştirdikten sonra, her varlık için bir sinyal sensörü bağlamanız ve ağ türünü seçmeniz istenecektir."
         }
       },
       "battery_mapping": {
         "title": "Pil Varlığı Eşleme",
         "description": "İzlenen her varlık için pil sensörünü onaylayın veya değiştirin. Pili olmayan varlıklar için boş bırakın. Sayısal (%) ve metin durumlarını ('düşük') destekler."
+      },
+      "signal_mapping": {
+        "title": "Sinyal Gücü Eşleştirmesi",
+        "description": "Her varlık için isteğe bağlı olarak bir sinyal sensörü seçin ve ağ türünü belirleyin. Atlamak için sensörü boş bırakın.\n\nEşikler (iyi / orta / zayıf):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (yüksek daha iyi)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Kullanılabilirlik takip pencereleri",
           "recovery_window": "Kurtarma penceresi (dakika)",
           "use_device_names": "Cihaz adlarını göster",
-          "staleness_use_last_updated": "Nitelik güncellemelerini etkinlik olarak say"
+          "staleness_use_last_updated": "Nitelik güncellemelerini etkinlik olarak say",
+          "signal_enabled": "Sinyal gücü izlemeyi etkinleştir"
         },
         "data_description": {
           "entities": "Kullanılabilirlik için takip edilecek varlıklar. Bunlar tam olarak izlenir ve tüm KPI'lara ve uyarılara dahil edilir.",
@@ -104,7 +111,8 @@
           "availability_windows": "Grup kullanılabilirlik geçmişini takip etmek için zaman pencereleri (ör. bugün, 3g, 7g).",
           "recovery_window": "Bir varlığın durum geçişinden sonra Son Zamanda Çevrimdışı veya Son Zamanda Kurtarıldı sensörlerinde kalma süresi (dakika cinsinden).",
           "use_device_names": "Çevrimdışı/kurtarıldı sensör durumlarında varlık kolay adı yerine HA cihaz adını gösterin. Bir cihaza bağlı olmayan varlıklar için kolay ada geri döner.",
-          "staleness_use_last_updated": "Açık olduğunda, yalnızca nitelik değişiklikleri veya tekrarlanan aynı değer raporları dahil olmak üzere varlıktan gelen herhangi bir güncelleme güncellik zamanlayıcısını sıfırlar. Kapalı olduğunda (varsayılan), yalnızca ana durumdaki bir değişiklik sayılır. Sık rapor eden ancak nadiren değer değiştiren cihazlar için açın (ör. sabit kalan sıcaklık veya güç)."
+          "staleness_use_last_updated": "Açık olduğunda, yalnızca nitelik değişiklikleri veya tekrarlanan aynı değer raporları dahil olmak üzere varlıktan gelen herhangi bir güncelleme güncellik zamanlayıcısını sıfırlar. Kapalı olduğunda (varsayılan), yalnızca ana durumdaki bir değişiklik sayılır. Sık rapor eden ancak nadiren değer değiştiren cihazlar için açın (ör. sabit kalan sıcaklık veya güç).",
+          "signal_enabled": "İzlenen varlıklar için sinyal gücünü (dBm) takip eder ve sinyal kalitesi 'zayıf' seviyesine düştüğünde uyarı verir. Etkinleştirdikten sonra, her varlık için bir sinyal sensörü bağlamanız ve ağ türünü seçmeniz istenecektir."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Pil Varlığı Eşleme",
         "description": "İzlenen her varlık için pil sensörünü onaylayın veya değiştirin. Pili olmayan varlıklar için boş bırakın. Sayısal (%) ve metin durumlarını ('düşük') destekler."
+      },
+      "signal_mapping": {
+        "title": "Sinyal Gücü Eşleştirmesi",
+        "description": "Her varlık için isteğe bağlı olarak bir sinyal sensörü seçin ve ağ türünü belirleyin. Atlamak için sensörü boş bırakın.\n\nEşikler (iyi / orta / zayıf):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (yüksek daha iyi)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Güncel Olmayan Sayısı (Kritik Olmayan)"
+      },
+      "poor_signal": {
+        "name": "Zayıf Sinyal"
+      },
+      "poor_signal_count": {
+        "name": "Zayıf Sinyal Sayısı"
+      },
+      "poor_signal_non_essential": {
+        "name": "Zayıf Sinyal (Zorunlu Olmayan)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Zayıf Sinyal Sayısı (Zorunlu Olmayan)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "Herhangi Biri Güncel Değil"
+      },
+      "any_poor_signal": {
+        "name": "Herhangi Bir Zayıf Sinyal"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Düşük Pil (Önemsiz)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Zayıf Sinyal (Önemsiz)"
       }
     }
   },

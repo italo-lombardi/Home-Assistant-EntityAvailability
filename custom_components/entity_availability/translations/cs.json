@@ -52,18 +52,24 @@
           "battery_threshold": "Práh nízkého stavu baterie (%, 0 = vypnuto)",
           "availability_windows": "Časová okna sledování dostupnosti",
           "recovery_window": "Okno obnovy",
-          "use_device_names": "Zobrazovat názvy zařízení"
+          "use_device_names": "Zobrazovat názvy zařízení",
+          "signal_enabled": "Povolit monitorování síly signálu"
         },
         "data_description": {
           "battery_threshold": "Označuje entity, jejichž baterie klesne pod toto procento. Stav 'low' je také automaticky detekován. Entity na voltovém základě nejsou podporovány. Používejte entity, které hlásí stav baterie v procentech nebo podporují stav 'low'.",
           "availability_windows": "Časová okna pro sledování historie dostupnosti skupiny (např. dnes, 3d, 7d).",
           "recovery_window": "Jak dlouho (v minutách) setrvá entity v senzorech Nedávno offline nebo Nedávno obnovena po změně stavu.",
-          "use_device_names": "Zobrazuje název zařízení HA místo přátelského názvu entity ve stavech offline/obnovena. Pro entity nepropojené se zařízením se použije přátelský název entity."
+          "use_device_names": "Zobrazuje název zařízení HA místo přátelského názvu entity ve stavech offline/obnovena. Pro entity nepropojené se zařízením se použije přátelský název entity.",
+          "signal_enabled": "Sledovat sílu signálu (dBm) u monitorovaných entit a upozornit, když kvalita signálu klesne na úroveň „špatný\". Po povolení budete požádáni o přiřazení senzoru signálu a výběr typu sítě pro každou entitu."
         }
       },
       "battery_mapping": {
         "title": "Mapování senzoru baterie",
         "description": "Potvrďte nebo změňte senzor baterie pro každou sledovanou entity. Ponechte prázdné pro entity bez baterie. Podporuje číselné (%) i textové stavy ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mapování síly signálu",
+        "description": "Pro každou entitu volitelně vyberte senzor signálu a zvolte typ sítě. Ponechte senzor prázdný pro přeskočení.\\n\\nPrahové hodnoty (dobré / přijatelné / špatné):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (vyšší je lepší)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Časová okna sledování dostupnosti",
           "recovery_window": "Okno obnovy (minuty)",
           "use_device_names": "Zobrazovat názvy zařízení",
-          "staleness_use_last_updated": "Počítat aktualizace atributů jako aktivitu"
+          "staleness_use_last_updated": "Počítat aktualizace atributů jako aktivitu",
+          "signal_enabled": "Povolit monitorování síly signálu"
         },
         "data_description": {
           "entities": "Entity sledované z hlediska dostupnosti. Jsou plně monitorovány a zahrnuty do všech KPI a upozornění.",
@@ -104,7 +111,8 @@
           "availability_windows": "Časová okna pro sledování historie dostupnosti skupiny (např. dnes, 3d, 7d).",
           "recovery_window": "Jak dlouho (v minutách) setrvá entity v senzorech Nedávno offline nebo Nedávno obnovena po změně stavu.",
           "use_device_names": "Zobrazuje název zařízení HA místo přátelského názvu entity ve stavech offline/obnovena. Pro entity nepropojené se zařízením se použije přátelský název entity.",
-          "staleness_use_last_updated": "Když je zapnuto, jakákoli aktualizace entity — včetně změn pouze atributů nebo opakovaných hlášení stejné hodnoty — resetuje časovač zastarání. Když je vypnuto (výchozí), počítá se pouze změna hlavního stavu. Zapněte pro zařízení, která hlásí často, ale jen zřídka mění hodnotu (např. teplota nebo výkon, který zůstává stabilní)."
+          "staleness_use_last_updated": "Když je zapnuto, jakákoli aktualizace entity — včetně změn pouze atributů nebo opakovaných hlášení stejné hodnoty — resetuje časovač zastarání. Když je vypnuto (výchozí), počítá se pouze změna hlavního stavu. Zapněte pro zařízení, která hlásí často, ale jen zřídka mění hodnotu (např. teplota nebo výkon, který zůstává stabilní).",
+          "signal_enabled": "Sledovat sílu signálu (dBm) u monitorovaných entit a upozornit, když kvalita signálu klesne na úroveň „špatný\". Po povolení budete požádáni o přiřazení senzoru signálu a výběr typu sítě pro každou entitu."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Mapování senzoru baterie",
         "description": "Potvrďte nebo změňte senzor baterie pro každou sledovanou entity. Ponechte prázdné pro entity bez baterie. Podporuje číselné (%) i textové stavy ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mapování síly signálu",
+        "description": "Pro každou entitu volitelně vyberte senzor signálu a zvolte typ sítě. Ponechte senzor prázdný pro přeskočení.\\n\\nPrahové hodnoty (dobré / přijatelné / špatné):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (vyšší je lepší)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Počet zastaralých (Nedůležitý)"
+      },
+      "poor_signal": {
+        "name": "Špatný signál"
+      },
+      "poor_signal_count": {
+        "name": "Počet špatných signálů"
+      },
+      "poor_signal_non_essential": {
+        "name": "Špatný signál (nedůležité)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Počet špatných signálů (nedůležité)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "Zastaralá entity zjištěna"
+      },
+      "any_poor_signal": {
+        "name": "Jakýkoli špatný signál"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Slabá Baterie (Nedůležité)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Slabý Signál (Nedůležité)"
       }
     }
   },

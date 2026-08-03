@@ -30,6 +30,8 @@ from .const import (
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
     CONF_RECOVERY_WINDOW,
+    CONF_SIGNAL_ENABLED,
+    CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     CONF_NON_ESSENTIAL_ENTITIES,
@@ -39,15 +41,75 @@ from .const import (
     DEFAULT_BATTERY_THRESHOLD,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
+    DEFAULT_SIGNAL_ENABLED,
     DEFAULT_STALENESS_THRESHOLD,
     DEFAULT_STALENESS_USE_LAST_UPDATED,
     DEFAULT_USE_DEVICE_NAMES,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
+    SIGNAL_NETWORK_TYPES,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+_SIGNAL_NETWORK_TYPE_OPTIONS = [
+    selector.SelectOptionDict(value=k, label=v["label"])
+    for k, v in sorted(SIGNAL_NETWORK_TYPES.items(), key=lambda x: x[1]["label"])
+]
+
+
+def _detect_signal_entity(hass: Any, entity_id: str) -> str:
+    """Auto-detect signal sensor for an entity. Returns entity_id or empty string.
+
+    Detection order:
+    1. Device registry sibling with device_class=SIGNAL_STRENGTH
+    2. Naming convention: *_linkquality, *_signal_strength, *_rssi, *_lqi, *_signal
+    """
+    ent_reg = er.async_get(hass)
+    entry = ent_reg.async_get(entity_id)
+    if entry and entry.device_id:
+        for ent in er.async_entries_for_device(ent_reg, entry.device_id):
+            if ent.entity_id == entity_id:
+                continue
+            if (
+                ent.original_device_class == SensorDeviceClass.SIGNAL_STRENGTH
+                or ent.device_class == SensorDeviceClass.SIGNAL_STRENGTH
+            ):
+                return ent.entity_id
+
+    parts = entity_id.split(".", 1)
+    if len(parts) == 2:  # pragma: no branch
+        slug = parts[1]
+        for suffix in (
+            "_linkquality",
+            "_signal_strength",
+            "_rssi",
+            "_lqi",
+            "_signal",
+        ):
+            candidate = f"sensor.{slug}{suffix}"
+            if hass.states.get(candidate):
+                return candidate
+
+    return ""
+
+
+def _build_signal_map_from_input(
+    entities: list[str], user_input: dict[str, Any]
+) -> dict[str, dict[str, str]]:
+    """Build signal entity map from wizard step user_input."""
+    signal_map: dict[str, dict[str, str]] = {}
+    for entity_id in entities:
+        sensor = user_input.get(f"{entity_id}__signal_sensor", "")
+        if sensor:
+            nt = user_input.get(f"{entity_id}__signal_network", "") or "generic"
+            signal_map[entity_id] = {
+                "sensor": sensor,
+                "network_type": nt,
+            }
+    return signal_map
 
 
 class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -270,11 +332,18 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             self._data[CONF_USE_DEVICE_NAMES] = user_input.get(
                 CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
             )
+            self._data[CONF_SIGNAL_ENABLED] = user_input.get(
+                CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED
+            )
 
             if self._data[CONF_BATTERY_THRESHOLD] > 0:
                 return await self.async_step_battery_mapping()
 
+            if self._data[CONF_SIGNAL_ENABLED]:
+                return await self.async_step_signal_mapping()
+
             self._data[CONF_BATTERY_ENTITY_MAP] = {}
+            self._data[CONF_SIGNAL_ENTITY_MAP] = {}
             return self.async_create_entry(
                 title=self._data[CONF_GROUP_NAME],
                 data=self._data,
@@ -289,6 +358,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                         min=0, max=100, step=1, unit_of_measurement="%"
                     )
                 ),
+                vol.Optional(
+                    CONF_SIGNAL_ENABLED, default=DEFAULT_SIGNAL_ENABLED
+                ): selector.BooleanSelector(),
                 vol.Required(
                     CONF_AVAILABILITY_WINDOWS, default=DEFAULT_AVAILABILITY_WINDOWS
                 ): selector.SelectSelector(
@@ -325,6 +397,11 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             for entity_id in self._data[CONF_ENTITIES]:
                 battery_map[entity_id] = user_input.get(entity_id, "")
             self._data[CONF_BATTERY_ENTITY_MAP] = battery_map
+
+            if self._data.get(CONF_SIGNAL_ENABLED):
+                return await self.async_step_signal_mapping()
+
+            self._data[CONF_SIGNAL_ENTITY_MAP] = {}
             return self.async_create_entry(
                 title=self._data[CONF_GROUP_NAME],
                 data=self._data,
@@ -365,6 +442,43 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 return battery_entity
 
         return ""
+
+    async def async_step_signal_mapping(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Step 5: Signal entity mapping."""
+        if user_input is not None:
+            self._data[CONF_SIGNAL_ENTITY_MAP] = _build_signal_map_from_input(
+                self._data[CONF_ENTITIES], user_input
+            )
+            return self.async_create_entry(
+                title=self._data[CONF_GROUP_NAME],
+                data=self._data,
+            )
+
+        schema_dict: dict[Any, Any] = {}
+        for entity_id in self._data[CONF_ENTITIES]:
+            detected = _detect_signal_entity(self.hass, entity_id)
+            schema_dict[
+                vol.Optional(
+                    f"{entity_id}__signal_sensor",
+                    description={"suggested_value": detected} if detected else None,
+                )
+            ] = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    domain=["sensor", "input_number", "number"]
+                )
+            )
+            schema_dict[
+                vol.Optional(f"{entity_id}__signal_network", default="generic")
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
+            )
+
+        return self.async_show_form(
+            step_id="signal_mapping",
+            data_schema=vol.Schema(schema_dict),
+        )
 
     @staticmethod
     @callback
@@ -407,7 +521,15 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 if self._data.get(CONF_BATTERY_THRESHOLD, 0) > 0:
                     return await self.async_step_battery_mapping()
 
+                if self._data.get(CONF_SIGNAL_ENABLED):
+                    return await self.async_step_signal_mapping()
+
                 self._data[CONF_BATTERY_ENTITY_MAP] = {}
+                # Preserve signal map even when disabled so re-enabling restores bindings.
+                self._data.setdefault(
+                    CONF_SIGNAL_ENTITY_MAP,
+                    self.config_entry.data.get(CONF_SIGNAL_ENTITY_MAP, {}),
+                )
                 self.hass.config_entries.async_update_entry(
                     self.config_entry, data=self._data
                 )
@@ -477,6 +599,10 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                         min=0, max=100, step=1, unit_of_measurement="%"
                     )
                 ),
+                vol.Optional(
+                    CONF_SIGNAL_ENABLED,
+                    default=current.get(CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED),
+                ): selector.BooleanSelector(),
                 vol.Required(
                     CONF_AVAILABILITY_WINDOWS,
                     default=current.get(
@@ -523,6 +649,15 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             for entity_id in entities:
                 battery_map[entity_id] = user_input.get(entity_id, "")
             self._data[CONF_BATTERY_ENTITY_MAP] = battery_map
+
+            if self._data.get(CONF_SIGNAL_ENABLED):
+                return await self.async_step_signal_mapping()
+
+            # Preserve signal map even when disabled so re-enabling restores bindings.
+            self._data.setdefault(
+                CONF_SIGNAL_ENTITY_MAP,
+                self.config_entry.data.get(CONF_SIGNAL_ENTITY_MAP, {}),
+            )
             self.hass.config_entries.async_update_entry(
                 self.config_entry, data=self._data
             )
@@ -548,6 +683,62 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="battery_mapping",
+            data_schema=vol.Schema(schema_dict),
+        )
+
+    async def async_step_signal_mapping(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Signal entity mapping step in options flow."""
+        entities = self._data.get(
+            CONF_ENTITIES, self.config_entry.data.get(CONF_ENTITIES, [])
+        )
+        existing_map = self.config_entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
+
+        if user_input is not None:
+            # Merge into existing map: submitted sensors update/add; empty selector
+            # explicitly removes the mapping so stale entries are cleaned up.
+            merged = dict(existing_map)
+            for entity_id in entities:
+                sensor = user_input.get(f"{entity_id}__signal_sensor", "")
+                if sensor:
+                    nt = user_input.get(f"{entity_id}__signal_network", "") or "generic"
+                    merged[entity_id] = {"sensor": sensor, "network_type": nt}
+                else:
+                    merged.pop(entity_id, None)
+            self._data[CONF_SIGNAL_ENTITY_MAP] = merged
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, data=self._data
+            )
+            return self.async_create_entry(title="", data={})
+
+        schema_dict: dict[Any, Any] = {}
+        for entity_id in entities:
+            existing = existing_map.get(entity_id, {})
+            suggested = existing.get("sensor") or _detect_signal_entity(
+                self.hass, entity_id
+            )
+            schema_dict[
+                vol.Optional(
+                    f"{entity_id}__signal_sensor",
+                    description={"suggested_value": suggested} if suggested else None,
+                )
+            ] = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    domain=["sensor", "input_number", "number"]
+                )
+            )
+            schema_dict[
+                vol.Optional(
+                    f"{entity_id}__signal_network",
+                    default=existing.get("network_type", "generic"),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
+            )
+
+        return self.async_show_form(
+            step_id="signal_mapping",
             data_schema=vol.Schema(schema_dict),
         )
 

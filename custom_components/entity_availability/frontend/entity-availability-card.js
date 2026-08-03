@@ -3,7 +3,7 @@
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.3.14";
+const CARD_VERSION = "0.4.0";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -388,6 +388,35 @@ const cardStyles = css`
     letter-spacing: 0.5px;
     min-width: 35px;
     text-align: right;
+    border-left: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+    padding-left: 8px;
+  }
+
+  .entity-battery,
+  .entity-signal {
+    font-size: 12px;
+    color: var(--eac-text-secondary);
+    white-space: nowrap;
+    min-width: 35px;
+    text-align: right;
+    border-left: 1px solid var(--divider-color, rgba(0,0,0,0.08));
+    padding-left: 8px;
+  }
+
+  .entity-list.icon-mode .entity-status {
+    min-width: 24px;
+  }
+
+  .entity-list.icon-mode .entity-battery {
+    min-width: 28px;
+  }
+
+  .entity-list.icon-mode .entity-legend-status {
+    min-width: 24px;
+  }
+
+  .entity-list.icon-mode .entity-legend-battery {
+    min-width: 28px;
   }
 
   .entity-legend-spacer {
@@ -497,14 +526,6 @@ const cardStyles = css`
     font-size: 12px;
     color: var(--eac-text-secondary);
     white-space: nowrap;
-  }
-
-  .entity-battery {
-    font-size: 12px;
-    color: var(--eac-text-secondary);
-    white-space: nowrap;
-    min-width: 35px;
-    text-align: right;
   }
 
   /* Actions */
@@ -679,6 +700,8 @@ class EntityAvailabilityCard extends LitElement {
       entity_filter: "all",
       show_affected_areas: false,
       show_non_essential_stats: false,
+      show_stat_icons: false,
+      show_table_icons: false,
       ...config,
     };
     // backwards compat: show_entity_tooltips: true → entity_detail: "tooltip"
@@ -739,20 +762,22 @@ class EntityAvailabilityCard extends LitElement {
       const stalenessEnabled = attrs.staleness_enabled || false;
       const staleCount = stalenessEnabled ? ((attrs.stale_entities || []).length || attrs.stale || 0) : 0;
       const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
+      const signalEnabledCombined = attrs.signal_enabled || false;
+      const combinedPoorSignal = signalEnabledCombined ? (attrs.poor_signal || 0) : 0;
 
-      const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0) ? "yellow" : "green";
+      const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0 || combinedPoorSignal > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
       const compactClass = this._config.compact ? "compact" : "";
-      const statusText = offline > 0 ? `${offline} Offline` : (effectiveLowBattery > 0 || staleCount > 0) ? "Degraded" : "All OK";
+      const statusText = offline > 0 ? `${offline} Offline` : (effectiveLowBattery > 0 || staleCount > 0 || combinedPoorSignal > 0) ? "Degraded" : "All OK";
 
       return html`
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
-          ${this._renderStats(online, offline, effectiveLowBattery, staleCount)}
+          ${this._renderStats(online, offline, effectiveLowBattery, staleCount, combinedPoorSignal, this._config.show_stat_icons === true)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, 0)}
-          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled) : nothing}
+          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -794,22 +819,32 @@ class EntityAvailabilityCard extends LitElement {
     // feature is disabled (threshold=0), even if counts are non-zero.
     const batteryEnabled = attrs.battery_enabled || false;
     const stalenessEnabled = attrs.staleness_enabled || false;
+    const signalEnabled = attrs.signal_enabled || false;
+    const signalLevels = attrs.signal_levels || {};
+    const signalUnits = attrs.signal_units || {};
+    const poorSignalEntitiesNE = attrs.poor_signal_entities_non_essential || [];
+    const poorSignalEntitiesEssential = attrs.poor_signal_entities || [];
+    // Merge essential+NE for dot coloring; use essential-only for stat pill/statusColor
+    const poorSignalEntities = [...poorSignalEntitiesEssential, ...poorSignalEntitiesNE];
+    const okSignalEntities = attrs.ok_signal_entities || [];
 
     const nonEssentialOnline = attrs.non_essential_online ?? 0;
     const nonEssentialOffline = attrs.non_essential_offline ?? 0;
     const lowBatteryNonEssential = attrs.low_battery_non_essential ?? 0;
     const nonEssentialSuppressed = attrs.non_essential_suppressed ?? 0;
+    const poorSignalCountNonEssential = signalEnabled ? poorSignalEntitiesNE.length : 0;
+    const poorSignalCount = signalEnabled ? poorSignalEntitiesEssential.length : 0;
     const staleCount = stalenessEnabled ? staleEntities.length : 0;
     const staleCountNonEssential = stalenessEnabled ? staleEntitiesNonEssential.length : 0;
     const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
 
-    const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0) ? "yellow" : "green";
+    const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0 || poorSignalCount > 0) ? "yellow" : "green";
     const title = this._config.title || this._formatGroupName(this._config.group);
     const compactClass = this._config.compact ? "compact" : "";
 
     const statusText = offline > 0
       ? `${offline} Offline`
-      : (effectiveLowBattery > 0 || staleCount > 0)
+      : (effectiveLowBattery > 0 || staleCount > 0 || poorSignalCount > 0)
       ? "Degraded"
       : "All OK";
 
@@ -819,12 +854,12 @@ class EntityAvailabilityCard extends LitElement {
       <ha-card class="${compactClass}">
         ${this._renderHeader(title, statusColor, statusText)}
         <div class="divider"></div>
-        ${this._renderStats(online, offline, effectiveLowBattery, staleCount)}
-        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, batteryEnabled ? lowBatteryNonEssential : 0, staleCountNonEssential) : nothing}
+        ${this._renderStats(online, offline, effectiveLowBattery, staleCount, poorSignalCount, this._config.show_stat_icons === true)}
+        ${showNEStats ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, batteryEnabled ? lowBatteryNonEssential : 0, staleCountNonEssential, this._config.show_stat_icons === true, poorSignalCountNonEssential) : nothing}
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
-        ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled) : nothing}
+        ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
         ${this._config.show_actions ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
@@ -846,13 +881,25 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderStats(online, offline, lowBattery, stale = 0) {
+  _renderStats(online, offline, lowBattery, stale = 0, poorSignal = 0, iconMode = false) {
+    if (iconMode) {
+      return html`
+        <div class="stats-row">
+          <span class="stat-item ${online > 0 ? "online" : "neutral"}" title="Online"><ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:16px;vertical-align:middle"></ha-icon> ${online}</span>
+          <span class="stat-item ${offline > 0 ? "offline" : "neutral"}" title="Offline"><ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:16px;vertical-align:middle"></ha-icon> ${offline}</span>
+          ${lowBattery > 0 ? html`<span class="stat-item battery" title="Low Battery"><ha-icon icon="mdi:battery-alert-variant-outline" style="--mdc-icon-size:16px;vertical-align:middle"></ha-icon> ${lowBattery}</span>` : nothing}
+          ${stale > 0 ? html`<span class="stat-item battery" title="Stale"><ha-icon icon="mdi:clock-alert-outline" style="--mdc-icon-size:16px;vertical-align:middle"></ha-icon> ${stale}</span>` : nothing}
+          ${poorSignal > 0 ? html`<span class="stat-item battery" title="Poor Signal"><ha-icon icon="mdi:signal-off" style="--mdc-icon-size:16px;vertical-align:middle"></ha-icon> ${poorSignal}</span>` : nothing}
+        </div>
+      `;
+    }
     return html`
       <div class="stats-row">
         <span class="stat-item ${online > 0 ? "online" : "neutral"}">Online: ${online}</span>
         <span class="stat-item ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
         ${lowBattery > 0 ? html`<span class="stat-item battery">Low Battery: ${lowBattery}</span>` : nothing}
         ${stale > 0 ? html`<span class="stat-item battery">Stale: ${stale}</span>` : nothing}
+        ${poorSignal > 0 ? html`<span class="stat-item battery">Poor Signal: ${poorSignal}</span>` : nothing}
       </div>
     `;
   }
@@ -870,7 +917,19 @@ class EntityAvailabilityCard extends LitElement {
     return html`<div class="suppressed-banner">${msg}</div>`;
   }
 
-  _renderNonEssentialStats(online, offline, lowBattery, stale = 0) {
+  _renderNonEssentialStats(online, offline, lowBattery, stale = 0, iconMode = false, poorSignal = 0) {
+    if (iconMode) {
+      return html`
+        <div class="non-essential-stats-row">
+          <span class="non-essential-stats-label">↳ Non-Essential</span>
+          <span class="non-essential-stat ${online > 0 ? "online" : "neutral"}" title="Online"><ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${online}</span>
+          <span class="non-essential-stat ${offline > 0 ? "offline" : "neutral"}" title="Offline"><ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${offline}</span>
+          ${lowBattery > 0 ? html`<span class="non-essential-stat battery" title="Low Battery"><ha-icon icon="mdi:battery-alert-variant-outline" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${lowBattery}</span>` : nothing}
+          ${stale > 0 ? html`<span class="non-essential-stat battery" title="Stale"><ha-icon icon="mdi:clock-alert-outline" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${stale}</span>` : nothing}
+          ${poorSignal > 0 ? html`<span class="non-essential-stat battery" title="Poor Signal"><ha-icon icon="mdi:signal-off" style="--mdc-icon-size:14px;vertical-align:middle"></ha-icon> ${poorSignal}</span>` : nothing}
+        </div>
+      `;
+    }
     return html`
       <div class="non-essential-stats-row">
         <span class="non-essential-stats-label">↳ Non-Essential</span>
@@ -878,6 +937,7 @@ class EntityAvailabilityCard extends LitElement {
         <span class="non-essential-stat ${offline > 0 ? "offline" : "neutral"}">Offline: ${offline}</span>
         ${lowBattery > 0 ? html`<span class="non-essential-stat battery">Low Battery: ${lowBattery}</span>` : nothing}
         ${stale > 0 ? html`<span class="non-essential-stat battery">Stale: ${stale}</span>` : nothing}
+        ${poorSignal > 0 ? html`<span class="non-essential-stat battery">Poor Signal: ${poorSignal}</span>` : nothing}
       </div>
     `;
   }
@@ -915,10 +975,10 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], batteryEnabled = false) {
+  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], batteryEnabled = false, signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = [], iconMode = false) {
     if (entities.length === 0 && total === 0) return nothing;
 
-    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential);
+    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities);
     const filter = this._config.entity_filter || "all";
     const showNE = this._config.show_non_essential_stats === true;
     const items = filter === "offline"
@@ -929,6 +989,7 @@ class EntityAvailabilityCard extends LitElement {
 
     const expanded = this._entitiesExpanded;
     const hasBattery = batteryEnabled && allItems.some((i) => i.battery !== null);
+    const hasSignal = signalEnabled && allItems.some((i) => i.signalLevel !== null);
 
     const sectionTitle = filter === "offline" ? "Problem Entities"
       : filter === "online" ? "Healthy Entities"
@@ -948,27 +1009,36 @@ class EntityAvailabilityCard extends LitElement {
           icon="mdi:chevron-down"
         ></ha-icon>
       </div>
-      <div class="entity-list ${expanded ? "expanded" : "collapsed"}">
+      <div class="entity-list ${expanded ? "expanded" : "collapsed"} ${this._config.show_stat_icons ? "icon-mode" : ""}">
         ${items.length === 0
           ? nothing
           : html`
-        <div class="entity-legend">
+        ${(() => {
+          const colBat = hasBattery ? (iconMode ? " 40px" : " 52px") : "";
+          const colSig = hasSignal ? (iconMode ? " 40px" : " 52px") : "";
+          const colToggle = this._config.show_suppress_toggle ? " 28px" : "";
+          const gridStyle = `display:grid;grid-template-columns:10px 1fr auto${colBat}${colSig}${colToggle};align-items:center;gap:0 10px`;
+          return html`
+        <div class="entity-legend" style="${gridStyle}">
           <span class="entity-legend-dot"></span>
           <span class="entity-legend-name">Entity</span>
           <span class="entity-legend-status">State</span>
-          ${hasBattery ? html`<span class="entity-legend-battery">Bat.</span>` : nothing}
+          ${hasBattery ? html`<span class="entity-legend-battery">${iconMode ? html`<ha-icon icon="mdi:battery-alert-variant-outline" title="Battery" style="--mdc-icon-size:14px"></ha-icon>` : "Bat."}</span>` : nothing}
+          ${hasSignal ? html`<span class="entity-legend-battery">${iconMode ? html`<ha-icon icon="mdi:signal-off" title="Signal" style="--mdc-icon-size:14px"></ha-icon>` : "Signal"}</span>` : nothing}
           ${this._config.show_suppress_toggle ? html`<span class="entity-legend-spacer"></span>` : nothing}
         </div>
         ${items.map(
           (item) => html`
             <div class="entity-item" tabindex="0" role="button" @mouseenter=${(e) => this._positionTooltip(e, item, suppressedUntil)} @mouseleave=${() => this._hideTooltip()} @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
-              <div class="entity-item-row">
+              <div class="entity-item-row" style="${gridStyle}">
                 <div class="entity-dot ${item.dotColor}"></div>
-                ${item.isNonEssential ? html`<ha-icon icon="mdi:minus-circle-outline" class="non-essential-icon" style="color:var(--eac-${item.dotColor === 'green' ? 'green' : item.dotColor === 'red' ? 'red' : 'yellow'})"></ha-icon>` : nothing}
-                <span class="entity-name">${item.name}</span>
+                <span class="entity-name">${item.isNonEssential ? html`<ha-icon icon="mdi:minus-circle-outline" class="non-essential-icon" style="color:var(--eac-${item.dotColor === 'green' ? 'green' : item.dotColor === 'red' ? 'red' : 'yellow'});vertical-align:middle;--mdc-icon-size:14px"></ha-icon> ` : nothing}${item.name}</span>
                 <span class="entity-status">${item.status}</span>
                 ${hasBattery
                   ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
+                  : nothing}
+                ${hasSignal
+                  ? html`<span class="entity-battery entity-signal">${item.signalLevel !== null ? `${item.signalLevel} ${item.signalUnit ?? ""}` : ""}</span>`
                   : nothing}
                 ${this._config.show_suppress_toggle ? html`
                 <button class="entity-suppress-btn ${item.isSuppressed ? "suppressed" : ""}"
@@ -982,12 +1052,13 @@ class EntityAvailabilityCard extends LitElement {
                 : nothing}
             </div>
           `
-        )}`}
+        )}`;
+        })()}`}
       </div>
     `;
   }
 
-  _renderCombinedGroupBreakdown(groups, batteryEnabled = false, stalenessEnabled = false) {
+  _renderCombinedGroupBreakdown(groups, batteryEnabled = false, stalenessEnabled = false, iconMode = false) {
     const entries = Object.entries(groups);
     if (entries.length === 0) return nothing;
 
@@ -1011,14 +1082,16 @@ class EntityAvailabilityCard extends LitElement {
     // the feature is disabled (threshold=0), even if counts are non-zero.
     const hasBattery = showHealth && batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0 || (showNEStats && g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0));
     const hasStale = showHealth && stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0 || (showNEStats && g.staleness_enabled && (g.non_essential_stale ?? 0) > 0));
+    const hasSignal = showHealth && entries.some(([, g]) => g.signal_enabled);
+    // NE signal column: only show if at least one group has signal enabled and NE poor signal > 0.
+    const hasNESignal = showHealth && showNEStats && entries.some(([, g]) => g.signal_enabled && (g.non_essential_poor_signal ?? 0) > 0);
     // NE battery/stale columns: only show if at least one group has the feature enabled and NE counts > 0.
     const hasNEBattery = showHealth && showNEStats && entries.some(([, g]) => g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0);
     const hasNEStale = showHealth && showNEStats && entries.some(([, g]) => g.staleness_enabled && (g.non_essential_stale ?? 0) > 0);
-    const extraCols = (showTotal ? 1 : 0) + 2 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0);
+    const extraCols = (showTotal ? 1 : 0) + 2 + (hasBattery ? 1 : 0) + (hasStale ? 1 : 0) + (hasSignal ? 1 : 0);
     const gridStyle = `grid-template-columns: minmax(60px, 1fr) repeat(${extraCols}, minmax(36px, 56px))`;
 
     return html`
-      <div class="divider"></div>
       <div class="entity-section-header" @click=${this._toggleEntities}>
         <span class="entity-section-title">Groups (${entries.length})</span>
         <ha-icon class="chevron ${expanded ? "expanded" : ""}" icon="mdi:chevron-down"></ha-icon>
@@ -1026,11 +1099,12 @@ class EntityAvailabilityCard extends LitElement {
       <div class="group-breakdown ${expanded ? "expanded" : "collapsed"}">
         <div class="group-breakdown-row group-breakdown-header" style="${gridStyle}">
           <span>Group</span>
-          ${showTotal ? html`<span>Total</span>` : nothing}
-          <span class="${showTotal ? "sep" : ""}">Online</span>
-          <span>Offline</span>
-          ${hasBattery ? html`<span class="sep">Bat.</span>` : nothing}
-          ${hasStale ? html`<span class="${!hasBattery ? "sep" : ""}">Stale</span>` : nothing}
+          ${showTotal ? html`<span title="Total">${iconMode ? html`<ha-icon icon="mdi:counter" style="--mdc-icon-size:14px"></ha-icon>` : "Total"}</span>` : nothing}
+          <span class="${showTotal ? "sep" : ""}" title="Online">${iconMode ? html`<ha-icon icon="mdi:check-circle-outline" style="--mdc-icon-size:14px"></ha-icon>` : "Online"}</span>
+          <span title="Offline">${iconMode ? html`<ha-icon icon="mdi:alert-circle-outline" style="--mdc-icon-size:14px"></ha-icon>` : "Offline"}</span>
+          ${hasBattery ? html`<span class="sep" title="Low Battery">${iconMode ? html`<ha-icon icon="mdi:battery-alert-variant-outline" style="--mdc-icon-size:14px"></ha-icon>` : "Bat."}</span>` : nothing}
+          ${hasStale ? html`<span class="${!hasBattery ? "sep" : ""}" title="Stale">${iconMode ? html`<ha-icon icon="mdi:clock-alert-outline" style="--mdc-icon-size:14px"></ha-icon>` : "Stale"}</span>` : nothing}
+          ${hasSignal ? html`<span class="${!hasBattery && !hasStale ? "sep" : ""}" title="Poor Signal">${iconMode ? html`<ha-icon icon="mdi:signal-off" style="--mdc-icon-size:14px"></ha-icon>` : "Sig."}</span>` : nothing}
         </div>
         ${entries.map(([, g]) => {
           const neCount = g.non_essential ?? 0;
@@ -1044,6 +1118,7 @@ class EntityAvailabilityCard extends LitElement {
               <span class="group-breakdown-count ${g.offline > 0 ? "offline" : "neutral"}">${g.offline ?? 0}</span>
               ${hasBattery ? html`<span class="group-breakdown-count sep ${g.battery_enabled && (g.low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.low_battery ?? 0) : "—"}</span>` : nothing}
               ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.staleness_enabled && (g.stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.stale ?? 0) : "—"}</span>` : nothing}
+              ${hasSignal ? html`<span class="group-breakdown-count ${!hasBattery && !hasStale ? "sep " : ""}${g.signal_enabled && (g.poor_signal ?? 0) > 0 ? "battery" : "neutral"}">${g.signal_enabled ? (g.poor_signal ?? 0) : "—"}</span>` : nothing}
             </div>
             ${showNERow ? html`
               <div class="group-breakdown-row group-breakdown-ne-row" style="${gridStyle}">
@@ -1053,6 +1128,7 @@ class EntityAvailabilityCard extends LitElement {
                 <span class="group-breakdown-count ${(g.non_essential_offline ?? 0) > 0 ? "offline" : "neutral"}">${g.non_essential_offline ?? 0}</span>
                 ${hasBattery ? html`<span class="group-breakdown-count sep ${g.battery_enabled && hasNEBattery && (g.non_essential_low_battery ?? 0) > 0 ? "battery" : "neutral"}">${g.battery_enabled ? (g.non_essential_low_battery ?? 0) : "—"}</span>` : nothing}
                 ${hasStale ? html`<span class="group-breakdown-count ${!hasBattery ? "sep " : ""}${g.staleness_enabled && hasNEStale && (g.non_essential_stale ?? 0) > 0 ? "stale" : "neutral"}">${g.staleness_enabled ? (g.non_essential_stale ?? 0) : "—"}</span>` : nothing}
+                ${hasSignal ? html`<span class="group-breakdown-count ${!hasBattery && !hasStale ? "sep " : ""}${g.signal_enabled && hasNESignal && (g.non_essential_poor_signal ?? 0) > 0 ? "battery" : "neutral"}">${g.signal_enabled ? (g.non_essential_poor_signal ?? 0) : "—"}</span>` : nothing}
               </div>
             ` : nothing}
           `;
@@ -1065,11 +1141,11 @@ class EntityAvailabilityCard extends LitElement {
     return html`
       <div class="divider"></div>
       <div class="actions-section">
-        <button class="action-btn suppress" title="Suppress all currently offline monitored entities for 60 minutes (non-essential entities excluded)" @click=${this._handleSuppressAll}>
-          Suppress All
+        <button class="action-btn suppress" title="${this._config.show_non_essential_stats ? "Suppress all offline entities (including Non-Essential) for 60 minutes" : "Suppress all currently offline monitored entities for 60 minutes (non-essential entities excluded)"}" @click=${this._handleSuppressAll}>
+          Suppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
         </button>
-        <button class="action-btn unsuppress" title="Remove suppression from all entities in this group" @click=${this._handleUnsuppressAll}>
-          Unsuppress All
+        <button class="action-btn unsuppress" title="${this._config.show_non_essential_stats ? "Remove suppression from all entities (including Non-Essential) in this group" : "Remove suppression from all entities in this group"}" @click=${this._handleUnsuppressAll}>
+          Unsuppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
         </button>
       </div>
     `;
@@ -1099,7 +1175,7 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = []) {
+  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = []) {
     const items = entities.map((entityId) => {
       const state = this.hass.states[entityId];
       const friendlyName = displayNames[entityId] || state?.attributes?.friendly_name || entityId.split(".").pop();
@@ -1110,6 +1186,10 @@ class EntityAvailabilityCard extends LitElement {
       const isNonEssential = nonEssentialEntities.includes(entityId);
       const battery = batteryLevels[entityId] ?? null;
       const isLowBattery = lowBatteryEntities.includes(entityId);
+      const signalLevel = signalEnabled ? (signalLevels[entityId] ?? null) : null;
+      const signalUnit = signalEnabled ? (signalUnits[entityId] ?? "") : null;
+      const isPoorSignal = signalEnabled && poorSignalEntities.includes(entityId);
+      const isOkSignal = signalEnabled && okSignalEntities.includes(entityId);
 
       let dotColor = "green";
       let status = "Online";
@@ -1143,6 +1223,12 @@ class EntityAvailabilityCard extends LitElement {
         } else if (isLowBattery) {
           dotColor = "yellow";
           status = "Low Battery";
+        } else if (isPoorSignal) {
+          dotColor = "yellow";
+          status = "Poor Signal";
+        } else if (isOkSignal) {
+          dotColor = "yellow";
+          status = "Signal: OK";
         } else {
           dotColor = "green";
           status = "Online";
@@ -1153,9 +1239,15 @@ class EntityAvailabilityCard extends LitElement {
       } else if (isLowBattery) {
         dotColor = "yellow";
         status = "Low Battery";
+      } else if (isPoorSignal) {
+        dotColor = "yellow";
+        status = "Poor Signal";
+      } else if (isOkSignal) {
+        dotColor = "yellow";
+        status = "Signal: OK";
       }
 
-      return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential };
+      return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
     });
 
     items.sort((a, b) => {
@@ -1208,6 +1300,7 @@ class EntityAvailabilityCard extends LitElement {
       { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) },
       { label: "Condition", value: suppressedUntil ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
+      item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : item.isOkSignal ? " (ok)" : ""}` } : null,
       suppressedUntil ? { label: "Suppressed", value: suppressedUntil === "indefinitely" ? "Indefinitely" : `until ${suppressedUntil}` } : null,
     ].filter(Boolean);
   }
@@ -1453,7 +1546,13 @@ class EntityAvailabilityCard extends LitElement {
     e.stopPropagation();
     const group = this._resolveGroupId();
     const offlineIds = this._getOfflineEntityIds();
-    for (const entityId of offlineIds) {
+    const includeNE = this._config.show_non_essential_stats === true;
+    const neOfflineIds = includeNE ? (() => {
+      const summary = this._getGroupSummary();
+      return summary?.attributes?.offline_entities_non_essential || [];
+    })() : [];
+    const allIds = [...new Set([...offlineIds, ...neOfflineIds])];
+    for (const entityId of allIds) {
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
@@ -1467,7 +1566,10 @@ class EntityAvailabilityCard extends LitElement {
     const group = this._resolveGroupId();
     const summary = this._getGroupSummary();
     const entities = summary?.attributes?.entities || [];
-    for (const entityId of entities) {
+    const includeNE = this._config.show_non_essential_stats === true;
+    const neEntities = includeNE ? (summary?.attributes?.non_essential_entities || []) : [];
+    const allIds = [...new Set([...entities, ...neEntities])];
+    for (const entityId of allIds) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
@@ -1699,7 +1801,7 @@ class EntityAvailabilityCardEditor extends LitElement {
               .checked=${this._config.show_group_health !== false}
               @change=${(e) => this._updateConfig("show_group_health", e.target.checked)}
             />
-            Show Health Columns (Bat. &amp; Stale, when active)
+            Show Health Columns (Bat., Stale &amp; Signal, when active)
           </label>
         </div>
         ` : nothing}
@@ -1757,6 +1859,26 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("compact", e.target.checked)}
             />
             Compact Mode
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_stat_icons === true}
+              @change=${(e) => this._updateConfig("show_stat_icons", e.target.checked)}
+            />
+            Use Icons in Stats Row
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_table_icons === true}
+              @change=${(e) => this._updateConfig("show_table_icons", e.target.checked)}
+            />
+            ${this._isSelectedGroupCombined() ? "Use Icons in Groups Table Header" : "Use Icons in Entity List Header"}
           </label>
         </div>
         ${this._isSelectedGroupCombined() ? html`

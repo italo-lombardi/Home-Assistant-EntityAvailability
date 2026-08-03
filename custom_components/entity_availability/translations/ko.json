@@ -52,18 +52,24 @@
           "battery_threshold": "낮은 배터리 임계값(%, 0=비활성화)",
           "availability_windows": "가용성 추적 창",
           "recovery_window": "복구 창",
-          "use_device_names": "장치 이름 표시"
+          "use_device_names": "장치 이름 표시",
+          "signal_enabled": "신호 강도 모니터링 활성화"
         },
         "data_description": {
           "battery_threshold": "배터리가 이 비율 아래로 떨어지는 엔티티에 플래그를 지정합니다. 'low' 상태도 자동으로 감지됩니다. 전압 기반 엔티티는 지원되지 않습니다. 배터리를 비율로 보고하거나 'low' 상태를 지원하는 엔티티를 사용하세요.",
           "availability_windows": "그룹 가용성 기록을 추적하는 시간 창(예: today, 3d, 7d).",
           "recovery_window": "상태 전환 후 엔티티가 최근 오프라인 또는 최근 복구 센서에 남아 있는 시간(분).",
-          "use_device_names": "오프라인·복구 센서 상태에서 엔티티 친숙한 이름 대신 HA 장치 이름을 표시합니다. 장치에 연결되지 않은 엔티티는 친숙한 이름으로 대체됩니다."
+          "use_device_names": "오프라인·복구 센서 상태에서 엔티티 친숙한 이름 대신 HA 장치 이름을 표시합니다. 장치에 연결되지 않은 엔티티는 친숙한 이름으로 대체됩니다.",
+          "signal_enabled": "모니터링 중인 엔티티의 신호 강도(dBm)를 추적하고, 신호 품질이 '불량'으로 떨어지면 알림을 보냅니다. 활성화 후 각 엔티티에 대해 신호 센서를 바인딩하고 네트워크 유형을 선택하라는 안내가 표시됩니다."
         }
       },
       "battery_mapping": {
         "title": "배터리 엔티티 매핑",
         "description": "모니터링 중인 각 엔티티의 배터리 센서를 확인하거나 변경합니다. 배터리가 없는 엔티티는 비워 두세요. 숫자(%)와 텍스트 상태('low')를 지원합니다."
+      },
+      "signal_mapping": {
+        "title": "신호 강도 매핑",
+        "description": "각 엔티티에 대해 선택적으로 신호 센서를 선택하고 네트워크 유형을 선택하세요. 센서를 비워 두면 건너뜁니다.\n\n임계값 (좋음 / 보통 / 나쁨):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (높을수록 좋음)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "가용성 추적 창",
           "recovery_window": "복구 창(분)",
           "use_device_names": "장치 이름 표시",
-          "staleness_use_last_updated": "속성 업데이트도 활동으로 계산"
+          "staleness_use_last_updated": "속성 업데이트도 활동으로 계산",
+          "signal_enabled": "신호 강도 모니터링 활성화"
         },
         "data_description": {
           "entities": "가용성을 추적할 엔티티입니다. 완전히 모니터링되며 모든 KPI 및 알림에 포함됩니다.",
@@ -104,7 +111,8 @@
           "availability_windows": "그룹 가용성 기록을 추적하는 시간 창(예: today, 3d, 7d).",
           "recovery_window": "상태 전환 후 엔티티가 최근 오프라인 또는 최근 복구 센서에 남아 있는 시간(분).",
           "use_device_names": "오프라인·복구 센서 상태에서 엔티티 친숙한 이름 대신 HA 장치 이름을 표시합니다. 장치에 연결되지 않은 엔티티는 친숙한 이름으로 대체됩니다.",
-          "staleness_use_last_updated": "켜면 속성만 변경되거나 동일한 값이 반복 보고되는 경우를 포함한 엔티티의 모든 업데이트가 데이터 중단 타이머를 초기화합니다. 끄면(기본값) 주 상태 변경만 카운트됩니다. 값이 거의 변하지 않지만 자주 보고하는 장치(온도, 전력 등)에 켭니다."
+          "staleness_use_last_updated": "켜면 속성만 변경되거나 동일한 값이 반복 보고되는 경우를 포함한 엔티티의 모든 업데이트가 데이터 중단 타이머를 초기화합니다. 끄면(기본값) 주 상태 변경만 카운트됩니다. 값이 거의 변하지 않지만 자주 보고하는 장치(온도, 전력 등)에 켭니다.",
+          "signal_enabled": "모니터링 중인 엔티티의 신호 강도(dBm)를 추적하고, 신호 품질이 '불량'으로 떨어지면 알림을 보냅니다. 활성화 후 각 엔티티에 대해 신호 센서를 바인딩하고 네트워크 유형을 선택하라는 안내가 표시됩니다."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "배터리 엔티티 매핑",
         "description": "모니터링 중인 각 엔티티의 배터리 센서를 확인하거나 변경합니다. 배터리가 없는 엔티티는 비워 두세요. 숫자(%)와 텍스트 상태('low')를 지원합니다."
+      },
+      "signal_mapping": {
+        "title": "신호 강도 매핑",
+        "description": "각 엔티티에 대해 선택적으로 신호 센서를 선택하고 네트워크 유형을 선택하세요. 센서를 비워 두면 건너뜁니다.\n\n임계값 (좋음 / 보통 / 나쁨):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (높을수록 좋음)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "데이터 중단 수(비필수)"
+      },
+      "poor_signal": {
+        "name": "불량 신호"
+      },
+      "poor_signal_count": {
+        "name": "불량 신호 횟수"
+      },
+      "poor_signal_non_essential": {
+        "name": "불량 신호 (비필수)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "불량 신호 횟수 (비필수)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "데이터 중단 있음"
+      },
+      "any_poor_signal": {
+        "name": "불량 신호 감지됨"
+      },
+      "any_low_battery_non_essential": {
+        "name": "배터리 부족 (비필수)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "약한 신호 (비필수)"
       }
     }
   },

@@ -52,18 +52,24 @@
           "battery_threshold": "Soglia batteria scarica (%, 0 = disabilitato)",
           "availability_windows": "Finestre di tracciamento disponibilità",
           "recovery_window": "Finestra di recupero",
-          "use_device_names": "Mostra nomi dispositivo"
+          "use_device_names": "Mostra nomi dispositivo",
+          "signal_enabled": "Abilita il monitoraggio della potenza del segnale"
         },
         "data_description": {
           "battery_threshold": "Segnala le entità la cui batteria scende al di sotto di questa percentuale. Lo stato 'low' viene rilevato automaticamente. Le entità basate su volt non sono supportate. Usa entità che riportano la batteria come percentuale o supportano lo stato 'low'.",
           "availability_windows": "Finestre temporali per il monitoraggio della disponibilità del gruppo (es. today, 3d, 7d).",
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
-          "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo."
+          "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
+          "signal_enabled": "Monitora la potenza del segnale (dBm) per le entità controllate e avvisa quando la qualità del segnale scende a \"scarsa\". Dopo l'attivazione, verrà richiesto di associare un sensore del segnale e selezionare il tipo di rete per ciascuna entità."
         }
       },
       "battery_mapping": {
         "title": "Mappatura sensore batteria",
         "description": "Conferma o modifica il sensore batteria per ogni entità monitorata. Lascia vuoto per entità senza batteria. Supporta stati numerici (%) e testuali ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mappatura della potenza del segnale",
+        "description": "Per ogni entità, seleziona facoltativamente un sensore del segnale e scegli il tipo di rete. Lascia il sensore vuoto per saltare.\\n\\nSoglie (buono / discreto / scarso):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (più alto è meglio)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Finestre di tracciamento disponibilità",
           "recovery_window": "Finestra di recupero (minuti)",
           "use_device_names": "Mostra nomi dispositivo",
-          "staleness_use_last_updated": "Conta gli aggiornamenti degli attributi come attività"
+          "staleness_use_last_updated": "Conta gli aggiornamenti degli attributi come attività",
+          "signal_enabled": "Abilita il monitoraggio della potenza del segnale"
         },
         "data_description": {
           "non_essential_entities": "Entità mostrate e conteggiate nella scheda ma escluse da tutti i KPI (conteggio offline, disponibilità %, MTBF, MTTR) e avvisi. Utile per dispositivi che si prevede siano offline (TV in standby, stampante spenta tra un lavoro e l'altro).",
@@ -104,7 +111,8 @@
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
           "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
           "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi o le segnalazioni ripetute dello stesso valore — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile).",
-          "entities": "Entità da monitorare per la disponibilità. Sono completamente monitorate e incluse in tutti i KPI e gli avvisi."
+          "entities": "Entità da monitorare per la disponibilità. Sono completamente monitorate e incluse in tutti i KPI e gli avvisi.",
+          "signal_enabled": "Monitora la potenza del segnale (dBm) per le entità controllate e avvisa quando la qualità del segnale scende a \"scarsa\". Dopo l'attivazione, verrà richiesto di associare un sensore del segnale e selezionare il tipo di rete per ciascuna entità."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Mappatura sensore batteria",
         "description": "Conferma o modifica il sensore batteria per ogni entità monitorata. Lascia vuoto per entità senza batteria. Supporta stati numerici (%) e testuali ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mappatura della potenza del segnale",
+        "description": "Per ogni entità, seleziona facoltativamente un sensore del segnale e scegli il tipo di rete. Lascia il sensore vuoto per saltare.\\n\\nSoglie (buono / discreto / scarso):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (più alto è meglio)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Conteggio entità inattive (non essenziali)"
+      },
+      "poor_signal": {
+        "name": "Segnale scarso"
+      },
+      "poor_signal_count": {
+        "name": "Conteggio segnali scarsi"
+      },
+      "poor_signal_non_essential": {
+        "name": "Segnale scarso (non essenziale)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Conteggio segnali scarsi (non essenziale)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "Entità inattiva presente"
+      },
+      "any_poor_signal": {
+        "name": "Qualsiasi segnale scarso"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Batteria Scarica (Non Essenziale)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Segnale Debole (Non Essenziale)"
       }
     }
   },

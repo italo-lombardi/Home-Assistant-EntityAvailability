@@ -52,18 +52,24 @@
           "battery_threshold": "Drempel lage batterij (%, 0 = uitgeschakeld)",
           "availability_windows": "Beschikbaarheid-trackingvensters",
           "recovery_window": "Herstelvenster",
-          "use_device_names": "Apparaatnamen tonen"
+          "use_device_names": "Apparaatnamen tonen",
+          "signal_enabled": "Signaalsterkte-monitoring inschakelen"
         },
         "data_description": {
           "battery_threshold": "Markeert entiteiten waarvan de batterij onder dit percentage daalt. De staat 'low' wordt ook automatisch gedetecteerd. Volt-gebaseerde entiteiten worden niet ondersteund. Gebruik entiteiten die de batterij als percentage rapporteren of de staat 'low' ondersteunen.",
           "availability_windows": "Tijdvensters voor het bijhouden van de beschikbaarheidsgeschiedenis van de groep (bijv. vandaag, 3d, 7d).",
           "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
-          "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld."
+          "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld.",
+          "signal_enabled": "Volg de signaalsterkte (dBm) van bewaakte entiteiten en geef een waarschuwing wanneer de signaalkwaliteit daalt naar 'slecht'. Na het inschakelen wordt u gevraagd om een signaalsensor te koppelen en het netwerktype voor elke entiteit te selecteren."
         }
       },
       "battery_mapping": {
         "title": "Batterijsensor-toewijzing",
         "description": "Bevestig of wijzig de batterijsensor voor elke bewaakte entiteit. Laat leeg voor entiteiten zonder batterij. Ondersteunt numerieke (%) en tekststatussen ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signaalsterkte-toewijzing",
+        "description": "Voor elke entiteit, selecteer optioneel een signaalsensor en kies het netwerktype. Laat de sensor leeg om over te slaan.\n\nDrempelwaarden (goed / ok / slecht):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (hoger is beter)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Beschikbaarheid-trackingvensters",
           "recovery_window": "Herstelvenster (minuten)",
           "use_device_names": "Apparaatnamen tonen",
-          "staleness_use_last_updated": "Attribuutupdates als activiteit tellen"
+          "staleness_use_last_updated": "Attribuutupdates als activiteit tellen",
+          "signal_enabled": "Signaalsterkte-monitoring inschakelen"
         },
         "data_description": {
           "non_essential_entities": "Entiteiten die worden weergegeven en geteld op de kaart maar worden uitgesloten van alle KPI's (aantal offline, beschikbaarheid %, MTBF, MTTR) en meldingen. Handig voor apparaten die naar verwachting offline zijn (tv in standby, printer uit tussen taken).",
@@ -104,7 +111,8 @@
           "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
           "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld.",
           "staleness_use_last_updated": "Wanneer ingeschakeld, stelt elke update van de entiteit — inclusief wijzigingen aan alleen attributen of herhaalde meldingen met dezelfde waarde — de inactiviteitstimer opnieuw in. Wanneer uitgeschakeld (standaard) telt alleen een wijziging in de hoofdstatus. Schakel dit in voor apparaten die vaak melden maar zelden van waarde veranderen (bijv. temperatuur of vermogen dat stabiel blijft).",
-          "entities": "Entiteiten die worden gecontroleerd op beschikbaarheid. Deze worden volledig gemonitord en opgenomen in alle KPI's en waarschuwingen."
+          "entities": "Entiteiten die worden gecontroleerd op beschikbaarheid. Deze worden volledig gemonitord en opgenomen in alle KPI's en waarschuwingen.",
+          "signal_enabled": "Volg de signaalsterkte (dBm) van bewaakte entiteiten en geef een waarschuwing wanneer de signaalkwaliteit daalt naar 'slecht'. Na het inschakelen wordt u gevraagd om een signaalsensor te koppelen en het netwerktype voor elke entiteit te selecteren."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Batterijsensor-toewijzing",
         "description": "Bevestig of wijzig de batterijsensor voor elke bewaakte entiteit. Laat leeg voor entiteiten zonder batterij. Ondersteunt numerieke (%) en tekststatussen ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signaalsterkte-toewijzing",
+        "description": "Voor elke entiteit, selecteer optioneel een signaalsensor en kies het netwerktype. Laat de sensor leeg om over te slaan.\n\nDrempelwaarden (goed / ok / slecht):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (hoger is beter)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Aantal inactief (niet-essentieel)"
+      },
+      "poor_signal": {
+        "name": "Slecht signaal"
+      },
+      "poor_signal_count": {
+        "name": "Aantal slechte signalen"
+      },
+      "poor_signal_non_essential": {
+        "name": "Slecht signaal (niet-essentieel)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Aantal slechte signalen (niet-essentieel)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "Inactieve entiteit aanwezig"
+      },
+      "any_poor_signal": {
+        "name": "Willekeurig slecht signaal"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Lage Batterij (Niet Essentieel)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Zwak Signaal (Niet Essentieel)"
       }
     }
   },

@@ -4169,6 +4169,7 @@ async def test_bus_events_stale_transition(
         assert rec["entity_id"] == "binary_sensor.device_a"
         assert rec["stale_count"] == 0
         assert rec["stale_entities"] == []
+        assert "stale_since" in rec  # added for parity with EVENT_STALE payload
 
 
 @pytest.mark.asyncio
@@ -4680,3 +4681,872 @@ async def test_restart_scenario_persisted_last_changed_survives(
     assert abs((device.last_changed - real_ts).total_seconds()) < 1
     # Stale detection must use the real 4-hour-old timestamp → entity is stale
     assert device.is_stale is True
+
+
+# ---------------------------------------------------------------------------
+# Signal strength: _get_signal_level
+# ---------------------------------------------------------------------------
+
+
+async def test_get_signal_level_returns_value_from_map(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_get_signal_level reads dBm from the mapped sensor entity."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "-65", {"unit_of_measurement": "dBm"})
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    result = coord._get_signal_level("binary_sensor.device_a")
+    assert result == -65
+
+
+async def test_get_signal_level_returns_none_when_no_map(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_get_signal_level returns None when entity has no signal mapping."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+    assert coord._get_signal_level("binary_sensor.device_a") is None
+
+
+async def test_get_signal_level_returns_none_when_sensor_unavailable(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_get_signal_level returns None when signal sensor state is unavailable."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "unavailable")
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+    assert coord._get_signal_level("binary_sensor.device_a") is None
+
+
+# ---------------------------------------------------------------------------
+# Signal strength: _classify_signal
+# ---------------------------------------------------------------------------
+
+
+async def test_classify_signal_good(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Signal >= good threshold classifies as 'good'."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "wifi"}
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+
+    # wifi good threshold is -67 dBm
+    assert coord._classify_signal("binary_sensor.device_a", -45) == "good"
+    assert coord._classify_signal("binary_sensor.device_a", -67) == "good"
+
+
+async def test_classify_signal_ok(mock_hass: HomeAssistant, mock_config_entry) -> None:
+    """Signal between ok and good thresholds classifies as 'ok'."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "wifi"}
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+
+    # wifi: good=-67, ok=-80 (ok band: -68 to -80)
+    assert coord._classify_signal("binary_sensor.device_a", -68) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", -80) == "ok"
+
+
+async def test_classify_signal_poor(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Signal below ok threshold classifies as 'poor'."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "wifi"}
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+
+    # wifi: ok=-80, poor is below that
+    assert coord._classify_signal("binary_sensor.device_a", -81) == "poor"
+    assert coord._classify_signal("binary_sensor.device_a", -90) == "poor"
+
+
+async def test_classify_signal_zwave_thresholds(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Z-Wave uses its own (lower) thresholds."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "zwave"}
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+
+    # zwave: good=-70, ok=-85
+    assert coord._classify_signal("binary_sensor.device_a", -72) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", -86) == "poor"
+
+
+async def test_classify_signal_unknown_network_type_falls_back_to_generic(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Unknown network type falls back to generic thresholds."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "notreal"}
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+
+    # generic: good=-60, ok=-80
+    assert coord._classify_signal("binary_sensor.device_a", -55) == "good"
+    assert coord._classify_signal("binary_sensor.device_a", -75) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", -85) == "poor"
+
+
+# ---------------------------------------------------------------------------
+# Signal strength: per-tick update sets device state fields
+# ---------------------------------------------------------------------------
+
+
+async def test_signal_level_and_quality_set_on_update(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Coordinator sets signal_level and signal_quality on device state each tick."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "-75")
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    device_a = coord.device_states["binary_sensor.device_a"]
+    assert device_a.signal_level == -75
+    # wifi poor threshold is -80 dBm; -75 > -80 → ok
+    assert device_a.signal_quality == "ok"
+
+
+async def test_signal_disabled_does_not_set_signal_fields(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """When signal_enabled=False, signal_level and signal_quality remain None."""
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "-45")
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    device_a = coord.device_states["binary_sensor.device_a"]
+    assert device_a.signal_level is None
+    assert device_a.signal_quality is None
+
+
+# ---------------------------------------------------------------------------
+# Signal strength: EVENT_POOR_SIGNAL / EVENT_SIGNAL_OK transitions
+# ---------------------------------------------------------------------------
+
+
+async def test_bus_events_poor_signal_transition(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """EVENT_POOR_SIGNAL fires when signal drops to poor; EVENT_SIGNAL_OK on recovery."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+        EVENT_POOR_SIGNAL,
+        EVENT_SIGNAL_OK,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "-45")  # good initially
+
+    poor_events: list = []
+    ok_events: list = []
+    hass.bus.async_listen(EVENT_POOR_SIGNAL, lambda e: poor_events.append(e))
+    hass.bus.async_listen(EVENT_SIGNAL_OK, lambda e: ok_events.append(e))
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+    device_a = coord.device_states["binary_sensor.device_a"]
+    assert device_a.signal_quality == "good"
+    assert poor_events == []
+
+    # Drop to poor signal
+    hass.states.async_set("sensor.device_a_rssi", "-85")
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+    assert device_a.signal_quality == "poor"
+    assert len(poor_events) == 1
+    assert poor_events[0].data["entity_id"] == "binary_sensor.device_a"
+    assert poor_events[0].data["signal_level"] == -85
+    assert poor_events[0].data["signal_quality"] == "poor"
+    assert ok_events == []
+
+    # Recover to good signal
+    hass.states.async_set("sensor.device_a_rssi", "-45")
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+    assert device_a.signal_quality == "good"
+    assert len(ok_events) == 1
+    assert ok_events[0].data["entity_id"] == "binary_sensor.device_a"
+
+
+async def test_poor_signal_non_essential_entity_no_essential_event(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Poor signal on NE entity does not appear in _poor_signal_entity_ids (essential only)."""
+    from custom_components.entity_availability.const import (
+        CONF_NON_ESSENTIAL_ENTITIES,
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_c_rssi", "-90")
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_NON_ESSENTIAL_ENTITIES] = ["binary_sensor.device_c"]
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_c": {
+            "sensor": "sensor.device_c_rssi",
+            "network_type": "wifi",
+        }
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    assert "binary_sensor.device_c" not in coord._poor_signal_entity_ids()
+    # But it IS poor signal in device state
+    assert coord.device_states["binary_sensor.device_c"].signal_quality == "poor"
+
+
+async def test_get_signal_level_empty_sensor_string(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_get_signal_level returns None when sensor key is empty string."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "", "network_type": "wifi"}
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    assert coord._get_signal_level("binary_sensor.device_a") is None
+
+
+async def test_get_signal_level_unparseable_state(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_get_signal_level returns None when sensor state is not numeric."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "bad_value")
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    assert coord._get_signal_level("binary_sensor.device_a") is None
+
+
+async def test_poor_signal_suppressed_entity_no_poor_signal_event(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Poor signal on suppressed entity fires no EVENT_POOR_SIGNAL and excluded from IDs."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+        EVENT_POOR_SIGNAL,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "-85")
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    poor_events: list = []
+    hass.bus.async_listen(EVENT_POOR_SIGNAL, lambda e: poor_events.append(e))
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        # Suppress device_a before first update
+        coord.suppress_entity("binary_sensor.device_a")
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+    # Suppressed entity: no event, not in IDs list, signal not processed (whole tick skipped)
+    assert poor_events == []
+    assert "binary_sensor.device_a" not in coord._poor_signal_entity_ids()
+    # Suppressed → entire tick block skipped → signal_quality stays None
+    assert coord.device_states["binary_sensor.device_a"].signal_quality is None
+
+
+async def test_prev_signal_poor_persists_while_suppressed(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_prev_signal_poor stays True while suppressed; no duplicate event on unsuppress."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+        EVENT_POOR_SIGNAL,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "-45")  # good initially
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    poor_events: list = []
+    hass.bus.async_listen(EVENT_POOR_SIGNAL, lambda e: poor_events.append(e))
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        # First tick: good signal
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert poor_events == []
+
+        # Signal drops to poor, suppress simultaneously
+        hass.states.async_set("sensor.device_a_rssi", "-85")
+        coord.suppress_entity("binary_sensor.device_a")
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        # Suppressed → not in poor_signal_entity_ids, no event
+        assert poor_events == []
+
+        # Unsuppress — signal still poor; _prev_signal_poor=False (skipped while suppressed)
+        # so EVENT_POOR_SIGNAL fires on the first post-unsuppress tick
+        coord.unsuppress_entity("binary_sensor.device_a")
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        # was_poor=False (never updated while suppressed) + signal_poor=True → event fires
+        assert len(poor_events) == 1
+        assert poor_events[0].data["entity_id"] == "binary_sensor.device_a"
+
+
+async def test_new_entity_in_signal_enabled_group_gets_no_prefill(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """New entity added to a signal-enabled group has no pre-fill in signal_map."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    # Existing signal map only covers device_a; device_b is new
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"}
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    # device_b has no mapping → signal_level, signal_quality, signal_unit all None
+    device_b = coord.device_states.get("binary_sensor.device_b")
+    assert device_b is not None
+    assert device_b.signal_level is None
+    assert device_b.signal_quality is None
+    assert device_b.signal_unit is None
+
+
+async def test_signal_level_cleared_when_sensor_becomes_unavailable(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """signal_level resets to None when signal sensor goes unavailable (no stale value kept)."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    hass = mock_hass
+    hass.states.async_set("sensor.device_a_rssi", "-45")  # good signal
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {
+            "sensor": "sensor.device_a_rssi",
+            "network_type": "wifi",
+        }
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    device_a = coord.device_states["binary_sensor.device_a"]
+    assert device_a.signal_level == -45
+    assert device_a.signal_quality == "good"
+
+    # Sensor goes unavailable — level must be cleared, not kept stale
+    hass.states.async_set("sensor.device_a_rssi", "unavailable")
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        await coord._async_update_data()
+
+    assert device_a.signal_level is None
+    assert device_a.signal_quality is None
+
+
+async def test_ok_signal_entity_ids_returns_ok_essential(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_ok_signal_entity_ids returns essential non-suppressed entities with ok signal."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+    from custom_components.entity_availability.models import DeviceState
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {}
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    coord._device_states["sensor.a"] = DeviceState(
+        entity_id="sensor.a", signal_quality="ok"
+    )
+    coord._device_states["sensor.b"] = DeviceState(
+        entity_id="sensor.b", signal_quality="poor"
+    )
+    coord._device_states["sensor.c"] = DeviceState(
+        entity_id="sensor.c", signal_quality="ok", is_non_essential=True
+    )
+    coord._device_states["sensor.d"] = DeviceState(
+        entity_id="sensor.d", signal_quality="ok", is_suppressed=True
+    )
+
+    result = coord._ok_signal_entity_ids()
+    assert result == ["sensor.a"]
+
+
+async def test_classify_signal_percent_network_type(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """percent network type uses positive integer thresholds (good=70, ok=40)."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "percent"}
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    # percent: good >= 70, ok >= 40, poor < 40
+    assert coord._classify_signal("binary_sensor.device_a", 75) == "good"
+    assert coord._classify_signal("binary_sensor.device_a", 70) == "good"
+    assert coord._classify_signal("binary_sensor.device_a", 55) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", 40) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", 39) == "poor"
+    assert coord._classify_signal("binary_sensor.device_a", 0) == "poor"
+
+
+def test_setup_state_listeners_includes_signal_sensors(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """When signal_enabled, signal sensor IDs are added to the tracked entity list."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.a_rssi", "network_type": "wifi"},
+        "binary_sensor.device_b": {
+            "sensor": "sensor.b_rssi",
+            "network_type": "zigbee_lqi",
+        },
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    tracked_ids = []
+
+    def capture_track(hass, entity_ids, callback):
+        tracked_ids.extend(entity_ids)
+        return lambda: None
+
+    with patch(
+        "custom_components.entity_availability.coordinator.async_track_state_change_event",
+        side_effect=capture_track,
+    ):
+        coord._setup_state_listeners()
+
+    assert "sensor.a_rssi" in tracked_ids
+    assert "sensor.b_rssi" in tracked_ids
+    # Original entities still tracked
+    assert "binary_sensor.device_a" in tracked_ids

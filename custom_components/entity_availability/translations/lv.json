@@ -52,18 +52,24 @@
           "battery_threshold": "Zema akumulatora līmeņa slieksnis (%, 0 = atspējots)",
           "availability_windows": "Pieejamības izsekošanas logi",
           "recovery_window": "Atjaunošanas logs",
-          "use_device_names": "Rādīt ierīces nosaukumus"
+          "use_device_names": "Rādīt ierīces nosaukumus",
+          "signal_enabled": "Iespējot signāla stipruma uzraudzību"
         },
         "data_description": {
-          "battery_threshold": "Atzīmēt entitātes, kuru akumulators nokrītas zem šī procenta. Stāvoklis „zems” tiek atklāts arī automātiski. Voltāžas entitātes netiek atbalstītas. Izmantojiet entitātes, kas ziņo akumulatoru kā procentus vai atbalsta stāvokli „zems”.",
+          "battery_threshold": "Atzīmēt entitātes, kuru akumulators nokrītas zem šī procenta. Stāvoklis „zems\" tiek atklāts arī automātiski. Voltāžas entitātes netiek atbalstītas. Izmantojiet entitātes, kas ziņo akumulatoru kā procentus vai atbalsta stāvokli „zems\".",
           "availability_windows": "Laika logi grupas pieejamības vēstures izsekošanai (piemēram, šodien, 3d, 7d).",
-          "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē” vai „Nesen atjaunots” pēc stāvokļa pārejas.",
-          "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci."
+          "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē\" vai „Nesen atjaunots\" pēc stāvokļa pārejas.",
+          "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci.",
+          "signal_enabled": "Izsekot signāla stiprumu (dBm) uzraudzītajiem elementiem un brīdināt, kad signāla kvalitāte nokrītas līdz \"vājam\". Pēc iespējošanas jums tiks lūgts saistīt signāla sensoru un katram elementam izvēlēties tīkla veidu."
         }
       },
       "battery_mapping": {
         "title": "Akumulatora entitāšu kartēšana",
         "description": "Apstipriniet vai mainiet akumulatora sensoru katrai uzraugāmajai entitātei. Atstājiet tukšu entitātēm bez akumulatora. Atbalsta skaitliskos (%) un teksta stāvokļus ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signāla stipruma kartēšana",
+        "description": "Katrai entītijai pēc izvēles atlasiet signāla sensoru un izvēlieties tīkla tipu. Atstājiet sensoru tukšu, lai izlaistu.\\n\\nSliekšņi (labi / normāli / slikti):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (jo augstāks, jo labāks)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Pieejamības izsekošanas logi",
           "recovery_window": "Atjaunošanas logs (minūtes)",
           "use_device_names": "Rādīt ierīces nosaukumus",
-          "staleness_use_last_updated": "Atribūtu atjauninājumus skaitīt kā aktivitāti"
+          "staleness_use_last_updated": "Atribūtu atjauninājumus skaitīt kā aktivitāti",
+          "signal_enabled": "Iespējot signāla stipruma uzraudzību"
         },
         "data_description": {
           "entities": "Entitātes, kuru pieejamība tiks izsekota. Tās tiek pilnībā uzraudzītas un iekļautas visos KPI un brīdinājumos.",
@@ -100,11 +107,12 @@
           "bad_states": "Entitāšu stāvokļi, kas norāda, ka entitāte ir bezsaistē (piemēram, nepieejama, nezināma).",
           "cooldown": "Cik ilgi (sekundēs) entitātei jāpaliek slikta stāvoklī, pirms tā tiek atzīmēta kā bezsaistē esoša. Novērš viltus trauksmes īsu atvienojumu gadījumā.",
           "staleness_threshold": "Ja entitāte nav mainījusi stāvokli šo minūšu skaitu, tā tiek atzīmēta kā degradēta. Iestatiet 0, lai atspējotu.",
-          "battery_threshold": "Atzīmēt entitātes, kuru akumulators nokrītas zem šī procenta. Stāvoklis „zems” tiek atklāts arī automātiski. Voltāžas entitātes netiek atbalstītas.",
+          "battery_threshold": "Atzīmēt entitātes, kuru akumulators nokrītas zem šī procenta. Stāvoklis „zems\" tiek atklāts arī automātiski. Voltāžas entitātes netiek atbalstītas.",
           "availability_windows": "Laika logi grupas pieejamības vēstures izsekošanai (piemēram, šodien, 3d, 7d).",
-          "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē” vai „Nesen atjaunots” pēc stāvokļa pārejas.",
+          "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē\" vai „Nesen atjaunots\" pēc stāvokļa pārejas.",
           "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci.",
-          "staleness_use_last_updated": "Ieslēgts — jebkurš entitātes atjauninājums, ieskaitot tikai atribūtu izmaiņas vai atkārtotus vienas un tās pašas vērtības ziņojumus, atiestata novecošanas taimeri. Izslēgts (noklusējums) — tiek skaitītas tikai galvenā stāvokļa izmaiņas. Ieslēdziet ierīcēm, kas bieži ziņo, bet reti maina vērtību (piemēram, temperatūra vai jauda, kas paliek stabila)."
+          "staleness_use_last_updated": "Ieslēgts — jebkurš entitātes atjauninājums, ieskaitot tikai atribūtu izmaiņas vai atkārtotus vienas un tās pašas vērtības ziņojumus, atiestata novecošanas taimeri. Izslēgts (noklusējums) — tiek skaitītas tikai galvenā stāvokļa izmaiņas. Ieslēdziet ierīcēm, kas bieži ziņo, bet reti maina vērtību (piemēram, temperatūra vai jauda, kas paliek stabila).",
+          "signal_enabled": "Izsekot signāla stiprumu (dBm) uzraudzītajiem elementiem un brīdināt, kad signāla kvalitāte nokrītas līdz \"vājam\". Pēc iespējošanas jums tiks lūgts saistīt signāla sensoru un katram elementam izvēlēties tīkla veidu."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Akumulatora entitāšu kartēšana",
         "description": "Apstipriniet vai mainiet akumulatora sensoru katrai uzraugāmajai entitātei. Atstājiet tukšu entitātēm bez akumulatora. Atbalsta skaitliskos (%) un teksta stāvokļus ('low')."
+      },
+      "signal_mapping": {
+        "title": "Signāla stipruma kartēšana",
+        "description": "Katrai entītijai pēc izvēles atlasiet signāla sensoru un izvēlieties tīkla tipu. Atstājiet sensoru tukšu, lai izlaistu.\\n\\nSliekšņi (labi / normāli / slikti):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (jo augstāks, jo labāks)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Novecojušo skaits (Nebūtiski)"
+      },
+      "poor_signal": {
+        "name": "Vājš signāls"
+      },
+      "poor_signal_count": {
+        "name": "Vājā signāla skaits"
+      },
+      "poor_signal_non_essential": {
+        "name": "Vājš signāls (mazsvarīgs)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Vājā signāla skaits (mazsvarīgs)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "Ir novecojuši dati"
+      },
+      "any_poor_signal": {
+        "name": "Jebkāds vājš signāls"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Zems Akumulators (Nav Svarīgi)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Vājš Signāls (Nav Svarīgi)"
       }
     }
   },

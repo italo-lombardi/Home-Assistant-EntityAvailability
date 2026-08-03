@@ -29,10 +29,24 @@ _CARD_INSTALLED_KEY = "_card_installed"
 
 
 def _get_version() -> str:
-    """Get integration version from manifest."""
+    """Get cache-bust key: version + card JS content hash.
+
+    Including a hash of the card JS ensures the Lovelace resource URL changes
+    whenever the JS file is updated, even when the integration version stays the same.
+    This forces browsers to fetch the new file instead of serving a cached copy.
+    """
+    import hashlib
+
     manifest = Path(__file__).parent / "manifest.json"
+    version = "0.0.0"
     with manifest.open() as f:
-        return json.load(f).get("version", "0.0.0")
+        version = json.load(f).get("version", "0.0.0")
+
+    card = Path(__file__).parent / "frontend" / CARD_FILENAME
+    if card.exists():
+        md5 = hashlib.md5(card.read_bytes(), usedforsecurity=False).hexdigest()[:8]
+        return f"{version}-{md5}"
+    return version
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

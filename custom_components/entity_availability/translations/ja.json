@@ -52,18 +52,24 @@
           "battery_threshold": "低バッテリーしきい値（%、0=無効）",
           "availability_windows": "可用性追跡ウィンドウ",
           "recovery_window": "回復ウィンドウ",
-          "use_device_names": "デバイス名を表示"
+          "use_device_names": "デバイス名を表示",
+          "signal_enabled": "シグナル強度モニタリングを有効にする"
         },
         "data_description": {
           "battery_threshold": "バッテリーがこのパーセンテージを下回るエンティティにフラグを立てます。「low」状態も自動的に検出されます。電圧ベースのエンティティはサポートされていません。バッテリーをパーセンテージで報告するか「low」状態をサポートするエンティティを使用してください。",
           "availability_windows": "グループの可用性履歴を追跡する時間ウィンドウ（例：today、3d、7d）。",
           "recovery_window": "状態遷移後にエンティティが「最近オフライン」または「最近回復」センサーに残る時間（分）。",
-          "use_device_names": "オフライン・回復センサーの状態でエンティティのフレンドリー名の代わりにHAデバイス名を表示します。デバイスに紐付けられていないエンティティはフレンドリー名にフォールバックします。"
+          "use_device_names": "オフライン・回復センサーの状態でエンティティのフレンドリー名の代わりにHAデバイス名を表示します。デバイスに紐付けられていないエンティティはフレンドリー名にフォールバックします。",
+          "signal_enabled": "監視対象エンティティのシグナル強度（dBm）を追跡し、シグナル品質が「不良」に低下した場合にアラートを通知します。有効にすると、各エンティティにシグナルセンサーをバインドし、ネットワークタイプを選択するよう求められます。"
         }
       },
       "battery_mapping": {
         "title": "バッテリーエンティティのマッピング",
         "description": "監視中の各エンティティのバッテリーセンサーを確認または変更します。バッテリーのないエンティティは空欄のままにしてください。数値（%）とテキスト状態（「low」）をサポートします。"
+      },
+      "signal_mapping": {
+        "title": "シグナル強度マッピング",
+        "description": "各エンティティについて、任意でシグナルセンサーを選択し、ネットワークタイプを選んでください。センサーを空のままにするとスキップされます。\n\n閾値（良好 / 普通 / 不良）：\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (値が高いほど良好)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "可用性追跡ウィンドウ",
           "recovery_window": "回復ウィンドウ（分）",
           "use_device_names": "デバイス名を表示",
-          "staleness_use_last_updated": "属性の更新もアクティビティとしてカウントする"
+          "staleness_use_last_updated": "属性の更新もアクティビティとしてカウントする",
+          "signal_enabled": "シグナル強度モニタリングを有効にする"
         },
         "data_description": {
           "entities": "可用性を追跡するエンティティです。完全に監視され、すべてのKPIとアラートに含まれます。",
@@ -104,7 +111,8 @@
           "availability_windows": "グループの可用性履歴を追跡する時間ウィンドウ（例：today、3d、7d）。",
           "recovery_window": "状態遷移後にエンティティが「最近オフライン」または「最近回復」センサーに残る時間（分）。",
           "use_device_names": "オフライン・回復センサーの状態でエンティティのフレンドリー名の代わりにHAデバイス名を表示します。デバイスに紐付けられていないエンティティはフレンドリー名にフォールバックします。",
-          "staleness_use_last_updated": "オンにすると、属性のみの変更や同じ値の繰り返し報告を含む、エンティティからのあらゆる更新でデータ停止タイマーがリセットされます。オフ（デフォルト）の場合、メインの状態変化のみがカウントされます。値がほとんど変化しないが頻繁に報告するデバイス（温度や電力など）に有効にします。"
+          "staleness_use_last_updated": "オンにすると、属性のみの変更や同じ値の繰り返し報告を含む、エンティティからのあらゆる更新でデータ停止タイマーがリセットされます。オフ（デフォルト）の場合、メインの状態変化のみがカウントされます。値がほとんど変化しないが頻繁に報告するデバイス（温度や電力など）に有効にします。",
+          "signal_enabled": "監視対象エンティティのシグナル強度（dBm）を追跡し、シグナル品質が「不良」に低下した場合にアラートを通知します。有効にすると、各エンティティにシグナルセンサーをバインドし、ネットワークタイプを選択するよう求められます。"
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "バッテリーエンティティのマッピング",
         "description": "監視中の各エンティティのバッテリーセンサーを確認または変更します。バッテリーのないエンティティは空欄のままにしてください。数値（%）とテキスト状態（「low」）をサポートします。"
+      },
+      "signal_mapping": {
+        "title": "シグナル強度マッピング",
+        "description": "各エンティティについて、任意でシグナルセンサーを選択し、ネットワークタイプを選んでください。センサーを空のままにするとスキップされます。\n\n閾値（良好 / 普通 / 不良）：\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (値が高いほど良好)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "データ停止数（非必須）"
+      },
+      "poor_signal": {
+        "name": "シグナル不良"
+      },
+      "poor_signal_count": {
+        "name": "シグナル不良件数"
+      },
+      "poor_signal_non_essential": {
+        "name": "シグナル不良（非必須）"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "シグナル不良件数（非必須）"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "データ停止あり"
+      },
+      "any_poor_signal": {
+        "name": "シグナル不良あり"
+      },
+      "any_low_battery_non_essential": {
+        "name": "バッテリー低下（重要でない）"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "弱い信号（重要でない）"
       }
     }
   },

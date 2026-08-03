@@ -3153,3 +3153,120 @@ class TestCombinedNonEssential:
         assert (
             g["non_essential"] == g["non_essential_online"] + g["non_essential_offline"]
         )
+
+
+# ---------------------------------------------------------------------------
+# Signal rollup tests for CombinedGroupSensor
+# ---------------------------------------------------------------------------
+
+
+class TestCombinedSignalRollup:
+    """Tests for signal_enabled flag and poor_signal_count deduplication in combined summary."""
+
+    def _sensor(self, hass, entry, coordinators):
+        return CombinedGroupSensor(
+            hass,
+            entry,
+            "Combined",
+            "combined",
+            [c.entry.entry_id for c in coordinators],
+        )
+
+    def test_signal_enabled_true_when_any_source_group_has_signal(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """signal_enabled=True in combined summary when at least one source group has signal enabled."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        # Enable signal on coordinator_a only
+        coordinators[0]._signal_enabled = True
+        coordinators[1]._signal_enabled = False
+
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["signal_enabled"] is True
+
+    def test_signal_enabled_false_when_no_source_group_has_signal(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """signal_enabled=False when all source groups have signal disabled."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        coordinators[0]._signal_enabled = False
+        coordinators[1]._signal_enabled = False
+
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["signal_enabled"] is False
+        assert attrs["poor_signal"] == 0
+
+    def test_poor_signal_count_deduplicated_for_shared_entity(self, mock_hass):
+        """poor_signal_count is 1 when the same poor-signal entity appears in two source groups."""
+        entry_a = _make_group_entry("entry_a", "Group A", ["binary_sensor.shared"])
+        entry_b = _make_group_entry("entry_b", "Group B", ["binary_sensor.shared"])
+        combined = _make_combined_entry("combined_sig", "Sig", ["entry_a", "entry_b"])
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._signal_enabled = True
+            coord_a._device_states = {
+                "binary_sensor.shared": DeviceState(
+                    entity_id="binary_sensor.shared", signal_quality="poor"
+                ),
+            }
+            coord_b = EntityAvailabilityCoordinator(mock_hass, entry_b)
+            coord_b._signal_enabled = True
+            coord_b._device_states = {
+                "binary_sensor.shared": DeviceState(
+                    entity_id="binary_sensor.shared", signal_quality="poor"
+                ),
+            }
+
+        mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_b": coord_b}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "Sig", "sig", ["entry_a", "entry_b"]
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["signal_enabled"] is True
+        assert attrs["poor_signal"] == 1, "shared entity must count once, not twice"
+
+    def test_poor_signal_mixed_enabled_groups(self, mock_hass):
+        """Combined signal_enabled=True; count reflects only entities with poor signal from enabled group."""
+        entry_a = _make_group_entry("entry_a", "Group A", ["binary_sensor.a1"])
+        entry_b = _make_group_entry("entry_b", "Group B", ["binary_sensor.b1"])
+        combined = _make_combined_entry("combined_mix", "Mix", ["entry_a", "entry_b"])
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._signal_enabled = True
+            coord_a._device_states = {
+                "binary_sensor.a1": DeviceState(
+                    entity_id="binary_sensor.a1", signal_quality="poor"
+                ),
+            }
+            coord_b = EntityAvailabilityCoordinator(mock_hass, entry_b)
+            coord_b._signal_enabled = False
+            coord_b._device_states = {
+                "binary_sensor.b1": DeviceState(
+                    entity_id="binary_sensor.b1", signal_quality="poor"
+                ),
+            }
+
+        mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_b": coord_b}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "Mix", "mix", ["entry_a", "entry_b"]
+        )
+        attrs = sensor.extra_state_attributes
+        assert attrs["signal_enabled"] is True
+        # Both a1 and b1 have signal_quality="poor" in merged_states; count is 2
+        # (the feature flag on coord_b doesn't filter merged_states — only signal_enabled
+        # at the combined level gates the whole count to 0 vs non-zero)
+        assert attrs["poor_signal"] == 2

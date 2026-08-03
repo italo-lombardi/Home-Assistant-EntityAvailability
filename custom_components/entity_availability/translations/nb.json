@@ -52,18 +52,24 @@
           "battery_threshold": "Grense for lavt batteri (%, 0 = deaktivert)",
           "availability_windows": "Tilgjengelighetssporingsvinduer",
           "recovery_window": "Gjenopprettingsvindu",
-          "use_device_names": "Vis enhetsnavn"
+          "use_device_names": "Vis enhetsnavn",
+          "signal_enabled": "Aktiver overvåkning av signalstyrke"
         },
         "data_description": {
           "battery_threshold": "Markerer enheter hvis batteri faller under denne prosentandelen. Tilstanden 'low' oppdages også automatisk. Volt-baserte enheter støttes ikke. Bruk enheter som rapporterer batteri som prosent eller støtter tilstanden 'low'.",
           "availability_windows": "Tidsvinduer for sporing av gruppens tilgjengelighetshistorikk (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
-          "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet."
+          "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
+          "signal_enabled": "Spor signalstyrke (dBm) for overvåkede enheter og varsle når signalkvaliteten faller til «dårlig». Etter aktivering vil du bli bedt om å koble til en signalsensor og velge nettverkstype for hver enhet."
         }
       },
       "battery_mapping": {
         "title": "Batterientitetstilordning",
         "description": "Bekreft eller endre batterisensoren for hver overvåkede entitet. La stå tom for entiteter uten batterier. Støtter numeriske (%) og teksttilstander ('low')."
+      },
+      "signal_mapping": {
+        "title": "Tilordning av signalstyrke",
+        "description": "For hver entity, velg eventuelt en signalsensor og velg nettverkstype. La sensoren stå tom for å hoppe over.\n\nTerskler (god / ok / dårlig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (høyere er bedre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     },
     "error": {
@@ -92,7 +98,8 @@
           "availability_windows": "Tilgjengelighetssporingsvinduer",
           "recovery_window": "Gjenopprettingsvindu (minutter)",
           "use_device_names": "Vis enhetsnavn",
-          "staleness_use_last_updated": "Tell attributtoppdateringer som aktivitet"
+          "staleness_use_last_updated": "Tell attributtoppdateringer som aktivitet",
+          "signal_enabled": "Aktiver overvåkning av signalstyrke"
         },
         "data_description": {
           "non_essential_entities": "Enheter som vises og telles på kortet, men utelukkes fra alle KPI-er (antall offline, tilgjengelighet %, MTBF, MTTR) og varsler. Nyttig for enheter som forventes å være offline (TV i standby, skriver avslått mellom jobber).",
@@ -104,7 +111,8 @@
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
           "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
           "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil).",
-          "entities": "Enheter som overvåkes for tilgjengelighet. Disse er fullt overvåket og inkludert i alle KPI-er og varsler."
+          "entities": "Enheter som overvåkes for tilgjengelighet. Disse er fullt overvåket og inkludert i alle KPI-er og varsler.",
+          "signal_enabled": "Spor signalstyrke (dBm) for overvåkede enheter og varsle når signalkvaliteten faller til «dårlig». Etter aktivering vil du bli bedt om å koble til en signalsensor og velge nettverkstype for hver enhet."
         }
       },
       "combined_init": {
@@ -118,6 +126,10 @@
       "battery_mapping": {
         "title": "Batterientitetstilordning",
         "description": "Bekreft eller endre batterisensoren for hver overvåkede entitet. La stå tom for entiteter uten batterier. Støtter numeriske (%) og teksttilstander ('low')."
+      },
+      "signal_mapping": {
+        "title": "Tilordning av signalstyrke",
+        "description": "For hver entity, velg eventuelt en signalsensor og velg nettverkstype. La sensoren stå tom for å hoppe over.\n\nTerskler (god / ok / dårlig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (høyere er bedre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
     }
   },
@@ -200,6 +212,18 @@
       },
       "stale_count_non_essential": {
         "name": "Antall inaktive (ikke-kritiske)"
+      },
+      "poor_signal": {
+        "name": "Dårlig signal"
+      },
+      "poor_signal_count": {
+        "name": "Antall dårlige signaler"
+      },
+      "poor_signal_non_essential": {
+        "name": "Dårlig signal (ikke-essensielt)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Antall dårlige signaler (ikke-essensielt)"
       }
     },
     "binary_sensor": {
@@ -217,6 +241,15 @@
       },
       "any_stale": {
         "name": "Inaktiv entitet tilstede"
+      },
+      "any_poor_signal": {
+        "name": "Noe dårlig signal"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Lavt Batteri (Ikke-essensiell)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Svakt Signal (Ikke-essensiell)"
       }
     }
   },

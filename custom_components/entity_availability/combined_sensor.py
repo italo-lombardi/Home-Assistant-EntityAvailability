@@ -498,6 +498,11 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "staleness_enabled": coord.entry.data.get(CONF_STALENESS_THRESHOLD, 0)
                 > 0,
                 "battery_powered": g_battery_powered,
+                "signal_enabled": coord._signal_enabled,
+                # Per-group poor_signal is NOT deduped — a shared entity counts in each group's row.
+                # The combined total (poor_signal_count below) IS deduped via merged_states.
+                "poor_signal": len(coord._poor_signal_entity_ids()),
+                "non_essential_poor_signal": len(coord._poor_signal_ne_entity_ids()),
             }
 
         # Build merged state map (first-wins for shared entities) to dedup all counts.
@@ -573,6 +578,18 @@ class CombinedGroupSensor(CombinedSensorBase):
         staleness_enabled = any(
             coord.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0 for coord in active
         )
+        signal_enabled = any(coord._signal_enabled for coord in active)
+        poor_signal_count = (
+            sum(
+                1
+                for d in merged_states.values()
+                if d.signal_quality == "poor"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            )
+            if signal_enabled
+            else 0
+        )
         display_names: dict[str, str] = {}
         for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
@@ -593,6 +610,8 @@ class CombinedGroupSensor(CombinedSensorBase):
             "battery_powered": battery_powered,
             "battery_enabled": battery_enabled,
             "staleness_enabled": staleness_enabled,
+            "signal_enabled": signal_enabled,
+            "poor_signal": poor_signal_count,
             "groups": groups,
             "entities": all_entities,
             "display_names": display_names,
