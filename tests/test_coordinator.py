@@ -5461,3 +5461,40 @@ async def test_ok_signal_entity_ids_returns_ok_essential(
 
     result = coord._ok_signal_entity_ids()
     assert result == ["sensor.a"]
+
+
+async def test_classify_signal_percent_network_type(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """percent network type uses positive integer thresholds (good=70, ok=40)."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "percent"}
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    # percent: good >= 70, ok >= 40, poor < 40
+    assert coord._classify_signal("binary_sensor.device_a", 75) == "good"
+    assert coord._classify_signal("binary_sensor.device_a", 70) == "good"
+    assert coord._classify_signal("binary_sensor.device_a", 55) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", 40) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", 39) == "poor"
+    assert coord._classify_signal("binary_sensor.device_a", 0) == "poor"

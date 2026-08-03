@@ -1211,7 +1211,7 @@ class EntityAvailabilityCard extends LitElement {
           status = "Poor Signal";
         } else if (isOkSignal) {
           dotColor = "yellow";
-          status = "Weak Signal";
+          status = "Signal: OK";
         } else {
           dotColor = "green";
           status = "Online";
