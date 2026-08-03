@@ -1252,6 +1252,10 @@ def main():
             "1",
         )
         if combined_prefix:
+            wait_for(
+                lambda: gs(f"{combined_prefix}_combined_summary").get("attributes", {}).get("offline"),
+                1,
+            )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
             chk("EC1 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
@@ -1355,6 +1359,10 @@ def main():
             0,
         )
         if combined_prefix:
+            wait_for(
+                lambda: gs(f"{combined_prefix}_combined_summary").get("attributes", {}).get("offline"),
+                1,
+            )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")
             chk("EC5 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
@@ -1393,6 +1401,10 @@ def main():
             "90",
         )
         if combined_prefix:
+            wait_for(
+                lambda: gs(f"{combined_prefix}_combined_summary").get("attributes", {}).get("offline"),
+                0,
+            )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC6 combined offline=0", str(c_attrs.get("offline")), "0")
             chk("EC6 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
@@ -1869,6 +1881,7 @@ def main():
                     wait()
                 # EC18: recovery → combined offline_count drops back to baseline
                 restore_and_wait(ctx)
+                wait_for(lambda: int(gs(c_offline_eid).get("state", "0")), baseline)
                 after_recovery = int(gs(c_offline_eid).get("state", "0"))
                 chk(
                     "EC18 combined offline_count returns to baseline after recovery",

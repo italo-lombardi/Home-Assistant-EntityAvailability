@@ -34,18 +34,25 @@ def mock_config_data_diag():
         "bad_states": ["unavailable", "unknown"],
         "cooldown": 30,
         "staleness_threshold": 10,
+        "staleness_use_last_updated": True,
         "battery_threshold": 20,
+        "signal_enabled": True,
         "availability_windows": ["today", "7d"],
         "recovery_window": 5,
-        "battery_entity_map": {},
+        "battery_entity_map": {"binary_sensor.device_a": "sensor.device_a_battery"},
+        "signal_entity_map": {
+            "binary_sensor.device_a": {
+                "entity": "sensor.device_a_signal",
+                "network_type": "zigbee_lqi",
+            }
+        },
         "use_device_names": False,
-        "staleness_use_last_updated": False,
     }
 
 
 @pytest.mark.asyncio
 async def test_diagnostics_group_entry(mock_hass: HomeAssistant, mock_config_data_diag):
-    """Diagnostics returns correct counts for a group entry."""
+    """Diagnostics returns correct config, entities, and counts for a group entry."""
     hass = mock_hass
     entry = MockConfigEntry(
         version=1,
@@ -81,23 +88,45 @@ async def test_diagnostics_group_entry(mock_hass: HomeAssistant, mock_config_dat
 
     assert result["entry_type"] == "group"
     assert result["title"] == "Test Group"
-    assert result["config"]["cooldown_seconds"] == 30
-    assert result["config"]["staleness_threshold_minutes"] == 10
-    assert result["config"]["battery_threshold_pct"] == 20
-    assert result["config"]["availability_windows"] == ["today", "7d"]
-    assert result["entity_count"] == 2
-    assert result["essential_count"] == 1
-    assert result["non_essential_count"] == 1
-    assert result["offline_count"] == 1
-    assert result["offline_count_non_essential"] == 0
-    assert result["suppressed_count"] == 0
-    assert result["low_battery_count"] == 0  # NE excluded
-    assert result["stale_count"] == 0
+
+    cfg = result["config"]
+    assert cfg["cooldown_seconds"] == 30
+    assert cfg["staleness_threshold_minutes"] == 10
+    assert cfg["staleness_use_last_updated"] is True
+    assert cfg["battery_threshold_pct"] == 20
+    assert cfg["signal_enabled"] is True
+    assert cfg["recovery_window_minutes"] == 5
+    assert cfg["bad_states"] == ["unavailable", "unknown"]
+    assert cfg["use_device_names"] is False
+    assert cfg["availability_windows"] == ["today", "7d"]
+
+    ents = result["entities"]
+    assert ents["essential"] == ["binary_sensor.device_a"]
+    assert ents["non_essential"] == ["binary_sensor.device_b"]
+    assert ents["battery_entity_map"] == {
+        "binary_sensor.device_a": "sensor.device_a_battery"
+    }
+    assert ents["signal_entity_map"] == {
+        "binary_sensor.device_a": {
+            "entity": "sensor.device_a_signal",
+            "network_type": "zigbee_lqi",
+        }
+    }
+
+    counts = result["counts"]
+    assert counts["total"] == 2
+    assert counts["essential"] == 1
+    assert counts["non_essential"] == 1
+    assert counts["offline"] == 1
+    assert counts["offline_non_essential"] == 0
+    assert counts["suppressed"] == 0
+    assert counts["low_battery"] == 0  # NE excluded
+    assert counts["stale"] == 0
 
 
 @pytest.mark.asyncio
 async def test_diagnostics_combined_entry(mock_hass: HomeAssistant):
-    """Diagnostics returns summary for a combined entry."""
+    """Diagnostics returns group list for a combined entry."""
     hass = mock_hass
     entry = MockConfigEntry(
         version=1,
@@ -117,7 +146,7 @@ async def test_diagnostics_combined_entry(mock_hass: HomeAssistant):
 
     assert result["entry_type"] == "combined"
     assert result["title"] == "Combined"
-    assert result["combined_groups"] == 2
+    assert result["combined_groups"] == ["entry_a", "entry_b"]
 
 
 @pytest.mark.asyncio
@@ -136,7 +165,45 @@ async def test_diagnostics_coordinator_not_loaded(
     )
     entry.add_to_hass(hass)
     hass.data.setdefault(DOMAIN, {})
-    # Don't add coordinator to hass.data
 
     result = await async_get_config_entry_diagnostics(hass, entry)
     assert result["error"] == "coordinator not loaded"
+
+
+@pytest.mark.asyncio
+async def test_diagnostics_group_defaults(mock_hass: HomeAssistant):
+    """Diagnostics falls back to defaults when optional fields absent."""
+    hass = mock_hass
+    minimal_data = {
+        CONF_GROUP_NAME: "Minimal",
+        "entities": ["binary_sensor.x"],
+        "bad_states": ["unavailable"],
+        "recovery_window": 5,
+        "battery_entity_map": {},
+        "use_device_names": False,
+        "staleness_use_last_updated": False,
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Minimal",
+        data=minimal_data,
+        entry_id="diag_minimal",
+        unique_id=f"{DOMAIN}_diag_minimal",
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._device_states = {}
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["diag_minimal"] = coord
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert result["entities"]["non_essential"] == []
+    assert result["entities"]["signal_entity_map"] == {}
+    assert result["config"]["signal_enabled"] is False
+    assert result["counts"]["total"] == 0
