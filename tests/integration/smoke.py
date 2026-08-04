@@ -2690,9 +2690,12 @@ for e in cfg['data']['entries']:
                     f"  EC52: skipped (flow did not reach signal_mapping, got step={r2.get('step_id')})",
                     flush=True,
                 )
-            api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
+            try:
+                api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
+            except Exception:
+                pass  # flow may have expired (HA flow TTL)
 
-    # EC53: diagnostics new schema on the main (non-NE) group entry
+ diagnostics new schema on the main (non-NE) group entry
     if ec_enabled(53):
         print(
             "\n=== EC53: diagnostics new schema on main group entry ===",
