@@ -492,7 +492,6 @@ def setup_battery(ctx):
         ctx["mapped_battery_entity"] = target_entity
         ctx["mapped_battery_sensor"] = battery_sensor
         print(f"  Mapped {target_entity} → {battery_sensor}", flush=True)
-        wait(10)
 
 
 def restore_all(ctx):
@@ -1267,6 +1266,8 @@ def main():
     if not SKIP_SETUP:
         setup_battery(ctx)
         restore_and_wait(ctx)
+        # Extra settle time after options flow reload — coordinator needs a full tick
+        wait(15)
     else:
         print(
             "  --skip-setup: assuming clean state, skipping battery setup + restore",
