@@ -2063,6 +2063,77 @@ async def test_battery_via_map_entity_unavailable_returns_none(
 
 
 # ---------------------------------------------------------------------------
+# _get_battery_level — binary_sensor battery map (on=low, off=ok)
+# ---------------------------------------------------------------------------
+
+
+async def test_battery_via_binary_sensor_map_on_is_low(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Mapped binary_sensor in 'on' state → battery_level=0 (low)."""
+    from custom_components.entity_availability.const import CONF_BATTERY_ENTITY_MAP
+
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", "on", {"friendly_name": "Device A"})
+    hass.states.async_set("binary_sensor.device_a_battery_low", "on", {})
+
+    config = dict(mock_config_data)
+    config[CONF_BATTERY_ENTITY_MAP] = {
+        "binary_sensor.device_a": "binary_sensor.device_a_battery_low"
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="bat_bs_on_entry",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    assert coord.device_states["binary_sensor.device_a"].battery_level == 0
+    assert coord.device_states["binary_sensor.device_a"].is_low_battery is True
+
+
+async def test_battery_via_binary_sensor_map_off_is_ok(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Mapped binary_sensor in 'off' state → battery_level=100 (normal), not low."""
+    from custom_components.entity_availability.const import CONF_BATTERY_ENTITY_MAP
+
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", "on", {"friendly_name": "Device A"})
+    hass.states.async_set("binary_sensor.device_a_battery_low", "off", {})
+
+    config = dict(mock_config_data)
+    config[CONF_BATTERY_ENTITY_MAP] = {
+        "binary_sensor.device_a": "binary_sensor.device_a_battery_low"
+    }
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="bat_bs_off_entry",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+    assert coord.device_states["binary_sensor.device_a"].battery_level == 100
+    assert coord.device_states["binary_sensor.device_a"].is_low_battery is False
+
+
+# ---------------------------------------------------------------------------
 # _get_battery_level — guessed battery entity (line 586)
 # ---------------------------------------------------------------------------
 

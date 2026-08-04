@@ -60,6 +60,21 @@ _SIGNAL_NETWORK_TYPE_OPTIONS = [
 ]
 
 
+# Suffix → network type inference. Only unambiguous mappings (LQI = Zigbee).
+_SIGNAL_SUFFIX_NETWORK_TYPE: dict[str, str] = {
+    "_linkquality": "zigbee_lqi",
+    "_lqi": "zigbee_lqi",
+}
+
+
+def _infer_network_type(signal_entity_id: str) -> str:
+    """Infer network type from signal sensor entity_id suffix. Returns 'generic' if unknown."""
+    for suffix, nt in _SIGNAL_SUFFIX_NETWORK_TYPE.items():
+        if signal_entity_id.endswith(suffix):
+            return nt
+    return "generic"
+
+
 def _detect_signal_entity(hass: Any, entity_id: str) -> str:
     """Auto-detect signal sensor for an entity. Returns entity_id or empty string.
 
@@ -423,7 +438,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                     entity_id,
                     description={"suggested_value": detected} if detected else None,
                 )
-            ] = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
+            ] = selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
+            )
 
         return self.async_show_form(
             step_id="battery_mapping",
@@ -477,10 +494,13 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                     domain=["sensor", "input_number", "number"]
                 )
             )
-            schema_dict[vol.Optional(f"{entity_id}#network", default="generic")] = (
-                selector.SelectSelector(
-                    selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
+            schema_dict[
+                vol.Optional(
+                    f"{entity_id}#network",
+                    default=_infer_network_type(detected) if detected else "generic",
                 )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
             )
 
         return self.async_show_form(
@@ -687,7 +707,9 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                     entity_id,
                     description={"suggested_value": default} if default else None,
                 )
-            ] = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
+            ] = selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
+            )
 
         return self.async_show_form(
             step_id="battery_mapping",
@@ -739,7 +761,8 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             schema_dict[
                 vol.Optional(
                     f"{entity_id}#network",
-                    default=existing.get("network_type", "generic"),
+                    default=existing.get("network_type")
+                    or (_infer_network_type(suggested) if suggested else "generic"),
                 )
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
