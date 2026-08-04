@@ -1298,7 +1298,7 @@ class EntityAvailabilityCard extends LitElement {
       { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) },
       { label: "Condition", value: suppressedUntil ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
-      item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : item.isOkSignal ? " (ok)" : ""}` } : null,
+      item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : ""}` } : null,
       suppressedUntil ? { label: "Suppressed", value: suppressedUntil === "indefinitely" ? "Indefinitely" : `until ${suppressedUntil}` } : null,
     ].filter(Boolean);
   }

@@ -2612,6 +2612,9 @@ for e in cfg['data']['entries']:
                         )
                 except Exception as e:
                     chk("EC51 config storage readable", False, True, str(e))
+            else:
+                # Flow returned another step — clean up orphaned flow
+                api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
         else:
             print(
                 f"  EC51: skipped (flow did not reach signal_mapping step, got step={r2.get('step_id')})",
