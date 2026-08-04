@@ -255,10 +255,12 @@ const cardStyles = css`
     opacity: 0;
     padding: 0 16px;
     overflow: hidden;
+    transition: opacity 0.2s ease;
   }
 
   .entity-list.expanded {
     opacity: 1;
+    transition: opacity 0.2s ease;
   }
 
   /* Combined group breakdown */
@@ -272,10 +274,12 @@ const cardStyles = css`
     opacity: 0;
     padding: 0 16px;
     overflow: hidden;
+    transition: opacity 0.2s ease;
   }
 
   .group-breakdown.expanded {
     opacity: 1;
+    transition: opacity 0.2s ease;
   }
 
   .group-breakdown-row {

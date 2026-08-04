@@ -762,7 +762,8 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 vol.Optional(
                     f"{entity_id}#network",
                     default=existing.get("network_type")
-                    or (_infer_network_type(suggested) if suggested else "generic"),
+                    if existing.get("network_type") is not None
+                    else (_infer_network_type(suggested) if suggested else "generic"),
                 )
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=_SIGNAL_NETWORK_TYPE_OPTIONS)
