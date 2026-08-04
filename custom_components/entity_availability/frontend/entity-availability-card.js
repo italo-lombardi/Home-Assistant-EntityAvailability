@@ -1082,7 +1082,7 @@ class EntityAvailabilityCard extends LitElement {
     // the feature is disabled (threshold=0), even if counts are non-zero.
     const hasBattery = showHealth && batteryEnabled && entries.some(([, g]) => (g.low_battery ?? 0) > 0 || (showNEStats && g.battery_enabled && (g.non_essential_low_battery ?? 0) > 0));
     const hasStale = showHealth && stalenessEnabled && entries.some(([, g]) => (g.stale ?? 0) > 0 || (showNEStats && g.staleness_enabled && (g.non_essential_stale ?? 0) > 0));
-    const hasSignal = showHealth && entries.some(([, g]) => g.signal_enabled);
+    const hasSignal = showHealth && entries.some(([, g]) => g.signal_enabled && ((g.poor_signal ?? 0) > 0 || (showNEStats && (g.non_essential_poor_signal ?? 0) > 0)));
     // NE signal column: only show if at least one group has signal enabled and NE poor signal > 0.
     const hasNESignal = showHealth && showNEStats && entries.some(([, g]) => g.signal_enabled && (g.non_essential_poor_signal ?? 0) > 0);
     // NE battery/stale columns: only show if at least one group has the feature enabled and NE counts > 0.

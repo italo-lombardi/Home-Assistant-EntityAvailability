@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.const import (
@@ -33,7 +31,6 @@ from custom_components.entity_availability.const import (
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1084,27 +1081,28 @@ class TestUseDeviceNamesConfigFlow:
 
     async def test_use_device_names_in_options_flow(self, hass):
         """Test use_device_names flag survives options flow round-trip."""
+        from pytest_homeassistant_custom_component.common import MockConfigEntry
+
         from custom_components.entity_availability.const import (
-            CONF_USE_DEVICE_NAMES,
-            CONF_GROUP_NAME,
-            CONF_ENTITIES,
-            CONF_BAD_STATES,
-            CONF_COOLDOWN,
-            CONF_STALENESS_THRESHOLD,
-            CONF_BATTERY_THRESHOLD,
             CONF_AVAILABILITY_WINDOWS,
+            CONF_BAD_STATES,
             CONF_BATTERY_ENTITY_MAP,
+            CONF_BATTERY_THRESHOLD,
+            CONF_COOLDOWN,
+            CONF_ENTITIES,
+            CONF_ENTRY_TYPE,
+            CONF_GROUP_NAME,
             CONF_RECOVERY_WINDOW,
+            CONF_STALENESS_THRESHOLD,
+            CONF_USE_DEVICE_NAMES,
+            DEFAULT_AVAILABILITY_WINDOWS,
             DEFAULT_BAD_STATES,
             DEFAULT_COOLDOWN,
-            DEFAULT_STALENESS_THRESHOLD,
-            DEFAULT_AVAILABILITY_WINDOWS,
             DEFAULT_RECOVERY_WINDOW,
+            DEFAULT_STALENESS_THRESHOLD,
             DOMAIN,
             ENTRY_TYPE_GROUP,
-            CONF_ENTRY_TYPE,
         )
-        from pytest_homeassistant_custom_component.common import MockConfigEntry
 
         entry = MockConfigEntry(
             version=1,
@@ -1128,7 +1126,7 @@ class TestUseDeviceNamesConfigFlow:
         entry.add_to_hass(hass)
         result = await hass.config_entries.options.async_init(entry.entry_id)
         assert result["type"] == "form"
-        schema_keys = [str(k) for k in result["data_schema"].schema.keys()]
+        schema_keys = [str(k) for k in result["data_schema"].schema]
         assert any("use_device_names" in k for k in schema_keys)
 
 
@@ -1936,8 +1934,8 @@ async def test_signal_mapping_stores_sensor_and_network_type(
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                "binary_sensor.a__signal_sensor": "sensor.a_rssi",
-                "binary_sensor.a__signal_network": "wifi",
+                "binary_sensor.a": "sensor.a_rssi",
+                "binary_sensor.a#network": "wifi",
                 # b left empty → not in map
             },
         )
@@ -1962,8 +1960,8 @@ async def test_signal_mapping_empty_network_type_falls_back_to_generic(
     result = _build_signal_map_from_input(
         ["binary_sensor.x"],
         {
-            "binary_sensor.x__signal_sensor": "sensor.x_rssi",
-            "binary_sensor.x__signal_network": "",
+            "binary_sensor.x": "sensor.x_rssi",
+            "binary_sensor.x#network": "",
         },
     )
     assert result["binary_sensor.x"]["network_type"] == "generic"
@@ -2005,8 +2003,8 @@ async def test_signal_mapping_empty_network_type_falls_back_to_generic(
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                "binary_sensor.a__signal_sensor": "sensor.a_rssi",
-                "binary_sensor.a__signal_network": "zigbee_lqi",
+                "binary_sensor.a": "sensor.a_rssi",
+                "binary_sensor.a#network": "zigbee_lqi",
             },
         )
 
@@ -2102,8 +2100,8 @@ async def test_options_flow_battery_then_signal_chain(
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {
-                f"{current.get(CONF_ENTITIES, ['binary_sensor.device_a'])[0]}__signal_sensor": "sensor.rssi",
-                f"{current.get(CONF_ENTITIES, ['binary_sensor.device_a'])[0]}__signal_network": "wifi",
+                f"{current.get(CONF_ENTITIES, ['binary_sensor.device_a'])[0]}": "sensor.rssi",
+                f"{current.get(CONF_ENTITIES, ['binary_sensor.device_a'])[0]}#network": "wifi",
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -2169,8 +2167,8 @@ async def test_detect_signal_entity_via_device_class(hass: HomeAssistant) -> Non
 
     assert result["step_id"] == "signal_mapping"
     # Schema should have a suggested value for the detected signal entity
-    schema_keys = [str(k) for k in result["data_schema"].schema.keys()]
-    assert any("signal_sensor" in k for k in schema_keys)
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    assert any("#network" in k for k in schema_keys)
 
 
 async def test_detect_signal_entity_via_naming_convention_linkquality(
@@ -2262,6 +2260,7 @@ async def test_options_flow_detect_signal_entity_naming_convention(
 ) -> None:
     """Options flow _detect_signal_entity finds sensor via naming convention."""
     from unittest.mock import MagicMock, patch
+
     from custom_components.entity_availability.const import CONF_SIGNAL_ENABLED
 
     mock_config_entry.add_to_hass(hass)
@@ -2366,6 +2365,7 @@ async def test_options_detect_signal_entity_skips_self_in_registry(
     from unittest.mock import MagicMock, patch
 
     from homeassistant.components.sensor import SensorDeviceClass
+
     from custom_components.entity_availability.const import CONF_SIGNAL_ENABLED
 
     mock_config_entry.add_to_hass(hass)
@@ -2484,8 +2484,8 @@ async def test_options_flow_signal_map_preserves_untouched_entities(
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {
-                "binary_sensor.device_a__signal_sensor": "sensor.a_rssi",
-                "binary_sensor.device_a__signal_network": "bluetooth",
+                "binary_sensor.device_a": "sensor.a_rssi",
+                "binary_sensor.device_a#network": "bluetooth",
                 # device_b sensor left blank
             },
         )
@@ -2503,7 +2503,9 @@ async def test_options_detect_signal_entity_non_signal_sibling_skipped(
 ) -> None:
     """Options _detect_signal_entity skips non-signal siblings and falls through to naming convention."""
     from unittest.mock import MagicMock, patch
+
     from homeassistant.components.sensor import SensorDeviceClass
+
     from custom_components.entity_availability.const import CONF_SIGNAL_ENABLED
 
     mock_config_entry.add_to_hass(hass)
@@ -2559,6 +2561,7 @@ async def test_detect_signal_entity_no_naming_convention_match(
 ) -> None:
     """_detect_signal_entity returns empty string when no naming convention sensor found."""
     from unittest.mock import MagicMock, patch
+
     from custom_components.entity_availability.const import CONF_SIGNAL_ENABLED
 
     mock_ent_reg = MagicMock()
@@ -2599,6 +2602,7 @@ async def test_detect_signal_entity_only_self_in_registry_falls_through(
 ) -> None:
     """_detect_signal_entity falls through to naming convention when only self is in registry."""
     from unittest.mock import MagicMock, patch
+
     from custom_components.entity_availability.const import CONF_SIGNAL_ENABLED
 
     # Only sibling returned IS the monitored entity itself — loop continues and exits
@@ -2654,7 +2658,9 @@ async def test_detect_signal_entity_non_signal_sibling_then_naming(
 ) -> None:
     """Config flow _detect_signal_entity: non-signal sibling skipped, falls to naming convention."""
     from unittest.mock import MagicMock, patch
+
     from homeassistant.components.sensor import SensorDeviceClass
+
     from custom_components.entity_availability.const import CONF_SIGNAL_ENABLED
 
     mock_temp = MagicMock()

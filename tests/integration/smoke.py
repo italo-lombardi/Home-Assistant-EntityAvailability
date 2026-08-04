@@ -88,9 +88,9 @@ import os
 import sys
 import threading
 import time
-import urllib.request
 import urllib.error
 import urllib.parse
+import urllib.request
 
 # ---------------------------------------------------------------------------
 # Config from env
@@ -559,7 +559,7 @@ def _discover_ne_group(filter_str: str) -> dict | None:
 import json
 cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
 for e in cfg['data']['entries']:
-    if e['entry_id'] == {repr(entry_id)}:
+    if e['entry_id'] == {entry_id!r}:
         print(json.dumps(e['data']))
 """,
             ],
@@ -1253,7 +1253,11 @@ def main():
         )
         if combined_prefix:
             wait_for(
-                lambda: gs(f"{combined_prefix}_combined_summary").get("attributes", {}).get("offline"),
+                lambda: (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("offline")
+                ),
                 1,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
@@ -1360,7 +1364,11 @@ def main():
         )
         if combined_prefix:
             wait_for(
-                lambda: gs(f"{combined_prefix}_combined_summary").get("attributes", {}).get("offline"),
+                lambda: (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("offline")
+                ),
                 1,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
@@ -1402,7 +1410,11 @@ def main():
         )
         if combined_prefix:
             wait_for(
-                lambda: gs(f"{combined_prefix}_combined_summary").get("attributes", {}).get("offline"),
+                lambda: (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("offline")
+                ),
                 0,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
@@ -1487,7 +1499,7 @@ def main():
             "import json\n"
             "cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))\n"
             "for e in cfg['data']['entries']:\n"
-            f"    if e['entry_id'] == {repr(eid_val)}:\n"
+            f"    if e['entry_id'] == {eid_val!r}:\n"
             "        bmap = e['data'].get('battery_entity_map', {})\n"
             "        cleared = [k for k, v in bmap.items() if v == '']\n"
             "        print(json.dumps(cleared))\n"
