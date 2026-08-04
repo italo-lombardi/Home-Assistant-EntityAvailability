@@ -913,7 +913,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 return None
             bat_state = self.hass.states.get(mapped)
             if bat_state and bat_state.state not in ("unavailable", "unknown", None):
-                level = self._parse_battery_state(bat_state.state)
+                # binary_sensor battery: "on" = low (0%), "off" = ok (100%)
+                if mapped.startswith("binary_sensor."):
+                    level = 0 if bat_state.state == "on" else 100
+                else:
+                    level = self._parse_battery_state(bat_state.state)
                 _LOGGER.debug(
                     "[%s] Battery for %s via map->%s: %s%%",
                     self.group_name,

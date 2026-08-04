@@ -116,7 +116,7 @@ If you enable battery monitoring, a confirmation step appears showing each monit
 
 Auto-detection checks battery sensors linked to the same device in Home Assistant, or sensors named `sensor.{entity_name}_battery`.
 
-Battery sensors that report `low` (text) are supported in addition to numeric percentages.
+Battery sensors that report `low` (text) are supported in addition to numeric percentages. **Binary sensors** (`binary_sensor.*`) are also supported — `on` = low battery, `off` = normal (e.g. `binary_sensor.device_battery_low`).
 
 ![Step 5: Battery Entity Mapping](assets/04_battery_entity_mapping.png)
 
@@ -124,8 +124,8 @@ Battery sensors that report `low` (text) are supported in addition to numeric pe
 
 When signal strength monitoring is enabled, a mapping step appears for each monitored entity. For each entity you can:
 
-- **Select a signal sensor** — supports `sensor`, `input_number`, and `number` domains. Auto-detects sensors via `SIGNAL_STRENGTH` device class or naming conventions (`*_linkquality` for Zigbee2MQTT, `*_signal_strength` for Bluetooth, `*_rssi`, `*_lqi`, `*_signal`).
-- **Choose the network type** — selects the correct quality thresholds (good / ok / poor).
+- **Select a signal sensor** — supports `sensor`, `input_number`, and `number` domains. Auto-detects sensors via `SIGNAL_STRENGTH` device class or naming conventions (`*_linkquality` for Zigbee2MQTT, `*_signal_strength` for Bluetooth, `*_rssi`, `*_lqi`, `*_signal`). Also strips known HA suffixes (`_last_seen`, `_last_updated`) before matching — so `sensor.device_last_seen` correctly suggests `sensor.device_linkquality`.
+- **Choose the network type** — selects the correct quality thresholds (good / ok / poor). **Auto-inferred**: sensors ending in `_linkquality` or `_lqi` default to "Zigbee (LQI)" automatically — no manual selection needed for Z2MQTT devices.
 - **Leave the sensor empty** — skips signal monitoring for that entity.
 
 Supported network types and thresholds:

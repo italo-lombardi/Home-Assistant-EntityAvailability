@@ -4,7 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-08-03
+## [0.4.0-beta.2] - 2026-08-05
+
+### Added
+- **Signal network type auto-inferred** — when the signal sensor name ends in `_linkquality` or `_lqi`, the wizard now pre-selects "Zigbee (LQI)" instead of "Generic/RSSI". Eliminates a manual step for every Z2MQTT device.
+- **Battery mapping accepts `binary_sensor`** — devices that expose battery status as a binary sensor (e.g. `binary_sensor.device_battery_low`) can now be mapped. `on` = low (0%), `off` = ok (100%).
+
+### Fixed
+- **Card: entity list height cap removed** — groups with more than ~50 entities had the Suppress/Unsuppress buttons overlapping the last visible rows (CSS `max-height: 2000px` was too small). Cap removed; list grows to full height.
+- **Card: Suppress/Unsuppress buttons move above entity list for large groups** — when a group has more than 50 entities the action buttons are rendered above the list so they're always visible without scrolling.
+- **Card: `Signal: OK` status removed** — entities with a monitored-but-healthy signal now show `Online` (green dot) instead of `Signal: OK` (yellow dot). Yellow dot is reserved for degraded states only.
+- **Card: status sort — stale entities now sort above online** — stale entities (grey dot) were sorting alongside online (green) entities because the sort only checked `dotColor === "yellow"`. Fixed to check `isStale` directly.
+- **Diagnostics: new schema** — `counts`, `entities`, and `config` are now sub-dicts instead of flat keys. Old flat keys (`entity_count`, `essential_count`, etc.) removed. `entities` block exposes `essential`, `non_essential`, `battery_entity_map`, `signal_entity_map`. `config` block adds `bad_states`, `signal_enabled`, `use_device_names`, `staleness_use_last_updated`. Combined entry now exposes full group list instead of a count.
+
+
 
 ### Added
 - **Signal strength monitoring** — optional feature (disabled by default, no migration required). Enable per group in Advanced settings → Enable signal strength monitoring. A new wizard step binds a signal sensor and network type to each entity. Supported protocols: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Thresholds are validated against real-world engineering references per protocol.

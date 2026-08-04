@@ -248,7 +248,6 @@ const cardStyles = css`
   .entity-list {
     padding: 0 16px 12px;
     overflow: visible;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
   }
 
   .entity-list.collapsed {
@@ -256,29 +255,31 @@ const cardStyles = css`
     opacity: 0;
     padding: 0 16px;
     overflow: hidden;
+    transition: opacity 0.2s ease;
   }
 
   .entity-list.expanded {
-    max-height: 2000px;
     opacity: 1;
+    transition: opacity 0.2s ease;
   }
 
   /* Combined group breakdown */
   .group-breakdown {
     padding: 0 16px 12px;
-    overflow: hidden;
-    transition: max-height 0.3s ease, opacity 0.3s ease;
+    overflow: visible;
   }
 
   .group-breakdown.collapsed {
     max-height: 0;
     opacity: 0;
     padding: 0 16px;
+    overflow: hidden;
+    transition: opacity 0.2s ease;
   }
 
   .group-breakdown.expanded {
-    max-height: 2000px;
     opacity: 1;
+    transition: opacity 0.2s ease;
   }
 
   .group-breakdown-row {
@@ -859,8 +860,9 @@ class EntityAvailabilityCard extends LitElement {
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
+        ${this._config.show_actions && entities.length > 50 ? this._renderActions(prefix) : nothing}
         ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
-        ${this._config.show_actions ? this._renderActions(prefix) : nothing}
+        ${this._config.show_actions && entities.length <= 50 ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
   }
@@ -1226,9 +1228,6 @@ class EntityAvailabilityCard extends LitElement {
         } else if (isPoorSignal) {
           dotColor = "yellow";
           status = "Poor Signal";
-        } else if (isOkSignal) {
-          dotColor = "yellow";
-          status = "Signal: OK";
         } else {
           dotColor = "green";
           status = "Online";
@@ -1242,9 +1241,6 @@ class EntityAvailabilityCard extends LitElement {
       } else if (isPoorSignal) {
         dotColor = "yellow";
         status = "Poor Signal";
-      } else if (isOkSignal) {
-        dotColor = "yellow";
-        status = "Signal: OK";
       }
 
       return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
@@ -1271,8 +1267,10 @@ class EntityAvailabilityCard extends LitElement {
       } else {
         if (a.isOffline && !b.isOffline) return -1;
         if (!a.isOffline && b.isOffline) return 1;
-        if (a.dotColor === "yellow" && b.dotColor === "green") return -1;
-        if (a.dotColor === "green" && b.dotColor === "yellow") return 1;
+        const aDegraded = a.dotColor === "yellow" || a.isStale;
+        const bDegraded = b.dotColor === "yellow" || b.isStale;
+        if (aDegraded && !bDegraded) return -1;
+        if (!aDegraded && bDegraded) return 1;
         return a.name.localeCompare(b.name);
       }
     });
@@ -1300,7 +1298,7 @@ class EntityAvailabilityCard extends LitElement {
       { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) },
       { label: "Condition", value: suppressedUntil ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
-      item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : item.isOkSignal ? " (ok)" : ""}` } : null,
+      item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : ""}` } : null,
       suppressedUntil ? { label: "Suppressed", value: suppressedUntil === "indefinitely" ? "Indefinitely" : `until ${suppressedUntil}` } : null,
     ].filter(Boolean);
   }

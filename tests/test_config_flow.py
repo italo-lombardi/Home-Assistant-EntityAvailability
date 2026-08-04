@@ -2171,6 +2171,17 @@ async def test_detect_signal_entity_via_device_class(hass: HomeAssistant) -> Non
     assert any("#network" in k for k in schema_keys)
 
 
+def test_infer_network_type_linkquality():
+    """_infer_network_type maps _linkquality suffix to zigbee_lqi."""
+    from custom_components.entity_availability.config_flow import _infer_network_type
+
+    assert _infer_network_type("sensor.balcony_light_linkquality") == "zigbee_lqi"
+    assert _infer_network_type("sensor.device_lqi") == "zigbee_lqi"
+    assert _infer_network_type("sensor.device_rssi") == "generic"
+    assert _infer_network_type("sensor.device_signal") == "generic"
+    assert _infer_network_type("sensor.device_signal_strength") == "generic"
+
+
 async def test_detect_signal_entity_via_naming_convention_linkquality(
     hass: HomeAssistant,
 ) -> None:

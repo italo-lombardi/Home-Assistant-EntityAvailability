@@ -18,7 +18,7 @@ The test auto-discovers the first entity_availability group whose title contains
 EA_SMOKE_GROUP, then discovers its monitored entities and battery entity map from
 the live sensor attributes — no hardcoded entity IDs, entry IDs, or device names.
 
-What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essential-level):
+What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-essential-level):
   EC1  entity goes unavailable → offline_count increments
   EC4  device online + battery below threshold → low_battery_count=1, list populated
   EC5  device+battery unavailable → offline=1, low_battery=0 (PR#41: no double-count)
@@ -52,6 +52,11 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, core, feat/non-essentia
   EC48 signal_levels attr is a dict in group_summary
   EC49 poor_signal_entities attr is a list in group_summary
   EC50 any_poor_signal binary sensor reachable when signal enabled
+
+  PR#68 (EC51-EC53):
+  EC51 signal mapping options flow round-trip: entity_id / entity_id#network keys accepted and stored
+  EC52 _detect_signal_entity suffix strip: sensor.xxx_last_seen → suggests sensor.xxx_linkquality
+  EC53 diagnostics new schema: counts/entities/config sub-dicts present and correct (replaces flat keys)
 
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
@@ -413,6 +418,9 @@ for e in cfg['data']['entries']:
         "staleness_threshold": data.get("staleness_threshold", 0)
         if "data" in dir()
         else 0,
+        "signal_enabled": data.get("signal_enabled", False)
+        if "data" in dir()
+        else False,
         "mapped_battery_entity": mapped_battery_entity,
         "mapped_battery_sensor": mapped_battery_sensor,
         "combined_prefix": combined_prefix,
@@ -469,18 +477,21 @@ def setup_battery(ctx):
             "availability_windows": ["today", "7d"],
             "use_device_names": False,
             "staleness_use_last_updated": False,
+            "signal_enabled": ctx.get("signal_enabled", False),
         },
     )
     if r2.get("step_id") == "battery_mapping":
-        api(
+        r3 = api(
             "POST",
             f"/api/config/config_entries/options/flow/{fid}",
             {target_entity: battery_sensor},
         )
+        # Navigate through signal_mapping step if present (submit empty = keep existing map)
+        if r3.get("step_id") == "signal_mapping":
+            api("POST", f"/api/config/config_entries/options/flow/{fid}", {})
         ctx["mapped_battery_entity"] = target_entity
         ctx["mapped_battery_sensor"] = battery_sensor
         print(f"  Mapped {target_entity} → {battery_sensor}", flush=True)
-        wait(10)
 
 
 def restore_all(ctx):
@@ -976,29 +987,51 @@ def _run_ne_tests(ne_ctx: dict) -> None:
 
     ne_restore()
 
-    # EC36: diagnostics endpoint returns correct shape for group entry
+    # EC36: diagnostics endpoint returns correct shape for group entry (new schema: counts/entities/config)
     if ec_enabled(36):
         print(
-            "\n=== EC36: diagnostics endpoint returns correct shape ===",
+            "\n=== EC36: diagnostics endpoint returns correct shape (new schema) ===",
             flush=True,
         )
         try:
-            # HA wraps integration data under "data" key alongside home_assistant/custom_components
             raw = api("GET", f"/api/diagnostics/config_entry/{ne_ctx['entry_id']}")
             result = raw.get("data", raw)  # unwrap HA envelope
             chk("EC36 diagnostics entry_type=group", result.get("entry_type"), "group")
-            chk("EC36 diagnostics has entity_count", "entity_count" in result, True)
             chk(
-                "EC36 diagnostics essential_count >= 1",
-                int(result.get("essential_count", 0)) >= 1,
+                "EC36 diagnostics has counts dict",
+                isinstance(result.get("counts"), dict),
                 True,
-                f"essential_count={result.get('essential_count')}",
             )
             chk(
-                "EC36 diagnostics non_essential_count >= 1",
-                int(result.get("non_essential_count", 0)) >= 1,
+                "EC36 diagnostics counts.total >= 1",
+                int((result.get("counts") or {}).get("total", 0)) >= 1,
                 True,
-                f"non_essential_count={result.get('non_essential_count')}",
+                f"counts={result.get('counts')}",
+            )
+            chk(
+                "EC36 diagnostics counts.essential >= 1",
+                int((result.get("counts") or {}).get("essential", 0)) >= 1,
+                True,
+            )
+            chk(
+                "EC36 diagnostics counts.non_essential >= 1",
+                int((result.get("counts") or {}).get("non_essential", 0)) >= 1,
+                True,
+            )
+            chk(
+                "EC36 diagnostics has entities dict",
+                isinstance(result.get("entities"), dict),
+                True,
+            )
+            chk(
+                "EC36 diagnostics entities.essential is list",
+                isinstance((result.get("entities") or {}).get("essential"), list),
+                True,
+            )
+            chk(
+                "EC36 diagnostics entities.non_essential is list",
+                isinstance((result.get("entities") or {}).get("non_essential"), list),
+                True,
             )
             chk(
                 "EC36 diagnostics has config dict",
@@ -1007,7 +1040,17 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             )
             chk(
                 "EC36 diagnostics config has cooldown_seconds",
-                "cooldown_seconds" in result.get("config", {}),
+                "cooldown_seconds" in (result.get("config") or {}),
+                True,
+            )
+            chk(
+                "EC36 diagnostics config has signal_enabled",
+                "signal_enabled" in (result.get("config") or {}),
+                True,
+            )
+            chk(
+                "EC36 diagnostics config has bad_states",
+                "bad_states" in (result.get("config") or {}),
                 True,
             )
         except Exception as e:
@@ -1223,6 +1266,8 @@ def main():
     if not SKIP_SETUP:
         setup_battery(ctx)
         restore_and_wait(ctx)
+        # Extra settle time after options flow reload — coordinator needs a full tick
+        wait(15)
     else:
         print(
             "  --skip-setup: assuming clean state, skipping battery setup + restore",
@@ -1296,6 +1341,14 @@ def main():
             ),
             1,
         )
+        # wait_for low_battery sensor to reflect updated state before reading attrs
+        wait_for(
+            lambda: (
+                gs(f"{prefix}_low_battery").get("state")
+                not in ("None", "", None, "unavailable")
+            ),
+            True,
+        )
         lb = gs(f"{prefix}_low_battery")
         chk(
             "low_battery state non-null",
@@ -1310,7 +1363,7 @@ def main():
         )
         chk(
             "offline_count=0 (device online)",
-            gs(f"{prefix}_offline_count").get("state"),
+            wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0"),
             "0",
         )
         if combined_prefix:
@@ -1531,6 +1584,7 @@ def main():
                 "availability_windows": ["today", "7d"],
                 "use_device_names": False,
                 "staleness_use_last_updated": False,
+                "signal_enabled": ctx.get("signal_enabled", False),
             },
         )
         schema = r2.get("data_schema", [])
@@ -2453,7 +2507,252 @@ def main():
                         )
 
     # ------------------------------------------------------------------
-    print("\n=== CLEANUP ===", flush=True)
+    # EC51-EC53: PR#68 — signal mapping key format + diagnostics new schema
+    # ------------------------------------------------------------------
+
+    # EC51: signal mapping options flow round-trip with new key format
+    if ec_enabled(51):
+        print(
+            "\n=== EC51: signal mapping options flow: entity_id / entity_id#network keys ===",
+            flush=True,
+        )
+        target_entity = ctx["entities"][0]
+        signal_sensor = f"sensor.{target_entity.split('.')[-1]}_linkquality"
+        # Create a synthetic signal sensor so the flow can accept it
+        ss(
+            signal_sensor,
+            "120",
+            {"friendly_name": "Smoke signal sensor", "unit_of_measurement": "lqi"},
+        )
+        r = api(
+            "POST",
+            "/api/config/config_entries/options/flow",
+            {"handler": ctx["entry_id"]},
+        )
+        fid = r["flow_id"]
+        # Step 1: main options
+        r2 = api(
+            "POST",
+            f"/api/config/config_entries/options/flow/{fid}",
+            {
+                "entities": ctx["entities"],
+                "bad_states": ["unavailable", "unknown"],
+                "cooldown": 0,
+                "staleness_threshold": 0,
+                "battery_threshold": ctx["battery_threshold"],
+                "availability_windows": ["today", "7d"],
+                "use_device_names": False,
+                "staleness_use_last_updated": False,
+                "signal_enabled": True,
+            },
+        )
+        # Navigate past battery_mapping if present — preserve existing mappings
+        if r2.get("step_id") == "battery_mapping":
+            bmap_input = {}
+            if ctx.get("mapped_battery_entity") and ctx.get("mapped_battery_sensor"):
+                bmap_input[ctx["mapped_battery_entity"]] = ctx["mapped_battery_sensor"]
+            r2 = api(
+                "POST",
+                f"/api/config/config_entries/options/flow/{fid}",
+                bmap_input,
+            )
+        if r2.get("step_id") == "signal_mapping":
+            # Submit using new key format: entity_id as sensor key, entity_id#network for type
+            r3 = api(
+                "POST",
+                f"/api/config/config_entries/options/flow/{fid}",
+                {
+                    target_entity: signal_sensor,
+                    f"{target_entity}#network": "zigbee_lqi",
+                },
+            )
+            chk(
+                "EC51 signal mapping flow completes (CREATE_ENTRY or next step)",
+                r3.get("type") in ("create_entry", "form"),
+                True,
+                f"type={r3.get('type')} step={r3.get('step_id')}",
+            )
+            if r3.get("type") == "create_entry":
+                # Verify stored map via config storage
+                import subprocess as _sp
+
+                eid_val = ctx["entry_id"]
+                try:
+                    raw = _sp.check_output(
+                        [
+                            "python3",
+                            "-c",
+                            f"""
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+for e in cfg['data']['entries']:
+    if e['entry_id'] == {eid_val!r}:
+        print(json.dumps(e['data'].get('signal_entity_map', {{}})))
+""",
+                        ],
+                        text=True,
+                    )
+                    smap = json.loads(raw.strip())
+                    chk(
+                        "EC51 signal_entity_map stored for target_entity",
+                        target_entity in smap,
+                        True,
+                        f"map={smap}",
+                    )
+                    if target_entity in smap:
+                        chk(
+                            "EC51 stored sensor matches submitted",
+                            smap[target_entity].get("sensor"),
+                            signal_sensor,
+                        )
+                        chk(
+                            "EC51 stored network_type=zigbee_lqi",
+                            smap[target_entity].get("network_type"),
+                            "zigbee_lqi",
+                        )
+                except Exception as e:
+                    chk("EC51 config storage readable", False, True, str(e))
+            else:
+                # Flow returned another step — clean up orphaned flow
+                api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
+        else:
+            print(
+                f"  EC51: skipped (flow did not reach signal_mapping step, got step={r2.get('step_id')})",
+                flush=True,
+            )
+            api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
+        # Restore battery mapping in case EC51 flow overwrote it
+        restore_and_wait(ctx)
+
+    # EC52: _detect_signal_entity strips _last_seen suffix before naming convention
+    if ec_enabled(52):
+        print(
+            "\n=== EC52: _detect_signal_entity strips _last_seen → suggests _linkquality ===",
+            flush=True,
+        )
+        # Find an entity with _last_seen suffix — typical zigbee setup
+        last_seen_entities = [e for e in ctx["entities"] if e.endswith("_last_seen")]
+        if not last_seen_entities:
+            print(
+                "  EC52: skipped (no _last_seen entities in test group)",
+                flush=True,
+            )
+        else:
+            ls_entity = last_seen_entities[0]
+            slug = ls_entity.split(".", 1)[1]  # e.g. balcony_light_last_seen
+            base = slug[: -len("_last_seen")]  # e.g. balcony_light
+            lq_sensor = f"sensor.{base}_linkquality"
+            # Ensure the linkquality sensor exists in HA state machine
+            ss(
+                lq_sensor,
+                "200",
+                {"friendly_name": "Smoke linkquality", "unit_of_measurement": "lqi"},
+            )
+            # Open options flow and advance to signal_mapping
+            r = api(
+                "POST",
+                "/api/config/config_entries/options/flow",
+                {"handler": ctx["entry_id"]},
+            )
+            fid = r["flow_id"]
+            r2 = api(
+                "POST",
+                f"/api/config/config_entries/options/flow/{fid}",
+                {
+                    "entities": ctx["entities"],
+                    "bad_states": ["unavailable", "unknown"],
+                    "cooldown": 0,
+                    "staleness_threshold": 0,
+                    "battery_threshold": ctx["battery_threshold"],
+                    "availability_windows": ["today", "7d"],
+                    "use_device_names": False,
+                    "staleness_use_last_updated": False,
+                    "signal_enabled": True,
+                },
+            )
+            if r2.get("step_id") == "battery_mapping":
+                r2 = api("POST", f"/api/config/config_entries/options/flow/{fid}", {})
+            if r2.get("step_id") == "signal_mapping":
+                schema = r2.get("data_schema", [])
+                # Field for ls_entity should have suggested_value = lq_sensor
+                field = next((f for f in schema if f.get("name") == ls_entity), None)
+                suggestion = (
+                    (field or {}).get("description", {}).get("suggested_value", "")
+                )
+                chk(
+                    "EC52 _last_seen entity suggests _linkquality via suffix stripping",
+                    suggestion,
+                    lq_sensor,
+                    f"entity={ls_entity} base={base} suggested={suggestion!r}",
+                )
+            else:
+                print(
+                    f"  EC52: skipped (flow did not reach signal_mapping, got step={r2.get('step_id')})",
+                    flush=True,
+                )
+            try:
+                api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
+            except Exception:
+                pass  # flow may have expired (HA flow TTL)
+
+    # EC53: diagnostics new schema on the main (non-NE) group entry
+    if ec_enabled(53):
+        print(
+            "\n=== EC53: diagnostics new schema on main group entry ===",
+            flush=True,
+        )
+        try:
+            raw = api("GET", f"/api/diagnostics/config_entry/{ctx['entry_id']}")
+            result = raw.get("data", raw)
+            chk("EC53 entry_type=group", result.get("entry_type"), "group")
+            # counts sub-dict
+            counts = result.get("counts") or {}
+            chk(
+                "EC53 counts.total is int",
+                isinstance(counts.get("total"), int),
+                True,
+                f"counts={counts}",
+            )
+            chk("EC53 counts has offline key", "offline" in counts, True)
+            chk("EC53 counts has suppressed key", "suppressed" in counts, True)
+            # entities sub-dict
+            entities_d = result.get("entities") or {}
+            chk(
+                "EC53 entities.essential is list",
+                isinstance(entities_d.get("essential"), list),
+                True,
+            )
+            chk(
+                "EC53 entities.battery_entity_map is dict",
+                isinstance(entities_d.get("battery_entity_map"), dict),
+                True,
+            )
+            chk(
+                "EC53 entities.signal_entity_map is dict",
+                isinstance(entities_d.get("signal_entity_map"), dict),
+                True,
+            )
+            # config sub-dict — new fields
+            cfg = result.get("config") or {}
+            chk("EC53 config.signal_enabled present", "signal_enabled" in cfg, True)
+            chk("EC53 config.bad_states present", "bad_states" in cfg, True)
+            chk("EC53 config.use_device_names present", "use_device_names" in cfg, True)
+            chk(
+                "EC53 config.staleness_use_last_updated present",
+                "staleness_use_last_updated" in cfg,
+                True,
+            )
+            # old flat keys must NOT be present (schema migration check)
+            chk("EC53 old entity_count key absent", "entity_count" not in result, True)
+            chk(
+                "EC53 old essential_count key absent",
+                "essential_count" not in result,
+                True,
+            )
+        except Exception as e:
+            chk("EC53 diagnostics endpoint reachable", False, True, str(e))
+
+    # ------------------------------------------------------------------
     restore_all(ctx)
     print(
         f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
