@@ -481,11 +481,14 @@ def setup_battery(ctx):
         },
     )
     if r2.get("step_id") == "battery_mapping":
-        api(
+        r3 = api(
             "POST",
             f"/api/config/config_entries/options/flow/{fid}",
             {target_entity: battery_sensor},
         )
+        # Navigate through signal_mapping step if present (submit empty = keep existing map)
+        if r3.get("step_id") == "signal_mapping":
+            api("POST", f"/api/config/config_entries/options/flow/{fid}", {})
         ctx["mapped_battery_entity"] = target_entity
         ctx["mapped_battery_sensor"] = battery_sensor
         print(f"  Mapped {target_entity} → {battery_sensor}", flush=True)
