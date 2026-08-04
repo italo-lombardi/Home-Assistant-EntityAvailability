@@ -1341,6 +1341,14 @@ def main():
             ),
             1,
         )
+        # wait_for low_battery sensor to reflect updated state before reading attrs
+        wait_for(
+            lambda: (
+                gs(f"{prefix}_low_battery").get("state")
+                not in ("None", "", None, "unavailable")
+            ),
+            True,
+        )
         lb = gs(f"{prefix}_low_battery")
         chk(
             "low_battery state non-null",
@@ -1355,7 +1363,7 @@ def main():
         )
         chk(
             "offline_count=0 (device online)",
-            gs(f"{prefix}_offline_count").get("state"),
+            wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0"),
             "0",
         )
         if combined_prefix:
