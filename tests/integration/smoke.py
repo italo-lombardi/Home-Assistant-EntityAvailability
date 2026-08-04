@@ -418,6 +418,9 @@ for e in cfg['data']['entries']:
         "staleness_threshold": data.get("staleness_threshold", 0)
         if "data" in dir()
         else 0,
+        "signal_enabled": data.get("signal_enabled", False)
+        if "data" in dir()
+        else False,
         "mapped_battery_entity": mapped_battery_entity,
         "mapped_battery_sensor": mapped_battery_sensor,
         "combined_prefix": combined_prefix,
@@ -474,6 +477,7 @@ def setup_battery(ctx):
             "availability_windows": ["today", "7d"],
             "use_device_names": False,
             "staleness_use_last_updated": False,
+            "signal_enabled": ctx.get("signal_enabled", False),
         },
     )
     if r2.get("step_id") == "battery_mapping":
@@ -1568,6 +1572,7 @@ def main():
                 "availability_windows": ["today", "7d"],
                 "use_device_names": False,
                 "staleness_use_last_updated": False,
+                "signal_enabled": ctx.get("signal_enabled", False),
             },
         )
         schema = r2.get("data_schema", [])
