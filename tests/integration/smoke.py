@@ -2695,7 +2695,7 @@ for e in cfg['data']['entries']:
             except Exception:
                 pass  # flow may have expired (HA flow TTL)
 
- diagnostics new schema on the main (non-NE) group entry
+    # EC53: diagnostics new schema on the main (non-NE) group entry
     if ec_enabled(53):
         print(
             "\n=== EC53: diagnostics new schema on main group entry ===",
