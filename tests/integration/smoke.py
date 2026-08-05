@@ -1247,14 +1247,18 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             ss(target, "unavailable", {"friendly_name": "smoke test"})
             # Poll until entity appears in recently_offline list
             wait_for(
-                lambda: target
-                in gs(f"{prefix}_recently_offline")
-                .get("attributes", {})
-                .get("entities", []),
+                lambda: (
+                    target
+                    in gs(f"{prefix}_recently_offline")
+                    .get("attributes", {})
+                    .get("entities", [])
+                ),
                 True,
             )
             recent_entities = (
-                gs(f"{prefix}_recently_offline").get("attributes", {}).get("entities", [])
+                gs(f"{prefix}_recently_offline")
+                .get("attributes", {})
+                .get("entities", [])
             )
             chk(
                 "EC41 recently_offline lists entity",
@@ -1276,18 +1280,22 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             target = essential_entities[0] if essential_entities else ne_entities[0]
             ss(target, "unavailable", {"friendly_name": "smoke test"})
             wait_for(
-                lambda: target
-                in gs(f"{prefix}_recently_offline")
-                .get("attributes", {})
-                .get("entities", []),
+                lambda: (
+                    target
+                    in gs(f"{prefix}_recently_offline")
+                    .get("attributes", {})
+                    .get("entities", [])
+                ),
                 True,
             )
             ss(target, "on", {"friendly_name": target.split(".")[-1]})
             wait_for(
-                lambda: target
-                in gs(f"{prefix}_recently_recovered")
-                .get("attributes", {})
-                .get("entities", []),
+                lambda: (
+                    target
+                    in gs(f"{prefix}_recently_recovered")
+                    .get("attributes", {})
+                    .get("entities", [])
+                ),
                 True,
             )
             recent_entities = (
