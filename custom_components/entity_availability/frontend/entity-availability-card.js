@@ -1151,7 +1151,7 @@ class EntityAvailabilityCard extends LitElement {
       <div class="divider"></div>
       <div class="actions-section">
         <button class="action-btn suppress" title="Suppress all degraded entities (offline, stale, poor signal${includeNE ? ", including Non-Essential" : ""}) for 60 minutes" @click=${this._handleSuppressAll}>
-          Suppress All
+          Suppress All Degraded
         </button>
         <button class="action-btn suppress" title="Suppress all currently offline entities${includeNE ? " (including Non-Essential)" : ""} for 60 minutes" @click=${this._handleSuppressOffline}>
           Suppress Offline
