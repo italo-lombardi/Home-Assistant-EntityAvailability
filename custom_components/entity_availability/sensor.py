@@ -961,6 +961,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "last_seen",
             "ok_signal_entities",
             "entities",
+            "offline_entities",
             "offline_since",
             "suppressed_until",
             "stale_entities",
@@ -1118,12 +1119,18 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             and d.is_non_essential
             and not d.is_offline
         ]
+        offline_ids = [
+            eid
+            for eid, d in states.items()
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+        ]
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
             "essential": essential,
             "online": online,
             "offline": offline,
+            "offline_entities": offline_ids,
             "suppressed": suppressed,
             "non_essential": non_essential,
             "non_essential_online": non_essential_online,
