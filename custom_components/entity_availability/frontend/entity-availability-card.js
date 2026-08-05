@@ -756,30 +756,53 @@ class EntityAvailabilityCard extends LitElement {
       const lowBattery = attrs.low_battery || 0;
       const suppressed = attrs.suppressed || 0;
       const nonEssential = attrs.non_essential || 0;
+      const nonEssentialOnline = attrs.non_essential_online || 0;
+      const nonEssentialOffline = attrs.non_essential_offline || 0;
       const groups = attrs.groups || {};
+      const allEntities = attrs.entities || [];
+      const nonEssentialEntities = attrs.non_essential_entities || [];
+      const nonEssentialOfflineEntities = attrs.offline_entities_non_essential || [];
+      const staleEntitiesNonEssential = attrs.stale_entities_non_essential || [];
+      const lowBatteryEntities = attrs.low_battery_entities || [];
+      const displayNames = attrs.display_names || {};
+      const batteryLevels = attrs.battery_levels || {};
+      const signalLevels = attrs.signal_levels || {};
+      const signalUnits = attrs.signal_units || {};
+      const suppressedUntil = attrs.suppressed_until || {};
+      const offlineSince = attrs.offline_since || {};
+      const poorSignalEntities = attrs.poor_signal_entities || [];
+      const okSignalEntities = attrs.ok_signal_entities || [];
       // Feature-enabled flags: battery/staleness must NEVER appear when the
       // feature is disabled (threshold=0), even if counts are non-zero.
       const batteryEnabled = attrs.battery_enabled || false;
       const stalenessEnabled = attrs.staleness_enabled || false;
-      const staleCount = stalenessEnabled ? ((attrs.stale_entities || []).length || attrs.stale || 0) : 0;
+      const staleCount = stalenessEnabled ? (attrs.stale || 0) : 0;
+      const staleEntities = attrs.stale_entities || [];
       const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
       const signalEnabledCombined = attrs.signal_enabled || false;
       const combinedPoorSignal = signalEnabledCombined ? (attrs.poor_signal || 0) : 0;
+      const nonEssentialLowBattery = batteryEnabled ? (attrs.low_battery_entities_non_essential || []).length : 0;
+      const nonEssentialStale = stalenessEnabled ? (attrs.stale_entities_non_essential || []).length : 0;
+      const nonEssentialPoorSignal = signalEnabledCombined ? (attrs.poor_signal_entities_non_essential || []).length : 0;
+      const showNE = this._config.show_non_essential_stats === true;
 
-      const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0 || combinedPoorSignal > 0) ? "yellow" : "green";
+      const statusColor = attrs.status_color || (offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0 || combinedPoorSignal > 0) ? "yellow" : "green");
+      const statusText = attrs.status === "offline" ? `${offline} Offline` : attrs.status === "degraded" ? "Degraded" : "All OK";
       const title = this._config.title || this._formatGroupName(this._config.group);
       const compactClass = this._config.compact ? "compact" : "";
-      const statusText = offline > 0 ? `${offline} Offline` : (effectiveLowBattery > 0 || staleCount > 0 || combinedPoorSignal > 0) ? "Degraded" : "All OK";
 
       return html`
         <ha-card class="${compactClass}">
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
           ${this._renderStats(online, offline, effectiveLowBattery, staleCount, combinedPoorSignal, this._config.show_stat_icons === true)}
+          ${showNE && nonEssential > 0 ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, nonEssentialLowBattery, nonEssentialStale, this._config.show_stat_icons === true, nonEssentialPoorSignal) : nothing}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
+          ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
-          ${this._config.show_actions ? this._renderActions(prefix) : nothing}
+          ${this._config.show_entities && this._entitiesExpanded ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
+          ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
     }

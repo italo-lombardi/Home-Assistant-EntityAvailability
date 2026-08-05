@@ -3084,6 +3084,103 @@ for e in cfg['data']['entries']:
         restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
+    # EC66: combined_summary exposes status + status_color attrs
+    # EC67: combined_summary exposes merged per-entity dicts
+    # EC68: combined_summary exposes non_essential_online / non_essential_offline
+    if combined_prefix and (ec_enabled(66) or ec_enabled(67) or ec_enabled(68)):
+        print(
+            "\n=== EC66-EC68: combined_summary new attrs (PR#75) ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+
+        if ec_enabled(66):
+            chk(
+                "EC66 combined status attr present",
+                c_attrs.get("status") in ("ok", "degraded", "offline"),
+                True,
+                f"status={c_attrs.get('status')}",
+            )
+            chk(
+                "EC66 combined status_color attr present",
+                c_attrs.get("status_color") in ("green", "yellow", "red"),
+                True,
+                f"status_color={c_attrs.get('status_color')}",
+            )
+            # Make one entity offline → status should flip to offline/red
+            target = ctx["entities"][0]
+            ss(target, "unavailable", {"friendly_name": "smoke test device"})
+            wait_for(
+                lambda: (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("status")
+                ),
+                "offline",
+            )
+            c_attrs2 = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk(
+                "EC66 combined status=offline when entity down",
+                c_attrs2.get("status"),
+                "offline",
+                f"status={c_attrs2.get('status')}",
+            )
+            chk(
+                "EC66 combined status_color=red when entity down",
+                c_attrs2.get("status_color"),
+                "red",
+                f"status_color={c_attrs2.get('status_color')}",
+            )
+            restore_and_wait(ctx)
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+
+        if ec_enabled(67):
+            chk(
+                "EC67 combined battery_levels dict present",
+                isinstance(c_attrs.get("battery_levels"), dict),
+                True,
+                f"type={type(c_attrs.get('battery_levels')).__name__}",
+            )
+            chk(
+                "EC67 combined offline_since dict present",
+                isinstance(c_attrs.get("offline_since"), dict),
+                True,
+                f"type={type(c_attrs.get('offline_since')).__name__}",
+            )
+            chk(
+                "EC67 combined last_seen dict present",
+                isinstance(c_attrs.get("last_seen"), dict),
+                True,
+                f"type={type(c_attrs.get('last_seen')).__name__}",
+            )
+            chk(
+                "EC67 combined ok_signal_entities list present",
+                isinstance(c_attrs.get("ok_signal_entities"), list),
+                True,
+                f"type={type(c_attrs.get('ok_signal_entities')).__name__}",
+            )
+
+        if ec_enabled(68):
+            chk(
+                "EC68 combined non_essential_online present",
+                "non_essential_online" in c_attrs,
+                True,
+                f"keys={[k for k in c_attrs if 'non_essential' in k]}",
+            )
+            chk(
+                "EC68 combined non_essential_offline present",
+                "non_essential_offline" in c_attrs,
+                True,
+            )
+            chk(
+                "EC68 combined low_battery_entities_non_essential list present",
+                isinstance(c_attrs.get("low_battery_entities_non_essential"), list),
+                True,
+                f"type={type(c_attrs.get('low_battery_entities_non_essential')).__name__}",
+            )
+
+    # ------------------------------------------------------------------
     restore_all(ctx)
     print(
         f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
