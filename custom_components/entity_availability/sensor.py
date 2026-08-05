@@ -961,6 +961,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "last_seen",
             "ok_signal_entities",
             "entities",
+            "offline_entities",
             "offline_since",
             "suppressed_until",
             "stale_entities",
@@ -1035,9 +1036,10 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         non_essential_entities = [
             eid
             for eid in self.coordinator.monitored_entities
-            if states.get(eid)
-            and states[eid].is_non_essential
-            and not states[eid].is_suppressed
+            if states.get(eid) and states[eid].is_non_essential
+        ]
+        non_essential_entities_unsuppressed = [
+            eid for eid in non_essential_entities if not states[eid].is_suppressed
         ]
         non_essential_suppressed = sum(
             1
@@ -1046,9 +1048,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             and states[eid].is_non_essential
             and states[eid].is_suppressed
         )
-        non_essential = len(non_essential_entities) + non_essential_suppressed
+        non_essential = len(non_essential_entities)
         offline_entities_non_essential = [
-            eid for eid in non_essential_entities if states[eid].is_offline
+            eid for eid in non_essential_entities_unsuppressed if states[eid].is_offline
         ]
         non_essential_offline = len(offline_entities_non_essential)
         non_essential_online = (
@@ -1118,12 +1120,18 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             and d.is_non_essential
             and not d.is_offline
         ]
+        offline_ids = [
+            eid
+            for eid, d in states.items()
+            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+        ]
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
             "essential": essential,
             "online": online,
             "offline": offline,
+            "offline_entities": offline_ids,
             "suppressed": suppressed,
             "non_essential": non_essential,
             "non_essential_online": non_essential_online,

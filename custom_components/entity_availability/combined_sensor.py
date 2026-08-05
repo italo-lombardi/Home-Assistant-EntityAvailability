@@ -223,6 +223,11 @@ class CombinedGroupSensor(CombinedSensorBase):
             "entities",
             "groups",
             "offline_entities",
+            "stale_entities",
+            "poor_signal_entities",
+            "offline_entities_non_essential",
+            "stale_entities_non_essential",
+            "poor_signal_entities_non_essential",
             "low_battery_entities",
             "non_essential_entities",
         }
@@ -421,15 +426,14 @@ class CombinedGroupSensor(CombinedSensorBase):
         registry = er.async_get(self.hass)
         for coord in active:
             states = coord.device_states
-            g_non_essential = sum(
-                1 for d in states.values() if d.is_non_essential and not d.is_suppressed
-            )
+            g_non_essential = sum(1 for d in states.values() if d.is_non_essential)
             g_total = len(coord.monitored_entities) - g_non_essential
-            g_offline = sum(
-                1
+            g_offline_entities = [
+                d.entity_id
                 for d in states.values()
                 if d.is_offline and not d.is_suppressed and not d.is_non_essential
-            )
+            ]
+            g_offline = len(g_offline_entities)
             g_suppressed = sum(
                 1 for d in states.values() if d.is_suppressed and not d.is_non_essential
             )
@@ -437,11 +441,19 @@ class CombinedGroupSensor(CombinedSensorBase):
                 1 for d in states.values() if d.is_non_essential and d.is_suppressed
             )
             g_online = g_total - g_offline - g_suppressed
-            g_stale = sum(
-                1
+            g_stale_entities = [
+                d.entity_id
                 for d in states.values()
                 if d.is_stale and not d.is_suppressed and not d.is_non_essential
-            )
+            ]
+            g_stale = len(g_stale_entities)
+            g_poor_signal_entities = coord._poor_signal_entity_ids()
+            g_poor_signal_entities_ne = coord._poor_signal_ne_entity_ids()
+            g_stale_entities_ne = [
+                d.entity_id
+                for d in states.values()
+                if d.is_stale and not d.is_suppressed and d.is_non_essential
+            ]
             g_low_battery = sum(
                 1
                 for d in states.values()
@@ -472,6 +484,11 @@ class CombinedGroupSensor(CombinedSensorBase):
                 for d in states.values()
                 if d.is_non_essential and not d.is_suppressed
             ]
+            g_offline_entities_ne = [
+                d.entity_id
+                for d in states.values()
+                if d.is_non_essential and d.is_offline and not d.is_suppressed
+            ]
             g_non_essential_offline = 0
             g_non_essential_online = 0
             g_non_essential_stale = 0
@@ -496,7 +513,11 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "total": g_total,
                 "online": g_online,
                 "offline": g_offline,
+                "offline_entities": g_offline_entities,
+                "offline_entities_non_essential": g_offline_entities_ne,
                 "stale": g_stale,
+                "stale_entities": g_stale_entities,
+                "stale_entities_non_essential": g_stale_entities_ne,
                 "low_battery": g_low_battery,
                 "suppressed": g_suppressed,
                 "non_essential": g_non_essential,
@@ -513,8 +534,10 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "signal_enabled": coord._signal_enabled,
                 # Per-group poor_signal is NOT deduped — a shared entity counts in each group's row.
                 # The combined total (poor_signal_count below) IS deduped via merged_states.
-                "poor_signal": len(coord._poor_signal_entity_ids()),
-                "non_essential_poor_signal": len(coord._poor_signal_ne_entity_ids()),
+                "poor_signal": len(g_poor_signal_entities),
+                "poor_signal_entities": g_poor_signal_entities,
+                "poor_signal_entities_non_essential": g_poor_signal_entities_ne,
+                "non_essential_poor_signal": len(g_poor_signal_entities_ne),
             }
 
         # Build merged state map (first-wins for shared entities) to dedup all counts.
@@ -531,6 +554,33 @@ class CombinedGroupSensor(CombinedSensorBase):
             d.entity_id
             for d in merged_states.values()
             if d.is_offline and not d.is_suppressed and not d.is_non_essential
+        ]
+        stale_entities = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_stale and not d.is_suppressed and not d.is_non_essential
+        ]
+        poor_signal_entities = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.signal_quality == "poor"
+            and not d.is_suppressed
+            and not d.is_non_essential
+        ]
+        offline_entities_non_essential = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_non_essential and d.is_offline and not d.is_suppressed
+        ]
+        stale_entities_non_essential = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_non_essential and d.is_stale and not d.is_suppressed
+        ]
+        poor_signal_entities_non_essential = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_non_essential and d.signal_quality == "poor" and not d.is_suppressed
         ]
         low_battery_entities = [
             d.entity_id
@@ -617,6 +667,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "stale": stale,
             "low_battery": low_battery,
             "suppressed": suppressed,
+            "non_essential_suppressed": non_essential_suppressed,
             "non_essential": non_essential,
             "non_essential_entities": non_essential_entities,
             "battery_powered": battery_powered,
@@ -628,6 +679,11 @@ class CombinedGroupSensor(CombinedSensorBase):
             "entities": all_entities,
             "display_names": display_names,
             "offline_entities": offline_entities,
+            "stale_entities": stale_entities,
+            "poor_signal_entities": poor_signal_entities,
+            "offline_entities_non_essential": offline_entities_non_essential,
+            "stale_entities_non_essential": stale_entities_non_essential,
+            "poor_signal_entities_non_essential": poor_signal_entities_non_essential,
             "low_battery_entities": low_battery_entities,
         }
         domain_data = self.hass.data.get(DOMAIN, {})

@@ -16,18 +16,17 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - **Signal strength monitoring** — optional feature (disabled by default). Enable per group, bind a signal sensor and network type to each entity. Supported: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage, Generic/RSSI. Auto-detects sensors via device class or naming conventions (Z2MQTT `_linkquality`, BLE `_signal_strength`, etc.). Poor signal triggers `any_poor_signal` binary sensor and `entity_availability_poor_signal` event.
 - Device name display — optionally show the HA device name instead of entity friendly name in offline/recovered sensor states
 - Area sensors — four sensors per group: Affected Areas Count, Affected Areas, Areas Recently Offline, Areas Recently Recovered
-- Card: Affected Areas pill row — opt-in (`show_affected_areas: false` by default)
 - Degraded entity detection — flag entities with low battery, stale data, or poor signal
 - Group Summary sensor — total, online, offline, suppressed, non_essential counts + full entity list
-- Maintenance/suppression mode — suppress individual entities or entire groups
+- Maintenance/suppression mode — suppress individual entities or entire groups. Card shows three action buttons: **Suppress All** (offline + stale + poor signal), **Suppress Offline** (offline only), **Unsuppress All**. Works on both regular and combined groups.
 - Any Offline binary sensor (Problem class) — triggers automations when entities go offline
 - Custom Lovelace card — dashboard-style display with status icon, stats, availability bars, entity list, and visual editor; supports both regular and combined groups
 - **Card: icon mode for stats row** — enable `show_stat_icons` to replace text labels with MDI icons in the stats row (default off)
+- **Card: sort by signal** — sort entity list by signal quality (`signal_asc` / `signal_desc`); dBm and % normalized so mixed-protocol groups sort correctly
 - Card editor auto-detects group type and hides options that don't apply to combined groups
 - Group Slug picker — dropdown populated from discovered groups, split into regular and combined optgroups
-- Configurable entity sort order in card — by status, name, or battery level (ascending/descending)
+- Configurable entity sort order in card — by status, name, battery level, or signal quality (ascending/descending)
 - Customizable availability bar colors and thresholds
-- Optional suppress/unsuppress action buttons in card
 - Survives HA restarts — history persisted via HA Store, no recorder dependency; startup false-positive alerts suppressed for 60 seconds
 - Recorder-friendly writes — sensors only publish when value, attributes, or availability actually change
 

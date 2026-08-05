@@ -1,5 +1,5 @@
 /**
- * Entity Availability Card v0.3.14
+ * Entity Availability Card v0.4.0
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
@@ -777,7 +777,7 @@ class EntityAvailabilityCard extends LitElement {
           <div class="divider"></div>
           ${this._renderStats(online, offline, effectiveLowBattery, staleCount, combinedPoorSignal, this._config.show_stat_icons === true)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
-          ${this._renderSuppressedBanner(suppressed, 0)}
+          ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
@@ -860,9 +860,9 @@ class EntityAvailabilityCard extends LitElement {
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
-        ${this._config.show_actions && entities.length > 50 ? this._renderActions(prefix) : nothing}
+        ${this._config.show_actions && (entities.length + (showNEStats ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
         ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
-        ${this._config.show_actions && entities.length <= 50 ? this._renderActions(prefix) : nothing}
+        ${this._config.show_actions && (entities.length + (showNEStats ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
   }
@@ -906,11 +906,16 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderSuppressedBanner(essential, nonEssential) {
+  _renderSuppressedBanner(essential, nonEssential, groups = null) {
     if (essential === 0 && nonEssential === 0) return nothing;
+    const total = essential + nonEssential;
     let msg;
-    if (essential > 0 && nonEssential > 0) {
-      msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed, ${nonEssential} non-essential`;
+    if (groups !== null) {
+      // Combined card: show group count instead of entity count
+      const suppressedGroups = groups.filter(g => (g.suppressed || 0) + (g.non_essential_suppressed || 0) > 0).length;
+      msg = `${suppressedGroups} ${suppressedGroups === 1 ? "group" : "groups"} suppressed (${total} ${total === 1 ? "entity" : "entities"})`;
+    } else if (essential > 0 && nonEssential > 0) {
+      msg = `${total} ${total > 1 ? "entities" : "entity"} suppressed (${essential} essential, ${nonEssential} non-essential)`;
     } else if (essential > 0) {
       msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed`;
     } else {
@@ -990,8 +995,9 @@ class EntityAvailabilityCard extends LitElement {
       : allItems;
 
     const expanded = this._entitiesExpanded;
-    const hasBattery = batteryEnabled && allItems.some((i) => i.battery !== null);
-    const hasSignal = signalEnabled && allItems.some((i) => i.signalLevel !== null);
+    const showHealth = this._config.show_entity_health !== false;
+    const hasBattery = showHealth && batteryEnabled && allItems.some((i) => i.battery !== null);
+    const hasSignal = showHealth && signalEnabled && allItems.some((i) => i.signalLevel !== null);
 
     const sectionTitle = filter === "offline" ? "Problem Entities"
       : filter === "online" ? "Healthy Entities"
@@ -1140,14 +1146,18 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _renderActions(prefix) {
+    const includeNE = this._config.show_non_essential_stats === true;
     return html`
       <div class="divider"></div>
       <div class="actions-section">
-        <button class="action-btn suppress" title="${this._config.show_non_essential_stats ? "Suppress all offline entities (including Non-Essential) for 60 minutes" : "Suppress all currently offline monitored entities for 60 minutes (non-essential entities excluded)"}" @click=${this._handleSuppressAll}>
-          Suppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
+        <button class="action-btn suppress" title="Suppress all degraded entities (offline, stale, poor signal${includeNE ? ", including Non-Essential" : ""}) for 60 minutes" @click=${this._handleSuppressAll}>
+          Suppress All Degraded
         </button>
-        <button class="action-btn unsuppress" title="${this._config.show_non_essential_stats ? "Remove suppression from all entities (including Non-Essential) in this group" : "Remove suppression from all entities in this group"}" @click=${this._handleUnsuppressAll}>
-          Unsuppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
+        <button class="action-btn suppress" title="Suppress all currently offline entities${includeNE ? " (including Non-Essential)" : ""} for 60 minutes" @click=${this._handleSuppressOffline}>
+          Suppress Offline
+        </button>
+        <button class="action-btn unsuppress" title="Remove suppression from all entities${includeNE ? " (including Non-Essential)" : ""} in this group" @click=${this._handleUnsuppressAll}>
+          Unsuppress All
         </button>
       </div>
     `;
@@ -1246,6 +1256,15 @@ class EntityAvailabilityCard extends LitElement {
       return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
     });
 
+    // Normalize signal level to 0–100 quality score (higher = better).
+    // dBm covers Wi-Fi/Zigbee/Z-Wave practical range; % and LQI are already 0–100.
+    // ponytail: single range for all dBm protocols — good enough for sort ordering.
+    const signalQuality = (lvl, unit) => {
+      if (lvl === null || lvl === undefined) return null;
+      if (unit === "%" || unit === "LQI") return lvl;
+      return Math.max(0, Math.min(100, (lvl + 110) * (100 / 80)));
+    };
+
     items.sort((a, b) => {
       const sortBy = this._config.sort_by || "status";
       // NE entities always go after essential, but within each tier the same sort applies
@@ -1264,6 +1283,14 @@ class EntityAvailabilityCard extends LitElement {
         const bBat = b.battery ?? -1;
         if (aBat !== bBat) return bBat - aBat;
         return a.name.localeCompare(b.name);
+      } else if (sortBy === "signal_asc" || sortBy === "signal_desc") {
+        const aQ = signalQuality(a.signalLevel, a.signalUnit);
+        const bQ = signalQuality(b.signalLevel, b.signalUnit);
+        if (aQ === null && bQ === null) return a.name.localeCompare(b.name);
+        if (aQ === null) return 1;
+        if (bQ === null) return -1;
+        const diff = sortBy === "signal_asc" ? aQ - bQ : bQ - aQ;
+        return diff !== 0 ? diff : a.name.localeCompare(b.name);
       } else {
         if (a.isOffline && !b.isOffline) return -1;
         if (!a.isOffline && b.isOffline) return 1;
@@ -1540,17 +1567,31 @@ class EntityAvailabilityCard extends LitElement {
     }
   }
 
-  async _handleSuppressAll(e) {
-    e.stopPropagation();
-    const group = this._resolveGroupId();
-    const offlineIds = this._getOfflineEntityIds();
-    const includeNE = this._config.show_non_essential_stats === true;
-    const neOfflineIds = includeNE ? (() => {
-      const summary = this._getGroupSummary();
-      return summary?.attributes?.offline_entities_non_essential || [];
-    })() : [];
-    const allIds = [...new Set([...offlineIds, ...neOfflineIds])];
-    for (const entityId of allIds) {
+  // Build entity_id → entry_id map from the combined groups dict.
+  // Single card: returns {_default: entryId} — all entities use the same group.
+  _buildEntityGroupMap() {
+    const isCombined = this._isCombinedGroup();
+    if (!isCombined) {
+      return { _default: this._resolveGroupId() };
+    }
+    const summary = this._getGroupSummary();
+    const groups = summary?.attributes?.groups || {};
+    const map = {};
+    for (const [entryId, g] of Object.entries(groups)) {
+      for (const list of ["offline_entities", "offline_entities_non_essential",
+          "stale_entities", "stale_entities_non_essential",
+          "poor_signal_entities", "poor_signal_entities_non_essential"]) {
+        for (const eid of (g[list] || [])) {
+          if (!(eid in map)) map[eid] = entryId;
+        }
+      }
+    }
+    return map;
+  }
+
+  async _suppressEntities(entityIds, groupMap) {
+    for (const entityId of entityIds) {
+      const group = groupMap._default ?? groupMap[entityId] ?? null;
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
@@ -1559,15 +1600,44 @@ class EntityAvailabilityCard extends LitElement {
     }
   }
 
+  async _handleSuppressAll(e) {
+    e.stopPropagation();
+    const groupMap = this._buildEntityGroupMap();
+    const summary = this._getGroupSummary();
+    const attrs = summary?.attributes || {};
+    const includeNE = this._config.show_non_essential_stats === true;
+    const ids = [
+      ...(attrs.offline_entities || []),
+      ...(attrs.stale_entities || []),
+      ...(attrs.poor_signal_entities || []),
+      ...(includeNE ? (attrs.offline_entities_non_essential || []) : []),
+      ...(includeNE ? (attrs.stale_entities_non_essential || []) : []),
+      ...(includeNE ? (attrs.poor_signal_entities_non_essential || []) : []),
+    ];
+    await this._suppressEntities([...new Set(ids)], groupMap);
+  }
+
+  async _handleSuppressOffline(e) {
+    e.stopPropagation();
+    const groupMap = this._buildEntityGroupMap();
+    const summary = this._getGroupSummary();
+    const attrs = summary?.attributes || {};
+    const includeNE = this._config.show_non_essential_stats === true;
+    const ids = [
+      ...(attrs.offline_entities || []),
+      ...(includeNE ? (attrs.offline_entities_non_essential || []) : []),
+    ];
+    await this._suppressEntities([...new Set(ids)], groupMap);
+  }
+
   async _handleUnsuppressAll(e) {
     e.stopPropagation();
-    const group = this._resolveGroupId();
+    const isCombined = this._isCombinedGroup();
+    const group = isCombined ? null : this._resolveGroupId();
     const summary = this._getGroupSummary();
-    const entities = summary?.attributes?.entities || [];
-    const includeNE = this._config.show_non_essential_stats === true;
-    const neEntities = includeNE ? (summary?.attributes?.non_essential_entities || []) : [];
-    const allIds = [...new Set([...entities, ...neEntities])];
-    for (const entityId of allIds) {
+    const attrs = summary?.attributes || {};
+    const ids = attrs.entities || [];
+    for (const entityId of ids) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
@@ -1827,7 +1897,6 @@ class EntityAvailabilityCardEditor extends LitElement {
             Entity List Expanded by Default
           </label>
         </div>
-        ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row checkbox">
           <label>
             <input
@@ -1836,6 +1905,17 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("show_actions", e.target.checked)}
             />
             Show Suppress/Unsuppress Buttons
+          </label>
+        </div>
+        ${!this._isSelectedGroupCombined() ? html`
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_entity_health !== false}
+              @change=${(e) => this._updateConfig("show_entity_health", e.target.checked)}
+            />
+            Show Health Columns (Bat. &amp; Signal, when active)
           </label>
         </div>
         <div class="editor-row checkbox">
@@ -1915,6 +1995,8 @@ class EntityAvailabilityCardEditor extends LitElement {
             <option value="name_desc">Name Z → A</option>
             <option value="battery_asc">Battery ↑ (weakest first)</option>
             <option value="battery_desc">Battery ↓ (strongest first)</option>
+            <option value="signal_asc">Signal ↑ (weakest first)</option>
+            <option value="signal_desc">Signal ↓ (strongest first)</option>
           </select>
         </div>
         ` : nothing}

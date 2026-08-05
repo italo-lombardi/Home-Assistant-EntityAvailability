@@ -754,6 +754,33 @@ class TestGroupSummarySensor:
         sensor.hass = mock_hass
         assert sensor.extra_state_attributes["battery_enabled"] is False
 
+    def test_offline_entities_list(self, mock_coordinator, mock_hass):
+        """offline_entities attr is a list of offline essential entity IDs."""
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["offline_entities"] == ["binary_sensor.device_b"]
+
+    def test_offline_entities_non_essential_list(self, mock_coordinator, mock_hass):
+        """offline_entities_non_essential excludes essential entities."""
+        mock_coordinator._device_states[
+            "binary_sensor.device_b"
+        ].is_non_essential = True
+        mock_coordinator._device_states["binary_sensor.device_c"].is_offline = True
+        mock_coordinator._device_states[
+            "binary_sensor.device_c"
+        ].is_non_essential = True
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_b" not in attrs["offline_entities"]
+        assert "binary_sensor.device_b" in attrs["offline_entities_non_essential"]
+        assert "binary_sensor.device_c" in attrs["offline_entities_non_essential"]
+
 
 class TestRecentlyOfflineSensor:
     """Tests for RecentlyOfflineSensor."""
