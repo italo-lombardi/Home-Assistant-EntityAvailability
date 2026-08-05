@@ -6,10 +6,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.binary_sensor import AnyOfflineBinarySensor
@@ -40,10 +38,10 @@ from custom_components.entity_availability.sensor import (
     RecentlyRecoveredSensor,
 )
 from custom_components.entity_availability.write_dedup import (
+    _UNSET,
     DedupCoordinatorBinarySensor,
     DedupCoordinatorSensor,
     WriteDedupMixin,
-    _UNSET,
 )
 
 

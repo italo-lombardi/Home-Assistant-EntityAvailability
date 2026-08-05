@@ -5,14 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from freezegun import freeze_time
-
 import pytest
-
+from freezegun import freeze_time
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import STATE_UNAVAILABLE, EntityCategory
 from homeassistant.core import HomeAssistant
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.const import (
@@ -28,6 +25,7 @@ from custom_components.entity_availability.coordinator import (
 )
 from custom_components.entity_availability.models import DeviceState
 from custom_components.entity_availability.sensor import (
+    MAX_STATE_LENGTH,
     AffectedAreasCountSensor,
     AffectedAreasRecentlyOfflineSensor,
     AffectedAreasRecentlyRecoveredSensor,
@@ -36,7 +34,7 @@ from custom_components.entity_availability.sensor import (
     DegradedDevicesSensor,
     GroupSummarySensor,
     LowBatteryCountSensor,
-    MAX_STATE_LENGTH,
+    MTBFSensor,
     MTTRSensor,
     NonEssentialLowBatteryCountSensor,
     NonEssentialLowBatterySensor,
@@ -50,7 +48,6 @@ from custom_components.entity_availability.sensor import (
     RecentlyRecoveredSensor,
     StaleCountSensor,
     StaleEntitiesSensor,
-    MTBFSensor,
     async_setup_entry,
 )
 
@@ -1623,8 +1620,12 @@ class TestAvailabilitySensorMinuteTruncation:
 # ---------------------------------------------------------------------------
 
 
-from custom_components.entity_availability.sensor import _resolve_display_name  # noqa: E402
-from custom_components.entity_availability.const import CONF_USE_DEVICE_NAMES  # noqa: E402
+from custom_components.entity_availability.const import (
+    CONF_USE_DEVICE_NAMES,
+)
+from custom_components.entity_availability.sensor import (
+    _resolve_display_name,
+)
 
 
 class TestResolveDisplayName:
@@ -2944,8 +2945,8 @@ class TestNonEssentialKpiExclusion:
     def test_group_summary_poor_signal_count_attr(self, mock_coordinator, mock_hass):
         """poor_signal == len(poor_signal_entities)."""
         mock_coordinator._poor_signal_entity_ids = lambda: ["binary_sensor.device_a"]
-        mock_coordinator._poor_signal_ne_entity_ids = lambda: []
-        mock_coordinator._ok_signal_entity_ids = lambda: []
+        mock_coordinator._poor_signal_ne_entity_ids = list
+        mock_coordinator._ok_signal_entity_ids = list
         mock_coordinator._signal_enabled = True
         sensor = GroupSummarySensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
@@ -3030,6 +3031,7 @@ class TestNonEssentialKpiExclusion:
     def test_recently_offline_excludes_non_essential(self, mock_coordinator, mock_hass):
         """RecentlyOfflineSensor does not include non-essential offline entities."""
         from datetime import timezone
+
         from custom_components.entity_availability.sensor import RecentlyOfflineSensor
 
         mock_coordinator.device_states["binary_sensor.device_b"].is_offline = True
@@ -3048,6 +3050,7 @@ class TestNonEssentialKpiExclusion:
     ):
         """RecentlyRecoveredSensor does not include non-essential recovered entities."""
         from datetime import timezone
+
         from custom_components.entity_availability.sensor import RecentlyRecoveredSensor
 
         mock_coordinator.device_states["binary_sensor.device_a"].is_non_essential = True
@@ -3348,14 +3351,15 @@ async def test_poor_signal_sensor_lists_poor_entities(
 ) -> None:
     """PoorSignalSensor shows names of essential entities with poor signal."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
     )
-    from custom_components.entity_availability.sensor import PoorSignalSensor
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
     )
+    from custom_components.entity_availability.sensor import PoorSignalSensor
 
     hass.states.async_set("binary_sensor.device_a", "on", {"friendly_name": "Device A"})
     hass.states.async_set("sensor.device_a_rssi", "-85")
@@ -3398,15 +3402,16 @@ async def test_poor_signal_count_sensor_counts_essential_only(
 ) -> None:
     """PoorSignalCountSensor counts only essential, non-suppressed entities with poor signal."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_NON_ESSENTIAL_ENTITIES,
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
     )
-    from custom_components.entity_availability.sensor import PoorSignalCountSensor
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
     )
+    from custom_components.entity_availability.sensor import PoorSignalCountSensor
 
     hass.states.async_set("binary_sensor.device_a", "on")
     hass.states.async_set("binary_sensor.device_c", "on")
@@ -3446,16 +3451,17 @@ async def test_ne_poor_signal_count_sensor(
 ) -> None:
     """NonEssentialPoorSignalCountSensor counts only NE entities with poor signal."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_NON_ESSENTIAL_ENTITIES,
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
     )
-    from custom_components.entity_availability.sensor import (
-        NonEssentialPoorSignalCountSensor,
-    )
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
+    )
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalCountSensor,
     )
 
     hass.states.async_set("binary_sensor.device_c", "on")
@@ -3492,14 +3498,15 @@ async def test_poor_signal_sensor_returns_none_when_signal_good(
 ) -> None:
     """PoorSignalSensor returns 'None' string when all entities have good signal."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
     )
-    from custom_components.entity_availability.sensor import PoorSignalSensor
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
     )
+    from custom_components.entity_availability.sensor import PoorSignalSensor
 
     hass.states.async_set("binary_sensor.device_a", "on")
     hass.states.async_set("sensor.a_rssi", "-40")  # good wifi
@@ -3607,15 +3614,16 @@ async def test_poor_signal_sensor_truncates_long_names(
 ) -> None:
     """PoorSignalSensor truncates value when it exceeds MAX_STATE_LENGTH."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
     )
-    from custom_components.entity_availability.sensor import PoorSignalSensor
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
     )
     from custom_components.entity_availability.models import DeviceState
+    from custom_components.entity_availability.sensor import PoorSignalSensor
 
     # Create a coordinator with many poor-signal entities with long names
     data = dict(mock_config_entry.data)
@@ -3656,15 +3664,16 @@ async def test_poor_signal_sensor_extra_state_attributes(
 ) -> None:
     """PoorSignalSensor.extra_state_attributes returns devices dict with signal info."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
     )
-    from custom_components.entity_availability.sensor import PoorSignalSensor
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
     )
     from custom_components.entity_availability.models import DeviceState
+    from custom_components.entity_availability.sensor import PoorSignalSensor
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True
@@ -3700,17 +3709,18 @@ async def test_ne_poor_signal_sensor_extra_state_attributes(
 ) -> None:
     """NonEssentialPoorSignalSensor.extra_state_attributes returns NE devices."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
-    )
-    from custom_components.entity_availability.sensor import (
-        NonEssentialPoorSignalSensor,
     )
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
     )
     from custom_components.entity_availability.models import DeviceState
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalSensor,
+    )
 
     data = dict(mock_config_entry.data)
     data[CONF_SIGNAL_ENABLED] = True
@@ -3760,15 +3770,16 @@ async def test_ne_poor_signal_sensor_returns_none_string_when_empty(
 ) -> None:
     """NonEssentialPoorSignalSensor returns 'None' when no NE entities have poor signal."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
     )
-    from custom_components.entity_availability.sensor import (
-        NonEssentialPoorSignalSensor,
-    )
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
+    )
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalSensor,
     )
 
     data = dict(mock_config_entry.data)
@@ -3799,17 +3810,18 @@ async def test_ne_poor_signal_sensor_non_truncated_path(
 ) -> None:
     """NonEssentialPoorSignalSensor returns short non-truncated result."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
-    )
-    from custom_components.entity_availability.sensor import (
-        NonEssentialPoorSignalSensor,
     )
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
     )
     from custom_components.entity_availability.models import DeviceState
+    from custom_components.entity_availability.sensor import (
+        NonEssentialPoorSignalSensor,
+    )
 
     hass.states.async_set("binary_sensor.ne_a", "on", {"friendly_name": "NE A"})
 

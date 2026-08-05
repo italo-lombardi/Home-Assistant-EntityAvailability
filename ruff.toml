@@ -1,0 +1,3 @@
+[lint.per-file-ignores]
+"tests/*" = ["BLE001", "S110", "B018", "RUF059", "RUF015", "PERF102", "SIM117"]
+"tests/integration/smoke.py" = ["BLE001", "S110", "B018"]

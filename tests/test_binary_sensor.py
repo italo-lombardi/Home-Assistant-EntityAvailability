@@ -5,9 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from homeassistant.core import HomeAssistant
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.binary_sensor import (
@@ -437,12 +435,13 @@ async def test_any_poor_signal_binary_sensor_on_when_essential_poor(
 ) -> None:
     """AnyPoorSignalBinarySensor is ON when an essential entity has poor signal."""
     from unittest.mock import AsyncMock, patch
+
+    from custom_components.entity_availability.binary_sensor import (
+        AnyPoorSignalBinarySensor,
+    )
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
-    )
-    from custom_components.entity_availability.binary_sensor import (
-        AnyPoorSignalBinarySensor,
     )
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
@@ -485,12 +484,13 @@ async def test_any_poor_signal_binary_sensor_off_when_signal_good(
 ) -> None:
     """AnyPoorSignalBinarySensor is OFF when all essential entities have good signal."""
     from unittest.mock import AsyncMock, patch
+
+    from custom_components.entity_availability.binary_sensor import (
+        AnyPoorSignalBinarySensor,
+    )
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
-    )
-    from custom_components.entity_availability.binary_sensor import (
-        AnyPoorSignalBinarySensor,
     )
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
@@ -529,13 +529,14 @@ async def test_any_poor_signal_binary_sensor_off_when_only_ne_is_poor(
 ) -> None:
     """AnyPoorSignalBinarySensor stays OFF when only a NE entity has poor signal."""
     from unittest.mock import AsyncMock, patch
+
+    from custom_components.entity_availability.binary_sensor import (
+        AnyPoorSignalBinarySensor,
+    )
     from custom_components.entity_availability.const import (
         CONF_NON_ESSENTIAL_ENTITIES,
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
-    )
-    from custom_components.entity_availability.binary_sensor import (
-        AnyPoorSignalBinarySensor,
     )
     from custom_components.entity_availability.coordinator import (
         EntityAvailabilityCoordinator,
@@ -574,12 +575,12 @@ async def test_binary_sensor_setup_entry_with_signal_enabled(
     mock_hass: HomeAssistant, mock_config_data
 ) -> None:
     """async_setup_entry adds AnyPoorSignalBinarySensor when signal_enabled=True."""
+    from custom_components.entity_availability.binary_sensor import (
+        AnyPoorSignalBinarySensor,
+    )
     from custom_components.entity_availability.const import (
         CONF_SIGNAL_ENABLED,
         CONF_SIGNAL_ENTITY_MAP,
-    )
-    from custom_components.entity_availability.binary_sensor import (
-        AnyPoorSignalBinarySensor,
     )
 
     hass = mock_hass
@@ -618,6 +619,7 @@ async def test_any_low_battery_non_essential_binary_sensor_on(
 ) -> None:
     """AnyLowBatteryNonEssentialBinarySensor is ON when a NE entity has low battery."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.binary_sensor import (
         AnyLowBatteryNonEssentialBinarySensor,
     )
@@ -648,6 +650,7 @@ async def test_any_low_battery_non_essential_binary_sensor_off_when_essential_lo
 ) -> None:
     """AnyLowBatteryNonEssentialBinarySensor stays OFF when only essential has low battery."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.binary_sensor import (
         AnyLowBatteryNonEssentialBinarySensor,
     )
@@ -674,6 +677,7 @@ async def test_any_poor_signal_non_essential_binary_sensor_on(
 ) -> None:
     """AnyPoorSignalNonEssentialBinarySensor is ON when a NE entity has poor signal."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.binary_sensor import (
         AnyPoorSignalNonEssentialBinarySensor,
     )
@@ -701,6 +705,7 @@ async def test_any_poor_signal_non_essential_off_when_essential_poor(
 ) -> None:
     """AnyPoorSignalNonEssentialBinarySensor OFF when only essential has poor signal."""
     from unittest.mock import AsyncMock, patch
+
     from custom_components.entity_availability.binary_sensor import (
         AnyPoorSignalNonEssentialBinarySensor,
     )
