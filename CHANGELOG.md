@@ -4,48 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-- **Card: `show_entity_health` toggle** — new checkbox (default on) to hide/show Bat. & Signal columns in the single-group entity list, mirroring `show_group_health` on the combined card.
-- **Card: sort by signal** — `signal_asc` / `signal_desc` sort options added to the single-group entity list sort dropdown (weakest / strongest first).
+- **Card: 3-button suppress actions** — "Suppress All" (offline + stale + poor signal), "Suppress Offline" (offline only), "Unsuppress All". Both respect `show_non_essential_stats` for NE inclusion. Combined cards now correctly scope each suppress call to the entity's source group instead of the combined entry ID (which was silently failing).
+- **Combined sensor: entity lists in groups dict** — `offline_entities`, `stale_entities`, `poor_signal_entities`, `stale_entities_non_essential`, `poor_signal_entities_non_essential` lists added per group in the `groups` attribute. Top-level `stale_entities`, `poor_signal_entities`, `offline_entities_non_essential`, `stale_entities_non_essential`, `poor_signal_entities_non_essential` added to combined summary attrs.
 
-## [0.4.0-beta.3] - 2026-08-05
-
-### Added
-- **`group_summary` new count attributes** — `essential` (total essential entities = `total_entities - non_essential`), `stale` (count, replaces `stale_entities | length`), `stale_non_essential`, `poor_signal` (count, replaces `poor_signal_entities | length`), `poor_signal_non_essential`. Eliminates boilerplate in templates and automations.
-- **Automation examples**: new `group_summary` template section in `AUTOMATION_EXAMPLES.md` — summary message, status line, degraded trigger, low-battery list, daily health summary.
-
-
-
-### Added
-- **Signal network type auto-inferred** — when the signal sensor name ends in `_linkquality` or `_lqi`, the wizard now pre-selects "Zigbee (LQI)" instead of "Generic/RSSI". Eliminates a manual step for every Z2MQTT device.
-- **Battery mapping accepts `binary_sensor`** — devices that expose battery status as a binary sensor (e.g. `binary_sensor.device_battery_low`) can now be mapped. `on` = low (0%), `off` = ok (100%).
-
-### Fixed
-- **Card: entity list height cap removed** — groups with more than ~50 entities had the Suppress/Unsuppress buttons overlapping the last visible rows (CSS `max-height: 2000px` was too small). Cap removed; list grows to full height.
-- **Card: Suppress/Unsuppress buttons move above entity list for large groups** — when a group has more than 50 entities the action buttons are rendered above the list so they're always visible without scrolling.
-- **Card: `Signal: OK` status removed** — entities with a monitored-but-healthy signal now show `Online` (green dot) instead of `Signal: OK` (yellow dot). Yellow dot is reserved for degraded states only.
-- **Card: status sort — stale entities now sort above online** — stale entities (grey dot) were sorting alongside online (green) entities because the sort only checked `dotColor === "yellow"`. Fixed to check `isStale` directly.
-- **Diagnostics: new schema** — `counts`, `entities`, and `config` are now sub-dicts instead of flat keys. Old flat keys (`entity_count`, `essential_count`, etc.) removed. `entities` block exposes `essential`, `non_essential`, `battery_entity_map`, `signal_entity_map`. `config` block adds `bad_states`, `signal_enabled`, `use_device_names`, `staleness_use_last_updated`. Combined entry now exposes full group list instead of a count.
-
-
+## [0.4.0] - 2026-08-05
 
 ### Added
 - **Signal strength monitoring** — optional feature (disabled by default, no migration required). Enable per group in Advanced settings → Enable signal strength monitoring. A new wizard step binds a signal sensor and network type to each entity. Supported protocols: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Thresholds are validated against real-world engineering references per protocol.
-  - Auto-detects signal sensors by device class (`SIGNAL_STRENGTH`) or naming convention (`*_linkquality`, `*_signal_strength`, `*_rssi`, `*_lqi`, `*_signal`) — Z2MQTT and BLE conventions supported out of the box.
+  - Auto-detects signal sensors by device class (`SIGNAL_STRENGTH`) or naming convention (`*_linkquality`, `*_signal_strength`, `*_rssi`, `*_lqi`, `*_signal`) — Z2MQTT and BLE conventions supported out of the box. Signal sensor name ending in `_linkquality` or `_lqi` auto-selects "Zigbee (LQI)" network type.
   - 4 new sensors per group: `poor_signal` (list), `poor_signal_count`, `poor_signal_non_essential`, `poor_signal_count_non_essential`
-  - 1 new binary sensor per group: `any_poor_signal` (Problem class) — ON when any essential, non-suppressed entity has poor signal
+  - 1 new binary sensor per group: `any_poor_signal` (Problem class) — ON when any essential, non-suppressed entity has poor signal; `any_poor_signal_non_essential` binary sensor also added
   - 2 new bus events: `entity_availability_poor_signal` / `entity_availability_signal_ok` on quality transitions
   - Signal level and unit exposed in `group_summary` attributes (`signal_levels`, `signal_units`, `poor_signal_entities`, `signal_enabled`)
   - Card: "Poor Signal: N" stat pill (hidden when 0); entity dot turns yellow; detail view shows signal value with correct unit (dBm or %)
-- **Card: icon mode for stats row** — new `show_stat_icons` option (default off). When enabled, replaces "Online:", "Offline:", "Low Battery:", "Stale:", "Poor Signal:" text labels with MDI icons with tooltip. Applies to both main stats row and Non-Essential stats sub-row (including Poor Signal NE count). Toggle available in the visual editor.
-- **Card: icon mode for entity list / groups table header** — new `show_table_icons` option (default off). Replaces "Bat." / "Signal" / "Stale" column header text with MDI icons in the entity list (single groups) and the breakdown table header (combined groups). Both checkboxes appear in the visual editor for all card types.
-- **`AnyLowBatteryNonEssentialBinarySensor`** — new binary sensor (always created, same as the existing essential variant); ON when any non-essential entity has low battery
-- **`AnyPoorSignalNonEssentialBinarySensor`** — new binary sensor (created when signal enabled); ON when any non-essential entity has poor signal
-- **`EVENT_STALE_RECOVERED` payload** now includes `stale_since` field (ISO timestamp) for consistency with `EVENT_STALE`
+- **Battery mapping accepts `binary_sensor`** — devices that expose battery status as a binary sensor (e.g. `binary_sensor.device_battery_low`) can now be mapped. `on` = low (0%), `off` = ok (100%).
+- **`AnyLowBatteryNonEssentialBinarySensor`** — new binary sensor; ON when any non-essential entity has low battery
+- **`EVENT_STALE_RECOVERED` payload** now includes `stale_since` field (ISO timestamp)
+- **`group_summary` new count attributes** — `essential`, `stale`, `stale_non_essential`, `poor_signal`, `poor_signal_non_essential` count aliases. Eliminates boilerplate in templates.
+- **Automation examples**: new `group_summary` template section in `AUTOMATION_EXAMPLES.md`
+- **Card: icon mode for stats row** — `show_stat_icons` option (default off) replaces text labels with MDI icons in the stats row
+- **Card: icon mode for entity list / groups table header** — `show_table_icons` option (default off) replaces column header text with MDI icons
+- **Card: `show_entity_health` toggle** — hides/shows Bat. & Signal columns in the single-group entity list (default on); mirrors `show_group_health` on combined card
+- **Card: sort by signal** — `signal_asc` / `signal_desc` sort options; dBm and % normalized to a 0–100 quality score so mixed-unit groups sort correctly
 
 ### Changed
-- Signal `signal_enabled` toggle positioned directly below `battery_threshold` in Advanced settings for logical grouping
+- Signal `signal_enabled` toggle positioned directly below `battery_threshold` in Advanced settings
 - All signal sensor display uses the correct unit for the selected network type (dBm or %)
 - 28 supported languages receive full translations for all new strings
+- Card: `show_actions` checkbox now available for combined group cards in the editor
+
+### Fixed
+- **Card: entity list height cap removed** — groups with >50 entities no longer have Suppress buttons overlapping the last rows
+- **Card: Suppress/Unsuppress buttons move above entity list for large groups** (>50 entities)
+- **Card: `Signal: OK` status removed** — healthy-signal entities show `Online` (green dot); yellow reserved for degraded only
+- **Card: status sort — stale entities now sort above online**
+- **Diagnostics: new schema** — `counts`, `entities`, and `config` sub-dicts replace flat keys
 
 ## [0.3.14] - 2026-08-02
 
@@ -178,27 +171,7 @@ All notable changes to this project will be documented in this file.
 - Services: suppress, suppress_indefinitely, and unsuppress handlers now skip non-coordinator values in `hass.data[DOMAIN]` — prevents `AttributeError` crash when the card is installed and a service call is made
 - Init: removed redundant `resources.loaded = True` assignment after `async_load()` — HA manages this flag internally
 
-## [0.3.5-beta.2] - 2026-05-31
-
-### Fixed
-- Sensor/BinarySensor: group names containing forward slashes (e.g. "Motion/Presence Sensors") no longer generate invalid entity IDs — all non-alphanumeric characters are now replaced with underscores when building the entity ID slug. This fixes HA 2027.2.0 deprecation warnings.
-
-## [0.3.5-beta.1] - 2026-05-31
-
-### Fixed
-- Services: suppress, suppress_indefinitely, and unsuppress handlers now skip non-coordinator values in `hass.data[DOMAIN]` — prevents `AttributeError` crash when the card is installed and a service call is made
-- Init: removed redundant `resources.loaded = True` assignment after `async_load()` — HA manages this flag internally
-
 ## [0.3.4] - 2026-05-31
-
-### Fixed
-- Card: low-battery entities are now correctly included in `entity_filter: offline` view. Previously the card hardcoded a `20%` threshold that diverged from the integration's configurable `battery_threshold`, causing low-battery entities to be hidden when the configured threshold differed from 20.
-- Sensor: `group_summary` exposes a new `low_battery_entities` attribute (list of entity IDs flagged as degraded by the coordinator) so the card no longer needs to reconstruct the threshold check.
-
-### Changed
-- Card: section title for `entity_filter: offline` renamed from "Offline Entities" to "Problem Entities" since the filter includes offline, stale, and low-battery entities.
-
-## [0.3.4-beta.1] - 2026-05-31
 
 ### Fixed
 - Card: low-battery entities are now correctly included in `entity_filter: offline` view. Previously the card hardcoded a `20%` threshold that diverged from the integration's configurable `battery_threshold`, causing low-battery entities to be hidden when the configured threshold differed from 20.
@@ -222,13 +195,6 @@ All notable changes to this project will be documented in this file.
 - README sensor table now lists all four availability window sensors (`today`, `3d`, `5d`, `7d`)
 - Added dashboard example screenshot section to README
 
-## [0.3.2-beta.1] - 2026-05-20
-
-### Fixed
-- Card: `entity_detail` inline/tooltip now shows `unit_of_measurement` alongside the HA state value (e.g. `85 %` instead of `85` for battery sensors)
-- Coordinator: entities with `device_class: battery` now use their own state as the battery level, so mobile companion app battery sensors are correctly tracked and displayed in the card
-- Coordinator: `offline_since` now reflects `state.last_changed` when the entity was already in a bad state before the coordinator first polled it — offline duration shown in the card is accurate after HA restarts
-
 ## [0.3.2] - 2026-05-20
 
 ### Fixed
@@ -247,48 +213,6 @@ All notable changes to this project will be documented in this file.
 - Card: fixed iOS Companion App "configuration error" — replaced `customElements.whenDefined("ha-panel-lovelace")` (lazy-loaded, may not fire on iOS WKWebView) with a multi-element bootstrap that tries `home-assistant-main` first (always in HA's initial bundle), falling back to `ha-panel-lovelace` and `hui-view`; also tries element registration immediately if any anchor element is already defined
 - Card: `html`/`nothing`/`css` are now sourced from both the constructor and prototype to handle variation across HA bundle builds
 - Card editor: group dropdown was empty when the config entry was renamed to remove the "Entity Availability" prefix — sensors now register with stable `entity_availability_` prefixed entity IDs regardless of entry title, so the card can always discover them; **note:** applies to new installs only — existing installs with already-renamed entries need to delete and re-add the integration to get stable IDs
-
-## [0.3.0-beta.4] - 2026-05-11
-
-### Fixed
-- Entities removed from a group no longer persist in storage after editing the group — stale device states and suppression entries are now pruned on load and save
-- Re-adding a previously suppressed entity to a group now starts without inherited suppression state
-
-## [0.3.0-beta.3] - 2026-05-09
-
-### Added
-- Combined groups: `sensor.*_recently_offline` — aggregates recently offline entities from all member groups into a single sensor; uses each source group's own recovery window
-- Combined groups: `sensor.*_recently_recovered` — aggregates recently recovered entities from all member groups; same per-group window logic
-- Combined groups: `battery_powered` count added to `sensor.*_combined_summary` attributes (top-level total and per-group breakdown in the `groups` attribute)
-
-## [0.3.0-beta.2] - 2026-05-09
-
-### Added
-- Sensor: `recently_offline` — tracks entities that went offline within a configurable window (default 5 minutes); state is the friendly name list, attribute `entities` is the entity ID list
-- Sensor: `recently_recovered` — tracks entities that recovered from offline within the same window; state is the friendly name list, attribute `entities` is the entity ID list
-- Config: `recovery_window` setting (minutes) in Advanced Settings and Options flow — controls how long entities remain visible in both sensors after a state transition
-- Action: `suppress_indefinitely` — suppress an entity or group with no expiry; cleared by the existing `unsuppress` action
-
-### Fixed
-- Indefinite suppressions (no expiry) now survive HA restarts
-- `recently_offline_at` timestamps are now persisted to storage and restored on restart, so entities that went offline before a restart correctly appear in the `recently_offline` sensor within the configured window
-- Changes to `recovery_window` in the Options flow now take effect immediately without requiring an integration reload
-
-## [0.3.0-beta.1] - 2026-05-08
-
-### Added
-- Combined groups — select two or more existing groups and get a unified set of sensors that aggregate data across all of them
-- Combined group sensors: offline count, offline entities list, low battery list, low battery count
-- Binary sensor `any_offline` — turns ON when any entity in any included group is offline
-- Card: combined groups now supported — card auto-detects group type and adapts its layout
-- Card: combined group view shows per-group breakdown table (online / offline / low battery per group)
-- Card editor: Group Slug field replaced with a dropdown populated from discovered groups; regular and combined groups shown in separate optgroups
-- Card editor: controls that don't apply to combined groups (availability bars, filters, sort, entity detail, suppress buttons, color thresholds) are hidden automatically when a combined group is selected
-
-### Fixed
-- Automations no longer fire on HA restart for devices that were already offline before the restart
-- Random false-positive triggers during HA startup (devices briefly appearing offline while HA loads) are now suppressed for the first 60 seconds after startup
-- Suppress/unsuppress services are no longer unloaded while a combined group entry is still loaded
 
 ## [0.2.0] - 2026-05-07
 

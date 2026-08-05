@@ -1141,14 +1141,19 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _renderActions(prefix) {
+    const includeNE = this._config.show_non_essential_stats === true;
+    const neSuffix = includeNE ? " (incl. NE)" : "";
     return html`
       <div class="divider"></div>
       <div class="actions-section">
-        <button class="action-btn suppress" title="${this._config.show_non_essential_stats ? "Suppress all offline entities (including Non-Essential) for 60 minutes" : "Suppress all currently offline monitored entities for 60 minutes (non-essential entities excluded)"}" @click=${this._handleSuppressAll}>
-          Suppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
+        <button class="action-btn suppress" title="Suppress all degraded entities (offline, stale, poor signal${includeNE ? ", including Non-Essential" : ""}) for 60 minutes" @click=${this._handleSuppressAll}>
+          Suppress All${neSuffix}
         </button>
-        <button class="action-btn unsuppress" title="${this._config.show_non_essential_stats ? "Remove suppression from all entities (including Non-Essential) in this group" : "Remove suppression from all entities in this group"}" @click=${this._handleUnsuppressAll}>
-          Unsuppress All${this._config.show_non_essential_stats ? " (incl. NE)" : ""}
+        <button class="action-btn suppress" title="Suppress all currently offline entities${includeNE ? " (including Non-Essential)" : ""} for 60 minutes" @click=${this._handleSuppressOffline}>
+          Suppress Offline${neSuffix}
+        </button>
+        <button class="action-btn unsuppress" title="Remove suppression from all entities${includeNE ? " (including Non-Essential)" : ""} in this group" @click=${this._handleUnsuppressAll}>
+          Unsuppress All${neSuffix}
         </button>
       </div>
     `;
@@ -1557,18 +1562,31 @@ class EntityAvailabilityCard extends LitElement {
     }
   }
 
-  async _handleSuppressAll(e) {
-    e.stopPropagation();
+  // Build entity_id → entry_id map from the combined groups dict.
+  // Single card: returns {_default: entryId} — all entities use the same group.
+  _buildEntityGroupMap() {
     const isCombined = this._isCombinedGroup();
-    const group = isCombined ? null : this._resolveGroupId();
-    const offlineIds = this._getOfflineEntityIds();
-    const includeNE = this._config.show_non_essential_stats === true;
-    const neOfflineIds = includeNE ? (() => {
-      const summary = this._getGroupSummary();
-      return summary?.attributes?.offline_entities_non_essential || [];
-    })() : [];
-    const allIds = [...new Set([...offlineIds, ...neOfflineIds])];
-    for (const entityId of allIds) {
+    if (!isCombined) {
+      return { _default: this._resolveGroupId() };
+    }
+    const summary = this._getGroupSummary();
+    const groups = summary?.attributes?.groups || {};
+    const map = {};
+    for (const [entryId, g] of Object.entries(groups)) {
+      for (const list of ["offline_entities", "stale_entities", "stale_entities_non_essential",
+          "poor_signal_entities", "poor_signal_entities_non_essential",
+          "non_essential_entities"]) {
+        for (const eid of (g[list] || [])) {
+          if (!(eid in map)) map[eid] = entryId;
+        }
+      }
+    }
+    return map;
+  }
+
+  async _suppressEntities(entityIds, groupMap) {
+    for (const entityId of entityIds) {
+      const group = groupMap._default ?? groupMap[entityId] ?? null;
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
@@ -1577,16 +1595,48 @@ class EntityAvailabilityCard extends LitElement {
     }
   }
 
+  async _handleSuppressAll(e) {
+    e.stopPropagation();
+    const groupMap = this._buildEntityGroupMap();
+    const summary = this._getGroupSummary();
+    const attrs = summary?.attributes || {};
+    const includeNE = this._config.show_non_essential_stats === true;
+    const ids = [
+      ...(attrs.offline_entities || []),
+      ...(attrs.stale_entities || []),
+      ...(attrs.poor_signal_entities || []),
+      ...(includeNE ? (attrs.offline_entities_non_essential || []) : []),
+      ...(includeNE ? (attrs.stale_entities_non_essential || []) : []),
+      ...(includeNE ? (attrs.poor_signal_entities_non_essential || []) : []),
+    ];
+    await this._suppressEntities([...new Set(ids)], groupMap);
+  }
+
+  async _handleSuppressOffline(e) {
+    e.stopPropagation();
+    const groupMap = this._buildEntityGroupMap();
+    const summary = this._getGroupSummary();
+    const attrs = summary?.attributes || {};
+    const includeNE = this._config.show_non_essential_stats === true;
+    const ids = [
+      ...(attrs.offline_entities || []),
+      ...(includeNE ? (attrs.offline_entities_non_essential || []) : []),
+    ];
+    await this._suppressEntities([...new Set(ids)], groupMap);
+  }
+
   async _handleUnsuppressAll(e) {
     e.stopPropagation();
     const isCombined = this._isCombinedGroup();
     const group = isCombined ? null : this._resolveGroupId();
     const summary = this._getGroupSummary();
-    const entities = summary?.attributes?.entities || [];
+    const attrs = summary?.attributes || {};
     const includeNE = this._config.show_non_essential_stats === true;
-    const neEntities = includeNE ? (summary?.attributes?.non_essential_entities || []) : [];
-    const allIds = [...new Set([...entities, ...neEntities])];
-    for (const entityId of allIds) {
+    const ids = [
+      ...(attrs.entities || []),
+      ...(includeNE ? (attrs.non_essential_entities || []) : []),
+    ];
+    for (const entityId of [...new Set(ids)]) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
