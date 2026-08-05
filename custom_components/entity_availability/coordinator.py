@@ -430,6 +430,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 m["sensor"] for m in self._signal_map.values() if m.get("sensor")
             ]
             tracked = list(dict.fromkeys(tracked + signal_sensors))
+        battery_map = self.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
+        battery_sensors = [v for v in battery_map.values() if v]
+        if battery_sensors:
+            tracked = list(dict.fromkeys(tracked + battery_sensors))
         self._unsub_state_change = async_track_state_change_event(
             self.hass, tracked, self._handle_state_change
         )
