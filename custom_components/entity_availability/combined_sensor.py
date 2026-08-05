@@ -668,13 +668,61 @@ class CombinedGroupSensor(CombinedSensorBase):
             else 0
         )
         display_names: dict[str, str] = {}
+        battery_levels: dict[str, Any] = {}
+        signal_levels: dict[str, Any] = {}
+        signal_units: dict[str, Any] = {}
+        suppressed_until: dict[str, Any] = {}
+        offline_since: dict[str, Any] = {}
+        last_seen: dict[str, Any] = {}
+        ok_signal_entities: list[str] = []
         for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
-            for eid in coord.monitored_entities:
+            use_last_updated = coord._staleness_use_last_updated
+            for eid, d in coord.device_states.items():
                 if eid not in display_names:
                     display_names[eid] = _friendly_name(
                         self.hass, eid, use_device_names
                     )
+                if eid not in battery_levels and d.battery_level is not None:
+                    battery_levels[eid] = d.battery_level
+                if eid not in signal_levels and d.signal_level is not None:
+                    signal_levels[eid] = d.signal_level
+                if eid not in signal_units and d.signal_unit is not None:
+                    signal_units[eid] = d.signal_unit
+                if (
+                    eid not in suppressed_until
+                    and d.is_suppressed
+                    and d.suppress_until is not None
+                ):
+                    suppressed_until[eid] = d.suppress_until.isoformat()
+                if eid not in offline_since and d.offline_since is not None:
+                    offline_since[eid] = d.offline_since.isoformat()
+                if eid not in last_seen:
+                    ts = d.last_updated if use_last_updated else d.last_changed
+                    if ts is not None:
+                        last_seen[eid] = ts.isoformat()
+                if (
+                    signal_enabled
+                    and d.signal_quality == "ok"
+                    and not d.is_suppressed
+                    and not d.is_non_essential
+                    and eid not in ok_signal_entities
+                ):
+                    ok_signal_entities.append(eid)
+        status_color = (
+            "red"
+            if offline > 0
+            else "yellow"
+            if (low_battery > 0 or stale > 0 or poor_signal_count > 0)
+            else "green"
+        )
+        status = (
+            "offline"
+            if offline > 0
+            else "degraded"
+            if status_color == "yellow"
+            else "ok"
+        )
         attrs: dict[str, Any] = {
             "total_entities": total,
             "online": online,
@@ -692,9 +740,18 @@ class CombinedGroupSensor(CombinedSensorBase):
             "staleness_enabled": staleness_enabled,
             "signal_enabled": signal_enabled,
             "poor_signal": poor_signal_count,
+            "status": status,
+            "status_color": status_color,
             "groups": groups,
             "entities": all_entities,
             "display_names": display_names,
+            "battery_levels": battery_levels,
+            "signal_levels": signal_levels,
+            "signal_units": signal_units,
+            "suppressed_until": suppressed_until,
+            "offline_since": offline_since,
+            "last_seen": last_seen,
+            "ok_signal_entities": ok_signal_entities,
             "offline_entities": offline_entities,
             "stale_entities": stale_entities,
             "poor_signal_entities": poor_signal_entities,
