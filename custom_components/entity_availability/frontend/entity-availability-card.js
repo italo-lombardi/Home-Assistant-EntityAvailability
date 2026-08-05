@@ -777,7 +777,7 @@ class EntityAvailabilityCard extends LitElement {
           <div class="divider"></div>
           ${this._renderStats(online, offline, effectiveLowBattery, staleCount, combinedPoorSignal, this._config.show_stat_icons === true)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
-          ${this._renderSuppressedBanner(suppressed, 0)}
+          ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0)}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>

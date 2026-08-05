@@ -669,6 +669,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "stale": stale,
             "low_battery": low_battery,
             "suppressed": suppressed,
+            "non_essential_suppressed": non_essential_suppressed,
             "non_essential": non_essential,
             "non_essential_entities": non_essential_entities,
             "battery_powered": battery_powered,
