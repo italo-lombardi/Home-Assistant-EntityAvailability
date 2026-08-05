@@ -1636,12 +1636,8 @@ class EntityAvailabilityCard extends LitElement {
     const group = isCombined ? null : this._resolveGroupId();
     const summary = this._getGroupSummary();
     const attrs = summary?.attributes || {};
-    const includeNE = this._config.show_non_essential_stats === true;
-    const ids = [
-      ...(attrs.entities || []),
-      ...(includeNE ? (attrs.non_essential_entities || []) : []),
-    ];
-    for (const entityId of [...new Set(ids)]) {
+    const ids = attrs.entities || [];
+    for (const entityId of ids) {
       await this.hass.callService("entity_availability", "unsuppress", {
         entity_id: entityId,
         ...(group ? { group } : {}),
