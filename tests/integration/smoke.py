@@ -3032,7 +3032,7 @@ for e in cfg['data']['entries']:
             flush=True,
         )
         restore_and_wait(ctx)
-        target = ctx["entities"][0]
+        target = battery_entity  # suppress the entity whose battery is mapped, not entities[0]
         # Give entity low battery then suppress it
         if battery_sensor:
             ss(
