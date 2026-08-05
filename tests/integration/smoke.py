@@ -2792,6 +2792,12 @@ for e in cfg['data']['entries']:
             True,
         )
         chk(
+            "EC54 stale_non_essential matches stale_entities_non_essential length",
+            attrs.get("stale_non_essential"),
+            len(attrs.get("stale_entities_non_essential", [])),
+            f"stale_non_essential={attrs.get('stale_non_essential')}",
+        )
+        chk(
             "EC54 poor_signal count attr present",
             "poor_signal" in attrs,
             True,
@@ -2805,6 +2811,11 @@ for e in cfg['data']['entries']:
             "EC54 poor_signal_non_essential attr present",
             "poor_signal_non_essential" in attrs,
             True,
+        )
+        chk(
+            "EC54 poor_signal_non_essential matches poor_signal_entities_non_essential length",
+            attrs.get("poor_signal_non_essential"),
+            len(attrs.get("poor_signal_entities_non_essential", [])),
         )
 
     # ------------------------------------------------------------------

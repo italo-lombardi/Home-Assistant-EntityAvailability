@@ -7,7 +7,8 @@ All notable changes to this project will be documented in this file.
 ## [0.4.0-beta.3] - 2026-08-05
 
 ### Added
-- **`group_summary` new count attributes** — `essential` (total essential entities), `stale` (count alias for `stale_entities | length`), `stale_non_essential`, `poor_signal` (count alias for `poor_signal_entities | length`), `poor_signal_non_essential`. Eliminates the need for `| length` in templates and makes automations simpler.
+- **`group_summary` new count attributes** — `essential` (total essential entities = `total_entities - non_essential`), `stale` (count, replaces `stale_entities | length`), `stale_non_essential`, `poor_signal` (count, replaces `poor_signal_entities | length`), `poor_signal_non_essential`. Eliminates boilerplate in templates and automations.
+- **Automation examples**: new `group_summary` template section in `AUTOMATION_EXAMPLES.md` — summary message, status line, degraded trigger, low-battery list, daily health summary.
 
 
 

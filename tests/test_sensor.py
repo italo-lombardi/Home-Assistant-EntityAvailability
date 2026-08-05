@@ -2914,6 +2914,46 @@ class TestNonEssentialKpiExclusion:
             == total
         )
 
+    def test_group_summary_essential_attr(self, mock_coordinator, mock_hass):
+        """essential = total_entities - non_essential."""
+        mock_coordinator.device_states["binary_sensor.device_a"].is_non_essential = True
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["essential"] == attrs["total_entities"] - attrs["non_essential"]
+
+    def test_group_summary_stale_count_attr(self, mock_coordinator, mock_hass):
+        """stale == len(stale_entities); stale_non_essential == len(stale_entities_non_essential)."""
+        mock_coordinator.device_states["binary_sensor.device_a"].is_stale = True
+        mock_coordinator.device_states["binary_sensor.device_c"].is_non_essential = True
+        mock_coordinator.device_states["binary_sensor.device_c"].is_stale = True
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["stale"] == len(attrs["stale_entities"])
+        assert attrs["stale_non_essential"] == len(attrs["stale_entities_non_essential"])
+        assert attrs["stale"] >= 1
+        assert attrs["stale_non_essential"] >= 1
+
+    def test_group_summary_poor_signal_count_attr(self, mock_coordinator, mock_hass):
+        """poor_signal == len(poor_signal_entities)."""
+        mock_coordinator._poor_signal_entity_ids = lambda: ["binary_sensor.device_a"]
+        mock_coordinator._poor_signal_ne_entity_ids = lambda: []
+        mock_coordinator._ok_signal_entity_ids = lambda: []
+        mock_coordinator._signal_enabled = True
+        sensor = GroupSummarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["poor_signal"] == len(attrs["poor_signal_entities"])
+        assert attrs["poor_signal_non_essential"] == len(attrs["poor_signal_entities_non_essential"])
+        assert attrs["poor_signal"] == 1
+
     def test_group_summary_online_formula_no_overlap(self, mock_coordinator, mock_hass):
         """online count never includes non-essential entities."""
         mock_coordinator.device_states["binary_sensor.device_a"].is_non_essential = True

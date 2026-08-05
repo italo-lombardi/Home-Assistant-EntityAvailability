@@ -780,3 +780,74 @@ automation:
           Non-essential stale ({{ states('sensor.entity_availability_security_devices_stale_count_non_essential') }}):
           {{ state_attr('sensor.entity_availability_security_devices_stale_entities_non_essential', 'entities') | join(', ') }}
 ```
+
+---
+
+## group_summary templates
+
+The `group_summary` sensor exposes rich attributes for templates and automations. Replace `zigbee_devices` with your group slug.
+
+### Summary message
+
+```yaml
+{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+Total {{ s.total_entities }} | Essential {{ s.essential }}: {{ s.online }} online, {{ s.offline }} offline | NE {{ s.non_essential }}: {{ s.non_essential_online }} online, {{ s.non_essential_offline }} offline
+```
+
+### Status line with degraded indicators
+
+```yaml
+{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+{% if s.offline > 0 %}⚠️ {{ s.offline }} offline{% if s.stale > 0 %}, {{ s.stale }} stale{% endif %}{% if s.poor_signal > 0 %}, {{ s.poor_signal }} poor signal{% endif %}
+{% else %}✅ All {{ s.essential }} essential online{% if s.stale > 0 %} ({{ s.stale }} stale){% endif %}{% endif %}
+```
+
+### Automation trigger on any degraded state
+
+```yaml
+automation:
+  alias: EA — any degraded essential device
+  trigger:
+    - platform: template
+      value_template: >
+        {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+        {{ s.offline > 0 or s.stale > 0 or s.poor_signal > 0 }}
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >
+          {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+          Degraded: {{ s.offline }} offline, {{ s.stale }} stale, {{ s.poor_signal }} poor signal
+          ({{ s.online }}/{{ s.essential }} essential online)
+```
+
+### Low battery list with levels
+
+```yaml
+{% set lvls = state_attr('sensor.entity_availability_zigbee_devices_group_summary', 'battery_levels') %}
+{% set names = state_attr('sensor.entity_availability_zigbee_devices_group_summary', 'display_names') %}
+Low battery devices:
+{% for eid, pct in lvls.items() if pct < 30 %}
+- {{ names.get(eid, eid) }}: {{ pct }}%
+{% endfor %}
+```
+
+### Essential vs non-essential count in a notification
+
+```yaml
+automation:
+  alias: EA — daily health summary
+  trigger:
+    - platform: time
+      at: "08:00:00"
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: Zigbee daily summary
+        message: >
+          {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+          Essential: {{ s.essential }} ({{ s.online }} online)
+          Non-essential: {{ s.non_essential }} ({{ s.non_essential_online }} online)
+          {% if s.stale > 0 %}Stale: {{ s.stale }}{% endif %}
+          {% if s.poor_signal > 0 %}Poor signal: {{ s.poor_signal }}{% endif %}
+```

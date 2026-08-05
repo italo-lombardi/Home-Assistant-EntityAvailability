@@ -2226,6 +2226,31 @@ async def test_detect_signal_entity_via_naming_convention_linkquality(
     assert result["step_id"] == "signal_mapping"
 
 
+async def test_detect_signal_entity_strips_last_updated_suffix(
+    hass: HomeAssistant,
+) -> None:
+    """_detect_signal_entity strips _last_updated before naming convention fallback."""
+    from unittest.mock import MagicMock, patch
+
+    mock_ent_reg = MagicMock()
+    mock_ent_reg.async_get.return_value = None
+
+    hass.states.async_set("sensor.boiler_high_flood_sensor_linkquality", "120")
+
+    with patch(
+        "custom_components.entity_availability.config_flow.er.async_get",
+        return_value=mock_ent_reg,
+    ):
+        from custom_components.entity_availability.config_flow import (
+            _detect_signal_entity,
+        )
+
+        result = _detect_signal_entity(
+            hass, "sensor.boiler_high_flood_sensor_last_updated"
+        )
+        assert result == "sensor.boiler_high_flood_sensor_linkquality"
+
+
 async def test_detect_signal_entity_no_match_returns_empty(
     hass: HomeAssistant,
 ) -> None:

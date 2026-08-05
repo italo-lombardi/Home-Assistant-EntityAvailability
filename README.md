@@ -255,59 +255,7 @@ Access these in templates:
 {{ state_attr('sensor.entity_availability_security_devices_group_summary', 'poor_signal') }}
 ```
 
-**Template examples:**
-
-```yaml
-# Summary message
-{% set e = state_attr('sensor.entity_availability_zigbee_devices_group_summary', '') %}
-{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
-Total {{ s.total_entities }} | Essential {{ s.essential }} ({{ s.online }} online, {{ s.offline }} offline) | NE {{ s.non_essential }} ({{ s.non_essential_online }} online)
-```
-
-```yaml
-# Alert message when devices are offline
-{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
-{% if s.offline > 0 %}
-⚠️ {{ s.offline }} essential device(s) offline{% if s.stale > 0 %}, {{ s.stale }} stale{% endif %}
-{% else %}
-✅ All {{ s.essential }} essential devices online
-{% endif %}
-```
-
-**Automation example — notify when essential devices go offline:**
-
-```yaml
-automation:
-  - alias: "Notify on Zigbee device offline"
-    trigger:
-      - platform: numeric_state
-        entity_id: sensor.entity_availability_zigbee_devices_offline_count
-        above: 0
-    action:
-      - service: notify.mobile_app
-        data:
-          message: >
-            {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
-            {{ s.offline }} device(s) offline.
-            {% for eid in s.offline_entities_non_essential + [] %}{% endfor %}
-```
-
-**Automation example — notify on low battery:**
-
-```yaml
-automation:
-  - alias: "Zigbee low battery alert"
-    trigger:
-      - platform: numeric_state
-        entity_id: sensor.entity_availability_zigbee_devices_low_battery_count
-        above: 0
-    action:
-      - service: notify.mobile_app
-        data:
-          message: >
-            {% set lvls = state_attr('sensor.entity_availability_zigbee_devices_group_summary', 'battery_levels') %}
-            Low battery: {% for eid, pct in lvls.items() if pct < 30 %}{{ eid.split('.')[-1] }} ({{ pct }}%) {% endfor %}
-```
+See [AUTOMATION_EXAMPLES.md](AUTOMATION_EXAMPLES.md) for full template and automation examples.
 
 ![Sensor Details & Attributes](assets/06_sensor_details_attributes.png)
 
@@ -648,18 +596,22 @@ The card works with both regular groups and combined groups. It auto-detects the
 
 ```yaml
 type: custom:entity-availability-card
-group: Security Devices
+group: security_devices        # group slug (lowercase, underscores)
+# title: "My Devices"         # optional override
 show_affected_areas: false
 show_availability: true
 show_entities: true
 show_non_essential_stats: false
 entities_expanded: false
 show_actions: false
+show_suppress_toggle: false
+show_stat_icons: false
+show_table_icons: false
 compact: false
-entity_detail: "off"
-entity_filter: "all"
-sort_by: status
-group_sort_by: name_asc
+entity_detail: "off"           # "off" | "tooltip" | "inline"
+entity_filter: "all"           # "all" | "offline" | "online"
+sort_by: status                # status | name_asc | name_desc | battery_asc | battery_desc
+group_sort_by: name_asc        # name_asc | name_desc | offline_desc (combined groups)
 availability_thresholds:
   high: 99
   mid: 95
