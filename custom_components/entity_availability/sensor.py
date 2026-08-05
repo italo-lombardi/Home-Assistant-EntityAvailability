@@ -949,6 +949,28 @@ class GroupSummarySensor(DedupCoordinatorSensor):
     # so the sensor only writes when monitoring data actually changes.
     _EA_SKIP_DEDUP_KEYS = frozenset({"last_seen"})
 
+    # Large dict/list attrs: live state machine access is fine but no value in
+    # recording per-entity snapshots historically. Keeps recorder rows small.
+    _unrecorded_attributes = frozenset(
+        {
+            "display_names",
+            "battery_levels",
+            "signal_levels",
+            "signal_units",
+            "last_seen",
+            "ok_signal_entities",
+            "entities",
+            "offline_since",
+            "suppressed_until",
+            "stale_entities",
+            "stale_entities_non_essential",
+            "poor_signal_entities",
+            "poor_signal_entities_non_essential",
+            "offline_entities_non_essential",
+            "non_essential_entities",
+        }
+    )
+
     def _ea_should_write(self) -> bool:
         """Write only when attrs excluding last_seen change."""
         value = self._ea_current_value()
