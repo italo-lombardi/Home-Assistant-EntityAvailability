@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ## [0.4.0] - 2026-08-05
 
+### Fixed
+- **Battery sensor state changes now trigger live updates** — mapped battery sensors (e.g. `sensor.device_battery`) were not subscribed to HA state change events. Changing a battery sensor value no longer requires waiting for the next poll cycle; `low_battery_count` and related sensors update immediately.
+
 ### Added
 - **Signal strength monitoring** — optional feature (disabled by default, no migration required). Enable per group in Advanced settings → Enable signal strength monitoring. A new wizard step binds a signal sensor and network type to each entity. Supported protocols: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Thresholds are validated against real-world engineering references per protocol.
   - Auto-detects signal sensors by device class (`SIGNAL_STRENGTH`) or naming convention (`*_linkquality`, `*_signal_strength`, `*_rssi`, `*_lqi`, `*_signal`) — Z2MQTT and BLE conventions supported out of the box. Signal sensor name ending in `_linkquality` or `_lqi` auto-selects "Zigbee (LQI)" network type.
