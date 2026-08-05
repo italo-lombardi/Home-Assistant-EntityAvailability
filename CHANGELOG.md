@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- **Card: `show_entity_health` toggle** — new checkbox (default on) to hide/show Bat. & Signal columns in the single-group entity list, mirroring `show_group_health` on the combined card.
+- **Card: sort by signal** — `signal_asc` / `signal_desc` sort options added to the single-group entity list sort dropdown (weakest / strongest first).
+
 ## [0.4.0-beta.3] - 2026-08-05
 
 ### Added

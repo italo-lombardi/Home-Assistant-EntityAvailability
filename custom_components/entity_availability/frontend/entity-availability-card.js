@@ -990,8 +990,9 @@ class EntityAvailabilityCard extends LitElement {
       : allItems;
 
     const expanded = this._entitiesExpanded;
-    const hasBattery = batteryEnabled && allItems.some((i) => i.battery !== null);
-    const hasSignal = signalEnabled && allItems.some((i) => i.signalLevel !== null);
+    const showHealth = this._config.show_entity_health !== false;
+    const hasBattery = showHealth && batteryEnabled && allItems.some((i) => i.battery !== null);
+    const hasSignal = showHealth && signalEnabled && allItems.some((i) => i.signalLevel !== null);
 
     const sectionTitle = filter === "offline" ? "Problem Entities"
       : filter === "online" ? "Healthy Entities"
@@ -1263,6 +1264,16 @@ class EntityAvailabilityCard extends LitElement {
         const aBat = a.battery ?? -1;
         const bBat = b.battery ?? -1;
         if (aBat !== bBat) return bBat - aBat;
+        return a.name.localeCompare(b.name);
+      } else if (sortBy === "signal_asc") {
+        const aSig = a.signalLevel ?? Infinity;
+        const bSig = b.signalLevel ?? Infinity;
+        if (aSig !== bSig) return aSig - bSig;
+        return a.name.localeCompare(b.name);
+      } else if (sortBy === "signal_desc") {
+        const aSig = a.signalLevel ?? -Infinity;
+        const bSig = b.signalLevel ?? -Infinity;
+        if (aSig !== bSig) return bSig - aSig;
         return a.name.localeCompare(b.name);
       } else {
         if (a.isOffline && !b.isOffline) return -1;
@@ -1832,6 +1843,16 @@ class EntityAvailabilityCardEditor extends LitElement {
           <label>
             <input
               type="checkbox"
+              .checked=${this._config.show_entity_health !== false}
+              @change=${(e) => this._updateConfig("show_entity_health", e.target.checked)}
+            />
+            Show Health Columns (Bat. &amp; Signal, when active)
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
               .checked=${this._config.show_actions === true}
               @change=${(e) => this._updateConfig("show_actions", e.target.checked)}
             />
@@ -1915,6 +1936,8 @@ class EntityAvailabilityCardEditor extends LitElement {
             <option value="name_desc">Name Z → A</option>
             <option value="battery_asc">Battery ↑ (weakest first)</option>
             <option value="battery_desc">Battery ↓ (strongest first)</option>
+            <option value="signal_asc">Signal ↑ (weakest first)</option>
+            <option value="signal_desc">Signal ↓ (strongest first)</option>
           </select>
         </div>
         ` : nothing}

@@ -612,7 +612,8 @@ show_table_icons: false
 compact: false
 entity_detail: "off"           # "off" | "tooltip" | "inline"
 entity_filter: "all"           # "all" | "offline" | "online"
-sort_by: status                # status | name_asc | name_desc | battery_asc | battery_desc
+show_entity_health: true       # hide/show Bat. & Signal columns in entity list
+sort_by: status                # status | name_asc | name_desc | battery_asc | battery_desc | signal_asc | signal_desc
 group_sort_by: name_asc        # name_asc | name_desc | offline_desc (combined groups)
 availability_thresholds:
   high: 99
@@ -637,7 +638,8 @@ availability_colors:
 | `entity_detail` | `"off"` | `"off"` / `"tooltip"` (hover to see details) / `"inline"` (always show details). In compact mode with inline, shows state + last-changed time. Timestamp states are formatted as readable dates. (regular groups only) |
 | `entity_filter` | `"all"` | Filter entity list: `"all"`, `"offline"` (problems only: offline/stale/low battery), `"online"` (healthy only). Section title and count update to reflect filter (e.g., "Offline Entities (2/6)"). (regular groups only) |
 | `compact` | `false` | Reduced padding mode |
-| `sort_by` | `status` | Entity list sort order: `status`, `name_asc`, `name_desc`, `battery_asc`, `battery_desc` (regular groups only) |
+| `show_entity_health` | `true` | Show health columns (Bat. & Signal) in the entity list when the feature is active (regular groups only) |
+| `sort_by` | `status` | Entity list sort order: `status`, `name_asc`, `name_desc`, `battery_asc`, `battery_desc`, `signal_asc`, `signal_desc` (regular groups only) |
 | `group_sort_by` | `name_asc` | Group breakdown table sort order: `name_asc`, `name_desc`, `offline_desc` (most offline first). (combined groups only) |
 | `availability_thresholds` | `{high: 99, mid: 95}` | % thresholds for bar colors (regular groups only) |
 | `availability_colors` | `{high, mid, low}` | Custom hex colors for bars (regular groups only) |
