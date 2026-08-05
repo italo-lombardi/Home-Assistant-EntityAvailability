@@ -219,6 +219,7 @@ class CombinedGroupSensor(CombinedSensorBase):
     # Per-entity list/dict attrs: large, no historical value.
     _unrecorded_attributes = frozenset(
         {
+            "display_names",
             "entities",
             "groups",
             "offline_entities",

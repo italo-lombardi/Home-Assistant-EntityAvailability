@@ -955,6 +955,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         {
             "display_names",
             "battery_levels",
+            "low_battery_entities",
             "signal_levels",
             "signal_units",
             "last_seen",
