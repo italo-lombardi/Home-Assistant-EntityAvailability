@@ -9,13 +9,13 @@ from typing import Any
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_call_later,
     async_track_state_change_event,
 )
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.storage import Store
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
     CONF_BAD_STATES,
@@ -38,20 +38,20 @@ from .const import (
     DEFAULT_STALENESS_USE_LAST_UPDATED,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
+    EVENT_OFFLINE,
     EVENT_POOR_SIGNAL,
+    EVENT_RECOVERED,
     EVENT_SIGNAL_OK,
     EVENT_STALE,
     EVENT_STALE_RECOVERED,
-    EVENT_OFFLINE,
-    EVENT_RECOVERED,
     SCAN_INTERVAL,
     SIGNAL_NETWORK_TYPES,
-    SignalQuality,
     STARTUP_GRACE_PERIOD,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
+    SignalQuality,
 )
-from .models import EntityAvailabilityData, DeviceState
+from .models import DeviceState, EntityAvailabilityData
 from .storage import AvailabilityStorage
 
 _LOGGER = logging.getLogger(__name__)
@@ -512,15 +512,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.suppress_until = self._suppressed[entity_id]
 
             # Check suppression expiry
-            if device.is_suppressed and device.suppress_until:
-                if now > device.suppress_until:
-                    _LOGGER.debug(
-                        "[%s] Suppression expired for %s", self.group_name, entity_id
-                    )
-                    device.is_suppressed = False
-                    device.suppress_until = None
-                    self._suppressed.pop(entity_id, None)
-                    self._dirty = True
+            if device.is_suppressed and device.suppress_until and now > device.suppress_until:
+                _LOGGER.debug(
+                    "[%s] Suppression expired for %s", self.group_name, entity_id
+                )
+                device.is_suppressed = False
+                device.suppress_until = None
+                self._suppressed.pop(entity_id, None)
+                self._dirty = True
 
             # Skip suppressed devices for availability tracking;
             # clear degraded/stale flags so suppressed entities don't surface
@@ -857,7 +856,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         try:
             for event_name, payload in pending_events:
                 self.hass.bus.async_fire(event_name, payload)
-        except Exception:  # noqa: BLE001  # pragma: no cover
+        except Exception:  # pragma: no cover
             _LOGGER.warning("[%s] Failed to fire event", self.group_name, exc_info=True)
 
         return EntityAvailabilityData(
