@@ -4,8 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-- **Card: 3-button suppress actions** — "Suppress All" (offline + stale + poor signal), "Suppress Offline" (offline only), "Unsuppress All". Both respect `show_non_essential_stats` for NE inclusion. Combined cards now correctly scope each suppress call to the entity's source group instead of the combined entry ID (which was silently failing).
-- **Combined sensor: entity lists in groups dict** — `offline_entities`, `stale_entities`, `poor_signal_entities`, `stale_entities_non_essential`, `poor_signal_entities_non_essential` lists added per group in the `groups` attribute. Top-level `stale_entities`, `poor_signal_entities`, `offline_entities_non_essential`, `stale_entities_non_essential`, `poor_signal_entities_non_essential` added to combined summary attrs.
+### Added
+- **Card: 3-button suppress actions** — replaces Suppress All / Unsuppress All with three buttons: **Suppress All** (offline + stale + poor signal, 60 min), **Suppress Offline** (offline only, 60 min), **Unsuppress All**. NE entities included when `show_non_essential_stats` is on. Available on both regular and combined groups.
+- **Combined sensor: entity lists in `groups` dict** — each group entry now includes `offline_entities`, `stale_entities`, `poor_signal_entities`, `stale_entities_non_essential`, `poor_signal_entities_non_essential` lists. Top-level combined summary gains matching attrs: `stale_entities`, `poor_signal_entities`, `offline_entities_non_essential`, `stale_entities_non_essential`, `poor_signal_entities_non_essential`.
+- **`group_summary` sensor: `offline_entities` list** — list of offline entity IDs now exposed as an attr (was count-only). Consistent with `stale_entities` and `poor_signal_entities` already present.
+
+### Fixed
+- **Card: combined group suppress was silently failing** — suppress handlers were passing the combined entry_id as `group=` to the service; `_find_coordinator` only matches individual coordinators so every call found nothing. Each entity is now scoped to its source group's entry_id via the groups dict.
+- **Card: `show_actions` checkbox hidden for combined groups in editor** — moved outside the `!isSelectedGroupCombined()` guard so it appears for all group types.
 
 ## [0.4.0] - 2026-08-05
 
