@@ -1880,6 +1880,17 @@ def main():
         ec_target = ctx["entities"][0]
 
         # ------------------------------------------------------------------
+    else:
+        # EC12 skipped — still need avail_eid/ec_target for EC13-EC15
+        avail_states = [
+            s
+            for s in api("GET", "/api/states")
+            if s["entity_id"].startswith(prefix + "_availability")
+        ]
+        avail_eid = avail_states[0]["entity_id"] if avail_states else None
+        ec_target = ctx["entities"][0]
+
+    # ------------------------------------------------------------------
     if ec_enabled(13):
         print(
             "\n=== EC13: suppress offline entity — availability % must not change ===",
