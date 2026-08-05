@@ -756,8 +756,8 @@ class EntityAvailabilityCard extends LitElement {
       const lowBattery = attrs.low_battery || 0;
       const suppressed = attrs.suppressed || 0;
       const nonEssential = attrs.non_essential || 0;
-      const nonEssentialOnline = attrs.non_essential_online ?? 0;
-      const nonEssentialOffline = attrs.non_essential_offline ?? 0;
+      const nonEssentialOnline = attrs.non_essential_online || 0;
+      const nonEssentialOffline = attrs.non_essential_offline || 0;
       const groups = attrs.groups || {};
       // Feature-enabled flags: battery/staleness must NEVER appear when the
       // feature is disabled (threshold=0), even if counts are non-zero.
@@ -767,6 +767,9 @@ class EntityAvailabilityCard extends LitElement {
       const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
       const signalEnabledCombined = attrs.signal_enabled || false;
       const combinedPoorSignal = signalEnabledCombined ? (attrs.poor_signal || 0) : 0;
+      const nonEssentialLowBattery = batteryEnabled ? (attrs.non_essential_low_battery || 0) : 0;
+      const nonEssentialStale = stalenessEnabled ? (attrs.stale_entities_non_essential || []).length : 0;
+      const nonEssentialPoorSignal = signalEnabledCombined ? (attrs.poor_signal_entities_non_essential || []).length : 0;
 
       const statusColor = offline > 0 ? "red" : (effectiveLowBattery > 0 || staleCount > 0 || combinedPoorSignal > 0) ? "yellow" : "green";
       const title = this._config.title || this._formatGroupName(this._config.group);
@@ -778,7 +781,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderHeader(title, statusColor, statusText)}
           <div class="divider"></div>
           ${this._renderStats(online, offline, effectiveLowBattery, staleCount, combinedPoorSignal, this._config.show_stat_icons === true)}
-          ${this._config.show_non_essential_stats === true && nonEssential > 0 ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, 0, 0, this._config.show_stat_icons === true, 0) : nothing}
+          ${this._config.show_non_essential_stats === true && nonEssential > 0 ? this._renderNonEssentialStats(nonEssentialOnline, nonEssentialOffline, nonEssentialLowBattery, nonEssentialStale, this._config.show_stat_icons === true, nonEssentialPoorSignal) : nothing}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
