@@ -144,7 +144,7 @@ Supported network types and thresholds:
 | Zigbee (LQI) | ≥ 201 | ≥ 51 | < 51 (higher is better) |
 | Zigbee (RSSI/dBm) | ≥ −70 dBm | ≥ −85 dBm | < −85 dBm |
 
-> 📸 _Screenshot placeholder: signal strength mapping step_
+![Step 6: Signal Strength Mapping](assets/04b_signal_entity_mapping.png)
 
 ### Step 2b: Create Combined Group (Combine groups path)
 
