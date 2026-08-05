@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Combined card: NE stats row missing** — `show_non_essential_stats: true` on a combined group card now renders the Non-Essential Online/Offline/Stale/Low Battery/Poor Signal row below the main stats, matching single-group behaviour. Previously the row was silently omitted.
+- **Combined card: NE stale/battery/signal counts were hardcoded 0** — the NE stats row passed zeroes for stale, low-battery, and poor-signal counts even when the combined sensor had the data. All three are now read from real attrs (gated by feature flags).
+- **Combined sensor: redundant `non_essential_low_battery` count attr removed** — replaced by `low_battery_entities_non_essential` array (consistent with `stale_entities_non_essential` and `poor_signal_entities_non_essential`).
+
+### Added
+- **Combined sensor: merged per-entity dicts** — `battery_levels`, `signal_levels`, `signal_units`, `suppressed_until`, `offline_since`, `last_seen` are now exposed on `sensor..._combined_summary` (first-wins merge across sub-groups). Enables full entity-detail parity with single-group cards and richer automation templates.
+- **Combined sensor: `ok_signal_entities`** — list of essential entities with OK signal, consistent with single-group `group_summary`.
+- **Combined sensor: `status` and `status_color`** — precomputed `"ok"|"degraded"|"offline"` and `"green"|"yellow"|"red"` attrs; eliminates card-side recomputation and enables direct use in automations/templates.
+- **Combined sensor: `low_battery_entities_non_essential`** — list of NE entity IDs with low battery (parallel to `offline_entities_non_essential`, `stale_entities_non_essential`, `poor_signal_entities_non_essential`).
+- **Combined sensor: `non_essential_online` / `non_essential_offline`** — top-level NE online/offline counts (previously only available inside the per-group `groups` dict).
+- **Combined card: entity detail table** — when `show_entities: true`, combined cards now render the full per-entity table (with battery, signal, stale, suppress state) in addition to the group breakdown, using the same `_renderEntityList` path as single-group cards.
+
 ## [0.4.0] - 2026-08-05
 
 ### Fixed
