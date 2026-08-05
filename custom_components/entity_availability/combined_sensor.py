@@ -486,6 +486,11 @@ class CombinedGroupSensor(CombinedSensorBase):
                 for d in states.values()
                 if d.is_non_essential and not d.is_suppressed
             ]
+            g_offline_entities_ne = [
+                d.entity_id
+                for d in states.values()
+                if d.is_non_essential and d.is_offline and not d.is_suppressed
+            ]
             g_non_essential_offline = 0
             g_non_essential_online = 0
             g_non_essential_stale = 0
@@ -511,6 +516,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "online": g_online,
                 "offline": g_offline,
                 "offline_entities": g_offline_entities,
+                "offline_entities_non_essential": g_offline_entities_ne,
                 "stale": g_stale,
                 "stale_entities": g_stale_entities,
                 "stale_entities_non_essential": g_stale_entities_ne,

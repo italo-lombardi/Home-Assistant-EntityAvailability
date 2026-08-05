@@ -1573,15 +1573,14 @@ class EntityAvailabilityCard extends LitElement {
     const groups = summary?.attributes?.groups || {};
     const map = {};
     for (const [entryId, g] of Object.entries(groups)) {
-      for (const list of ["offline_entities", "stale_entities", "stale_entities_non_essential",
+      for (const list of ["offline_entities", "offline_entities_non_essential",
+          "stale_entities", "stale_entities_non_essential",
           "poor_signal_entities", "poor_signal_entities_non_essential"]) {
         for (const eid of (g[list] || [])) {
           if (!(eid in map)) map[eid] = entryId;
         }
       }
     }
-    // NE offline entities are not in the per-group dict; they fall through with
-    // group=null, which makes the service search all coordinators — correct behavior.
     return map;
   }
 
