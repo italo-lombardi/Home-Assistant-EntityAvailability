@@ -507,14 +507,16 @@ The integration fires events on the Home Assistant event bus when a monitored en
 |-------|-----------|------|
 | `entity_availability_offline` | An essential entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
 | `entity_availability_recovered` | An offline essential entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
-| `entity_availability_low_battery` | An essential entity's battery drops below threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
-| `entity_availability_battery_ok` | An essential entity's battery recovers above threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
-| `entity_availability_stale` | An essential entity stops reporting state changes | `entity_id`, `group`, `entry_id`, `stale_since`, `stale_count`, `stale_entities` |
-| `entity_availability_stale_recovered` | A stale essential entity resumes reporting | `entity_id`, `group`, `entry_id`, `stale_count`, `stale_entities` |
+| `entity_availability_low_battery` | An essential entity's battery drops below threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities`, `source_groups` *(combined only)* |
+| `entity_availability_battery_ok` | An essential entity's battery recovers above threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities`, `source_groups` *(combined only)* |
+| `entity_availability_stale` | An essential entity stops reporting state changes *(individual groups only)* | `entity_id`, `group`, `entry_id`, `stale_since`, `stale_count`, `stale_entities` |
+| `entity_availability_stale_recovered` | A stale essential entity resumes reporting *(individual groups only)* | `entity_id`, `group`, `entry_id`, `stale_since`, `stale_count`, `stale_entities` |
+| `entity_availability_poor_signal` | An entity's signal drops to poor quality *(individual groups only)* | `entity_id`, `group`, `entry_id`, `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` |
+| `entity_availability_signal_ok` | An entity's signal recovers from poor quality *(individual groups only)* | `entity_id`, `group`, `entry_id`, `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` |
 
-`offline_count` and `offline_entities` reflect the group's offline state at the moment of the event. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. `offline_since` is always set for individual group events; for combined groups it may be `null` if the coordinator has not yet recorded the transition — guard with `if trigger.event.data.offline_since` before using `as_datetime()`.
+`offline_count` and `offline_entities` reflect the group's offline state at the moment of the event. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. The same snapshot rule applies to all paired events (`low_battery`/`battery_ok`, `stale`/`stale_recovered`, `poor_signal`/`signal_ok`). `offline_since` is always set for individual group events; for combined groups it may be `null` — guard with `if trigger.event.data.offline_since` before using `as_datetime()`.
 
-**Combined groups fire the same events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
+**Combined groups** fire `offline`, `recovered`, `low_battery`, and `battery_ok` events with the same payload plus `source_groups`. Stale and signal events are only fired by individual groups.
 
 **`source_groups` (combined groups only):** a list of the home group names that own the entity. For most entities this is a one-element list (e.g. `["Switches"]`); entities shared across multiple home groups list all names. Use it to include the originating group in notifications:
 

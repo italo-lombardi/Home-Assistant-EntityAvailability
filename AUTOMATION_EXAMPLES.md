@@ -30,7 +30,7 @@ The integration fires six events on the Home Assistant event bus at each transit
 {{ as_local(as_datetime(trigger.event.data.offline_since | default(none))) if trigger.event.data.offline_since else "unknown" }}
 ```
 
-**Combined groups fire all six events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
+**Combined groups fire 4 events** (`offline`, `recovered`, `low_battery`, `battery_ok`) **with the same payload shape plus `source_groups`** — one event per affected entity. Stale and signal events are only fired by individual groups.
 
 ---
 
@@ -528,9 +528,7 @@ automation:
 
 ## Combined groups
 
-**Combined groups fire all six events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
-
-**`source_groups` (combined group events only):** a list of the home group name(s) that contain the entity. Single-membership entities yield `["Security Devices"]`; entities shared across multiple home groups list all names.
+**Combined groups fire 4 events** (`offline`, `recovered`, `low_battery`, `battery_ok`) **with the same payload shape plus `source_groups`** — one event per affected entity. Stale and signal events are only fired by individual groups. An automation written for an individual group works unchanged on a combined group for these four event types; just change the `group` name in the trigger filter.
 
 **Avoiding double-fires:** combined groups fire their own event *and* each constituent home group fires its own. To respond only to the combined group, filter on `entry_id` (Settings → Integrations → entry ID in URL) or on the combined group name.
 

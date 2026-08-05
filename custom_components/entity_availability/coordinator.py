@@ -512,7 +512,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.suppress_until = self._suppressed[entity_id]
 
             # Check suppression expiry
-            if device.is_suppressed and device.suppress_until and now > device.suppress_until:
+            if (
+                device.is_suppressed
+                and device.suppress_until
+                and now > device.suppress_until
+            ):
                 _LOGGER.debug(
                     "[%s] Suppression expired for %s", self.group_name, entity_id
                 )

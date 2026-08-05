@@ -2935,7 +2935,9 @@ class TestNonEssentialKpiExclusion:
         sensor.hass = mock_hass
         attrs = sensor.extra_state_attributes
         assert attrs["stale"] == len(attrs["stale_entities"])
-        assert attrs["stale_non_essential"] == len(attrs["stale_entities_non_essential"])
+        assert attrs["stale_non_essential"] == len(
+            attrs["stale_entities_non_essential"]
+        )
         assert attrs["stale"] >= 1
         assert attrs["stale_non_essential"] >= 1
 
@@ -2951,7 +2953,9 @@ class TestNonEssentialKpiExclusion:
         sensor.hass = mock_hass
         attrs = sensor.extra_state_attributes
         assert attrs["poor_signal"] == len(attrs["poor_signal_entities"])
-        assert attrs["poor_signal_non_essential"] == len(attrs["poor_signal_entities_non_essential"])
+        assert attrs["poor_signal_non_essential"] == len(
+            attrs["poor_signal_entities_non_essential"]
+        )
         assert attrs["poor_signal"] == 1
 
     def test_group_summary_online_formula_no_overlap(self, mock_coordinator, mock_hass):
