@@ -58,6 +58,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC52 _detect_signal_entity suffix strip: sensor.xxx_last_seen → suggests sensor.xxx_linkquality
   EC53 diagnostics new schema: counts/entities/config sub-dicts present and correct (replaces flat keys)
   EC54 group_summary new attrs: essential count, stale/poor_signal count aliases
+  EC55 group_summary large attrs excluded from recorder (_unrecorded_attributes) but present in state machine
 
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
@@ -2817,6 +2818,47 @@ for e in cfg['data']['entries']:
             attrs.get("poor_signal_non_essential"),
             len(attrs.get("poor_signal_entities_non_essential", [])),
         )
+
+    # EC55: _unrecorded_attributes — large attrs excluded from recorder but present in state machine
+    if ec_enabled(55):
+        print(
+            "\n=== EC55: group_summary large attrs excluded from recorder but present in state ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        # These attrs must be PRESENT in the live state (available to templates/card)
+        for attr in [
+            "entities",
+            "display_names",
+            "battery_levels",
+            "low_battery_entities",
+            "last_seen",
+            "stale_entities",
+            "poor_signal_entities",
+            "offline_since",
+            "suppressed_until",
+            "non_essential_entities",
+        ]:
+            chk(
+                f"EC55 {attr} present in live state",
+                attr in attrs,
+                True,
+                f"attrs keys (sample)={list(attrs.keys())[:10]}",
+            )
+        # KPI counts must also be present (these ARE recorded)
+        for attr in [
+            "online",
+            "offline",
+            "essential",
+            "stale",
+            "poor_signal",
+            "battery_enabled",
+        ]:
+            chk(
+                f"EC55 {attr} present (KPI, recorded)",
+                attr in attrs,
+                True,
+            )
 
     # ------------------------------------------------------------------
     restore_all(ctx)

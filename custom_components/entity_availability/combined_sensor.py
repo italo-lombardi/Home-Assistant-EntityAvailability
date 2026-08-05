@@ -216,6 +216,18 @@ class CombinedGroupSensor(CombinedSensorBase):
     _attr_icon = "mdi:format-list-group"
     # No state_class: see GroupSummarySensor.
 
+    # Per-entity list/dict attrs: large, no historical value.
+    _unrecorded_attributes = frozenset(
+        {
+            "display_names",
+            "entities",
+            "groups",
+            "offline_entities",
+            "low_battery_entities",
+            "non_essential_entities",
+        }
+    )
+
     def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
         super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_summary"
