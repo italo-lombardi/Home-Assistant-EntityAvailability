@@ -1559,7 +1559,8 @@ class EntityAvailabilityCard extends LitElement {
 
   async _handleSuppressAll(e) {
     e.stopPropagation();
-    const group = this._resolveGroupId();
+    const isCombined = this._isCombinedGroup();
+    const group = isCombined ? null : this._resolveGroupId();
     const offlineIds = this._getOfflineEntityIds();
     const includeNE = this._config.show_non_essential_stats === true;
     const neOfflineIds = includeNE ? (() => {
@@ -1578,7 +1579,8 @@ class EntityAvailabilityCard extends LitElement {
 
   async _handleUnsuppressAll(e) {
     e.stopPropagation();
-    const group = this._resolveGroupId();
+    const isCombined = this._isCombinedGroup();
+    const group = isCombined ? null : this._resolveGroupId();
     const summary = this._getGroupSummary();
     const entities = summary?.attributes?.entities || [];
     const includeNE = this._config.show_non_essential_stats === true;
@@ -1844,6 +1846,16 @@ class EntityAvailabilityCardEditor extends LitElement {
             Entity List Expanded by Default
           </label>
         </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_actions === true}
+              @change=${(e) => this._updateConfig("show_actions", e.target.checked)}
+            />
+            Show Suppress/Unsuppress Buttons
+          </label>
+        </div>
         ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row checkbox">
           <label>
@@ -1853,16 +1865,6 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("show_entity_health", e.target.checked)}
             />
             Show Health Columns (Bat. &amp; Signal, when active)
-          </label>
-        </div>
-        <div class="editor-row checkbox">
-          <label>
-            <input
-              type="checkbox"
-              .checked=${this._config.show_actions === true}
-              @change=${(e) => this._updateConfig("show_actions", e.target.checked)}
-            />
-            Show Suppress/Unsuppress Buttons
           </label>
         </div>
         <div class="editor-row checkbox">
