@@ -216,31 +216,46 @@ The Group Summary sensor provides a complete overview in its attributes:
 | Attribute | Description |
 |-----------|-------------|
 | `total_entities` | Total number of entities in the group (includes non-essential) |
-| `online` | Entities currently online (excludes suppressed and non-essential) |
-| `offline` | Entities currently offline (excludes suppressed and non-essential) |
-| `suppressed` | Number of suppressed entities |
+| `essential` | Number of essential entities (= `total_entities - non_essential`) |
+| `online` | Essential entities currently online (excludes suppressed) |
+| `offline` | Essential entities currently offline (excludes suppressed) |
+| `suppressed` | Number of suppressed essential entities |
+| `stale` | Number of stale essential entities (count alias for `stale_entities \| length`) |
+| `poor_signal` | Number of essential entities with poor signal (count alias for `poor_signal_entities \| length`) |
 | `non_essential` | Total number of non-essential entities (including suppressed) |
 | `non_essential_entities` | List of unsuppressed non-essential entity IDs (note: `len(non_essential_entities)` < `non_essential` when any NE entities are suppressed) |
-| `battery_powered` | Number of entities with a mapped battery sensor |
-| `low_battery` | Number of entities with battery below threshold (excludes non-essential) |
-| `entities` | List of all monitored entity IDs in this group |
-| `battery_levels` | Dict of `{entity_id: battery_level}` for entities with battery sensors |
-| `suppressed_until` | Which entities are suppressed and when the suppression expires |
-| `stale_entities` | Entities that haven't reported a state change longer than the staleness threshold (excludes non-essential and suppressed) |
-| `stale_entities_non_essential` | Non-essential entities that haven't reported a state change longer than the staleness threshold |
-| `offline_since` | When each currently offline entity first went offline (includes both essential and non-essential entities) |
-| `offline_entities_non_essential` | List of non-essential entity IDs currently offline |
-| `non_essential_suppressed` | Number of non-essential entities currently suppressed |
 | `non_essential_online` | Number of non-essential entities currently online (unsuppressed, not offline) |
 | `non_essential_offline` | Number of non-essential entities currently offline (unsuppressed) |
+| `non_essential_suppressed` | Number of non-essential entities currently suppressed |
+| `stale_non_essential` | Number of stale non-essential entities |
+| `poor_signal_non_essential` | Number of non-essential entities with poor signal |
+| `battery_powered` | Number of entities with a mapped battery sensor |
+| `low_battery` | Number of essential entities with battery below threshold |
 | `low_battery_non_essential` | Number of non-essential entities with battery below threshold |
+| `entities` | List of all monitored entity IDs in this group |
+| `battery_levels` | Dict of `{entity_id: battery_level}` for entities with battery sensors |
+| `signal_levels` | Dict of `{entity_id: signal_value}` for entities with signal sensors (when signal enabled) |
+| `signal_units` | Dict of `{entity_id: unit}` — "LQI", "dBm", or "%" per entity |
+| `suppressed_until` | Which entities are suppressed and when the suppression expires |
+| `stale_entities` | List of stale essential entity IDs (excludes suppressed and offline) |
+| `stale_entities_non_essential` | List of stale non-essential entity IDs |
+| `poor_signal_entities` | List of essential entity IDs with poor signal |
+| `poor_signal_entities_non_essential` | List of non-essential entity IDs with poor signal |
+| `offline_entities_non_essential` | List of non-essential entity IDs currently offline |
+| `offline_since` | When each currently offline entity first went offline |
+| `last_seen` | Last state-change timestamp per entity |
 
 Access these in templates:
 
 ```yaml
-{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'battery_powered') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'essential') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'online') }}
 {{ state_attr('sensor.entity_availability_security_devices_group_summary', 'offline') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'stale') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'poor_signal') }}
 ```
+
+See [AUTOMATION_EXAMPLES.md](AUTOMATION_EXAMPLES.md) for full template and automation examples.
 
 ![Sensor Details & Attributes](assets/06_sensor_details_attributes.png)
 
@@ -492,14 +507,16 @@ The integration fires events on the Home Assistant event bus when a monitored en
 |-------|-----------|------|
 | `entity_availability_offline` | An essential entity is confirmed offline | `entity_id`, `group`, `entry_id`, `offline_since`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
 | `entity_availability_recovered` | An offline essential entity returns online | `entity_id`, `group`, `entry_id`, `downtime_seconds`, `offline_count`, `offline_entities`, `source_groups` *(combined only)* |
-| `entity_availability_low_battery` | An essential entity's battery drops below threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
-| `entity_availability_battery_ok` | An essential entity's battery recovers above threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities` |
-| `entity_availability_stale` | An essential entity stops reporting state changes | `entity_id`, `group`, `entry_id`, `stale_since`, `stale_count`, `stale_entities` |
-| `entity_availability_stale_recovered` | A stale essential entity resumes reporting | `entity_id`, `group`, `entry_id`, `stale_count`, `stale_entities` |
+| `entity_availability_low_battery` | An essential entity's battery drops below threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities`, `source_groups` *(combined only)* |
+| `entity_availability_battery_ok` | An essential entity's battery recovers above threshold | `entity_id`, `group`, `entry_id`, `battery_level`, `low_battery_count`, `low_battery_entities`, `source_groups` *(combined only)* |
+| `entity_availability_stale` | An essential entity stops reporting state changes *(individual groups only)* | `entity_id`, `group`, `entry_id`, `stale_since`, `stale_count`, `stale_entities` |
+| `entity_availability_stale_recovered` | A stale essential entity resumes reporting *(individual groups only)* | `entity_id`, `group`, `entry_id`, `stale_since`, `stale_count`, `stale_entities` |
+| `entity_availability_poor_signal` | An entity's signal drops to poor quality *(individual groups only)* | `entity_id`, `group`, `entry_id`, `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` |
+| `entity_availability_signal_ok` | An entity's signal recovers from poor quality *(individual groups only)* | `entity_id`, `group`, `entry_id`, `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` |
 
-`offline_count` and `offline_entities` reflect the group's offline state at the moment of the event. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. `offline_since` is always set for individual group events; for combined groups it may be `null` if the coordinator has not yet recorded the transition — guard with `if trigger.event.data.offline_since` before using `as_datetime()`.
+`offline_count` and `offline_entities` reflect the group's offline state at the moment of the event. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. The same snapshot rule applies to all paired events (`low_battery`/`battery_ok`, `stale`/`stale_recovered`, `poor_signal`/`signal_ok`). `offline_since` is always set for individual group events; for combined groups it may be `null` — guard with `if trigger.event.data.offline_since` before using `as_datetime()`.
 
-**Combined groups fire the same events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
+**Combined groups** fire `offline`, `recovered`, `low_battery`, and `battery_ok` events with the same payload plus `source_groups`. Stale and signal events are only fired by individual groups.
 
 **`source_groups` (combined groups only):** a list of the home group names that own the entity. For most entities this is a one-element list (e.g. `["Switches"]`); entities shared across multiple home groups list all names. Use it to include the originating group in notifications:
 
@@ -581,18 +598,22 @@ The card works with both regular groups and combined groups. It auto-detects the
 
 ```yaml
 type: custom:entity-availability-card
-group: Security Devices
+group: security_devices        # group slug (lowercase, underscores)
+# title: "My Devices"         # optional override
 show_affected_areas: false
 show_availability: true
 show_entities: true
 show_non_essential_stats: false
 entities_expanded: false
 show_actions: false
+show_suppress_toggle: false
+show_stat_icons: false
+show_table_icons: false
 compact: false
-entity_detail: "off"
-entity_filter: "all"
-sort_by: status
-group_sort_by: name_asc
+entity_detail: "off"           # "off" | "tooltip" | "inline"
+entity_filter: "all"           # "all" | "offline" | "online"
+sort_by: status                # status | name_asc | name_desc | battery_asc | battery_desc
+group_sort_by: name_asc        # name_asc | name_desc | offline_desc (combined groups)
 availability_thresholds:
   high: 99
   mid: 95

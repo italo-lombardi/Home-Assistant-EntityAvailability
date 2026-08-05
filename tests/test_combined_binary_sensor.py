@@ -5,10 +5,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.core import HomeAssistant
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.combined_binary_sensor import (
@@ -28,7 +26,6 @@ from custom_components.entity_availability.coordinator import (
     EntityAvailabilityCoordinator,
 )
 from custom_components.entity_availability.models import DeviceState
-
 
 # ---------------------------------------------------------------------------
 # Fixtures (mirror those in test_combined_sensor.py)

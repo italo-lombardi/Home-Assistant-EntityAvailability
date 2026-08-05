@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -18,7 +17,7 @@ class EntityItem:
     name: str
     dot_color: str  # "green" | "yellow" | "red"
     status: str
-    battery: Optional[int]
+    battery: int | None
     is_offline: bool
 
 
@@ -61,7 +60,7 @@ def sort_entities(items: list[EntityItem], sort_by: str = "status") -> list[Enti
 # ---------------------------------------------------------------------------
 
 
-def _online(name: str, battery: Optional[int] = None) -> EntityItem:
+def _online(name: str, battery: int | None = None) -> EntityItem:
     dot = "yellow" if battery is not None and battery < 20 else "green"
     status = "Low Battery" if dot == "yellow" else "Online"
     return EntityItem(
@@ -74,7 +73,7 @@ def _online(name: str, battery: Optional[int] = None) -> EntityItem:
     )
 
 
-def _offline(name: str, battery: Optional[int] = None) -> EntityItem:
+def _offline(name: str, battery: int | None = None) -> EntityItem:
     return EntityItem(
         entity_id=f"binary_sensor.{name.lower().replace(' ', '_')}",
         name=name,

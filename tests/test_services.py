@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
-
 from homeassistant.core import HomeAssistant
 
 from custom_components.entity_availability.const import DOMAIN
@@ -516,6 +515,7 @@ async def test_suppress_updates_all_coordinators_sharing_entity(
 ) -> None:
     """Suppress service calls suppress_entity on ALL coordinators that monitor the entity."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.entity_availability.const import CONF_ENTITIES
 
     hass = mock_hass
@@ -650,6 +650,7 @@ async def test_suppress_with_group_scopes_to_that_group(
 ) -> None:
     """suppress with entity_id+group only suppresses in the named group."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.entity_availability.const import CONF_ENTITIES
 
     hass = mock_hass
@@ -710,6 +711,7 @@ async def test_suppress_indefinitely_with_group_scopes_to_that_group(
 ) -> None:
     """suppress_indefinitely with entity_id+group only suppresses in the named group."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.entity_availability.const import CONF_ENTITIES
 
     hass = mock_hass
@@ -766,6 +768,7 @@ async def test_unsuppress_with_group_scopes_to_that_group(
 ) -> None:
     """unsuppress with entity_id+group only unsuppresses in the named group."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.entity_availability.const import CONF_ENTITIES
 
     hass = mock_hass
@@ -826,6 +829,7 @@ async def test_reset_statistics_with_group_scopes_to_that_group(
 ) -> None:
     """reset_statistics with entity_id+group only resets in the named group."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.entity_availability.const import CONF_ENTITIES
 
     hass = mock_hass
@@ -1046,6 +1050,7 @@ async def test_reset_statistics_with_group_slug(
 ) -> None:
     """reset_statistics with slug form of group name resets only the matching group."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.entity_availability.const import CONF_ENTITIES
 
     hass = mock_hass
@@ -1105,6 +1110,7 @@ async def test_reset_statistics_group_only_slug(
 ) -> None:
     """reset_statistics with group-only slug (no entity_id) resets all in matched group only."""
     from pytest_homeassistant_custom_component.common import MockConfigEntry
+
     from custom_components.entity_availability.const import CONF_ENTITIES
 
     hass = mock_hass

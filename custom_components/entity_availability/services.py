@@ -7,7 +7,6 @@ import re
 from datetime import datetime, timedelta, timezone
 
 import voluptuous as vol
-
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 

@@ -6,10 +6,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, State
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.const import (
@@ -4482,6 +4480,7 @@ async def test_handle_state_change_records_last_changed(
 ) -> None:
     """_handle_state_change captures last_changed from the event new_state."""
     from homeassistant.core import Event, EventOrigin
+
     from custom_components.entity_availability.models import DeviceState
 
     hass = mock_hass
@@ -4558,6 +4557,7 @@ async def test_handle_state_change_naive_ts_gets_utc(
 ) -> None:
     """_handle_state_change adds UTC tzinfo to naive last_changed timestamps."""
     from homeassistant.core import Event, EventOrigin
+
     from custom_components.entity_availability.models import DeviceState
 
     hass = mock_hass
@@ -4651,6 +4651,7 @@ async def test_restart_scenario_persisted_last_changed_survives(
 ) -> None:
     """End-to-end: event fires → timestamp stored → coordinator restart → polling doesn't overwrite → stale detection uses persisted value."""
     from homeassistant.core import Event, EventOrigin
+
     from custom_components.entity_availability.models import DeviceState
 
     hass = mock_hass

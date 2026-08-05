@@ -6,10 +6,8 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.combined_sensor import (
@@ -48,7 +46,6 @@ from custom_components.entity_availability.coordinator import (
     EntityAvailabilityCoordinator,
 )
 from custom_components.entity_availability.models import DeviceState
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -2678,8 +2675,9 @@ class TestCombinedAffectedAreasSensors:
         self, mock_hass, combined_entry, coordinators
     ):
         """Per-coordinator window respected — one inside, one outside."""
-        from custom_components.entity_availability.const import CONF_RECOVERY_WINDOW
         from datetime import timedelta
+
+        from custom_components.entity_availability.const import CONF_RECOVERY_WINDOW
 
         mock_hass.data[DOMAIN] = {
             "entry_a": coordinators[0],

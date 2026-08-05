@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
 from homeassistant.core import HomeAssistant
-
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability import (
@@ -680,8 +678,8 @@ async def test_register_lovelace_resource_single_existing_no_duplicate_loop(
     """
     from custom_components.entity_availability import (
         CARD_URL,
-        _async_register_lovelace_resource,
         ResourceStorageCollection,
+        _async_register_lovelace_resource,
     )
 
     hass = mock_hass

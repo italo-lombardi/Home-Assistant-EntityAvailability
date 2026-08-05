@@ -11,9 +11,9 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
+from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
     CONF_AVAILABILITY_WINDOWS,
@@ -1069,9 +1069,36 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         battery_enabled = self.coordinator.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0
         staleness_enabled = self.coordinator._staleness_threshold > 0
         signal_enabled = self.coordinator._signal_enabled
+        essential = total - non_essential
+        poor_signal_ids = (
+            self.coordinator._poor_signal_entity_ids() if signal_enabled else []
+        )
+        poor_signal_ne_ids = (
+            self.coordinator._poor_signal_ne_entity_ids() if signal_enabled else []
+        )
+        ok_signal_ids = (
+            self.coordinator._ok_signal_entity_ids() if signal_enabled else []
+        )
+        stale_ids = [
+            eid
+            for eid, d in states.items()
+            if d.is_stale
+            and not d.is_suppressed
+            and not d.is_non_essential
+            and not d.is_offline
+        ]
+        stale_ne_ids = [
+            eid
+            for eid, d in states.items()
+            if d.is_stale
+            and not d.is_suppressed
+            and d.is_non_essential
+            and not d.is_offline
+        ]
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
+            "essential": essential,
             "online": online,
             "offline": offline,
             "suppressed": suppressed,
@@ -1088,6 +1115,10 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "low_battery": low_battery,
             "low_battery_non_essential": low_battery_non_essential,
             "low_battery_entities": low_battery_entities,
+            "stale": len(stale_ids),
+            "stale_non_essential": len(stale_ne_ids),
+            "poor_signal": len(poor_signal_ids),
+            "poor_signal_non_essential": len(poor_signal_ne_ids),
             "entities": list(self.coordinator.monitored_entities),
             "display_names": {
                 eid: _resolve_display_name(self.hass, eid, use_device_names)
@@ -1108,15 +1139,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 for eid, d in states.items()
                 if signal_enabled and d.signal_unit is not None
             },
-            "poor_signal_entities": self.coordinator._poor_signal_entity_ids()
-            if signal_enabled
-            else [],
-            "poor_signal_entities_non_essential": self.coordinator._poor_signal_ne_entity_ids()
-            if signal_enabled
-            else [],
-            "ok_signal_entities": self.coordinator._ok_signal_entity_ids()
-            if signal_enabled
-            else [],
+            "poor_signal_entities": poor_signal_ids,
+            "poor_signal_entities_non_essential": poor_signal_ne_ids,
+            "ok_signal_entities": ok_signal_ids,
             "suppressed_until": {
                 eid: d.suppress_until.isoformat()
                 if d.suppress_until is not None
@@ -1124,22 +1149,8 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 for eid, d in states.items()
                 if d.is_suppressed
             },
-            "stale_entities": [
-                eid
-                for eid, d in states.items()
-                if d.is_stale
-                and not d.is_suppressed
-                and not d.is_non_essential
-                and not d.is_offline
-            ],
-            "stale_entities_non_essential": [
-                eid
-                for eid, d in states.items()
-                if d.is_stale
-                and not d.is_suppressed
-                and d.is_non_essential
-                and not d.is_offline
-            ],
+            "stale_entities": stale_ids,
+            "stale_entities_non_essential": stale_ne_ids,
             "offline_since": {
                 eid: d.offline_since.isoformat()
                 for eid, d in states.items()

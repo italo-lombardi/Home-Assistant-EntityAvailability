@@ -13,7 +13,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import DOMAIN, CONF_ENTRY_TYPE, ENTRY_TYPE_COMBINED, ENTRY_TYPE_GROUP
+from .const import CONF_ENTRY_TYPE, DOMAIN, ENTRY_TYPE_COMBINED, ENTRY_TYPE_GROUP
 from .coordinator import EntityAvailabilityCoordinator
 from .services import async_setup_services, async_unload_services
 

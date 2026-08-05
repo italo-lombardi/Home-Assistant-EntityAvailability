@@ -30,7 +30,7 @@ The integration fires six events on the Home Assistant event bus at each transit
 {{ as_local(as_datetime(trigger.event.data.offline_since | default(none))) if trigger.event.data.offline_since else "unknown" }}
 ```
 
-**Combined groups fire all six events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
+**Combined groups fire 4 events** (`offline`, `recovered`, `low_battery`, `battery_ok`) **with the same payload shape plus `source_groups`** — one event per affected entity. Stale and signal events are only fired by individual groups.
 
 ---
 
@@ -214,6 +214,86 @@ automation:
           {% else %}
           All devices reporting normally.
           {% endif %}
+```
+
+---
+
+## Signal quality events
+
+Signal events fire when an entity's signal quality transitions between tiers. Only poor ↔ non-poor transitions fire events — transitions between "ok" and "good" do not.
+
+| Event | Fired when | Key data |
+|-------|-----------|----------|
+| `entity_availability_poor_signal` | Signal drops into "poor" tier | `entity_id`, `group`, `entry_id`, `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` |
+| `entity_availability_signal_ok` | Signal recovers from "poor" | same — `poor_signal_count` already excludes the recovered entity |
+
+---
+
+### Automation 8a — Alert when signal degrades
+
+```yaml
+automation:
+  alias: EA — poor signal alert
+  trigger:
+    - platform: event
+      event_type: entity_availability_poor_signal
+      event_data:
+        group: Zigbee Devices
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Poor signal ({{ trigger.event.data.poor_signal_count }} device(s))"
+        message: >-
+          {{ trigger.event.data.entity_id }} has poor signal:
+          {{ trigger.event.data.signal_level }} {{ trigger.event.data.signal_quality }}.
+          All poor signal: {{ trigger.event.data.poor_signal_entities | join(', ') }}
+```
+
+---
+
+### Automation 8b — Log signal recovery
+
+```yaml
+automation:
+  alias: EA — signal recovered
+  trigger:
+    - platform: event
+      event_type: entity_availability_signal_ok
+      event_data:
+        group: Zigbee Devices
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {{ trigger.event.data.entity_id }} signal recovered
+          (now {{ trigger.event.data.signal_quality }}: {{ trigger.event.data.signal_level }}).
+          {% if trigger.event.data.poor_signal_count | int > 0 %}
+          Still poor: {{ trigger.event.data.poor_signal_entities | join(', ') }}
+          {% else %}
+          All devices have acceptable signal.
+          {% endif %}
+```
+
+---
+
+### Automation 8c — Sensor-based trigger (alternative to events)
+
+If you prefer polling over events, use the `poor_signal_count` sensor or the `poor_signal` attr on `group_summary`:
+
+```yaml
+automation:
+  alias: EA — poor signal sensor trigger
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.entity_availability_zigbee_devices_poor_signal_count
+      above: 0
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+          {{ s.poor_signal }} device(s) with poor signal:
+          {{ s.poor_signal_entities | join(', ') }}
 ```
 
 ---
@@ -448,9 +528,7 @@ automation:
 
 ## Combined groups
 
-**Combined groups fire all six events with the same payload shape** — one event per affected entity. An automation written for an individual group works unchanged on a combined group; just change the `group` name in the trigger filter.
-
-**`source_groups` (combined group events only):** a list of the home group name(s) that contain the entity. Single-membership entities yield `["Security Devices"]`; entities shared across multiple home groups list all names.
+**Combined groups fire 4 events** (`offline`, `recovered`, `low_battery`, `battery_ok`) **with the same payload shape plus `source_groups`** — one event per affected entity. Stale and signal events are only fired by individual groups. An automation written for an individual group works unchanged on a combined group for these four event types; just change the `group` name in the trigger filter.
 
 **Avoiding double-fires:** combined groups fire their own event *and* each constituent home group fires its own. To respond only to the combined group, filter on `entry_id` (Settings → Integrations → entry ID in URL) or on the combined group name.
 
@@ -779,4 +857,75 @@ automation:
         message: >-
           Non-essential stale ({{ states('sensor.entity_availability_security_devices_stale_count_non_essential') }}):
           {{ state_attr('sensor.entity_availability_security_devices_stale_entities_non_essential', 'entities') | join(', ') }}
+```
+
+---
+
+## group_summary templates
+
+The `group_summary` sensor exposes rich attributes for templates and automations. Replace `zigbee_devices` with your group slug.
+
+### Summary message
+
+```yaml
+{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+Total {{ s.total_entities }} | Essential {{ s.essential }}: {{ s.online }} online, {{ s.offline }} offline | NE {{ s.non_essential }}: {{ s.non_essential_online }} online, {{ s.non_essential_offline }} offline
+```
+
+### Status line with degraded indicators
+
+```yaml
+{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+{% if s.offline > 0 %}⚠️ {{ s.offline }} offline{% if s.stale > 0 %}, {{ s.stale }} stale{% endif %}{% if s.poor_signal > 0 %}, {{ s.poor_signal }} poor signal{% endif %}
+{% else %}✅ All {{ s.essential }} essential online{% if s.stale > 0 %} ({{ s.stale }} stale){% endif %}{% endif %}
+```
+
+### Automation trigger on any degraded state
+
+```yaml
+automation:
+  alias: EA — any degraded essential device
+  trigger:
+    - platform: template
+      value_template: >
+        {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+        {{ s.offline > 0 or s.stale > 0 or s.poor_signal > 0 }}
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >
+          {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+          Degraded: {{ s.offline }} offline, {{ s.stale }} stale, {{ s.poor_signal }} poor signal
+          ({{ s.online }}/{{ s.essential }} essential online)
+```
+
+### Low battery list with levels
+
+```yaml
+{% set lvls = state_attr('sensor.entity_availability_zigbee_devices_group_summary', 'battery_levels') %}
+{% set names = state_attr('sensor.entity_availability_zigbee_devices_group_summary', 'display_names') %}
+Low battery devices:
+{% for eid, pct in lvls.items() if pct < 30 %}
+- {{ names.get(eid, eid) }}: {{ pct }}%
+{% endfor %}
+```
+
+### Essential vs non-essential count in a notification
+
+```yaml
+automation:
+  alias: EA — daily health summary
+  trigger:
+    - platform: time
+      at: "08:00:00"
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: Zigbee daily summary
+        message: >
+          {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+          Essential: {{ s.essential }} ({{ s.online }} online)
+          Non-essential: {{ s.non_essential }} ({{ s.non_essential_online }} online)
+          {% if s.stale > 0 %}Stale: {{ s.stale }}{% endif %}
+          {% if s.poor_signal > 0 %}Poor signal: {{ s.poor_signal }}{% endif %}
 ```

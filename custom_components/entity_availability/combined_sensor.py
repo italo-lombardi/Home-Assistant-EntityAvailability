@@ -11,9 +11,9 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_BATTERY_ENTITY_MAP,
@@ -30,8 +30,8 @@ from .const import (
     NO_AREA_SENTINEL,
 )
 from .coordinator import EntityAvailabilityCoordinator
-from .models import DeviceState
 from .helpers import resolve_area_name, resolve_display_name
+from .models import DeviceState
 from .write_dedup import WriteDedupMixin
 
 _LOGGER = logging.getLogger(__name__)

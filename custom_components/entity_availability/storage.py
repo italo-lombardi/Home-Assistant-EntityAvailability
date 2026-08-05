@@ -157,7 +157,7 @@ class AvailabilityStorage:
         return result
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "AvailabilityStorage":
+    def from_dict(cls, data: dict[str, Any]) -> AvailabilityStorage:
         """Deserialize from dict."""
         storage = cls()
         for entity_id, buckets_data in data.items():

@@ -5,10 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
-
-from homeassistant.core import HomeAssistant
 from homeassistant.const import STATE_ON
-
+from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.const import (
