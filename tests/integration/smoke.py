@@ -646,7 +646,11 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         )
         baseline = gs(f"{prefix}_offline_count").get("state", "0")
         ss(ne_target, "unavailable", {"friendly_name": "ne test"})
-        wait(12)
+        # Poll NE offline count to confirm coordinator processed the state change
+        wait_for(
+            lambda: gs(f"{prefix}_offline_count_non_essential").get("state"),
+            "1",
+        )
         chk(
             "EC25 offline_count unchanged",
             gs(f"{prefix}_offline_count").get("state"),
@@ -663,7 +667,9 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         # ne_target already offline from EC25 or restored
         if not ec_enabled(25):
             ss(ne_target, "unavailable", {"friendly_name": "ne test"})
-            wait(12)
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count_non_essential").get("state"), "1"
+            )
         chk(
             "EC26 offline_count_non_essential=1",
             wait_for(
@@ -682,7 +688,9 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         )
         if not ec_enabled(25) and not ec_enabled(26):
             ss(ne_target, "unavailable", {"friendly_name": "ne test"})
-            wait(12)
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count_non_essential").get("state"), "1"
+            )
         chk(
             "EC27 any_offline=off (NE excluded)",
             gs(f"{ne_bs_prefix}_any_offline").get("state"),
@@ -698,7 +706,9 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         )
         if not any(ec_enabled(n) for n in [25, 26, 27]):
             ss(ne_target, "unavailable", {"friendly_name": "ne test"})
-            wait(12)
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count_non_essential").get("state"), "1"
+            )
         chk(
             "EC28 any_offline_non_essential=on",
             wait_for(
@@ -716,11 +726,20 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         )
         if not any(ec_enabled(n) for n in [25, 26, 27, 28]):
             ss(ne_target, "unavailable", {"friendly_name": "ne test"})
-            wait(12)
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count_non_essential").get("state"), "1"
+            )
         attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         chk(
             "EC29 non_essential_offline=1",
-            str(attrs.get("non_essential_offline")),
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("non_essential_offline")
+                ),
+                "1",
+            ),
             "1",
         )
 
@@ -731,7 +750,9 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         )
         if not any(ec_enabled(n) for n in range(25, 30)):
             ss(ne_target, "unavailable", {"friendly_name": "ne test"})
-            wait(12)
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count_non_essential").get("state"), "1"
+            )
         expected_online = len(essential_entities)
         attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         chk(
@@ -1184,15 +1205,23 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                 )
             else:
                 low_val = str(int(threshold) - 5)
+                # Ensure essential batteries are clear before asserting any_low_battery=off
+                ne_restore()
+                wait_for(
+                    lambda: gs(f"{ne_bs_prefix}_any_low_battery").get("state"), "off"
+                )
                 ss(
                     ne_bat,
                     low_val,
                     {"device_class": "battery", "unit_of_measurement": "%"},
                 )
-                wait(12)
                 chk(
                     "EC40 any_low_battery=off (NE battery low, essential ok)",
-                    gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
+                    wait_for(
+                        lambda: gs(f"{ne_bs_prefix}_any_low_battery").get("state"),
+                        "off",
+                        interval=3,
+                    ),
                     "off",
                     f"ne_bat={ne_bat} low_val={low_val}",
                 )
@@ -1201,7 +1230,9 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     "90",
                     {"device_class": "battery", "unit_of_measurement": "%"},
                 )
-                wait(8)
+                wait_for(
+                    lambda: gs(f"{ne_bs_prefix}_any_low_battery").get("state"), "off"
+                )
 
     # EC41: recently_offline sensor lists entity after it goes offline
     if ec_enabled(41):
@@ -1214,11 +1245,16 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         else:
             target = essential_entities[0] if essential_entities else ne_entities[0]
             ss(target, "unavailable", {"friendly_name": "smoke test"})
-            wait(12)
-            recent_entities = (
-                gs(f"{prefix}_recently_offline")
+            # Poll until entity appears in recently_offline list
+            wait_for(
+                lambda: target
+                in gs(f"{prefix}_recently_offline")
                 .get("attributes", {})
-                .get("entities", [])
+                .get("entities", []),
+                True,
+            )
+            recent_entities = (
+                gs(f"{prefix}_recently_offline").get("attributes", {}).get("entities", [])
             )
             chk(
                 "EC41 recently_offline lists entity",
@@ -1239,9 +1275,21 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         else:
             target = essential_entities[0] if essential_entities else ne_entities[0]
             ss(target, "unavailable", {"friendly_name": "smoke test"})
-            wait(12)
+            wait_for(
+                lambda: target
+                in gs(f"{prefix}_recently_offline")
+                .get("attributes", {})
+                .get("entities", []),
+                True,
+            )
             ss(target, "on", {"friendly_name": target.split(".")[-1]})
-            wait(12)
+            wait_for(
+                lambda: target
+                in gs(f"{prefix}_recently_recovered")
+                .get("attributes", {})
+                .get("entities", []),
+                True,
+            )
             recent_entities = (
                 gs(f"{prefix}_recently_recovered")
                 .get("attributes", {})
@@ -1402,7 +1450,10 @@ def main():
         )
         chk(
             "low_battery_count=0 (offline excluded)",
-            gs(f"{prefix}_low_battery_count").get("state"),
+            wait_for(
+                lambda: gs(f"{prefix}_low_battery_count").get("state"),
+                "0",
+            ),
             "0",
         )
         gs_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
@@ -1469,6 +1520,20 @@ def main():
                     gs(f"{combined_prefix}_combined_summary")
                     .get("attributes", {})
                     .get("offline")
+                ),
+                0,
+            )
+            wait_for(
+                lambda: (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("low_battery")
+                ),
+                0,
+            )
+            wait_for(
+                lambda: int(
+                    gs(f"{combined_prefix}_low_battery_count").get("state", "-1")
                 ),
                 0,
             )
@@ -1638,10 +1703,12 @@ def main():
             "1",
         )
         ss(suppressed_entity, "unavailable", {"friendly_name": "test"})
-        wait()
         chk(
             "offline_count=0 (suppressed not counted)",
-            gs(f"{prefix}_offline_count").get("state"),
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count").get("state"),
+                "0",
+            ),
             "0",
         )
         chk(
@@ -1663,23 +1730,31 @@ def main():
             "/api/services/entity_availability/suppress_indefinitely",
             {"entity_id": indef_entity, "group": ctx["title"]},
         )
-        wait()
-        summary_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         chk(
             "EC11 suppressed=1 after suppress_indefinitely",
-            str(summary_attrs.get("suppressed")),
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "1",
+            ),
             "1",
         )
+        summary_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
         chk(
             "EC11 suppressed_until[entity]=null (indefinite)",
             summary_attrs.get("suppressed_until", {}).get(indef_entity),
             None,
         )
         ss(indef_entity, "unavailable", {"friendly_name": "test"})
-        wait()
         chk(
             "EC11 offline_count=0 (indefinitely suppressed not counted)",
-            gs(f"{prefix}_offline_count").get("state"),
+            wait_for(
+                lambda: gs(f"{prefix}_offline_count").get("state"),
+                "0",
+            ),
             "0",
         )
         api(
@@ -1687,10 +1762,16 @@ def main():
             "/api/services/entity_availability/unsuppress",
             {"entity_id": indef_entity, "group": ctx["title"]},
         )
-        wait()
         chk(
             "EC11 suppressed=0 after unsuppress",
-            str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "0",
+            ),
             "0",
         )
 
@@ -1913,13 +1994,26 @@ def main():
             if ec_enabled(16):
                 # EC16: member entity goes offline → combined offline_count rises
                 ss(target, "unavailable", {"friendly_name": "smoke test device"})
-                wait()
-                after_offline = int(gs(c_offline_eid).get("state", "0"))
+                after_offline = wait_for(
+                    lambda: int(gs(c_offline_eid).get("state", "0")),
+                    baseline + 1,
+                )
                 chk(
                     "EC16 combined offline_count rises when member entity goes offline",
                     after_offline,
                     baseline + 1,
                     f"sensor={c_offline_eid} baseline={baseline} after={after_offline}",
+                )
+                c_entities_after = (
+                    gs(f"{combined_prefix}_offline_count")
+                    .get("attributes", {})
+                    .get("entities", [])
+                )
+                chk(
+                    "EC16 offline entity in combined offline_entities",
+                    target in c_entities_after,
+                    True,
+                    f"target={target} entities={c_entities_after}",
                 )
 
             if ec_enabled(17):
@@ -1949,8 +2043,9 @@ def main():
                     wait()
                 # EC18: recovery → combined offline_count drops back to baseline
                 restore_and_wait(ctx)
-                wait_for(lambda: int(gs(c_offline_eid).get("state", "0")), baseline)
-                after_recovery = int(gs(c_offline_eid).get("state", "0"))
+                after_recovery = wait_for(
+                    lambda: int(gs(c_offline_eid).get("state", "0")), baseline
+                )
                 chk(
                     "EC18 combined offline_count returns to baseline after recovery",
                     after_recovery,
@@ -2275,9 +2370,11 @@ def main():
                     f"source_groups={ev.get('source_groups')}",
                 )
             else:
-                print(
-                    f"  EC24: no combined event captured (combined_entry_id={combined_entry_id}, total={len(events)})",
-                    flush=True,
+                chk(
+                    "EC24 combined offline event captured",
+                    False,
+                    True,
+                    f"combined_entry_id={combined_entry_id} total_events={len(events)}",
                 )
             restore_and_wait(ctx)
         else:
