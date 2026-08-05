@@ -1265,16 +1265,22 @@ class EntityAvailabilityCard extends LitElement {
         const bBat = b.battery ?? -1;
         if (aBat !== bBat) return bBat - aBat;
         return a.name.localeCompare(b.name);
-      } else if (sortBy === "signal_asc") {
-        const aSig = a.signalLevel ?? Infinity;
-        const bSig = b.signalLevel ?? Infinity;
-        if (aSig !== bSig) return aSig - bSig;
-        return a.name.localeCompare(b.name);
-      } else if (sortBy === "signal_desc") {
-        const aSig = a.signalLevel ?? -Infinity;
-        const bSig = b.signalLevel ?? -Infinity;
-        if (aSig !== bSig) return bSig - aSig;
-        return a.name.localeCompare(b.name);
+      } else if (sortBy === "signal_asc" || sortBy === "signal_desc") {
+        // Normalize to quality score 0–100 (higher = better signal) so dBm and % sort on same axis.
+        // Entities with no signal sensor sort last regardless of direction.
+        const toQuality = (lvl, unit) => {
+          if (lvl === null || lvl === undefined) return null;
+          if (unit === "%" || unit === "LQI") return lvl; // already 0–100
+          // dBm: typical range -110 (worst) to -30 (best) → map to 0–100
+          return Math.max(0, Math.min(100, (lvl + 110) * (100 / 80)));
+        };
+        const aQ = toQuality(a.signalLevel, a.signalUnit);
+        const bQ = toQuality(b.signalLevel, b.signalUnit);
+        if (aQ === null && bQ === null) return a.name.localeCompare(b.name);
+        if (aQ === null) return 1;
+        if (bQ === null) return -1;
+        const diff = sortBy === "signal_asc" ? aQ - bQ : bQ - aQ;
+        return diff !== 0 ? diff : a.name.localeCompare(b.name);
       } else {
         if (a.isOffline && !b.isOffline) return -1;
         if (!a.isOffline && b.isOffline) return 1;
