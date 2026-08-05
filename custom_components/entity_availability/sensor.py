@@ -1036,9 +1036,10 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         non_essential_entities = [
             eid
             for eid in self.coordinator.monitored_entities
-            if states.get(eid)
-            and states[eid].is_non_essential
-            and not states[eid].is_suppressed
+            if states.get(eid) and states[eid].is_non_essential
+        ]
+        non_essential_entities_unsuppressed = [
+            eid for eid in non_essential_entities if not states[eid].is_suppressed
         ]
         non_essential_suppressed = sum(
             1
@@ -1047,9 +1048,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             and states[eid].is_non_essential
             and states[eid].is_suppressed
         )
-        non_essential = len(non_essential_entities) + non_essential_suppressed
+        non_essential = len(non_essential_entities)
         offline_entities_non_essential = [
-            eid for eid in non_essential_entities if states[eid].is_offline
+            eid for eid in non_essential_entities_unsuppressed if states[eid].is_offline
         ]
         non_essential_offline = len(offline_entities_non_essential)
         non_essential_online = (
