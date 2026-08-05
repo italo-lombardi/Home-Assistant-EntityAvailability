@@ -218,6 +218,86 @@ automation:
 
 ---
 
+## Signal quality events
+
+Signal events fire when an entity's signal quality transitions between tiers. Only poor ↔ non-poor transitions fire events — transitions between "ok" and "good" do not.
+
+| Event | Fired when | Key data |
+|-------|-----------|----------|
+| `entity_availability_poor_signal` | Signal drops into "poor" tier | `entity_id`, `group`, `entry_id`, `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` |
+| `entity_availability_signal_ok` | Signal recovers from "poor" | same — `poor_signal_count` already excludes the recovered entity |
+
+---
+
+### Automation 8a — Alert when signal degrades
+
+```yaml
+automation:
+  alias: EA — poor signal alert
+  trigger:
+    - platform: event
+      event_type: entity_availability_poor_signal
+      event_data:
+        group: Zigbee Devices
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Poor signal ({{ trigger.event.data.poor_signal_count }} device(s))"
+        message: >-
+          {{ trigger.event.data.entity_id }} has poor signal:
+          {{ trigger.event.data.signal_level }} {{ trigger.event.data.signal_quality }}.
+          All poor signal: {{ trigger.event.data.poor_signal_entities | join(', ') }}
+```
+
+---
+
+### Automation 8b — Log signal recovery
+
+```yaml
+automation:
+  alias: EA — signal recovered
+  trigger:
+    - platform: event
+      event_type: entity_availability_signal_ok
+      event_data:
+        group: Zigbee Devices
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {{ trigger.event.data.entity_id }} signal recovered
+          (now {{ trigger.event.data.signal_quality }}: {{ trigger.event.data.signal_level }}).
+          {% if trigger.event.data.poor_signal_count | int > 0 %}
+          Still poor: {{ trigger.event.data.poor_signal_entities | join(', ') }}
+          {% else %}
+          All devices have acceptable signal.
+          {% endif %}
+```
+
+---
+
+### Automation 8c — Sensor-based trigger (alternative to events)
+
+If you prefer polling over events, use the `poor_signal_count` sensor or the `poor_signal` attr on `group_summary`:
+
+```yaml
+automation:
+  alias: EA — poor signal sensor trigger
+  trigger:
+    - platform: numeric_state
+      entity_id: sensor.entity_availability_zigbee_devices_poor_signal_count
+      above: 0
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        message: >-
+          {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+          {{ s.poor_signal }} device(s) with poor signal:
+          {{ s.poor_signal_entities | join(', ') }}
+```
+
+---
+
 ## Offline / recovery sensors
 
 Use state-based triggers when you want `for:` delays or want to react to the current sensor value rather than a per-entity transition.
