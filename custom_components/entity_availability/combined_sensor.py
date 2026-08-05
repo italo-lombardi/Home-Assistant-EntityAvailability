@@ -617,6 +617,16 @@ class CombinedGroupSensor(CombinedSensorBase):
             for d in merged_states.values()
             if d.is_stale and not d.is_suppressed and not d.is_non_essential
         )
+        non_essential_online = sum(
+            1
+            for d in merged_states.values()
+            if d.is_non_essential and not d.is_offline and not d.is_suppressed
+        )
+        non_essential_offline = sum(
+            1
+            for d in merged_states.values()
+            if d.is_non_essential and d.is_offline and not d.is_suppressed
+        )
         # Dedup battery_powered by collecting device entity_ids (not battery sensor ids).
         # battery_map keys are device entity_ids; battery_level path is already keyed by eid.
         # Using one set handles mixed-config groups without double-counting.
@@ -669,6 +679,8 @@ class CombinedGroupSensor(CombinedSensorBase):
             "suppressed": suppressed,
             "non_essential_suppressed": non_essential_suppressed,
             "non_essential": non_essential,
+            "non_essential_online": non_essential_online,
+            "non_essential_offline": non_essential_offline,
             "non_essential_entities": non_essential_entities,
             "battery_powered": battery_powered,
             "battery_enabled": battery_enabled,
