@@ -3058,7 +3058,10 @@ for e in cfg['data']['entries']:
         )
         chk(
             "EC65 low_battery cleared after suppress",
-            gs(f"{prefix}_low_battery_count").get("state"),
+            wait_for(
+                lambda: gs(f"{prefix}_low_battery_count").get("state"),
+                "0",
+            ),
             "0",
             f"target={target}",
         )
