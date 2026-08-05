@@ -1,5 +1,5 @@
 /**
- * Entity Availability Card v0.3.14
+ * Entity Availability Card v0.4.0
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
@@ -777,7 +777,7 @@ class EntityAvailabilityCard extends LitElement {
           <div class="divider"></div>
           ${this._renderStats(online, offline, effectiveLowBattery, staleCount, combinedPoorSignal, this._config.show_stat_icons === true)}
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
-          ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0)}
+          ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
           ${this._config.show_actions ? this._renderActions(prefix) : nothing}
         </ha-card>
@@ -860,9 +860,9 @@ class EntityAvailabilityCard extends LitElement {
         ${this._config.show_affected_areas ? this._renderAffectedAreas(prefix) : nothing}
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
-        ${this._config.show_actions && entities.length > 50 ? this._renderActions(prefix) : nothing}
+        ${this._config.show_actions && (entities.length + (showNEStats ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
         ${this._config.show_entities ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
-        ${this._config.show_actions && entities.length <= 50 ? this._renderActions(prefix) : nothing}
+        ${this._config.show_actions && (entities.length + (showNEStats ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
   }
@@ -906,11 +906,15 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderSuppressedBanner(essential, nonEssential) {
+  _renderSuppressedBanner(essential, nonEssential, groups = null) {
     if (essential === 0 && nonEssential === 0) return nothing;
     const total = essential + nonEssential;
     let msg;
-    if (essential > 0 && nonEssential > 0) {
+    if (groups !== null) {
+      // Combined card: show group count instead of entity count
+      const suppressedGroups = groups.filter(g => (g.suppressed || 0) + (g.non_essential_suppressed || 0) > 0).length;
+      msg = `${suppressedGroups} ${suppressedGroups === 1 ? "group" : "groups"} suppressed (${total} ${total === 1 ? "entity" : "entities"})`;
+    } else if (essential > 0 && nonEssential > 0) {
       msg = `${total} ${total > 1 ? "entities" : "entity"} suppressed (${essential} essential, ${nonEssential} non-essential)`;
     } else if (essential > 0) {
       msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed`;
