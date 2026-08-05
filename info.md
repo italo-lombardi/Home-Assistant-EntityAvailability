@@ -40,14 +40,3 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 > **Note:** Availability sensors will show as `unavailable` after first install. This is normal — they need time (at least 5 minutes) to collect data before reporting a percentage.
 
 > This is an unofficial integration not affiliated with Home Assistant.
-
-## Setup
-
-1. Install via HACS
-2. Go to **Settings → Devices & Services → Add Integration**
-3. Search for **Entity Availability**
-4. Follow the config flow to create your first entity group
-
-> **Note:** Availability sensors will show as `unavailable` after first install. This is normal — they need time (at least 5 minutes) to collect data before reporting a percentage.
-
-> This is an unofficial integration not affiliated with Home Assistant.

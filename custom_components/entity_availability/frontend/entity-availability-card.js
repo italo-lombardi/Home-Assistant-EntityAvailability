@@ -1251,6 +1251,15 @@ class EntityAvailabilityCard extends LitElement {
       return { entityId, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
     });
 
+    // Normalize signal level to 0–100 quality score (higher = better).
+    // dBm covers Wi-Fi/Zigbee/Z-Wave practical range; % and LQI are already 0–100.
+    // ponytail: single range for all dBm protocols — good enough for sort ordering.
+    const signalQuality = (lvl, unit) => {
+      if (lvl === null || lvl === undefined) return null;
+      if (unit === "%" || unit === "LQI") return lvl;
+      return Math.max(0, Math.min(100, (lvl + 110) * (100 / 80)));
+    };
+
     items.sort((a, b) => {
       const sortBy = this._config.sort_by || "status";
       // NE entities always go after essential, but within each tier the same sort applies
@@ -1270,16 +1279,8 @@ class EntityAvailabilityCard extends LitElement {
         if (aBat !== bBat) return bBat - aBat;
         return a.name.localeCompare(b.name);
       } else if (sortBy === "signal_asc" || sortBy === "signal_desc") {
-        // Normalize to quality score 0–100 (higher = better signal) so dBm and % sort on same axis.
-        // Entities with no signal sensor sort last regardless of direction.
-        const toQuality = (lvl, unit) => {
-          if (lvl === null || lvl === undefined) return null;
-          if (unit === "%" || unit === "LQI") return lvl; // already 0–100
-          // dBm: typical range -110 (worst) to -30 (best) → map to 0–100
-          return Math.max(0, Math.min(100, (lvl + 110) * (100 / 80)));
-        };
-        const aQ = toQuality(a.signalLevel, a.signalUnit);
-        const bQ = toQuality(b.signalLevel, b.signalUnit);
+        const aQ = signalQuality(a.signalLevel, a.signalUnit);
+        const bQ = signalQuality(b.signalLevel, b.signalUnit);
         if (aQ === null && bQ === null) return a.name.localeCompare(b.name);
         if (aQ === null) return 1;
         if (bQ === null) return -1;
@@ -1573,13 +1574,14 @@ class EntityAvailabilityCard extends LitElement {
     const map = {};
     for (const [entryId, g] of Object.entries(groups)) {
       for (const list of ["offline_entities", "stale_entities", "stale_entities_non_essential",
-          "poor_signal_entities", "poor_signal_entities_non_essential",
-          "non_essential_entities"]) {
+          "poor_signal_entities", "poor_signal_entities_non_essential"]) {
         for (const eid of (g[list] || [])) {
           if (!(eid in map)) map[eid] = entryId;
         }
       }
     }
+    // NE offline entities are not in the per-group dict; they fall through with
+    // group=null, which makes the service search all coordinators — correct behavior.
     return map;
   }
 
