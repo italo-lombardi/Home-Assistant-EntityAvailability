@@ -1142,18 +1142,17 @@ class EntityAvailabilityCard extends LitElement {
 
   _renderActions(prefix) {
     const includeNE = this._config.show_non_essential_stats === true;
-    const neSuffix = includeNE ? " (incl. NE)" : "";
     return html`
       <div class="divider"></div>
       <div class="actions-section">
         <button class="action-btn suppress" title="Suppress all degraded entities (offline, stale, poor signal${includeNE ? ", including Non-Essential" : ""}) for 60 minutes" @click=${this._handleSuppressAll}>
-          Suppress All${neSuffix}
+          Suppress All
         </button>
         <button class="action-btn suppress" title="Suppress all currently offline entities${includeNE ? " (including Non-Essential)" : ""} for 60 minutes" @click=${this._handleSuppressOffline}>
-          Suppress Offline${neSuffix}
+          Suppress Offline
         </button>
         <button class="action-btn unsuppress" title="Remove suppression from all entities${includeNE ? " (including Non-Essential)" : ""} in this group" @click=${this._handleUnsuppressAll}>
-          Unsuppress All${neSuffix}
+          Unsuppress All
         </button>
       </div>
     `;
