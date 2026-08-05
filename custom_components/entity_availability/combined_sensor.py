@@ -21,6 +21,7 @@ from .const import (
     CONF_COMBINED_GROUPS,
     CONF_GROUP_NAME,
     CONF_STALENESS_THRESHOLD,
+    CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
     DOMAIN,
     EVENT_BATTERY_OK,
@@ -674,10 +675,12 @@ class CombinedGroupSensor(CombinedSensorBase):
         suppressed_until: dict[str, Any] = {}
         offline_since: dict[str, Any] = {}
         last_seen: dict[str, Any] = {}
-        ok_signal_entities: list[str] = []
+        ok_signal_eids: set[str] = set()
         for coord in active:
             use_device_names = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
-            use_last_updated = coord._staleness_use_last_updated
+            use_last_updated = coord.entry.data.get(
+                CONF_STALENESS_USE_LAST_UPDATED, False
+            )
             for eid, d in coord.device_states.items():
                 if eid not in display_names:
                     display_names[eid] = _friendly_name(
@@ -706,9 +709,8 @@ class CombinedGroupSensor(CombinedSensorBase):
                     and d.signal_quality == "ok"
                     and not d.is_suppressed
                     and not d.is_non_essential
-                    and eid not in ok_signal_entities
                 ):
-                    ok_signal_entities.append(eid)
+                    ok_signal_eids.add(eid)
         status_color = (
             "red"
             if offline > 0
@@ -751,7 +753,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "suppressed_until": suppressed_until,
             "offline_since": offline_since,
             "last_seen": last_seen,
-            "ok_signal_entities": ok_signal_entities,
+            "ok_signal_entities": list(ok_signal_eids),
             "offline_entities": offline_entities,
             "stale_entities": stale_entities,
             "poor_signal_entities": poor_signal_entities,

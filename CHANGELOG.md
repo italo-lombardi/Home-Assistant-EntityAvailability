@@ -4,23 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-### Fixed
-- **Combined card: NE stats row missing** — `show_non_essential_stats: true` on a combined group card now renders the Non-Essential Online/Offline/Stale/Low Battery/Poor Signal row below the main stats, matching single-group behaviour. Previously the row was silently omitted.
-- **Combined card: NE stale/battery/signal counts were hardcoded 0** — the NE stats row passed zeroes for stale, low-battery, and poor-signal counts even when the combined sensor had the data. All three are now read from real attrs (gated by feature flags).
-- **Combined sensor: redundant `non_essential_low_battery` count attr removed** — replaced by `low_battery_entities_non_essential` array (consistent with `stale_entities_non_essential` and `poor_signal_entities_non_essential`).
-
-### Added
-- **Combined sensor: merged per-entity dicts** — `battery_levels`, `signal_levels`, `signal_units`, `suppressed_until`, `offline_since`, `last_seen` are now exposed on `sensor..._combined_summary` (first-wins merge across sub-groups). Enables full entity-detail parity with single-group cards and richer automation templates.
-- **Combined sensor: `ok_signal_entities`** — list of essential entities with OK signal, consistent with single-group `group_summary`.
-- **Combined sensor: `status` and `status_color`** — precomputed `"ok"|"degraded"|"offline"` and `"green"|"yellow"|"red"` attrs; eliminates card-side recomputation and enables direct use in automations/templates.
-- **Combined sensor: `low_battery_entities_non_essential`** — list of NE entity IDs with low battery (parallel to `offline_entities_non_essential`, `stale_entities_non_essential`, `poor_signal_entities_non_essential`).
-- **Combined sensor: `non_essential_online` / `non_essential_offline`** — top-level NE online/offline counts (previously only available inside the per-group `groups` dict).
-- **Combined card: entity detail table** — when `show_entities: true`, combined cards now render the full per-entity table (with battery, signal, stale, suppress state) in addition to the group breakdown, using the same `_renderEntityList` path as single-group cards.
-
 ## [0.4.0] - 2026-08-05
-
-### Fixed
-- **Battery sensor state changes now trigger live updates** — mapped battery sensors (e.g. `sensor.device_battery`) were not subscribed to HA state change events. Changing a battery sensor value no longer requires waiting for the next poll cycle; `low_battery_count` and related sensors update immediately.
 
 ### Added
 - **Signal strength monitoring** — optional feature (disabled by default, no migration required). Enable per group in Advanced settings → Enable signal strength monitoring. A new wizard step binds a signal sensor and network type to each entity. Supported protocols: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage (0–100%), Generic/RSSI. Thresholds are validated against real-world engineering references per protocol.
@@ -34,7 +18,8 @@ All notable changes to this project will be documented in this file.
 - **`AnyLowBatteryNonEssentialBinarySensor`** — new binary sensor; ON when any non-essential entity has low battery
 - **`EVENT_STALE_RECOVERED` payload** now includes `stale_since` field (ISO timestamp)
 - **`group_summary` new attributes** — `essential`, `stale`, `stale_non_essential`, `poor_signal`, `poor_signal_non_essential` count aliases; `offline_entities` list (was count-only). Eliminates boilerplate in templates.
-- **Combined summary new attributes** — `stale_entities`, `poor_signal_entities`, `offline_entities_non_essential`, `stale_entities_non_essential`, `poor_signal_entities_non_essential` top-level lists; `groups` dict gains per-group `offline_entities`, `stale_entities`, `poor_signal_entities` and NE variants.
+- **Combined summary expanded attributes** — full per-entity dicts now exposed: `battery_levels`, `signal_levels`, `signal_units`, `suppressed_until`, `offline_since`, `last_seen` (first-wins merge across sub-groups); `ok_signal_entities`; `status` (`"ok"|"degraded"|"offline"`) and `status_color` (`"green"|"yellow"|"red"`) for use in automations/templates. NE list attrs: `non_essential_online`, `non_essential_offline`, `low_battery_entities_non_essential`. Top-level lists: `stale_entities`, `poor_signal_entities`, `offline_entities_non_essential`, `stale_entities_non_essential`, `poor_signal_entities_non_essential`; `groups` dict gains per-group `offline_entities`, `stale_entities`, `poor_signal_entities` and NE variants.
+- **Card: combined group entity detail table** — `show_entities: true` + `entities_expanded: true` now renders the full per-entity table (battery, signal, stale, suppress state) on combined cards, matching single-group behaviour.
 - **Automation examples**: new `group_summary` template section in `AUTOMATION_EXAMPLES.md`
 - **Card: icon mode for stats row** — `show_stat_icons` option (default off) replaces text labels with MDI icons in the stats row
 - **Card: icon mode for entity list / groups table header** — `show_table_icons` option (default off) replaces column header text with MDI icons
@@ -49,12 +34,15 @@ All notable changes to this project will be documented in this file.
 - Card: `show_actions` checkbox now available for combined group cards in the editor
 
 ### Fixed
+- **Battery sensor state changes now trigger live updates** — mapped battery sensors (e.g. `sensor.device_battery`) were not subscribed to HA state change events; updates no longer require waiting for the next poll cycle.
+- **Combined card: Non-Essential stats row was silently omitted** — `show_non_essential_stats: true` on a combined group card now renders the NE Online/Offline/Stale/Low Battery/Poor Signal row, matching single-group behaviour.
 - **Card: entity list height cap removed** — groups with >50 entities no longer have Suppress buttons overlapping the last rows
 - **Card: Suppress/Unsuppress buttons move above entity list for large groups** (>50 entities)
 - **Card: `Signal: OK` status removed** — healthy-signal entities show `Online` (green dot); yellow reserved for degraded only
 - **Card: status sort — stale entities now sort above online**
-- **Card: combined group suppress was silently failing** — suppress handlers were passing the combined entry_id as `group=` to the service; `_find_coordinator` only matches individual coordinators so every call found nothing. Each entity is now scoped to its source group's entry_id.
+- **Card: combined group suppress was silently failing** — suppress handlers were passing the combined entry_id as `group=` to the service; each entity is now scoped to its source group's entry_id.
 - **Diagnostics: new schema** — `counts`, `entities`, and `config` sub-dicts replace flat keys
+
 
 ## [0.3.14] - 2026-08-02
 
