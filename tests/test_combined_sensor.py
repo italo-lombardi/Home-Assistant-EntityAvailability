@@ -3268,3 +3268,106 @@ class TestCombinedSignalRollup:
         # (the feature flag on coord_b doesn't filter merged_states — only signal_enabled
         # at the combined level gates the whole count to 0 vs non-zero)
         assert attrs["poor_signal"] == 2
+
+
+# ---------------------------------------------------------------------------
+# Per-group list attrs: stale_entities, poor_signal_entities, NE variants
+# ---------------------------------------------------------------------------
+
+
+class TestCombinedPerGroupListAttrs:
+    """Per-group list attrs added for card suppress scoping."""
+
+    def _sensor(self, hass, entry, coordinators):
+        return CombinedGroupSensor(
+            hass, entry, "C", "c", [c.entry.entry_id for c in coordinators]
+        )
+
+    def test_per_group_stale_entities_list(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """stale_entities per-group list contains stale essential unsuppressed entities."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a1"].is_stale = True
+
+        attrs = self._sensor(
+            mock_hass, combined_entry, coordinators
+        ).extra_state_attributes
+        g = attrs["groups"][coordinator_a.entry.entry_id]
+        assert "binary_sensor.a1" in g["stale_entities"]
+        assert "binary_sensor.a2" not in g["stale_entities"]
+
+    def test_per_group_stale_entities_excludes_ne(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """stale_entities per-group list excludes non-essential entities."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a1"].is_stale = True
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+
+        attrs = self._sensor(
+            mock_hass, combined_entry, coordinators
+        ).extra_state_attributes
+        g = attrs["groups"][coordinator_a.entry.entry_id]
+        assert "binary_sensor.a1" not in g["stale_entities"]
+
+    def test_per_group_stale_entities_ne_list(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """stale_entities_non_essential contains stale unsuppressed NE entities."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a1"].is_stale = True
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+
+        attrs = self._sensor(
+            mock_hass, combined_entry, coordinators
+        ).extra_state_attributes
+        g = attrs["groups"][coordinator_a.entry.entry_id]
+        assert "binary_sensor.a1" in g["stale_entities_non_essential"]
+
+    def test_per_group_offline_entities_ne_list(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """offline_entities_non_essential contains offline unsuppressed NE entities."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a2"].is_non_essential = True
+        # a2 is already offline in fixture
+
+        attrs = self._sensor(
+            mock_hass, combined_entry, coordinators
+        ).extra_state_attributes
+        g = attrs["groups"][coordinator_a.entry.entry_id]
+        assert "binary_sensor.a2" in g["offline_entities_non_essential"]
+        assert "binary_sensor.a2" not in g["offline_entities"]
+
+    def test_per_group_offline_entities_ne_excludes_suppressed(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """offline_entities_non_essential excludes suppressed NE entities."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a2"].is_non_essential = True
+        coordinator_a.device_states["binary_sensor.a2"].is_suppressed = True
+
+        attrs = self._sensor(
+            mock_hass, combined_entry, coordinators
+        ).extra_state_attributes
+        g = attrs["groups"][coordinator_a.entry.entry_id]
+        assert "binary_sensor.a2" not in g["offline_entities_non_essential"]
+
+    def test_per_group_total_reconciles_with_suppressed_ne(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """g_total + g_non_essential == len(monitored_entities) even with suppressed NE."""
+        mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
+        coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
+        coordinator_a.device_states["binary_sensor.a1"].is_suppressed = True
+
+        attrs = self._sensor(
+            mock_hass, combined_entry, coordinators
+        ).extra_state_attributes
+        g = attrs["groups"][coordinator_a.entry.entry_id]
+        monitored = len(coordinator_a.monitored_entities)
+        assert g["total"] + g["non_essential"] == monitored
+        # Suppressed NE tracked separately
+        assert g["non_essential_suppressed"] == 1
+        assert g["non_essential"] == 1
