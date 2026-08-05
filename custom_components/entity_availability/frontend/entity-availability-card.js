@@ -908,9 +908,10 @@ class EntityAvailabilityCard extends LitElement {
 
   _renderSuppressedBanner(essential, nonEssential) {
     if (essential === 0 && nonEssential === 0) return nothing;
+    const total = essential + nonEssential;
     let msg;
     if (essential > 0 && nonEssential > 0) {
-      msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed, ${nonEssential} non-essential`;
+      msg = `${total} ${total > 1 ? "entities" : "entity"} suppressed (${essential} essential, ${nonEssential} non-essential)`;
     } else if (essential > 0) {
       msg = `${essential} ${essential > 1 ? "entities" : "entity"} suppressed`;
     } else {
