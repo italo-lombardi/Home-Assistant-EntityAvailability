@@ -2831,10 +2831,13 @@ for e in cfg['data']['entries']:
             "entities",
             "display_names",
             "battery_levels",
+            "low_battery_entities",
             "last_seen",
             "stale_entities",
             "poor_signal_entities",
             "offline_since",
+            "suppressed_until",
+            "non_essential_entities",
         ]:
             chk(
                 f"EC55 {attr} present in live state",
