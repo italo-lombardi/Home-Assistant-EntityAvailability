@@ -59,6 +59,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC53 diagnostics new schema: counts/entities/config sub-dicts present and correct (replaces flat keys)
   EC54 group_summary new attrs: essential count, stale/poor_signal count aliases
   EC55 group_summary large attrs excluded from recorder (_unrecorded_attributes) but present in state machine
+  EC59 battery level retained in battery_levels when entity goes unavailable (not wiped to None)
+  EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
@@ -2964,6 +2966,108 @@ for e in cfg['data']['entries']:
                 attr in attrs,
                 True,
             )
+
+    # ------------------------------------------------------------------
+    # EC59: battery level retained when entity goes unavailable (not wiped)
+    # ------------------------------------------------------------------
+    if ec_enabled(59) and battery_entity and battery_sensor:
+        print(
+            "\n=== EC59: battery level retained when entity goes unavailable ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        # Set battery to a known level
+        ss(
+            battery_sensor,
+            "75",
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        wait_for(
+            lambda: str(
+                gs(f"{prefix}_group_summary")
+                .get("attributes", {})
+                .get("battery_levels", {})
+                .get(battery_entity)
+            ),
+            "75",
+        )
+        # Make entity unavailable (battery sensor stays at 75)
+        ss(battery_entity, "unavailable", {"friendly_name": "test"})
+        wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "1")
+        retained = (
+            gs(f"{prefix}_group_summary")
+            .get("attributes", {})
+            .get("battery_levels", {})
+            .get(battery_entity)
+        )
+        chk(
+            "EC59 battery_level retained when entity offline",
+            retained,
+            75,
+            f"battery_entity={battery_entity} retained={retained}",
+        )
+        restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC65: stale flag cleared when entity is suppressed
+    # ------------------------------------------------------------------
+    if ec_enabled(65) and battery_entity:
+        print(
+            "\n=== EC65: stale_count and low_battery cleared when entity suppressed ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        target = ctx["entities"][0]
+        # Give entity low battery then suppress it
+        if battery_sensor:
+            ss(
+                battery_sensor,
+                str(int(threshold) - 5),
+                {
+                    "friendly_name": "Test Battery",
+                    "device_class": "battery",
+                    "unit_of_measurement": "%",
+                },
+            )
+            wait_for(lambda: gs(f"{prefix}_low_battery_count").get("state"), "1")
+        api(
+            "POST",
+            "/api/services/entity_availability/suppress",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+        wait_for(
+            lambda: str(
+                gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")
+            ),
+            "1",
+        )
+        chk(
+            "EC65 low_battery cleared after suppress",
+            gs(f"{prefix}_low_battery_count").get("state"),
+            "0",
+            f"target={target}",
+        )
+        # Unsuppress and restore battery
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {"entity_id": target, "group": ctx["title"]},
+        )
+        if battery_sensor:
+            ss(
+                battery_sensor,
+                "90",
+                {
+                    "friendly_name": "Test Battery",
+                    "device_class": "battery",
+                    "unit_of_measurement": "%",
+                },
+            )
+        restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     restore_all(ctx)
