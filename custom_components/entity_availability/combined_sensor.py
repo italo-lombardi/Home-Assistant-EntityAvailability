@@ -426,9 +426,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         registry = er.async_get(self.hass)
         for coord in active:
             states = coord.device_states
-            g_non_essential = sum(
-                1 for d in states.values() if d.is_non_essential and not d.is_suppressed
-            )
+            g_non_essential = sum(1 for d in states.values() if d.is_non_essential)
             g_total = len(coord.monitored_entities) - g_non_essential
             g_offline_entities = [
                 d.entity_id
