@@ -57,6 +57,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC51 signal mapping options flow round-trip: entity_id / entity_id#network keys accepted and stored
   EC52 _detect_signal_entity suffix strip: sensor.xxx_last_seen → suggests sensor.xxx_linkquality
   EC53 diagnostics new schema: counts/entities/config sub-dicts present and correct (replaces flat keys)
+  EC54 group_summary new attrs: essential count, stale/poor_signal count aliases
 
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
@@ -2751,6 +2752,60 @@ for e in cfg['data']['entries']:
             )
         except Exception as e:
             chk("EC53 diagnostics endpoint reachable", False, True, str(e))
+
+    # EC54: group_summary new explicit attrs (essential count, stale/poor_signal counts)
+    if ec_enabled(54):
+        print(
+            "\n=== EC54: group_summary essential + stale/poor_signal count attrs ===",
+            flush=True,
+        )
+        attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+        total = attrs.get("total_entities", 0)
+        non_essential = attrs.get("non_essential", 0)
+        expected_essential = total - non_essential
+        chk(
+            "EC54 essential attr present",
+            "essential" in attrs,
+            True,
+            f"attrs keys={[k for k in attrs if 'essential' in k]}",
+        )
+        chk(
+            "EC54 essential = total - non_essential",
+            attrs.get("essential"),
+            expected_essential,
+            f"total={total} non_essential={non_essential}",
+        )
+        chk(
+            "EC54 stale count attr present",
+            "stale" in attrs,
+            True,
+        )
+        chk(
+            "EC54 stale matches stale_entities length",
+            attrs.get("stale"),
+            len(attrs.get("stale_entities", [])),
+            f"stale={attrs.get('stale')} stale_entities={len(attrs.get('stale_entities', []))}",
+        )
+        chk(
+            "EC54 stale_non_essential attr present",
+            "stale_non_essential" in attrs,
+            True,
+        )
+        chk(
+            "EC54 poor_signal count attr present",
+            "poor_signal" in attrs,
+            True,
+        )
+        chk(
+            "EC54 poor_signal matches poor_signal_entities length",
+            attrs.get("poor_signal"),
+            len(attrs.get("poor_signal_entities", [])),
+        )
+        chk(
+            "EC54 poor_signal_non_essential attr present",
+            "poor_signal_non_essential" in attrs,
+            True,
+        )
 
     # ------------------------------------------------------------------
     restore_all(ctx)

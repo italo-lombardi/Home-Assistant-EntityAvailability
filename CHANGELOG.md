@@ -4,7 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.4.0-beta.2] - 2026-08-05
+## [0.4.0-beta.3] - 2026-08-05
+
+### Added
+- **`group_summary` new count attributes** — `essential` (total essential entities), `stale` (count alias for `stale_entities | length`), `stale_non_essential`, `poor_signal` (count alias for `poor_signal_entities | length`), `poor_signal_non_essential`. Eliminates the need for `| length` in templates and makes automations simpler.
+
+
 
 ### Added
 - **Signal network type auto-inferred** — when the signal sensor name ends in `_linkquality` or `_lqi`, the wizard now pre-selects "Zigbee (LQI)" instead of "Generic/RSSI". Eliminates a manual step for every Z2MQTT device.

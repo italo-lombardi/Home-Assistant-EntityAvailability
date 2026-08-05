@@ -216,30 +216,97 @@ The Group Summary sensor provides a complete overview in its attributes:
 | Attribute | Description |
 |-----------|-------------|
 | `total_entities` | Total number of entities in the group (includes non-essential) |
-| `online` | Entities currently online (excludes suppressed and non-essential) |
-| `offline` | Entities currently offline (excludes suppressed and non-essential) |
-| `suppressed` | Number of suppressed entities |
+| `essential` | Number of essential entities (= `total_entities - non_essential`) |
+| `online` | Essential entities currently online (excludes suppressed) |
+| `offline` | Essential entities currently offline (excludes suppressed) |
+| `suppressed` | Number of suppressed essential entities |
+| `stale` | Number of stale essential entities (count alias for `stale_entities \| length`) |
+| `poor_signal` | Number of essential entities with poor signal (count alias for `poor_signal_entities \| length`) |
 | `non_essential` | Total number of non-essential entities (including suppressed) |
 | `non_essential_entities` | List of unsuppressed non-essential entity IDs (note: `len(non_essential_entities)` < `non_essential` when any NE entities are suppressed) |
-| `battery_powered` | Number of entities with a mapped battery sensor |
-| `low_battery` | Number of entities with battery below threshold (excludes non-essential) |
-| `entities` | List of all monitored entity IDs in this group |
-| `battery_levels` | Dict of `{entity_id: battery_level}` for entities with battery sensors |
-| `suppressed_until` | Which entities are suppressed and when the suppression expires |
-| `stale_entities` | Entities that haven't reported a state change longer than the staleness threshold (excludes non-essential and suppressed) |
-| `stale_entities_non_essential` | Non-essential entities that haven't reported a state change longer than the staleness threshold |
-| `offline_since` | When each currently offline entity first went offline (includes both essential and non-essential entities) |
-| `offline_entities_non_essential` | List of non-essential entity IDs currently offline |
-| `non_essential_suppressed` | Number of non-essential entities currently suppressed |
 | `non_essential_online` | Number of non-essential entities currently online (unsuppressed, not offline) |
 | `non_essential_offline` | Number of non-essential entities currently offline (unsuppressed) |
+| `non_essential_suppressed` | Number of non-essential entities currently suppressed |
+| `stale_non_essential` | Number of stale non-essential entities |
+| `poor_signal_non_essential` | Number of non-essential entities with poor signal |
+| `battery_powered` | Number of entities with a mapped battery sensor |
+| `low_battery` | Number of essential entities with battery below threshold |
 | `low_battery_non_essential` | Number of non-essential entities with battery below threshold |
+| `entities` | List of all monitored entity IDs in this group |
+| `battery_levels` | Dict of `{entity_id: battery_level}` for entities with battery sensors |
+| `signal_levels` | Dict of `{entity_id: signal_value}` for entities with signal sensors (when signal enabled) |
+| `signal_units` | Dict of `{entity_id: unit}` — "LQI", "dBm", or "%" per entity |
+| `suppressed_until` | Which entities are suppressed and when the suppression expires |
+| `stale_entities` | List of stale essential entity IDs (excludes suppressed and offline) |
+| `stale_entities_non_essential` | List of stale non-essential entity IDs |
+| `poor_signal_entities` | List of essential entity IDs with poor signal |
+| `poor_signal_entities_non_essential` | List of non-essential entity IDs with poor signal |
+| `offline_entities_non_essential` | List of non-essential entity IDs currently offline |
+| `offline_since` | When each currently offline entity first went offline |
+| `last_seen` | Last state-change timestamp per entity |
 
 Access these in templates:
 
 ```yaml
-{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'battery_powered') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'essential') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'online') }}
 {{ state_attr('sensor.entity_availability_security_devices_group_summary', 'offline') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'stale') }}
+{{ state_attr('sensor.entity_availability_security_devices_group_summary', 'poor_signal') }}
+```
+
+**Template examples:**
+
+```yaml
+# Summary message
+{% set e = state_attr('sensor.entity_availability_zigbee_devices_group_summary', '') %}
+{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+Total {{ s.total_entities }} | Essential {{ s.essential }} ({{ s.online }} online, {{ s.offline }} offline) | NE {{ s.non_essential }} ({{ s.non_essential_online }} online)
+```
+
+```yaml
+# Alert message when devices are offline
+{% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+{% if s.offline > 0 %}
+⚠️ {{ s.offline }} essential device(s) offline{% if s.stale > 0 %}, {{ s.stale }} stale{% endif %}
+{% else %}
+✅ All {{ s.essential }} essential devices online
+{% endif %}
+```
+
+**Automation example — notify when essential devices go offline:**
+
+```yaml
+automation:
+  - alias: "Notify on Zigbee device offline"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.entity_availability_zigbee_devices_offline_count
+        above: 0
+    action:
+      - service: notify.mobile_app
+        data:
+          message: >
+            {% set s = states['sensor.entity_availability_zigbee_devices_group_summary'].attributes %}
+            {{ s.offline }} device(s) offline.
+            {% for eid in s.offline_entities_non_essential + [] %}{% endfor %}
+```
+
+**Automation example — notify on low battery:**
+
+```yaml
+automation:
+  - alias: "Zigbee low battery alert"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.entity_availability_zigbee_devices_low_battery_count
+        above: 0
+    action:
+      - service: notify.mobile_app
+        data:
+          message: >
+            {% set lvls = state_attr('sensor.entity_availability_zigbee_devices_group_summary', 'battery_levels') %}
+            Low battery: {% for eid, pct in lvls.items() if pct < 30 %}{{ eid.split('.')[-1] }} ({{ pct }}%) {% endfor %}
 ```
 
 ![Sensor Details & Attributes](assets/06_sensor_details_attributes.png)
