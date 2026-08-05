@@ -3112,9 +3112,11 @@ for e in cfg['data']['entries']:
             target = ctx["entities"][0]
             ss(target, "unavailable", {"friendly_name": "smoke test device"})
             wait_for(
-                lambda: gs(f"{combined_prefix}_combined_summary")
-                .get("attributes", {})
-                .get("status"),
+                lambda: (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("status")
+                ),
                 "offline",
             )
             c_attrs2 = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
