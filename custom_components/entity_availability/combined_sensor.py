@@ -590,6 +590,11 @@ class CombinedGroupSensor(CombinedSensorBase):
             and not d.is_offline
             and not d.is_non_essential
         ]
+        low_battery_entities_non_essential = [
+            d.entity_id
+            for d in merged_states.values()
+            if d.is_low_battery and d.is_non_essential and not d.is_suppressed
+        ]
         total = len(all_entities)
         offline = len(offline_entities)
         low_battery = len(low_battery_entities)
@@ -703,6 +708,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "stale_entities_non_essential": stale_entities_non_essential,
             "poor_signal_entities_non_essential": poor_signal_entities_non_essential,
             "low_battery_entities": low_battery_entities,
+            "low_battery_entities_non_essential": low_battery_entities_non_essential,
         }
         domain_data = self.hass.data.get(DOMAIN, {})
         missing = [

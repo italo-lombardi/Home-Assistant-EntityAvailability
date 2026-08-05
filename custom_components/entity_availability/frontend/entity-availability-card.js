@@ -767,7 +767,7 @@ class EntityAvailabilityCard extends LitElement {
       const effectiveLowBattery = batteryEnabled ? lowBattery : 0;
       const signalEnabledCombined = attrs.signal_enabled || false;
       const combinedPoorSignal = signalEnabledCombined ? (attrs.poor_signal || 0) : 0;
-      const nonEssentialLowBattery = batteryEnabled ? (attrs.non_essential_low_battery || 0) : 0;
+      const nonEssentialLowBattery = batteryEnabled ? (attrs.low_battery_entities_non_essential || []).length : 0;
       const nonEssentialStale = stalenessEnabled ? (attrs.stale_entities_non_essential || []).length : 0;
       const nonEssentialPoorSignal = signalEnabledCombined ? (attrs.poor_signal_entities_non_essential || []).length : 0;
 
