@@ -62,6 +62,12 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC59 battery level retained in battery_levels when entity goes unavailable (not wiped to None)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
+  PR#76 recorder payload reduction (EC69-EC71):
+  EC69 combined_summary: battery_levels/signal_levels/signal_units/ok_signal_entities/
+       suppressed_until/offline_since/last_seen present in live state (unrecorded)
+  EC70 combined_summary groups dict has no non_essential_entities list per group entry
+  EC71 combined_summary low_battery_entities_non_essential present in live state (was recorded bug)
+
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
   EC26 NE entity offline → offline_count_non_essential increments
@@ -3175,6 +3181,65 @@ for e in cfg['data']['entries']:
             )
             chk(
                 "EC68 combined low_battery_entities_non_essential list present",
+                isinstance(c_attrs.get("low_battery_entities_non_essential"), list),
+                True,
+                f"type={type(c_attrs.get('low_battery_entities_non_essential')).__name__}",
+            )
+
+    # ------------------------------------------------------------------
+    # EC69-EC71: combined_summary recorder payload reduction (PR#76)
+    # ------------------------------------------------------------------
+    if combined_prefix and (ec_enabled(69) or ec_enabled(70) or ec_enabled(71)):
+        print(
+            "\n=== EC69-EC71: combined_summary recorder payload reduction (PR#76) ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+
+        if ec_enabled(69):
+            # These are now unrecorded but must still be present in live state.
+            for attr in [
+                "battery_levels",
+                "signal_levels",
+                "signal_units",
+                "ok_signal_entities",
+                "suppressed_until",
+                "offline_since",
+                "last_seen",
+            ]:
+                chk(
+                    f"EC69 combined {attr} present in live state",
+                    attr in c_attrs,
+                    True,
+                    f"attrs keys (sample)={list(c_attrs.keys())[:12]}",
+                )
+
+        if ec_enabled(70):
+            groups = c_attrs.get("groups", {})
+            if not groups:
+                print(
+                    "  EC70: skipped (no groups in combined_summary attrs)",
+                    flush=True,
+                )
+            else:
+                for entry_id, g in groups.items():
+                    chk(
+                        f"EC70 groups[{entry_id}] has no non_essential_entities list",
+                        "non_essential_entities" not in g,
+                        True,
+                        f"keys={list(g.keys())}",
+                    )
+
+        if ec_enabled(71):
+            chk(
+                "EC71 combined low_battery_entities_non_essential present in live state",
+                "low_battery_entities_non_essential" in c_attrs,
+                True,
+                f"attrs keys (sample)={list(c_attrs.keys())[:12]}",
+            )
+            chk(
+                "EC71 combined low_battery_entities_non_essential is list",
                 isinstance(c_attrs.get("low_battery_entities_non_essential"), list),
                 True,
                 f"type={type(c_attrs.get('low_battery_entities_non_essential')).__name__}",
