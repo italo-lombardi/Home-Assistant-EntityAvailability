@@ -1291,7 +1291,8 @@ class EntityAvailabilityCard extends LitElement {
     };
 
     // Hoist sort key — invariant across comparisons.
-    // In combined mode, group_sort_by drives entity order too (one control for both).
+    // In combined mode, group_sort_by drives entity order too (one control for both);
+    // sort_by is intentionally ignored — the editor does not expose it for combined cards.
     // "offline_desc" maps to "status" because status-sort puts problems first, matching group sort intent.
     let sortBy = this._config.sort_by || "status";
     if (this._isCombinedGroup()) {
