@@ -230,7 +230,15 @@ class CombinedGroupSensor(CombinedSensorBase):
             "stale_entities_non_essential",
             "poor_signal_entities_non_essential",
             "low_battery_entities",
+            "low_battery_entities_non_essential",
             "non_essential_entities",
+            "battery_levels",
+            "signal_levels",
+            "signal_units",
+            "ok_signal_entities",
+            "suppressed_until",
+            "offline_since",
+            "last_seen",
         }
     )
 
@@ -480,11 +488,6 @@ class CombinedGroupSensor(CombinedSensorBase):
                 _LOGGER.warning(
                     "Could not find group summary entity for %s", coord.entry.entry_id
                 )
-            g_non_essential_entities = [
-                d.entity_id
-                for d in states.values()
-                if d.is_non_essential and not d.is_suppressed
-            ]
             g_offline_entities_ne = [
                 d.entity_id
                 for d in states.values()
@@ -523,7 +526,6 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "suppressed": g_suppressed,
                 "non_essential": g_non_essential,
                 "non_essential_suppressed": g_non_essential_suppressed,
-                "non_essential_entities": g_non_essential_entities,
                 "non_essential_offline": g_non_essential_offline,
                 "non_essential_online": g_non_essential_online,
                 "non_essential_stale": g_non_essential_stale,
