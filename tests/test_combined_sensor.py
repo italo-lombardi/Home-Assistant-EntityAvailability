@@ -1320,6 +1320,33 @@ class TestCombinedGroupSensor:
             "source_groups",
         }
 
+    def test_unrecorded_attributes_covers_all_per_entity_keys(
+        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
+    ):
+        """All large per-entity keys must be excluded from recorder."""
+        expected_unrecorded = {
+            "display_names",
+            "entities",
+            "groups",
+            "offline_entities",
+            "stale_entities",
+            "poor_signal_entities",
+            "offline_entities_non_essential",
+            "stale_entities_non_essential",
+            "poor_signal_entities_non_essential",
+            "low_battery_entities",
+            "low_battery_entities_non_essential",
+            "non_essential_entities",
+            "battery_levels",
+            "signal_levels",
+            "signal_units",
+            "ok_signal_entities",
+            "suppressed_until",
+            "offline_since",
+            "last_seen",
+        }
+        assert expected_unrecorded <= CombinedGroupSensor._unrecorded_attributes
+
 
 # ---------------------------------------------------------------------------
 # CombinedOfflineCountSensor
