@@ -3032,10 +3032,10 @@ class TestCombinedNonEssential:
         assert attrs["non_essential"] >= 1
         assert "binary_sensor.a1" in attrs["non_essential_entities"]
 
-    def test_per_group_breakdown_includes_non_essential_entities_list(
+    def test_per_group_breakdown_non_essential_count(
         self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
     ):
-        """Per-group breakdown in CombinedGroupSensor includes non_essential_entities list."""
+        """Per-group breakdown in CombinedGroupSensor tracks non_essential count (list removed to reduce payload)."""
         mock_hass.data[DOMAIN] = {c.entry.entry_id: c for c in coordinators}
         coordinator_a.device_states["binary_sensor.a1"].is_non_essential = True
         sensor = CombinedGroupSensor(
@@ -3048,8 +3048,8 @@ class TestCombinedNonEssential:
         attrs = sensor.extra_state_attributes
         groups = attrs["groups"]
         entry_a_id = coordinator_a.entry.entry_id
-        assert "non_essential_entities" in groups[entry_a_id]
-        assert "binary_sensor.a1" in groups[entry_a_id]["non_essential_entities"]
+        assert "non_essential_entities" not in groups[entry_a_id]
+        assert groups[entry_a_id]["non_essential"] >= 1
 
     def test_per_group_breakdown_ne_online_offline_stale_low_battery(
         self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
