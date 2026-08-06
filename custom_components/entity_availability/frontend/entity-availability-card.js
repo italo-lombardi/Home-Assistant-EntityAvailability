@@ -670,6 +670,7 @@ class EntityAvailabilityCard extends LitElement {
     return {
       group,
       show_availability: true,
+      show_groups: true,
       show_entities: true,
       entities_expanded: false,
       show_actions: false,
@@ -691,6 +692,7 @@ class EntityAvailabilityCard extends LitElement {
     }
     this._config = {
       show_availability: true,
+      show_groups: true,
       show_entities: true,
       entities_expanded: false,
       show_actions: false,
@@ -800,8 +802,8 @@ class EntityAvailabilityCard extends LitElement {
           ${this._config.show_affected_areas ? this._renderAffectedAreas(`entity_availability_combined_${this._config.group}`) : nothing}
           ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
-          ${this._config.show_entities ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
-          ${this._config.show_entities && this._entitiesExpanded ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
+          ${this._config.show_groups !== false ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
+          ${this._config.show_entities ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -1289,7 +1291,12 @@ class EntityAvailabilityCard extends LitElement {
     };
 
     items.sort((a, b) => {
-      const sortBy = this._config.sort_by || "status";
+      const isCombined = this._isCombinedGroup();
+      let sortBy = this._config.sort_by || "status";
+      if (isCombined) {
+        const g = this._config.group_sort_by || "name_asc";
+        sortBy = g === "name_desc" ? "name_desc" : g === "offline_desc" ? "status" : "name_asc";
+      }
       // NE entities always go after essential, but within each tier the same sort applies
       if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
       if (sortBy === "name_asc") {
@@ -1854,6 +1861,17 @@ class EntityAvailabilityCardEditor extends LitElement {
           </label>
         </div>
         ` : nothing}
+        ${this._isSelectedGroupCombined() ? html`
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_groups !== false}
+              @change=${(e) => this._updateConfig("show_groups", e.target.checked)}
+            />
+            Show Groups
+          </label>
+        </div>
         <div class="editor-row checkbox">
           <label>
             <input
@@ -1864,6 +1882,18 @@ class EntityAvailabilityCardEditor extends LitElement {
             Show Entity List
           </label>
         </div>
+        ` : html`
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_entities !== false}
+              @change=${(e) => this._updateConfig("show_entities", e.target.checked)}
+            />
+            Show Entity List
+          </label>
+        </div>
+        `}
         <div class="editor-row checkbox">
           <label>
             <input
@@ -1984,7 +2014,7 @@ class EntityAvailabilityCardEditor extends LitElement {
         </div>
         ${this._isSelectedGroupCombined() ? html`
         <div class="editor-row">
-          <label>Sort Groups By</label>
+          <label>Sort Groups &amp; Entities By</label>
           <select
             .value=${this._config.group_sort_by || "name_asc"}
             @change=${(e) => this._updateConfig("group_sort_by", e.target.value)}
