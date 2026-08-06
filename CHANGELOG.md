@@ -26,12 +26,16 @@ All notable changes to this project will be documented in this file.
 - **Card: `show_entity_health` toggle** — hides/shows Bat. & Signal columns in the single-group entity list (default on); mirrors `show_group_health` on combined card
 - **Card: sort by signal** — `signal_asc` / `signal_desc` sort options; dBm and % normalized to a 0–100 quality score so mixed-unit groups sort correctly; nulls last
 - **Card: 3-button suppress actions** — replaces Suppress All / Unsuppress All with **Suppress All** (offline + stale + poor signal, 60 min), **Suppress Offline** (offline only, 60 min), **Unsuppress All**. NE entities included when `show_non_essential_stats` is on. Available on both regular and combined groups.
+- **Card: `show_groups` config key** — independently controls the groups breakdown table on combined cards (previously `show_entities` gated both). Defaults to `true`; set `false` to hide the breakdown while keeping the entity list visible.
 
 ### Changed
 - Signal `signal_enabled` toggle positioned directly below `battery_threshold` in Advanced settings
 - All signal sensor display uses the correct unit for the selected network type (dBm or %)
 - 28 supported languages receive full translations for all new strings
 - Card: `show_actions` checkbox now available for combined group cards in the editor
+- **Card: combined card `show_entities` now controls only the flat entity list** — previously it gated both the groups breakdown table and the entity list; use `show_groups` to control the breakdown independently.
+- **Card: editor "Sort Groups By" renamed to "Sort Groups & Entities By"** — the sort selection now drives both the groups breakdown table order and the flat entity list order on combined cards.
+- **Card: entity list expand/collapse on combined cards is now independent** — the entity list section has its own expand toggle, decoupled from the groups breakdown toggle.
 
 ### Fixed
 - **Battery sensor state changes now trigger live updates** — mapped battery sensors (e.g. `sensor.device_battery`) were not subscribed to HA state change events; updates no longer require waiting for the next poll cycle.
@@ -42,6 +46,8 @@ All notable changes to this project will be documented in this file.
 - **Card: status sort — stale entities now sort above online**
 - **Card: combined group suppress was silently failing** — suppress handlers were passing the combined entry_id as `group=` to the service; each entity is now scoped to its source group's entry_id.
 - **Diagnostics: new schema** — `counts`, `entities`, and `config` sub-dicts replace flat keys
+- **Card: `show_entities` guard consistent across combined and regular render paths** — both now use `!== false`, preventing `show_entities: undefined` from silently hiding the entity list.
+- **Card: "Entity List Expanded by Default" editor toggle now disables when `show_entities` is `false`** — applies to both regular and combined cards.
 
 
 ## [0.3.14] - 2026-08-02

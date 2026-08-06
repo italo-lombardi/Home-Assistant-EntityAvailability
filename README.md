@@ -602,6 +602,7 @@ group: security_devices        # group slug (lowercase, underscores)
 # title: "My Devices"         # optional override
 show_affected_areas: false
 show_availability: true
+show_groups: true            # show groups breakdown table (combined cards only)
 show_entities: true
 show_non_essential_stats: false
 entities_expanded: false
@@ -630,7 +631,8 @@ availability_colors:
 | `title` | (auto from group) | Custom card title |
 | `show_affected_areas` | `false` | Show offline area names as pills between stats and availability bars (both regular and combined groups) |
 | `show_availability` | `true` | Show availability progress bars (regular groups only) |
-| `show_entities` | `true` | Show expandable entity list (regular) or group breakdown table (combined) |
+| `show_groups` | `true` | Show groups breakdown table (combined groups only). Independent of `show_entities` — both can be toggled separately. |
+| `show_entities` | `true` | Show expandable entity list (regular groups), or flat per-entity table (combined groups). Independent of `show_groups`. |
 | `show_non_essential_stats` | `false` | Show non-essential stats. For **regular groups**: adds a NE sub-stats row (Online / Offline / Stale / Low Battery) below the main stats row and includes NE entities in the entity list sorted to the bottom. For **combined groups**: adds a `↳ Non-Essential` sub-row per group in the breakdown table showing NE Online / Offline and (when feature enabled) Bat. / Stale counts. When `false`, non-essential entities are hidden from the card entirely. |
 | `entities_expanded` | `false` | Start entity list / group breakdown expanded |
 | `show_actions` | `false` | Show suppress action buttons (regular and combined groups). Shows three buttons: **Suppress All** (offline + stale + poor signal, 60 min), **Suppress Offline** (offline only, 60 min), **Unsuppress All**. When `show_non_essential_stats` is on, NE entities are included. |
@@ -640,7 +642,7 @@ availability_colors:
 | `compact` | `false` | Reduced padding mode |
 | `show_entity_health` | `true` | Show health columns (Bat. & Signal) in the entity list when the feature is active (regular groups only) |
 | `sort_by` | `status` | Entity list sort order: `status`, `name_asc`, `name_desc`, `battery_asc`, `battery_desc`, `signal_asc`, `signal_desc` (regular groups only) |
-| `group_sort_by` | `name_asc` | Group breakdown table sort order: `name_asc`, `name_desc`, `offline_desc` (most offline first). (combined groups only) |
+| `group_sort_by` | `name_asc` | Sort order for both the groups breakdown table and the flat entity list: `name_asc`, `name_desc`, `offline_desc` (most offline first). (combined groups only) |
 | `availability_thresholds` | `{high: 99, mid: 95}` | % thresholds for bar colors (regular groups only) |
 | `availability_colors` | `{high, mid, low}` | Custom hex colors for bars (regular groups only) |
 
@@ -661,7 +663,7 @@ The card editor includes a **Group Slug** dropdown populated from all discovered
 - **Groups** — regular monitored groups
 - **Combined Groups** — aggregated combined groups
 
-Selecting a combined group hides editor controls that don't apply (availability bars, entity filter, entity detail, entity sort order, suppress buttons, color thresholds), and shows the **Sort Groups By** dropdown instead.
+Selecting a combined group hides editor controls that don't apply (availability bars, entity filter, entity detail, entity sort order, suppress buttons, color thresholds), and shows two independent checkboxes — **Show Groups** (breakdown table) and **Show Entity List** (flat entity table) — plus the **Sort Groups & Entities By** dropdown instead.
 
 ### Card Preview — Regular Group
 
