@@ -3188,6 +3188,8 @@ for e in cfg['data']['entries']:
 
     # ------------------------------------------------------------------
     # EC69-EC71: combined_summary recorder payload reduction (PR#76)
+    # All three checks read the same snapshot — PR#76 is a structural
+    # change (which keys exist / their types), not state-dependent.
     # ------------------------------------------------------------------
     if combined_prefix and (ec_enabled(69) or ec_enabled(70) or ec_enabled(71)):
         print(
@@ -3198,15 +3200,16 @@ for e in cfg['data']['entries']:
         c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
 
         if ec_enabled(69):
-            # These are now unrecorded but must still be present in live state.
-            for attr in [
-                "battery_levels",
-                "signal_levels",
-                "signal_units",
-                "ok_signal_entities",
-                "suppressed_until",
-                "offline_since",
-                "last_seen",
+            # These are now unrecorded but must still be present in live state
+            # with correct types (not None).
+            for attr, expected_type in [
+                ("battery_levels", dict),
+                ("signal_levels", dict),
+                ("signal_units", dict),
+                ("ok_signal_entities", list),
+                ("suppressed_until", dict),
+                ("offline_since", dict),
+                ("last_seen", dict),
             ]:
                 chk(
                     f"EC69 combined {attr} present in live state",
@@ -3214,22 +3217,28 @@ for e in cfg['data']['entries']:
                     True,
                     f"attrs keys (sample)={list(c_attrs.keys())[:12]}",
                 )
+                chk(
+                    f"EC69 combined {attr} is {expected_type.__name__}",
+                    isinstance(c_attrs.get(attr), expected_type),
+                    True,
+                    f"type={type(c_attrs.get(attr)).__name__}",
+                )
 
         if ec_enabled(70):
             groups = c_attrs.get("groups", {})
-            if not groups:
-                print(
-                    "  EC70: skipped (no groups in combined_summary attrs)",
-                    flush=True,
+            chk(
+                "EC70 combined_summary groups dict is non-empty",
+                len(groups) > 0,
+                True,
+                f"groups keys={list(groups.keys())}",
+            )
+            for entry_id, g in groups.items():
+                chk(
+                    f"EC70 groups[{entry_id}] has no non_essential_entities list",
+                    "non_essential_entities" not in g,
+                    True,
+                    f"keys={list(g.keys())}",
                 )
-            else:
-                for entry_id, g in groups.items():
-                    chk(
-                        f"EC70 groups[{entry_id}] has no non_essential_entities list",
-                        "non_essential_entities" not in g,
-                        True,
-                        f"keys={list(g.keys())}",
-                    )
 
         if ec_enabled(71):
             chk(
