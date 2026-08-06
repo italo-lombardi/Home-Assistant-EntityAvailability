@@ -803,7 +803,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
           ${this._config.show_groups !== false ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
-          ${this._config.show_entities ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
+          ${this._config.show_entities !== false ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -1290,13 +1290,16 @@ class EntityAvailabilityCard extends LitElement {
       return Math.max(0, Math.min(100, (lvl + 110) * (100 / 80)));
     };
 
+    // Hoist sort key — invariant across comparisons.
+    // In combined mode, group_sort_by drives entity order too (one control for both).
+    // "offline_desc" maps to "status" because status-sort puts problems first, matching group sort intent.
+    let sortBy = this._config.sort_by || "status";
+    if (this._isCombinedGroup()) {
+      const g = this._config.group_sort_by || "name_asc";
+      sortBy = g === "name_desc" ? "name_desc" : g === "offline_desc" ? "status" : "name_asc";
+    }
+
     items.sort((a, b) => {
-      const isCombined = this._isCombinedGroup();
-      let sortBy = this._config.sort_by || "status";
-      if (isCombined) {
-        const g = this._config.group_sort_by || "name_asc";
-        sortBy = g === "name_desc" ? "name_desc" : g === "offline_desc" ? "status" : "name_asc";
-      }
       // NE entities always go after essential, but within each tier the same sort applies
       if (a.isNonEssential !== b.isNonEssential) return a.isNonEssential ? 1 : -1;
       if (sortBy === "name_asc") {
@@ -1946,6 +1949,7 @@ class EntityAvailabilityCardEditor extends LitElement {
               type="checkbox"
               .checked=${this._config.entities_expanded === true}
               @change=${(e) => this._updateConfig("entities_expanded", e.target.checked)}
+              ?disabled=${this._isSelectedGroupCombined() && this._config.show_entities === false}
             />
             Entity List Expanded by Default
           </label>
