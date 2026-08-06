@@ -1320,9 +1320,7 @@ class TestCombinedGroupSensor:
             "source_groups",
         }
 
-    def test_unrecorded_attributes_covers_all_per_entity_keys(
-        self, mock_hass, combined_entry, coordinator_a, coordinator_b, coordinators
-    ):
+    def test_unrecorded_attributes_covers_all_per_entity_keys(self):
         """All large per-entity keys must be excluded from recorder."""
         expected_unrecorded = {
             "display_names",
