@@ -73,6 +73,9 @@ const STATUS_COLORS = {
   red: "#f44336",
 };
 
+// Severity order for worst-case collapse — hoisted to avoid per-render allocation.
+const COLLAPSE_SEVERITY = { red: 3, yellow: 2, grey: 1, green: 0 };
+
 const cardStyles = css`
   :host {
     --eac-green: #4caf50;
@@ -1342,24 +1345,27 @@ class EntityAvailabilityCard extends LitElement {
     // Any mismatch → keep separate rows. Worst-case status across sub-entities.
     // Entities with no device_id are never collapsed. Applied after sort so order is preserved.
     if (this._config.collapse_devices === true) {
-      const reg = this.hass.entities ?? {};
+      const reg = this.hass.entities;
+      if (!reg) console.warn("[entity-availability-card] collapse_devices: hass.entities unavailable — no collapsing applied");
       const groups = new Map();
       for (const item of items) {
-        const deviceId = reg[item.entityId]?.device_id;
+        const deviceId = reg?.[item.entityId]?.device_id;
+        // Normalize null/undefined signal to same sentinel so both collapse correctly
+        const sigKey = item.signalLevel ?? "null";
         const key = deviceId
-          ? `${deviceId}::${item.name}::${String(item.battery)}::${String(item.signalLevel)}::${item.signalUnit}`
+          ? `${deviceId}::${item.name}::${String(item.battery)}::${sigKey}::${item.signalUnit ?? ""}`
           : `__no_device__${item.entityId}`;
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(item);
       }
-      const STATUS_SEVERITY = { red: 3, yellow: 2, grey: 1, green: 0 };
       const collapsed = [];
       for (const [, group] of groups) {
         if (group.length === 1) { collapsed.push(group[0]); continue; }
+        // worst = highest severity; use worst.entityId (correct click target, not always group[0])
         const worst = group.reduce((a, b) =>
-          (STATUS_SEVERITY[b.dotColor] ?? 0) > (STATUS_SEVERITY[a.dotColor] ?? 0) ? b : a
+          (COLLAPSE_SEVERITY[b.dotColor] ?? 0) > (COLLAPSE_SEVERITY[a.dotColor] ?? 0) ? b : a
         );
-        collapsed.push({ ...worst, entityId: group[0].entityId });
+        collapsed.push(worst);
       }
       return collapsed;
     }
@@ -2032,7 +2038,7 @@ class EntityAvailabilityCardEditor extends LitElement {
               .checked=${this._config.collapse_devices === true}
               @change=${(e) => this._updateConfig("collapse_devices", e.target.checked)}
             />
-            Collapse Entities by Device
+            Collapse Entities by Device (requires Use Device Names on group)
           </label>
         </div>
         <div class="editor-row checkbox">
