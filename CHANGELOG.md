@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-07
+
+> These changes were inadvertently omitted from the v0.4.0 release tag and are included here as a patch release.
+
+### Added
+- **Card: `collapse_devices` config key** — when enabled, entities sharing the same HA device, display name, and battery/signal values collapse into a single row showing worst-case status. Entities with no device assignment are never collapsed. Requires **Use Device Names**. Defaults to `false`. (#79)
+- **Card: `show_groups` and `show_entities` split on combined cards** — `show_groups` independently controls the groups breakdown table; `show_entities` controls only the flat entity list. Sort selection drives both. Entity list expand/collapse is now independent of the groups breakdown toggle. (#78)
+
+### Fixed
+- **Combined sensor: recorder payload reduced** — high-cardinality list attributes moved to `_unrecorded_attributes`; only scalar counts recorded. (#76)
+- **Combined card: Non-Essential stats row and full entity table** — `show_non_essential_stats: true` now renders correctly on combined cards; `show_entities: true` + `entities_expanded: true` renders the full per-entity table. Merged sensor attributes aligned. (#75)
+
 ## [0.4.0] - 2026-08-05
 
 ### Added
