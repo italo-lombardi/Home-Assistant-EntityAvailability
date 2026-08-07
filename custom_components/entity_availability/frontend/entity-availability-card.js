@@ -1352,12 +1352,16 @@ class EntityAvailabilityCard extends LitElement {
         const deviceId = reg?.[item.entityId]?.device_id;
         // Normalize null/undefined signal to same sentinel so both collapse correctly
         const sigKey = item.signalLevel ?? "null";
+        // Only include signalUnit in key when signalLevel is present — unit is meaningless when there's no value
+        const sigUnitKey = item.signalLevel != null ? (item.signalUnit ?? "") : "";
         const key = deviceId
-          ? `${deviceId}::${item.name}::${String(item.battery)}::${sigKey}::${item.signalUnit ?? ""}`
+          ? `${deviceId}::${item.name}::${String(item.battery)}::${sigKey}::${sigUnitKey}`
           : `__no_device__${item.entityId}`;
+        console.log(`[collapse_devices] entity=${item.entityId} deviceId=${deviceId} name=${item.name} battery=${item.battery} signalLevel=${item.signalLevel} signalUnit=${item.signalUnit} key=${key}`);
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(item);
       }
+      console.log(`[collapse_devices] groups (${groups.size}):`, [...groups.keys()]);
       const collapsed = [];
       for (const [, group] of groups) {
         if (group.length === 1) { collapsed.push(group[0]); continue; }
