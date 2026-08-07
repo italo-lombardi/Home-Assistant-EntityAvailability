@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 - **Card: sort by signal** — `signal_asc` / `signal_desc` sort options; dBm and % normalized to a 0–100 quality score so mixed-unit groups sort correctly; nulls last
 - **Card: 3-button suppress actions** — replaces Suppress All / Unsuppress All with **Suppress All** (offline + stale + poor signal, 60 min), **Suppress Offline** (offline only, 60 min), **Unsuppress All**. NE entities included when `show_non_essential_stats` is on. Available on both regular and combined groups.
 - **Card: `show_groups` config key** — independently controls the groups breakdown table on combined cards (previously `show_entities` gated both). Defaults to `true`; set `false` to hide the breakdown while keeping the entity list visible.
+- **Card: `collapse_devices` config key** — when enabled, entities that share the same physical HA device (same `device_id`), same display name, and identical battery/signal values are collapsed into a single row showing worst-case status. Entities with no device assignment are never collapsed. Requires **Use Device Names** on the group. Defaults to `false`.
 
 ### Changed
 - Signal `signal_enabled` toggle positioned directly below `battery_threshold` in Advanced settings
