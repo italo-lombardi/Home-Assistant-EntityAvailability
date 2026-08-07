@@ -698,6 +698,7 @@ class EntityAvailabilityCard extends LitElement {
       show_actions: false,
       show_suppress_toggle: false,
       compact: false,
+      collapse_devices: false,
       sort_by: "status",
       entity_detail: "off",
       entity_filter: "all",
@@ -1335,6 +1336,33 @@ class EntityAvailabilityCard extends LitElement {
         return a.name.localeCompare(b.name);
       }
     });
+
+    // Collapse entities from the same physical device into one row when collapse_devices is on.
+    // Collapse only when: same device_id + same display name + identical battery + identical signal.
+    // Any mismatch → keep separate rows. Worst-case status across sub-entities.
+    // Entities with no device_id are never collapsed. Applied after sort so order is preserved.
+    if (this._config.collapse_devices === true) {
+      const reg = this.hass.entities ?? {};
+      const groups = new Map();
+      for (const item of items) {
+        const deviceId = reg[item.entityId]?.device_id;
+        const key = deviceId
+          ? `${deviceId}::${item.name}::${String(item.battery)}::${String(item.signalLevel)}::${item.signalUnit}`
+          : `__no_device__${item.entityId}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(item);
+      }
+      const STATUS_SEVERITY = { red: 3, yellow: 2, grey: 1, green: 0 };
+      const collapsed = [];
+      for (const [, group] of groups) {
+        if (group.length === 1) { collapsed.push(group[0]); continue; }
+        const worst = group.reduce((a, b) =>
+          (STATUS_SEVERITY[b.dotColor] ?? 0) > (STATUS_SEVERITY[a.dotColor] ?? 0) ? b : a
+        );
+        collapsed.push({ ...worst, entityId: group[0].entityId });
+      }
+      return collapsed;
+    }
 
     return items;
   }
@@ -1995,6 +2023,16 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("compact", e.target.checked)}
             />
             Compact Mode
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.collapse_devices === true}
+              @change=${(e) => this._updateConfig("collapse_devices", e.target.checked)}
+            />
+            Collapse Entities by Device
           </label>
         </div>
         <div class="editor-row checkbox">
