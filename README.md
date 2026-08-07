@@ -616,6 +616,7 @@ entity_filter: "all"           # "all" | "offline" | "online"
 show_entity_health: true       # hide/show Bat. & Signal columns in entity list
 sort_by: status                # status | name_asc | name_desc | battery_asc | battery_desc | signal_asc | signal_desc
 group_sort_by: name_asc        # name_asc | name_desc | offline_desc (combined groups)
+collapse_devices: false        # collapse multiple entities from the same device into one row
 availability_thresholds:
   high: 99
   mid: 95
@@ -643,6 +644,7 @@ availability_colors:
 | `show_entity_health` | `true` | Show health columns (Bat. & Signal) in the entity list when the feature is active (regular groups only) |
 | `sort_by` | `status` | Entity list sort order: `status`, `name_asc`, `name_desc`, `battery_asc`, `battery_desc`, `signal_asc`, `signal_desc` (regular groups only) |
 | `group_sort_by` | `name_asc` | Sort order for both the groups breakdown table and the flat entity list: `name_asc`, `name_desc`, `offline_desc` (most offline first). (combined groups only) |
+| `collapse_devices` | `false` | Collapse multiple entities from the same physical device into one row showing worst-case status. Requires **Use Device Names** enabled on the group. Entities with no HA device assignment are never collapsed. |
 | `availability_thresholds` | `{high: 99, mid: 95}` | % thresholds for bar colors (regular groups only) |
 | `availability_colors` | `{high, mid, low}` | Custom hex colors for bars (regular groups only) |
 
