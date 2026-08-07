@@ -1346,7 +1346,14 @@ class EntityAvailabilityCard extends LitElement {
     // Entities with no device_id are never collapsed. Applied after sort so order is preserved.
     if (this._config.collapse_devices === true) {
       const reg = this.hass.entities;
-      if (!reg) console.warn("[entity-availability-card] collapse_devices: hass.entities unavailable — no collapsing applied");
+      if (!reg) {
+        if (!this._warnedEntitiesUnavailable) {
+          console.warn("[entity-availability-card] collapse_devices: hass.entities unavailable — no collapsing applied");
+          this._warnedEntitiesUnavailable = true;
+        }
+      } else {
+        this._warnedEntitiesUnavailable = false;
+      }
       const groups = new Map();
       for (const item of items) {
         const deviceId = reg?.[item.entityId]?.device_id;
