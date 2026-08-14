@@ -26,7 +26,11 @@
         "description": "Apvienojiet vairākas grupas vienā skatā automatizācijai un informācijas paneļiem.",
         "data": {
           "group_name": "Apvienotās grupas nosaukums",
-          "combined_groups": "Iekļaujamās grupas"
+          "combined_groups": "Iekļaujamās grupas",
+          "collapse_devices": "Apvienot entitātes pēc ierīces"
+        },
+        "data_description": {
+          "collapse_devices": "Darbojas tikai tad, ja vismaz vienā iekļautajā grupā ir iespējots “Rādīt ierīces nosaukumus”. Kad ieslēgts, vairākas viena un tā paša fiziskā ierīces entītijas visā apvienotajā skatā tiek uzskatītas par vienu — pat iekļautajām grupām, kuras pašas neapvieno. Pieejamība %, MTBF un MTTR paliek uz katru entītiju."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Mainiet apvienotās grupas nosaukumu un iekļaujamās grupas.",
         "data": {
           "group_name": "Apvienotās grupas nosaukums",
-          "combined_groups": "Iekļaujamās grupas"
+          "combined_groups": "Iekļaujamās grupas",
+          "collapse_devices": "Apvienot entitātes pēc ierīces"
+        },
+        "data_description": {
+          "collapse_devices": "Darbojas tikai tad, ja vismaz vienā iekļautajā grupā ir iespējots “Rādīt ierīces nosaukumus”. Kad ieslēgts, vairākas viena un tā paša fiziskā ierīces entītijas visā apvienotajā skatā tiek uzskatītas par vienu — pat iekļautajām grupām, kuras pašas neapvieno. Pieejamība %, MTBF un MTTR paliek uz katru entītiju."
         }
       },
       "battery_mapping": {

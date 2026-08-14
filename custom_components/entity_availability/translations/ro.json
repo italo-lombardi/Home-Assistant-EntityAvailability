@@ -26,7 +26,11 @@
         "description": "Combinați mai multe grupuri într-o singură vizualizare pentru automatizări și tablouri de bord.",
         "data": {
           "group_name": "Numele grupului combinat",
-          "combined_groups": "Grupuri de inclus"
+          "combined_groups": "Grupuri de inclus",
+          "collapse_devices": "Grupați entitățile după dispozitiv"
+        },
+        "data_description": {
+          "collapse_devices": "Funcționează doar când cel puțin un grup inclus are activat „Afișați numele dispozitivelor”. Când este activat, mai multe entități ale aceluiași dispozitiv fizic sunt numărate ca una singură în întreaga vizualizare combinată — chiar și pentru grupurile incluse care nu se grupează de la sine. Disponibilitatea %, MTBF și MTTR rămân per entitate."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Modificați numele și grupurile incluse în grupul combinat.",
         "data": {
           "group_name": "Numele grupului combinat",
-          "combined_groups": "Grupuri de inclus"
+          "combined_groups": "Grupuri de inclus",
+          "collapse_devices": "Grupați entitățile după dispozitiv"
+        },
+        "data_description": {
+          "collapse_devices": "Funcționează doar când cel puțin un grup inclus are activat „Afișați numele dispozitivelor”. Când este activat, mai multe entități ale aceluiași dispozitiv fizic sunt numărate ca una singură în întreaga vizualizare combinată — chiar și pentru grupurile incluse care nu se grupează de la sine. Disponibilitatea %, MTBF și MTTR rămân per entitate."
         }
       },
       "battery_mapping": {

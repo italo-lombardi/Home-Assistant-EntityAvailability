@@ -420,6 +420,7 @@ def _make_group_coord(
     states: dict[str, DeviceState],
     *,
     collapse: bool = True,
+    use_device_names: bool = True,
 ) -> EntityAvailabilityCoordinator:
     """Build a group coordinator under its own config entry (collapse-on by default)."""
     if hass.config_entries.async_get_entry(entry_id) is None:
@@ -432,7 +433,7 @@ def _make_group_coord(
                 CONF_ENTITIES: list(states),
                 CONF_BAD_STATES: DEFAULT_BAD_STATES,
                 CONF_COLLAPSE_DEVICES: collapse,
-                CONF_USE_DEVICE_NAMES: True,
+                CONF_USE_DEVICE_NAMES: use_device_names,
             },
         ).add_to_hass(hass)
     entry = hass.config_entries.async_get_entry(entry_id)
@@ -796,3 +797,83 @@ class TestCollapseKeyStableNumerics:
         # Both resolve the NaN/None battery to the same "None" key segment.
         assert "::None::" in key_nan
         assert key_nan.split("::")[2] == key_none.split("::")[2]
+
+
+def _combined_entry(entry_id: str, collapse: bool) -> MockConfigEntry:
+    from custom_components.entity_availability.const import (
+        CONF_ENTRY_TYPE,
+        ENTRY_TYPE_COMBINED,
+    )
+
+    return MockConfigEntry(
+        domain=DOMAIN,
+        entry_id=entry_id,
+        title=entry_id,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: entry_id,
+            CONF_COLLAPSE_DEVICES: collapse,
+        },
+    )
+
+
+class TestCombinedOwnToggle:
+    def _two_child_offline_same_device(self, mock_hass, use_device_names=True):
+        # Two collapse-OFF groups, each with one offline entity on the SAME device.
+        _register_entity(mock_hass, "binary_sensor.ct_a", "ctdev")
+        _register_entity(mock_hass, "binary_sensor.ct_b", "ctdev")
+        a = _make_group_coord(
+            mock_hass,
+            "grp_cta",
+            {
+                "binary_sensor.ct_a": DeviceState(
+                    entity_id="binary_sensor.ct_a", is_offline=True
+                )
+            },
+            collapse=False,
+            use_device_names=use_device_names,
+        )
+        b = _make_group_coord(
+            mock_hass,
+            "grp_ctb",
+            {
+                "binary_sensor.ct_b": DeviceState(
+                    entity_id="binary_sensor.ct_b", is_offline=True
+                )
+            },
+            collapse=False,
+            use_device_names=use_device_names,
+        )
+        mock_hass.data[DOMAIN] = {"grp_cta": a, "grp_ctb": b}
+
+    def test_combined_toggle_collapses_despite_children_off(self, mock_hass):
+        self._two_child_offline_same_device(mock_hass)
+        entry = _combined_entry("comb_on", collapse=True)
+        summary = CombinedGroupSensor(
+            mock_hass, entry, "comb_on", "comb_on", ["grp_cta", "grp_ctb"]
+        )
+        attrs = summary.extra_state_attributes
+        # Children collapse off, but combined toggle on + a child has device names
+        # -> both entities collapse to one device.
+        assert attrs["offline"] == 1
+        assert summary.native_value == 1
+
+    def test_combined_toggle_off_keeps_children_separate(self, mock_hass):
+        self._two_child_offline_same_device(mock_hass)
+        entry = _combined_entry("comb_off", collapse=False)
+        summary = CombinedGroupSensor(
+            mock_hass, entry, "comb_off", "comb_off", ["grp_cta", "grp_ctb"]
+        )
+        attrs = summary.extra_state_attributes
+        # No collapse anywhere -> two separate offline rows.
+        assert attrs["offline"] == 2
+
+    def test_combined_toggle_gated_on_child_device_names(self, mock_hass):
+        # Combined toggle on, but NO child has device names -> no-op.
+        self._two_child_offline_same_device(mock_hass, use_device_names=False)
+        entry = _combined_entry("comb_gate", collapse=True)
+        summary = CombinedGroupSensor(
+            mock_hass, entry, "comb_gate", "comb_gate", ["grp_cta", "grp_ctb"]
+        )
+        attrs = summary.extra_state_attributes
+        assert attrs["offline"] == 2  # gate not satisfied -> no collapse

@@ -26,7 +26,11 @@
         "description": "Sujunkite kelias grupes į vieną rodinį automatizavimui ir informaciniams skydeliams.",
         "data": {
           "group_name": "Jungtinės grupės pavadinimas",
-          "combined_groups": "Įtraukiamos grupės"
+          "combined_groups": "Įtraukiamos grupės",
+          "collapse_devices": "Sujungti objektus pagal įrenginį"
+        },
+        "data_description": {
+          "collapse_devices": "Veikia tik tada, kai bent vienoje įtrauktoje grupėje įjungta „Rodyti įrenginių pavadinimus“. Kai įjungta, keli to paties fizinio įrenginio objektai visame jungtiniame rodinyje skaičiuojami kaip vienas — net ir įtrauktoms grupėms, kurios pačios nesujungia. Prieinamumas %, MTBF ir MTTR lieka pagal objektą."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Keiskite jungtinės grupės pavadinimą ir įtraukiamas grupes.",
         "data": {
           "group_name": "Jungtinės grupės pavadinimas",
-          "combined_groups": "Įtraukiamos grupės"
+          "combined_groups": "Įtraukiamos grupės",
+          "collapse_devices": "Sujungti objektus pagal įrenginį"
+        },
+        "data_description": {
+          "collapse_devices": "Veikia tik tada, kai bent vienoje įtrauktoje grupėje įjungta „Rodyti įrenginių pavadinimus“. Kai įjungta, keli to paties fizinio įrenginio objektai visame jungtiniame rodinyje skaičiuojami kaip vienas — net ir įtrauktoms grupėms, kurios pačios nesujungia. Prieinamumas %, MTBF ir MTTR lieka pagal objektą."
         }
       },
       "battery_mapping": {

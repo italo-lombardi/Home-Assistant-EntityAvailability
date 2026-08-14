@@ -26,7 +26,11 @@
         "description": "Több csoport egyesítése egyetlen nézetbe automatizációkhoz és irányítópultokhoz.",
         "data": {
           "group_name": "Összesített csoport neve",
-          "combined_groups": "Belefoglalandó csoportok"
+          "combined_groups": "Belefoglalandó csoportok",
+          "collapse_devices": "Entitások összevonása eszközönként"
+        },
+        "data_description": {
+          "collapse_devices": "Csak akkor működik, ha legalább egy bevont csoportnál engedélyezve van az „Eszköznevek megjelenítése”. Bekapcsolva ugyanazon fizikai eszköz több entitása egynek számít a kombinált nézetben — még az olyan bevont csoportok esetén is, amelyek maguktól nem vonják össze. A rendelkezésre állás %, az MTBF és az MTTR entitásonként marad."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Az összesített csoport nevének és tartalmának módosítása.",
         "data": {
           "group_name": "Összesített csoport neve",
-          "combined_groups": "Belefoglalandó csoportok"
+          "combined_groups": "Belefoglalandó csoportok",
+          "collapse_devices": "Entitások összevonása eszközönként"
+        },
+        "data_description": {
+          "collapse_devices": "Csak akkor működik, ha legalább egy bevont csoportnál engedélyezve van az „Eszköznevek megjelenítése”. Bekapcsolva ugyanazon fizikai eszköz több entitása egynek számít a kombinált nézetben — még az olyan bevont csoportok esetén is, amelyek maguktól nem vonják össze. A rendelkezésre állás %, az MTBF és az MTTR entitásonként marad."
         }
       },
       "battery_mapping": {

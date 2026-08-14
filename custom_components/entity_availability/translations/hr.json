@@ -26,7 +26,11 @@
         "description": "Kombinirajte više grupa u jedan prikaz za automatizacije i nadzorne ploče.",
         "data": {
           "group_name": "Naziv kombinirane grupe",
-          "combined_groups": "Grupe za uključivanje"
+          "combined_groups": "Grupe za uključivanje",
+          "collapse_devices": "Grupiraj entitete po uređaju"
+        },
+        "data_description": {
+          "collapse_devices": "Radi samo kada barem jedna uključena grupa ima omogućeno „Prikaži nazive uređaja“. Kada je uključeno, više entiteta istog fizičkog uređaja broji se kao jedan u cijelom kombiniranom prikazu — čak i za uključene grupe koje se same ne grupiraju. Dostupnost %, MTBF i MTTR ostaju po entitetu."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Izmjenite naziv i uključene grupe kombinirane grupe.",
         "data": {
           "group_name": "Naziv kombinirane grupe",
-          "combined_groups": "Grupe za uključivanje"
+          "combined_groups": "Grupe za uključivanje",
+          "collapse_devices": "Grupiraj entitete po uređaju"
+        },
+        "data_description": {
+          "collapse_devices": "Radi samo kada barem jedna uključena grupa ima omogućeno „Prikaži nazive uređaja“. Kada je uključeno, više entiteta istog fizičkog uređaja broji se kao jedan u cijelom kombiniranom prikazu — čak i za uključene grupe koje se same ne grupiraju. Dostupnost %, MTBF i MTTR ostaju po entitetu."
         }
       },
       "battery_mapping": {

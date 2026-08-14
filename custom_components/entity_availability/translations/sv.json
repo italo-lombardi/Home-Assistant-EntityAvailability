@@ -26,7 +26,11 @@
         "description": "Kombinera flera grupper i en vy för automatiseringar och dashboards.",
         "data": {
           "group_name": "Namn på kombinerad grupp",
-          "combined_groups": "Grupper att inkludera"
+          "combined_groups": "Grupper att inkludera",
+          "collapse_devices": "Slå ihop entiteter per enhet"
+        },
+        "data_description": {
+          "collapse_devices": "Fungerar bara när minst en inkluderad grupp har „Visa enhetsnamn“ aktiverat. När det är på räknas flera entiteter på samma fysiska enhet som en i hela den kombinerade vyn — även för inkluderade grupper som inte slår ihop på egen hand. Tillgänglighet %, MTBF och MTTR förblir per entitet."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Ändra namn och inkluderade grupper för denna kombinerade grupp.",
         "data": {
           "group_name": "Namn på kombinerad grupp",
-          "combined_groups": "Grupper att inkludera"
+          "combined_groups": "Grupper att inkludera",
+          "collapse_devices": "Slå ihop entiteter per enhet"
+        },
+        "data_description": {
+          "collapse_devices": "Fungerar bara när minst en inkluderad grupp har „Visa enhetsnamn“ aktiverat. När det är på räknas flera entiteter på samma fysiska enhet som en i hela den kombinerade vyn — även för inkluderade grupper som inte slår ihop på egen hand. Tillgänglighet %, MTBF och MTTR förblir per entitet."
         }
       },
       "battery_mapping": {

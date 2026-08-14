@@ -26,7 +26,11 @@
         "description": "Kombiner flere grupper i én visning til automationer og dashboards.",
         "data": {
           "group_name": "Kombineret gruppenavn",
-          "combined_groups": "Grupper der skal inkluderes"
+          "combined_groups": "Grupper der skal inkluderes",
+          "collapse_devices": "Saml entiteter efter enhed"
+        },
+        "data_description": {
+          "collapse_devices": "Virker kun, når mindst én inkluderet gruppe har „Vis enhedsnavne“ aktiveret. Når det er slået til, tælles flere entiteter på samme fysiske enhed som én på tværs af den kombinerede visning — også for inkluderede grupper, der ikke samler af sig selv. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet."
         }
       },
       "monitoring": {
@@ -126,7 +130,11 @@
         "description": "Rediger navn og inkluderede grupper for denne kombinerede gruppe.",
         "data": {
           "group_name": "Kombineret gruppenavn",
-          "combined_groups": "Grupper der skal inkluderes"
+          "combined_groups": "Grupper der skal inkluderes",
+          "collapse_devices": "Saml entiteter efter enhed"
+        },
+        "data_description": {
+          "collapse_devices": "Virker kun, når mindst én inkluderet gruppe har „Vis enhedsnavne“ aktiveret. Når det er slået til, tælles flere entiteter på samme fysiske enhed som én på tværs af den kombinerede visning — også for inkluderede grupper, der ikke samler af sig selv. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet."
         }
       },
       "battery_mapping": {

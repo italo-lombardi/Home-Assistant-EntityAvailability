@@ -26,7 +26,11 @@
         "description": "Combineu diversos grups en una sola vista per a automatitzacions i taulers.",
         "data": {
           "group_name": "Nom del grup combinat",
-          "combined_groups": "Grups a incloure"
+          "combined_groups": "Grups a incloure",
+          "collapse_devices": "Agrupa les entitats per dispositiu"
+        },
+        "data_description": {
+          "collapse_devices": "Només funciona quan almenys un grup inclòs té activat «Mostra els noms del dispositiu». Quan està activat, diverses entitats del mateix dispositiu físic es compten com una sola a la vista combinada, fins i tot per a grups inclosos que no s'agrupen pel seu compte. La disponibilitat %, el MTBF i el MTTR es mantenen per entitat."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Modifiqueu el nom del grup combinat i els grups inclosos.",
         "data": {
           "group_name": "Nom del grup combinat",
-          "combined_groups": "Grups a incloure"
+          "combined_groups": "Grups a incloure",
+          "collapse_devices": "Agrupa les entitats per dispositiu"
+        },
+        "data_description": {
+          "collapse_devices": "Només funciona quan almenys un grup inclòs té activat «Mostra els noms del dispositiu». Quan està activat, diverses entitats del mateix dispositiu físic es compten com una sola a la vista combinada, fins i tot per a grups inclosos que no s'agrupen pel seu compte. La disponibilitat %, el MTBF i el MTTR es mantenen per entitat."
         }
       },
       "battery_mapping": {

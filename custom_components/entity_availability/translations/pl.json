@@ -26,7 +26,11 @@
         "description": "Połącz wiele grup w jeden widok dla automatyzacji i pulpitów.",
         "data": {
           "group_name": "Nazwa grupy zbiorczej",
-          "combined_groups": "Grupy do uwzględnienia"
+          "combined_groups": "Grupy do uwzględnienia",
+          "collapse_devices": "Scal encje według urządzenia"
+        },
+        "data_description": {
+          "collapse_devices": "Działa tylko, gdy co najmniej jedna dołączona grupa ma włączoną opcję „Pokaż nazwy urządzeń”. Gdy jest włączone, wiele encji tego samego fizycznego urządzenia liczy się jako jedna w całym widoku łączonym — nawet w przypadku dołączonych grup, które same się nie scalają. Dostępność %, MTBF i MTTR pozostają na poziomie encji."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Zmień nazwę i uwzględnione grupy tej grupy zbiorczej.",
         "data": {
           "group_name": "Nazwa grupy zbiorczej",
-          "combined_groups": "Grupy do uwzględnienia"
+          "combined_groups": "Grupy do uwzględnienia",
+          "collapse_devices": "Scal encje według urządzenia"
+        },
+        "data_description": {
+          "collapse_devices": "Działa tylko, gdy co najmniej jedna dołączona grupa ma włączoną opcję „Pokaż nazwy urządzeń”. Gdy jest włączone, wiele encji tego samego fizycznego urządzenia liczy się jako jedna w całym widoku łączonym — nawet w przypadku dołączonych grup, które same się nie scalają. Dostępność %, MTBF i MTTR pozostają na poziomie encji."
         }
       },
       "battery_mapping": {

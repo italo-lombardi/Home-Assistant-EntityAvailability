@@ -153,8 +153,9 @@ Supported network types and thresholds:
 |-------|-------------|
 | Combined Group Name | A descriptive name (e.g., "All Devices") |
 | Groups to Include | Select two or more existing Entity Availability groups |
+| Collapse entities by device | When on, counts several entities of the same physical device as one across the combined view — even for included groups that don't collapse on their own. Requires at least one included group with **Show device names** enabled. Off by default. |
 
-No further steps — combined groups read live from their source groups and require no additional configuration.
+No further steps — combined groups read live from their source groups.
 
 ![Step 2b: Create Combined Group](assets/01b_create_combined_group.png)
 

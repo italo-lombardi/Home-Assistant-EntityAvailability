@@ -26,7 +26,11 @@
         "description": "Combinez plusieurs groupes en une vue pour les automatisations et les tableaux de bord.",
         "data": {
           "group_name": "Nom du groupe combiné",
-          "combined_groups": "Groupes à inclure"
+          "combined_groups": "Groupes à inclure",
+          "collapse_devices": "Regrouper les entités par appareil"
+        },
+        "data_description": {
+          "collapse_devices": "Ne fonctionne que lorsqu'au moins un groupe inclus a « Afficher les noms d'appareils » activé. Lorsque cette option est activée, plusieurs entités du même appareil physique sont comptées comme une seule dans toute la vue combinée — même pour les groupes inclus qui ne se regroupent pas d'eux-mêmes. La disponibilité %, le MTBF et le MTTR restent par entité."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Modifier le nom et les groupes inclus dans ce groupe combiné.",
         "data": {
           "group_name": "Nom du groupe combiné",
-          "combined_groups": "Groupes à inclure"
+          "combined_groups": "Groupes à inclure",
+          "collapse_devices": "Regrouper les entités par appareil"
+        },
+        "data_description": {
+          "collapse_devices": "Ne fonctionne que lorsqu'au moins un groupe inclus a « Afficher les noms d'appareils » activé. Lorsque cette option est activée, plusieurs entités du même appareil physique sont comptées comme une seule dans toute la vue combinée — même pour les groupes inclus qui ne se regroupent pas d'eux-mêmes. La disponibilité %, le MTBF et le MTTR restent par entité."
         }
       },
       "battery_mapping": {

@@ -18,11 +18,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
+    CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_GROUP_NAME,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
+    DEFAULT_COLLAPSE_DEVICES,
+    DEFAULT_USE_DEVICE_NAMES,
     DOMAIN,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
@@ -229,10 +232,12 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         each stay their own entry (per-group intent honored). Drives the combined
         total and event downtime lookups. Memoized per tick.
         """
-        # Memoize per tick: same active coords + same collapse generations → reuse.
+        # Memoize per tick: same active coords + same collapse generations +
+        # same combined-toggle state → reuse.
         cache_key = (
             tuple(c.entry.entry_id for c in coords),
             tuple(c.collapse_generation for c in coords),
+            self._combined_collapse_active(coords),
         )
         if self._dm_cache_key == cache_key and self._dm_cache is not None:
             return self._dm_cache
@@ -243,20 +248,36 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         self._dm_cache = collapsed
         return collapsed
 
+    def _combined_collapse_active(
+        self, coords: list[EntityAvailabilityCoordinator]
+    ) -> bool:
+        """Return True when the combined entry's own collapse toggle applies.
+
+        Requires collapse_devices on the combined entry AND at least one included
+        group with Show device names on (collapse needs device identity, mirroring
+        the single-group gate). When on, EVERY included entity is collapsible,
+        regardless of each child group's own collapse setting.
+        """
+        if not self._entry.data.get(CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES):
+            return False
+        return any(
+            coord.entry.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
+            for coord in coords
+        )
+
     def _device_map_of(
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> tuple[dict[str, Any], dict[str, str]]:
         """Return (full merged states by entity_id, entity_id -> device-key map).
 
         The full map keeps EVERY entity (not just representatives); the second map
-        groups entities by physical device. An entity is collapsible if ANY of its
-        owning groups has collapse active — if Group A (collapse ON) and Group B
-        (collapse OFF) both contain entity E, E collapses in the combined view.
-        Shared entities across groups are an edge case; the "any-group" rule is
-        intentional so collapse-on groups aren't silently defeated by an unrelated
-        group that happens to share an entity. When no group collapses, the map is
-        the identity.
+        groups entities by physical device. An entity is collapsible if its OWNING
+        group has collapse active, OR the combined entry's own collapse toggle is on
+        (which makes all included entities collapsible). Entities from a collapse-off
+        group stay their own row unless the combined toggle opts everything in. When
+        nothing is collapsible, the map is the identity.
         """
+        combined_all = self._combined_collapse_active(coords)
         merged: dict[str, Any] = {}
         collapsible: set[str] = set()
         for coord in coords:
@@ -264,7 +285,9 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             for eid, d in coord.device_states.items():
                 if eid not in merged:  # first-wins by entity_id for the state
                     merged[eid] = d
-                if active:
+                # Collapsible if ANY owning group has collapse active (independent of
+                # first-wins order) or the combined entry opts all entities in.
+                if active or combined_all:
                     collapsible.add(eid)
         if not collapsible:
             return merged, {eid: eid for eid in merged}
@@ -511,7 +534,9 @@ class CombinedGroupSensor(CombinedSensorBase):
     @property
     def native_value(self) -> int:
         active = self._active_coordinators()
-        if any(coord.collapse_active for coord in active):
+        if any(coord.collapse_active for coord in active) or (
+            self._combined_collapse_active(active)
+        ):
             # Collapsed total: unique device representatives (with state) across groups.
             return len(self._build_device_map(active))
         return sum(len(coord.monitored_entities) for coord in active)
@@ -652,7 +677,9 @@ class CombinedGroupSensor(CombinedSensorBase):
         def _m(pred) -> list[str]:
             return self._collapsed_match(merged_states, rep_of, pred)
 
-        collapse_on = any(coord.collapse_active for coord in active)
+        collapse_on = any(
+            coord.collapse_active for coord in active
+        ) or self._combined_collapse_active(active)
         raw_entities = list(
             dict.fromkeys(eid for coord in active for eid in coord.monitored_entities)
         )

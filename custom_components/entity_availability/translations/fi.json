@@ -26,7 +26,11 @@
         "description": "Yhdistä useita ryhmiä yhdeksi näkymäksi automaatioita ja koontinäyttöjä varten.",
         "data": {
           "group_name": "Yhdistetyn ryhmän nimi",
-          "combined_groups": "Sisällytettävät ryhmät"
+          "combined_groups": "Sisällytettävät ryhmät",
+          "collapse_devices": "Yhdistä entiteetit laitteittain"
+        },
+        "data_description": {
+          "collapse_devices": "Toimii vain, kun vähintään yhdessä mukaan otetussa ryhmässä on käytössä ”Näytä laitteiden nimet”. Kun tämä on käytössä, saman fyysisen laitteen useat entiteetit lasketaan yhtenä koko yhdistetyssä näkymässä — myös niissä mukaan otetuissa ryhmissä, jotka eivät itse yhdistä. Saatavuus %, MTBF ja MTTR pysyvät entiteettikohtaisina."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Muokkaa yhdistetyn ryhmän nimeä ja mukana olevia ryhmiä.",
         "data": {
           "group_name": "Yhdistetyn ryhmän nimi",
-          "combined_groups": "Sisällytettävät ryhmät"
+          "combined_groups": "Sisällytettävät ryhmät",
+          "collapse_devices": "Yhdistä entiteetit laitteittain"
+        },
+        "data_description": {
+          "collapse_devices": "Toimii vain, kun vähintään yhdessä mukaan otetussa ryhmässä on käytössä ”Näytä laitteiden nimet”. Kun tämä on käytössä, saman fyysisen laitteen useat entiteetit lasketaan yhtenä koko yhdistetyssä näkymässä — myös niissä mukaan otetuissa ryhmissä, jotka eivät itse yhdistä. Saatavuus %, MTBF ja MTTR pysyvät entiteettikohtaisina."
         }
       },
       "battery_mapping": {

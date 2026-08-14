@@ -26,7 +26,11 @@
         "description": "Otomasyonlar ve gösterge panelleri için birden fazla grubu tek bir görünümde birleştirin.",
         "data": {
           "group_name": "Birleşik Grup Adı",
-          "combined_groups": "Dahil Edilecek Gruplar"
+          "combined_groups": "Dahil Edilecek Gruplar",
+          "collapse_devices": "Varlıkları cihaza göre birleştir"
+        },
+        "data_description": {
+          "collapse_devices": "Yalnızca dahil edilen en az bir grupta „Cihaz adlarını göster“ etkinleştirilmişse çalışır. Açık olduğunda, aynı fiziksel cihaza ait birden fazla varlık, birleştirilmiş görünümün tamamında tek olarak sayılır — kendi başına birleştirmeyen dahil edilmiş gruplar için bile. Kullanılabilirlik %, MTBF ve MTTR varlık başına kalır."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Birleşik grup adını ve dahil edilen grupları değiştirin.",
         "data": {
           "group_name": "Birleşik Grup Adı",
-          "combined_groups": "Dahil Edilecek Gruplar"
+          "combined_groups": "Dahil Edilecek Gruplar",
+          "collapse_devices": "Varlıkları cihaza göre birleştir"
+        },
+        "data_description": {
+          "collapse_devices": "Yalnızca dahil edilen en az bir grupta „Cihaz adlarını göster“ etkinleştirilmişse çalışır. Açık olduğunda, aynı fiziksel cihaza ait birden fazla varlık, birleştirilmiş görünümün tamamında tek olarak sayılır — kendi başına birleştirmeyen dahil edilmiş gruplar için bile. Kullanılabilirlik %, MTBF ve MTTR varlık başına kalır."
         }
       },
       "battery_mapping": {

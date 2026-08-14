@@ -26,7 +26,11 @@
         "description": "Mehrere Gruppen zu einer Ansicht für Automationen und Dashboards zusammenführen.",
         "data": {
           "group_name": "Name der kombinierten Gruppe",
-          "combined_groups": "Einzuschließende Gruppen"
+          "combined_groups": "Einzuschließende Gruppen",
+          "collapse_devices": "Entitäten nach Gerät zusammenfassen"
+        },
+        "data_description": {
+          "collapse_devices": "Funktioniert nur, wenn mindestens eine einbezogene Gruppe „Gerätenamen anzeigen“ aktiviert hat. Wenn aktiviert, werden mehrere Entitäten desselben physischen Geräts in der kombinierten Ansicht als eine gezählt — auch für einbezogene Gruppen, die selbst nicht zusammenfassen. Verfügbarkeit %, MTBF und MTTR bleiben pro Entität."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Name und enthaltene Gruppen dieser kombinierten Gruppe ändern.",
         "data": {
           "group_name": "Name der kombinierten Gruppe",
-          "combined_groups": "Einzuschließende Gruppen"
+          "combined_groups": "Einzuschließende Gruppen",
+          "collapse_devices": "Entitäten nach Gerät zusammenfassen"
+        },
+        "data_description": {
+          "collapse_devices": "Funktioniert nur, wenn mindestens eine einbezogene Gruppe „Gerätenamen anzeigen“ aktiviert hat. Wenn aktiviert, werden mehrere Entitäten desselben physischen Geräts in der kombinierten Ansicht als eine gezählt — auch für einbezogene Gruppen, die selbst nicht zusammenfassen. Verfügbarkeit %, MTBF und MTTR bleiben pro Entität."
         }
       },
       "battery_mapping": {

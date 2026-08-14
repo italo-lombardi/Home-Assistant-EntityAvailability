@@ -26,7 +26,11 @@
         "description": "Combine multiple groups into one view for automations and dashboards.",
         "data": {
           "group_name": "Combined Group Name",
-          "combined_groups": "Groups to Include"
+          "combined_groups": "Groups to Include",
+          "collapse_devices": "Collapse entities by device"
+        },
+        "data_description": {
+          "collapse_devices": "Only works when at least one included group has 'Show device names' enabled. When on, multiple entities of the same physical device are counted as one across the combined view — even for included groups that don't collapse on their own. Availability %, MTBF and MTTR stay per-entity."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Modify the combined group name and included groups.",
         "data": {
           "group_name": "Combined Group Name",
-          "combined_groups": "Groups to Include"
+          "combined_groups": "Groups to Include",
+          "collapse_devices": "Collapse entities by device"
+        },
+        "data_description": {
+          "collapse_devices": "Only works when at least one included group has 'Show device names' enabled. When on, multiple entities of the same physical device are counted as one across the combined view — even for included groups that don't collapse on their own. Availability %, MTBF and MTTR stay per-entity."
         }
       },
       "battery_mapping": {

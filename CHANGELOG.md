@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Combined groups: their own "Collapse entities by device" toggle.** A combined group can now collapse same-device entities across all its included groups on its own — even for included groups that don't have collapse turned on. It needs at least one included group with **Show device names** on. When off, each group's own setting still applies as before.
+
 ## [0.5.0] - 2026-08-14
 
 ### ⚠️ Breaking

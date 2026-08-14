@@ -53,6 +53,9 @@ async def async_get_config_entry_diagnostics(
                 "entry_type": "combined",
                 "title": entry.title,
                 "combined_groups": entry.data.get(CONF_COMBINED_GROUPS, []),
+                "collapse_devices": entry.data.get(
+                    CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
+                ),
             },
             TO_REDACT,
         )

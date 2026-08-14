@@ -528,6 +528,29 @@ async def test_step_combined_not_enough_groups_selected_error(
     assert result["errors"] == {CONF_COMBINED_GROUPS: "not_enough_groups_selected"}
 
 
+async def test_step_combined_collapse_requires_child_device_names(
+    hass: HomeAssistant,
+) -> None:
+    """Create flow rejects combined collapse when no included group has device names."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "My Combined",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            CONF_COLLAPSE_DEVICES: True,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_COLLAPSE_DEVICES: "collapse_requires_device_names"}
+
+
 async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
     """Valid combined group input creates a config entry."""
     entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
@@ -698,6 +721,96 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert combined.data[CONF_GROUP_NAME] == "Renamed Combined"
     assert combined.data[CONF_COMBINED_GROUPS] == [entry_a.entry_id, entry_c.entry_id]
+
+
+async def test_combined_options_collapse_requires_child_device_names(
+    hass: HomeAssistant,
+) -> None:
+    """Combined collapse toggle is rejected when no included group has device names."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Comb Guard",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Comb Guard",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+        entry_id="comb_guard",
+        unique_id=f"{DOMAIN}_comb_guard",
+    )
+    combined.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "Comb Guard",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            CONF_COLLAPSE_DEVICES: True,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_COLLAPSE_DEVICES: "collapse_requires_device_names"}
+
+
+async def test_combined_options_collapse_saved_with_child_device_names(
+    hass: HomeAssistant,
+) -> None:
+    """Combined collapse toggle saves when an included group has device names on."""
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Group DN",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Group DN",
+            CONF_ENTITIES: ["binary_sensor.a"],
+            CONF_USE_DEVICE_NAMES: True,
+        },
+        entry_id="entry_dn",
+        unique_id=f"{DOMAIN}_group_dn",
+    )
+    entry_a.add_to_hass(hass)
+    entry_a.mock_state(hass, ConfigEntryState.LOADED)
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Comb OK",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Comb OK",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+        entry_id="comb_ok",
+        unique_id=f"{DOMAIN}_comb_ok",
+    )
+    combined.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "Comb OK",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            CONF_COLLAPSE_DEVICES: True,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert combined.data[CONF_COLLAPSE_DEVICES] is True
 
 
 async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> None:

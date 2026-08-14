@@ -250,11 +250,18 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             group_name = user_input[CONF_GROUP_NAME].strip()
             combined_groups = user_input[CONF_COMBINED_GROUPS]
+            collapse = user_input.get(CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES)
 
             if not group_name:
                 errors[CONF_GROUP_NAME] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
+            elif collapse and not any(
+                e.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
+                for e in existing_groups
+                if e.entry_id in combined_groups
+            ):
+                errors[CONF_COLLAPSE_DEVICES] = "collapse_requires_device_names"
             else:
                 await self.async_set_unique_id(
                     f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
@@ -267,6 +274,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
                         CONF_GROUP_NAME: group_name,
                         CONF_COMBINED_GROUPS: combined_groups,
+                        CONF_COLLAPSE_DEVICES: collapse,
                     },
                 )
 
@@ -289,6 +297,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                             mode=selector.SelectSelectorMode.LIST,
                         )
                     ),
+                    vol.Optional(
+                        CONF_COLLAPSE_DEVICES, default=DEFAULT_COLLAPSE_DEVICES
+                    ): selector.BooleanSelector(),
                 }
             ),
             errors=errors,
@@ -842,16 +853,24 @@ class CombinedGroupOptionsFlow(OptionsFlow):
         if user_input is not None:
             group_name = user_input[CONF_GROUP_NAME].strip()
             combined_groups = user_input[CONF_COMBINED_GROUPS]
+            collapse = user_input.get(CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES)
 
             if not group_name:
                 errors[CONF_GROUP_NAME] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
+            elif collapse and not any(
+                e.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
+                for e in existing_groups
+                if e.entry_id in combined_groups
+            ):
+                errors[CONF_COLLAPSE_DEVICES] = "collapse_requires_device_names"
             else:
                 new_data = {
                     **self.config_entry.data,
                     CONF_GROUP_NAME: group_name,
                     CONF_COMBINED_GROUPS: combined_groups,
+                    CONF_COLLAPSE_DEVICES: collapse,
                 }
                 self.hass.config_entries.async_update_entry(
                     self.config_entry, title=group_name, data=new_data
@@ -885,6 +904,12 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                             mode=selector.SelectSelectorMode.LIST,
                         )
                     ),
+                    vol.Optional(
+                        CONF_COLLAPSE_DEVICES,
+                        default=current.get(
+                            CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
+                        ),
+                    ): selector.BooleanSelector(),
                 }
             ),
             errors=errors,

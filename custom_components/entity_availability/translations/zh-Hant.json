@@ -26,7 +26,11 @@
         "description": "將多個組合併為一個視圖，用於自動化與儀表板。",
         "data": {
           "group_name": "合併組名",
-          "combined_groups": "要包含的組"
+          "combined_groups": "要包含的組",
+          "collapse_devices": "按設備合併實體"
+        },
+        "data_description": {
+          "collapse_devices": "僅當至少一個包含的群組啟用了「顯示設備名稱」時才有效。啟用後，同一實體設備的多個實體在整個組合檢視中會被計為一個——即使對於自身不合併的包含群組也是如此。可用性 %、MTBF 和 MTTR 仍按實體計算。"
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "修改合併組的名稱及包含的組。",
         "data": {
           "group_name": "合併組名",
-          "combined_groups": "要包含的組"
+          "combined_groups": "要包含的組",
+          "collapse_devices": "按設備合併實體"
+        },
+        "data_description": {
+          "collapse_devices": "僅當至少一個包含的群組啟用了「顯示設備名稱」時才有效。啟用後，同一實體設備的多個實體在整個組合檢視中會被計為一個——即使對於自身不合併的包含群組也是如此。可用性 %、MTBF 和 MTTR 仍按實體計算。"
         }
       },
       "battery_mapping": {

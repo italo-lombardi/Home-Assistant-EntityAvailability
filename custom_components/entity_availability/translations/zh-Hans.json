@@ -26,7 +26,11 @@
         "description": "将多个组合并为一个视图，用于自动化和仪表盘。",
         "data": {
           "group_name": "合并组名",
-          "combined_groups": "要包含的组"
+          "combined_groups": "要包含的组",
+          "collapse_devices": "按设备合并实体"
+        },
+        "data_description": {
+          "collapse_devices": "仅当至少一个包含的组启用了“显示设备名称”时才有效。启用后，同一物理设备的多个实体在整个组合视图中被计为一个——即使对于自身不合并的包含组也是如此。可用性 %、MTBF 和 MTTR 仍按实体计算。"
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "修改合并组的名称及包含的组。",
         "data": {
           "group_name": "合并组名",
-          "combined_groups": "要包含的组"
+          "combined_groups": "要包含的组",
+          "collapse_devices": "按设备合并实体"
+        },
+        "data_description": {
+          "collapse_devices": "仅当至少一个包含的组启用了“显示设备名称”时才有效。启用后，同一物理设备的多个实体在整个组合视图中被计为一个——即使对于自身不合并的包含组也是如此。可用性 %、MTBF 和 MTTR 仍按实体计算。"
         }
       },
       "battery_mapping": {

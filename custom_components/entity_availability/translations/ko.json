@@ -26,7 +26,11 @@
         "description": "자동화 및 대시보드를 위해 여러 그룹을 하나의 뷰로 결합합니다.",
         "data": {
           "group_name": "결합 그룹 이름",
-          "combined_groups": "포함할 그룹"
+          "combined_groups": "포함할 그룹",
+          "collapse_devices": "장치별로 엔티티 통합"
+        },
+        "data_description": {
+          "collapse_devices": "포함된 그룹 중 하나 이상에서 '장치 이름 표시'가 활성화된 경우에만 작동합니다. 켜면 동일한 물리적 장치의 여러 엔티티가 결합 보기 전체에서 하나로 계산됩니다 — 자체적으로 통합되지 않는 포함된 그룹의 경우에도 마찬가지입니다. 가용성 %, MTBF 및 MTTR은 엔티티별로 유지됩니다."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "결합 그룹 이름과 포함된 그룹을 수정합니다.",
         "data": {
           "group_name": "결합 그룹 이름",
-          "combined_groups": "포함할 그룹"
+          "combined_groups": "포함할 그룹",
+          "collapse_devices": "장치별로 엔티티 통합"
+        },
+        "data_description": {
+          "collapse_devices": "포함된 그룹 중 하나 이상에서 '장치 이름 표시'가 활성화된 경우에만 작동합니다. 켜면 동일한 물리적 장치의 여러 엔티티가 결합 보기 전체에서 하나로 계산됩니다 — 자체적으로 통합되지 않는 포함된 그룹의 경우에도 마찬가지입니다. 가용성 %, MTBF 및 MTTR은 엔티티별로 유지됩니다."
         }
       },
       "battery_mapping": {

@@ -26,7 +26,11 @@
         "description": "Sloučte více skupin do jednoho přehledu pro automatizace a dashboardy.",
         "data": {
           "group_name": "Název kombinované skupiny",
-          "combined_groups": "Skupiny k zahrnutí"
+          "combined_groups": "Skupiny k zahrnutí",
+          "collapse_devices": "Sloučit entity podle zařízení"
+        },
+        "data_description": {
+          "collapse_devices": "Funguje pouze tehdy, když má alespoň jedna zahrnutá skupina zapnuté „Zobrazovat názvy zařízení“. Když je zapnuto, více entit stejného fyzického zařízení se v kombinovaném zobrazení počítá jako jedna — i u zahrnutých skupin, které se samy neslučují. Dostupnost %, MTBF a MTTR zůstávají na úrovni entity."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Změňte název a zahrnuté skupiny této kombinované skupiny.",
         "data": {
           "group_name": "Název kombinované skupiny",
-          "combined_groups": "Skupiny k zahrnutí"
+          "combined_groups": "Skupiny k zahrnutí",
+          "collapse_devices": "Sloučit entity podle zařízení"
+        },
+        "data_description": {
+          "collapse_devices": "Funguje pouze tehdy, když má alespoň jedna zahrnutá skupina zapnuté „Zobrazovat názvy zařízení“. Když je zapnuto, více entit stejného fyzického zařízení se v kombinovaném zobrazení počítá jako jedna — i u zahrnutých skupin, které se samy neslučují. Dostupnost %, MTBF a MTTR zůstávají na úrovni entity."
         }
       },
       "battery_mapping": {

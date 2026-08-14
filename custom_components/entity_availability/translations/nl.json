@@ -26,7 +26,11 @@
         "description": "Combineer meerdere groepen in één weergave voor automatiseringen en dashboards.",
         "data": {
           "group_name": "Naam gecombineerde groep",
-          "combined_groups": "In te sluiten groepen"
+          "combined_groups": "In te sluiten groepen",
+          "collapse_devices": "Entiteiten samenvoegen per apparaat"
+        },
+        "data_description": {
+          "collapse_devices": "Werkt alleen wanneer ten minste één opgenomen groep 'Apparaatnamen tonen' heeft ingeschakeld. Wanneer ingeschakeld, worden meerdere entiteiten van hetzelfde fysieke apparaat als één geteld in de gecombineerde weergave — zelfs voor opgenomen groepen die zichzelf niet samenvoegen. Beschikbaarheid %, MTBF en MTTR blijven per entiteit."
         }
       },
       "monitoring": {
@@ -125,7 +129,11 @@
         "description": "Wijzig de naam en opgenomen groepen van deze gecombineerde groep.",
         "data": {
           "group_name": "Naam gecombineerde groep",
-          "combined_groups": "In te sluiten groepen"
+          "combined_groups": "In te sluiten groepen",
+          "collapse_devices": "Entiteiten samenvoegen per apparaat"
+        },
+        "data_description": {
+          "collapse_devices": "Werkt alleen wanneer ten minste één opgenomen groep 'Apparaatnamen tonen' heeft ingeschakeld. Wanneer ingeschakeld, worden meerdere entiteiten van hetzelfde fysieke apparaat als één geteld in de gecombineerde weergave — zelfs voor opgenomen groepen die zichzelf niet samenvoegen. Beschikbaarheid %, MTBF en MTTR blijven per entiteit."
         }
       },
       "battery_mapping": {
