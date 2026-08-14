@@ -53,6 +53,7 @@
           "availability_windows": "Saatavuuden seurantaikkunat",
           "recovery_window": "Palautumisikkuna",
           "use_device_names": "Näytä laitteiden nimet",
+          "collapse_devices": "Yhdistä entiteetit laitteittain",
           "signal_enabled": "Ota signaalivoimakkuuden seuranta käyttöön"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Aikaikkunat ryhmän saatavuushistorian seuraamista varten (esim. tänään, 3pv, 7pv).",
           "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
           "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen.",
+          "collapse_devices": "Toimii vain, kun 'Näytä laitteiden nimet' on käytössä. Kun päällä, useat samaan fyysiseen laitteeseen kuuluvat entiteetit lasketaan yhdeksi jokaisessa anturiarvossa, luettelossa ja tapahtumassa (offline, matala akku, vanhentunut, heikko signaali). Entiteetit yhdistetään vain, kun niillä on sama laite, nimi, akun taso ja signaali — entiteettejä, joita ei ole yhdistetty laitteeseen, ei koskaan yhdistetä. Saatavuus-%, MTBF ja MTTR pysyvät entiteettikohtaisina.",
           "signal_enabled": "Seuraa signaalivoimakkuutta (dBm) valvotuille entiteeteille ja varoita, kun signaalin laatu heikkenee tasolle \"heikko\". Käyttöönoton jälkeen sinua pyydetään sitomaan signaalianturi ja valitsemaan verkkotyyppi kullekin entiteetille."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Ryhmän nimi ei voi olla tyhjä.",
       "no_entities": "Sinun täytyy valita vähintään yksi entiteetti.",
       "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
-      "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi."
+      "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi.",
+      "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä."
     },
     "abort": {
       "already_configured": "Tällä nimellä on jo olemassa ryhmä.",
@@ -98,6 +101,7 @@
           "availability_windows": "Saatavuuden seurantaikkunat",
           "recovery_window": "Palautumisikkuna (minuuttia)",
           "use_device_names": "Näytä laitteiden nimet",
+          "collapse_devices": "Yhdistä entiteetit laitteittain",
           "staleness_use_last_updated": "Laske attribuuttipäivitykset toiminnaksi",
           "signal_enabled": "Ota signaalivoimakkuuden seuranta käyttöön"
         },
@@ -111,6 +115,7 @@
           "availability_windows": "Aikaikkunat ryhmän saatavuushistorian seuraamista varten (esim. tänään, 3pv, 7pv).",
           "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
           "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen.",
+          "collapse_devices": "Toimii vain, kun 'Näytä laitteiden nimet' on käytössä. Kun päällä, useat samaan fyysiseen laitteeseen kuuluvat entiteetit lasketaan yhdeksi jokaisessa anturiarvossa, luettelossa ja tapahtumassa (offline, matala akku, vanhentunut, heikko signaali). Entiteetit yhdistetään vain, kun niillä on sama laite, nimi, akun taso ja signaali — entiteettejä, joita ei ole yhdistetty laitteeseen, ei koskaan yhdistetä. Saatavuus-%, MTBF ja MTTR pysyvät entiteettikohtaisina.",
           "staleness_use_last_updated": "Kun käytössä, mikä tahansa päivitys entiteetiltä — mukaan lukien pelkät attribuuttimuutokset tai toistuvat saman arvon raportit — nollaa vanhentumisajastimen. Kun pois käytöstä (oletus), vain muutos päätilassa lasketaan. Ota käyttöön laitteille, jotka raportoivat usein mutta muuttuvat harvoin (esim. lämpötila tai teho, joka pysyy vakaana).",
           "signal_enabled": "Seuraa signaalivoimakkuutta (dBm) valvotuille entiteeteille ja varoita, kun signaalin laatu heikkenee tasolle \"heikko\". Käyttöönoton jälkeen sinua pyydetään sitomaan signaalianturi ja valitsemaan verkkotyyppi kullekin entiteetille."
         }
@@ -131,6 +136,10 @@
         "title": "Signaalivoimakkuuden kartoitus",
         "description": "Valitse kullekin entiteetille halutessasi signaalisensori ja verkon tyyppi. Jätä sensori tyhjäksi ohittaaksesi.\\n\\nKynnysarvot (hyvä / ok / huono):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (suurempi on parempi)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
+      "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä."
     }
   },
   "entity": {

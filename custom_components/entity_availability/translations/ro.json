@@ -53,6 +53,7 @@
           "availability_windows": "Ferestre de urmărire a disponibilității",
           "recovery_window": "Fereastră de recuperare",
           "use_device_names": "Afișați numele dispozitivelor",
+          "collapse_devices": "Grupați entitățile după dispozitiv",
           "signal_enabled": "„Activați monitorizarea puterii semnalului\""
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Ferestre de timp pentru urmărirea istoricului disponibilității grupului (ex.: azi, 3z, 7z).",
           "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
           "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv.",
+          "collapse_devices": "Funcționează doar când este activată opțiunea „Afișați numele dispozitivelor”. Când este activat, mai multe entități care aparțin aceluiași dispozitiv fizic sunt numărate ca una singură în fiecare valoare de senzor, listă și eveniment (offline, baterie descărcată, expirată, semnal slab). Entitățile sunt combinate doar când au același dispozitiv, nume, nivel de baterie și semnal — entitățile care nu sunt asociate unui dispozitiv nu sunt combinate niciodată. Disponibilitatea %, MTBF și MTTR rămân per entitate.",
           "signal_enabled": "„Urmăriți puterea semnalului (dBm) pentru entitățile monitorizate și primiți alerte când calitatea semnalului scade la „slabă\". După activare, vi se va cere să asociați un senzor de semnal și să selectați tipul de rețea pentru fiecare entitate.\""
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Numele grupului nu poate fi gol.",
       "no_entities": "Trebuie să selectați cel puțin o entitate.",
       "duplicate_entities": "Aceeași entitate nu poate apărea în ambele liste. Eliminați duplicatele înainte de salvare.",
-      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare."
+      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare.",
+      "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“."
     },
     "abort": {
       "already_configured": "Există deja un grup cu acest nume.",
@@ -98,6 +101,7 @@
           "availability_windows": "Ferestre de urmărire a disponibilității",
           "recovery_window": "Fereastră de recuperare (minute)",
           "use_device_names": "Afișați numele dispozitivelor",
+          "collapse_devices": "Grupați entitățile după dispozitiv",
           "staleness_use_last_updated": "Actualizările de atribute contează ca activitate",
           "signal_enabled": "„Activați monitorizarea puterii semnalului\""
         },
@@ -111,6 +115,7 @@
           "availability_windows": "Ferestre de timp pentru urmărirea istoricului disponibilității grupului (ex.: azi, 3z, 7z).",
           "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
           "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv.",
+          "collapse_devices": "Funcționează doar când este activată opțiunea „Afișați numele dispozitivelor”. Când este activat, mai multe entități care aparțin aceluiași dispozitiv fizic sunt numărate ca una singură în fiecare valoare de senzor, listă și eveniment (offline, baterie descărcată, expirată, semnal slab). Entitățile sunt combinate doar când au același dispozitiv, nume, nivel de baterie și semnal — entitățile care nu sunt asociate unui dispozitiv nu sunt combinate niciodată. Disponibilitatea %, MTBF și MTTR rămân per entitate.",
           "staleness_use_last_updated": "Când este activat, orice actualizare de la entitate — inclusiv modificări doar de atribute sau raportări repetate cu aceeași valoare — resetează cronometrul de expirare. Când este dezactivat (implicit), contează doar o schimbare a stării principale. Activați pentru dispozitivele care raportează frecvent, dar își schimbă rar valoarea (ex.: temperatură sau putere stabilă).",
           "signal_enabled": "„Urmăriți puterea semnalului (dBm) pentru entitățile monitorizate și primiți alerte când calitatea semnalului scade la „slabă\". După activare, vi se va cere să asociați un senzor de semnal și să selectați tipul de rețea pentru fiecare entitate.\""
         }
@@ -131,6 +136,10 @@
         "title": "„Mapare putere semnal\"",
         "description": "Pentru fiecare entitate, selectați opțional un senzor de semnal și alegeți tipul de rețea. Lăsați senzorul gol pentru a omite.\\n\\nPraguri (bun / acceptabil / slab):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mai mare e mai bun)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "Aceeași entitate nu poate apărea în ambele liste. Eliminați duplicatele înainte de salvare.",
+      "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“."
     }
   },
   "entity": {

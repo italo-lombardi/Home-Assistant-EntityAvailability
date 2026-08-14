@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -21,6 +22,7 @@ from .const import (
     CONF_BAD_STATES,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
+    CONF_COLLAPSE_DEVICES,
     CONF_COOLDOWN,
     CONF_ENTITIES,
     CONF_NON_ESSENTIAL_ENTITIES,
@@ -29,13 +31,16 @@ from .const import (
     CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
+    CONF_USE_DEVICE_NAMES,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
+    DEFAULT_COLLAPSE_DEVICES,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_SIGNAL_ENABLED,
     DEFAULT_STALENESS_THRESHOLD,
     DEFAULT_STALENESS_USE_LAST_UPDATED,
+    DEFAULT_USE_DEVICE_NAMES,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
     EVENT_OFFLINE,
@@ -51,6 +56,7 @@ from .const import (
     STORAGE_VERSION,
     SignalQuality,
 )
+from .helpers import collapse_representatives
 from .models import DeviceState, EntityAvailabilityData
 from .storage import AvailabilityStorage
 
@@ -114,6 +120,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._suppressed: dict[str, datetime | None] = {}
         self._update_count: int = 0
         self._dirty: bool = False
+        # Memoized entity_id -> representative entity_id map for device-collapse.
+        # Rebuilt once per _async_update_data tick (registry + battery/signal churn
+        # can change keys), then read by every count/list site so er lookups run
+        # N-per-tick, not N x sensors. None = not yet computed this tick.
+        self._collapse_map: dict[str, str] | None = None
+        # Monotonic tick counter — bumped each _async_update_data. Combined sensors
+        # use the sum across their source coordinators as a cheap cache key so the
+        # global re-collapse runs once per tick, not once per property read.
+        self._collapse_generation: int = 0
 
     @property
     def monitored_entities(self) -> list[str]:
@@ -140,6 +155,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         """Return the group name."""
         return self.entry.title
 
+    @property
+    def collapse_generation(self) -> int:
+        """Monotonic tick counter for combined-sensor collapse caching."""
+        return self._collapse_generation
+
     def suppress_entity(self, entity_id: str, until: datetime | None = None) -> None:
         """Suppress alerts for an entity."""
         _LOGGER.debug("[%s] Suppressing %s until %s", self.group_name, entity_id, until)
@@ -149,6 +169,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._device_states[entity_id].suppress_until = until
         self._suppressed[entity_id] = until
         self._dirty = True
+        self._invalidate_collapse()
 
     def unsuppress_entity(self, entity_id: str) -> None:
         """Resume monitoring for an entity."""
@@ -158,6 +179,18 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             self._device_states[entity_id].suppress_until = None
         self._suppressed.pop(entity_id, None)
         self._dirty = True
+        self._invalidate_collapse()
+
+    def _invalidate_collapse(self) -> None:
+        """Drop the per-tick collapse memo and bump the generation.
+
+        Called on state mutations that happen OUTSIDE _async_update_data (suppress/
+        unsuppress push via async_set_updated_data, not a refresh) so collapsed
+        counts/lists — and combined sensors keyed on collapse_generation — reflect
+        the new suppression state immediately instead of after the next 30s tick.
+        """
+        self._collapse_map = None
+        self._collapse_generation += 1
 
     def reliability_stats(self, entity_id: str, now: datetime) -> dict[str, Any]:
         """Return MTBF/MTTR reliability stats for an entity.
@@ -491,6 +524,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             else SCAN_INTERVAL
         )
         self._last_update = now
+        # Invalidate the per-tick device-collapse memo: registry changes and
+        # battery/signal drift can change collapse keys between ticks. The
+        # monotonic generation lets combined sensors cheaply detect a new tick.
+        self._collapse_map = None
+        self._collapse_generation += 1
 
         # Cap elapsed to avoid huge jumps after HA restart or sleep
         # Maximum reasonable elapsed is 2x the scan interval
@@ -872,29 +910,108 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             buckets=dict(self._availability_storage.buckets),
         )
 
-    def _offline_entity_ids(self) -> list[str]:
-        """Return entity_ids that are currently offline and not suppressed, in insertion order."""
+    @property
+    def collapse_active(self) -> bool:
+        """Return True when device-collapse should apply to this group's values.
+
+        Gated on BOTH collapse_devices AND use_device_names — collapse is a no-op
+        unless device names are enabled (device identity drives the merge).
+        """
+        return self.entry.data.get(
+            CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
+        ) and self.entry.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
+
+    def _collapsed_map(self) -> dict[str, str]:
+        """Return {entity_id -> representative entity_id}, memoized per update tick.
+
+        Delegates to the shared collapse_representatives helper. When collapse is
+        inactive, every entity maps to itself (identity), so callers need no
+        special-casing.
+        """
+        if self._collapse_map is not None:
+            return self._collapse_map
+        if not self.collapse_active:
+            self._collapse_map = {eid: eid for eid in self._device_states}
+            return self._collapse_map
+        self._collapse_map = collapse_representatives(self.hass, self._device_states)
+        return self._collapse_map
+
+    def _representatives_matching(
+        self, predicate: Callable[[DeviceState], bool]
+    ) -> list[str]:
+        """Return one entity_id per device whose members satisfy predicate.
+
+        A device is counted once per category iff ANY of its collapsed members
+        matches — so a device with an offline sibling AND a stale sibling appears
+        in BOTH the offline and stale lists (each represented by a matching
+        member), rather than only the single global representative's category.
+        Within a device the first matching member (insertion order) is emitted.
+        When collapse is inactive, rep_of maps every entity to itself, so this is
+        identical to filtering every entity per-entity (pre-collapse behavior).
+        """
+        rep_of = self._collapsed_map()
+        seen_device: set[str] = set()
+        result: list[str] = []
+        for eid, d in self._device_states.items():
+            if not predicate(d):
+                continue
+            device = rep_of.get(eid, eid)
+            if device in seen_device:
+                continue
+            seen_device.add(device)
+            result.append(eid)
+        return result
+
+    def representative_states_matching(
+        self, predicate: Callable[[DeviceState], bool]
+    ) -> list[DeviceState]:
+        """Return representative DeviceStates matching predicate (device-collapsed when active).
+
+        Sensors that format device rows (names, battery %) iterate these instead of
+        raw device_states so their counts/rows reflect the collapse.
+        """
         return [
-            eid
-            for eid, d in self._device_states.items()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+            self._device_states[eid]
+            for eid in self._representatives_matching(predicate)
         ]
+
+    def collapsed_entities(self) -> list[str]:
+        """Return monitored entities collapsed to one representative per device-key.
+
+        Preserves monitored_entities order. When collapse is inactive, returns the
+        full membership unchanged. This is the row source the card renders, so
+        len(filtered representatives) == visible rows for every category.
+        """
+        rep_of = self._collapsed_map()
+        seen: set[str] = set()
+        result: list[str] = []
+        for eid in self._entities:
+            rep = rep_of.get(eid, eid)
+            if rep in seen:
+                continue
+            seen.add(rep)
+            result.append(rep)
+        return result
+
+    def _offline_entity_ids(self) -> list[str]:
+        """Return offline, non-suppressed, essential entity_ids (device-collapsed when active)."""
+        return self._representatives_matching(
+            lambda d: d.is_offline and not d.is_suppressed and not d.is_non_essential
+        )
 
     def _low_battery_entity_ids(self) -> list[str]:
-        """Return entity_ids that are currently low-battery and not suppressed, in insertion order."""
-        return [
-            eid
-            for eid, d in self._device_states.items()
-            if d.is_low_battery and not d.is_suppressed and not d.is_non_essential
-        ]
+        """Return low-battery, non-suppressed, essential entity_ids (device-collapsed when active)."""
+        return self._representatives_matching(
+            lambda d: (
+                d.is_low_battery and not d.is_suppressed and not d.is_non_essential
+            )
+        )
 
     def _stale_entity_ids(self) -> list[str]:
-        """Return entity_ids that are currently stale and not suppressed, in insertion order."""
-        return [
-            eid
-            for eid, d in self._device_states.items()
-            if d.is_stale and not d.is_suppressed and not d.is_non_essential
-        ]
+        """Return stale, non-suppressed, essential entity_ids (device-collapsed when active)."""
+        return self._representatives_matching(
+            lambda d: d.is_stale and not d.is_suppressed and not d.is_non_essential
+        )
 
     def _get_battery_level(self, entity_id: str) -> int | None:
         """Get battery level for an entity using configured mapping or auto-detection."""
@@ -1046,29 +1163,31 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         return "poor"
 
     def _poor_signal_entity_ids(self) -> list[str]:
-        """Return entity_ids with poor signal, not suppressed, essential only."""
-        return [
-            eid
-            for eid, d in self._device_states.items()
-            if d.signal_quality == "poor"
-            and not d.is_suppressed
-            and not d.is_non_essential
-        ]
+        """Return poor-signal, non-suppressed, essential entity_ids (device-collapsed when active)."""
+        return self._representatives_matching(
+            lambda d: (
+                d.signal_quality == "poor"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            )
+        )
 
     def _poor_signal_ne_entity_ids(self) -> list[str]:
-        """Return entity_ids with poor signal, not suppressed, non-essential only."""
-        return [
-            eid
-            for eid, d in self._device_states.items()
-            if d.signal_quality == "poor" and not d.is_suppressed and d.is_non_essential
-        ]
+        """Return poor-signal, non-suppressed, non-essential entity_ids (device-collapsed when active)."""
+        return self._representatives_matching(
+            lambda d: (
+                d.signal_quality == "poor"
+                and not d.is_suppressed
+                and d.is_non_essential
+            )
+        )
 
     def _ok_signal_entity_ids(self) -> list[str]:
-        """Return entity_ids with ok signal, not suppressed, essential only."""
-        return [
-            eid
-            for eid, d in self._device_states.items()
-            if d.signal_quality == "ok"
-            and not d.is_suppressed
-            and not d.is_non_essential
-        ]
+        """Return ok-signal, non-suppressed, essential entity_ids (device-collapsed when active)."""
+        return self._representatives_matching(
+            lambda d: (
+                d.signal_quality == "ok"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            )
+        )

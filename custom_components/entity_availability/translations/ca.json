@@ -53,6 +53,7 @@
           "availability_windows": "Finestres de seguiment de disponibilitat",
           "recovery_window": "Finestra de recuperació",
           "use_device_names": "Mostra els noms del dispositiu",
+          "collapse_devices": "Agrupa les entitats per dispositiu",
           "signal_enabled": "Activa el monitoratge de la intensitat del senyal"
         },
         "data_description": {
@@ -60,7 +61,8 @@
           "signal_enabled": "Fes el seguiment de la intensitat del senyal (dBm) per a les entitats monitorades i rep alertes quan la qualitat del senyal baixi a «dolenta». Després d'activar-ho, se us demanarà que vinculeu un sensor de senyal i seleccioneu el tipus de xarxa per a cada entitat.",
           "availability_windows": "Finestres de temps per fer el seguiment de l'historial de disponibilitat del grup (p. ex., avui, 3d, 7d).",
           "recovery_window": "Temps (en minuts) que una entitat roman als sensors Recentment fora de línia o Recuperat recentment després d'una transició d'estat.",
-          "use_device_names": "Mostra el nom del dispositiu HA en lloc del nom amigable de l'entitat als estats del sensor fora de línia/recuperat. Torna al nom amigable per a entitats no vinculades a un dispositiu."
+          "use_device_names": "Mostra el nom del dispositiu HA en lloc del nom amigable de l'entitat als estats del sensor fora de línia/recuperat. Torna al nom amigable per a entitats no vinculades a un dispositiu.",
+          "collapse_devices": "Només funciona quan «Mostra els noms del dispositiu» està activat. Quan està actiu, diverses entitats que pertanyen al mateix dispositiu físic es compten com una sola a cada valor de sensor, llista i esdeveniment (fora de línia, bateria baixa, sense actualitzar, senyal feble). Les entitats només es combinen quan comparteixen el mateix dispositiu, nom, nivell de bateria i senyal — les entitats no vinculades a un dispositiu mai es combinen. La disponibilitat %, l'MTBF i l'MTTR es mantenen per entitat."
         }
       },
       "battery_mapping": {
@@ -76,7 +78,8 @@
       "empty_group_name": "El nom del grup no pot estar buit.",
       "no_entities": "Heu de seleccionar almenys una entitat.",
       "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
-      "not_enough_groups_selected": "Seleccioneu almenys dos grups per combinar."
+      "not_enough_groups_selected": "Seleccioneu almenys dos grups per combinar.",
+      "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat."
     },
     "abort": {
       "already_configured": "Ja existeix un grup amb aquest nom.",
@@ -98,6 +101,7 @@
           "availability_windows": "Finestres de seguiment de disponibilitat",
           "recovery_window": "Finestra de recuperació (minuts)",
           "use_device_names": "Mostra els noms del dispositiu",
+          "collapse_devices": "Agrupa les entitats per dispositiu",
           "staleness_use_last_updated": "Compta les actualitzacions d'atributs com a activitat",
           "signal_enabled": "Activa el monitoratge de la intensitat del senyal"
         },
@@ -111,6 +115,7 @@
           "availability_windows": "Finestres de temps per fer el seguiment de l'historial de disponibilitat del grup (p. ex., avui, 3d, 7d).",
           "recovery_window": "Temps (en minuts) que una entitat roman als sensors Recentment fora de línia o Recuperat recentment després d'una transició d'estat.",
           "use_device_names": "Mostra el nom del dispositiu HA en lloc del nom amigable de l'entitat als estats del sensor fora de línia/recuperat. Torna al nom amigable per a entitats no vinculades a un dispositiu.",
+          "collapse_devices": "Només funciona quan «Mostra els noms del dispositiu» està activat. Quan està actiu, diverses entitats que pertanyen al mateix dispositiu físic es compten com una sola a cada valor de sensor, llista i esdeveniment (fora de línia, bateria baixa, sense actualitzar, senyal feble). Les entitats només es combinen quan comparteixen el mateix dispositiu, nom, nivell de bateria i senyal — les entitats no vinculades a un dispositiu mai es combinen. La disponibilitat %, l'MTBF i l'MTTR es mantenen per entitat.",
           "staleness_use_last_updated": "Quan està activat, qualsevol actualització de l'entitat — incloent-hi canvis només d'atributs o informes del mateix valor repetit — reinicia el temporitzador d'inactivitat. Quan està desactivat (per defecte), només compta un canvi a l'estat principal. Activeu-ho per a dispositius que informen sovint però rarament canvien de valor (p. ex., temperatura o potència estable).",
           "signal_enabled": "Fes el seguiment de la intensitat del senyal (dBm) per a les entitats monitorades i rep alertes quan la qualitat del senyal baixi a «dolenta». Després d'activar-ho, se us demanarà que vinculeu un sensor de senyal i seleccioneu el tipus de xarxa per a cada entitat."
         }
@@ -131,6 +136,10 @@
         "title": "Assignació de la intensitat del senyal",
         "description": "Per a cada entitat, seleccioneu opcionalment un sensor de senyal i trieu el tipus de xarxa. Deixeu el sensor buit per ometre.\\n\\nLlindars (bo / acceptable / dolent):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (com més alt, millor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
+      "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat."
     }
   },
   "entity": {

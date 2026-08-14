@@ -53,6 +53,7 @@
           "availability_windows": "Beschikbaarheid-trackingvensters",
           "recovery_window": "Herstelvenster",
           "use_device_names": "Apparaatnamen tonen",
+          "collapse_devices": "Entiteiten samenvoegen per apparaat",
           "signal_enabled": "Signaalsterkte-monitoring inschakelen"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Tijdvensters voor het bijhouden van de beschikbaarheidsgeschiedenis van de groep (bijv. vandaag, 3d, 7d).",
           "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
           "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld.",
+          "collapse_devices": "Werkt alleen wanneer 'Apparaatnamen tonen' is ingeschakeld. Wanneer ingeschakeld worden meerdere entiteiten die tot hetzelfde fysieke apparaat behoren als één geteld in elke sensorwaarde, lijst en gebeurtenis (offline, lage batterij, inactief, slecht signaal). Entiteiten worden alleen samengevoegd wanneer ze hetzelfde apparaat, dezelfde naam, hetzelfde batterijniveau en hetzelfde signaal delen — entiteiten die niet aan een apparaat zijn gekoppeld worden nooit samengevoegd. Beschikbaarheid %, MTBF en MTTR blijven per entiteit.",
           "signal_enabled": "Volg de signaalsterkte (dBm) van bewaakte entiteiten en geef een waarschuwing wanneer de signaalkwaliteit daalt naar 'slecht'. Na het inschakelen wordt u gevraagd om een signaalsensor te koppelen en het netwerktype voor elke entiteit te selecteren."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Groepsnaam mag niet leeg zijn.",
       "no_entities": "Je moet minstens één entiteit selecteren.",
       "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren.",
-      "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan."
+      "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan.",
+      "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld."
     },
     "abort": {
       "already_configured": "Een groep met deze naam bestaat al.",
@@ -98,6 +101,7 @@
           "availability_windows": "Beschikbaarheid-trackingvensters",
           "recovery_window": "Herstelvenster (minuten)",
           "use_device_names": "Apparaatnamen tonen",
+          "collapse_devices": "Entiteiten samenvoegen per apparaat",
           "staleness_use_last_updated": "Attribuutupdates als activiteit tellen",
           "signal_enabled": "Signaalsterkte-monitoring inschakelen"
         },
@@ -110,6 +114,7 @@
           "availability_windows": "Tijdvensters voor het bijhouden van de beschikbaarheidsgeschiedenis van de groep (bijv. vandaag, 3d, 7d).",
           "recovery_window": "Hoe lang (in minuten) een entiteit in de sensoren Recentelijk offline of Recentelijk hersteld blijft na een statuswijziging.",
           "use_device_names": "Toont de HA-apparaatnaam in plaats van de beschrijvende naam van de entiteit bij offline-/herstelmeldingen. Valt terug op de beschrijvende naam voor entiteiten die niet aan een apparaat zijn gekoppeld.",
+          "collapse_devices": "Werkt alleen wanneer 'Apparaatnamen tonen' is ingeschakeld. Wanneer ingeschakeld worden meerdere entiteiten die tot hetzelfde fysieke apparaat behoren als één geteld in elke sensorwaarde, lijst en gebeurtenis (offline, lage batterij, inactief, slecht signaal). Entiteiten worden alleen samengevoegd wanneer ze hetzelfde apparaat, dezelfde naam, hetzelfde batterijniveau en hetzelfde signaal delen — entiteiten die niet aan een apparaat zijn gekoppeld worden nooit samengevoegd. Beschikbaarheid %, MTBF en MTTR blijven per entiteit.",
           "staleness_use_last_updated": "Wanneer ingeschakeld, stelt elke update van de entiteit — inclusief wijzigingen aan alleen attributen of herhaalde meldingen met dezelfde waarde — de inactiviteitstimer opnieuw in. Wanneer uitgeschakeld (standaard) telt alleen een wijziging in de hoofdstatus. Schakel dit in voor apparaten die vaak melden maar zelden van waarde veranderen (bijv. temperatuur of vermogen dat stabiel blijft).",
           "entities": "Entiteiten die worden gecontroleerd op beschikbaarheid. Deze worden volledig gemonitord en opgenomen in alle KPI's en waarschuwingen.",
           "signal_enabled": "Volg de signaalsterkte (dBm) van bewaakte entiteiten en geef een waarschuwing wanneer de signaalkwaliteit daalt naar 'slecht'. Na het inschakelen wordt u gevraagd om een signaalsensor te koppelen en het netwerktype voor elke entiteit te selecteren."
@@ -131,6 +136,10 @@
         "title": "Signaalsterkte-toewijzing",
         "description": "Voor elke entiteit, selecteer optioneel een signaalsensor en kies het netwerktype. Laat de sensor leeg om over te slaan.\n\nDrempelwaarden (goed / ok / slecht):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (hoger is beter)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan.",
+      "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld."
     }
   },
   "entity": {

@@ -15,6 +15,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - Battery entities that report `low` (text) are supported in addition to numeric percentages
 - **Signal strength monitoring** — optional feature (disabled by default). Enable per group, bind a signal sensor and network type to each entity. Supported: Wi-Fi, Zigbee, Z-Wave, Bluetooth, Thread, LTE/4G, 5G, LoRaWAN, Percentage, Generic/RSSI. Auto-detects sensors via device class or naming conventions (Z2MQTT `_linkquality`, BLE `_signal_strength`, etc.). Poor signal triggers `any_poor_signal` binary sensor and `entity_availability_poor_signal` event.
 - Device name display — optionally show the HA device name instead of entity friendly name in offline/recovered sensor states
+- Collapse entities by device — optionally count multiple entities of the same physical device as one across all sensor values and events (requires device name display)
 - Area sensors — four sensors per group: Affected Areas Count, Affected Areas, Areas Recently Offline, Areas Recently Recovered
 - Degraded entity detection — flag entities with low battery, stale data, or poor signal
 - Group Summary sensor — total, online, offline, suppressed, non_essential counts + full entity list

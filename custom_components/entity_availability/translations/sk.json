@@ -53,6 +53,7 @@
           "availability_windows": "Časové okná sledovania dostupnosti",
           "recovery_window": "Okno obnovy",
           "use_device_names": "Zobrazovať názvy zariadení",
+          "collapse_devices": "Zlúčiť entity podľa zariadenia",
           "signal_enabled": "Povoliť monitorovanie sily signálu"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Časové okná na sledovanie histórie dostupnosti skupiny (napr. dnes, 3d, 7d).",
           "recovery_window": "Ako dlho (v minútach) zostane entita v senzoroch Nedávno offline alebo Nedávno obnovená po zmene stavu.",
           "use_device_names": "Zobrazuje názov zariadenia HA namiesto priateľského názvu entity v stavoch offline/obnovená. Pre entity neprepojené so zariadením sa použije priateľský názov entity.",
+          "collapse_devices": "Funguje iba pri zapnutej voľbe 'Zobrazovať názvy zariadení'. Keď je zapnuté, viac entít patriacich k rovnakému fyzickému zariadeniu sa počíta ako jedna v každej hodnote senzora, zozname aj udalosti (offline, nízka batéria, zastaraná, slabý signál). Entity sa zlúčia iba vtedy, keď zdieľajú rovnaké zariadenie, názov, úroveň batérie a signál — entity neprepojené so zariadením sa nikdy nezlučujú. Dostupnosť %, MTBF a MTTR zostávajú na entitu.",
           "signal_enabled": "Sledovať silu signálu (dBm) pre monitorované entity a upozorniť, keď kvalita signálu klesne na úroveň „slabý\". Po aktivácii budete požiadaní o prepojenie senzora signálu a výber typu siete pre každú entitu."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Názov skupiny nesmie byť prázdny.",
       "no_entities": "Musíte vybrať aspoň jednu entitu.",
       "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
-      "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie."
+      "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie.",
+      "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“."
     },
     "abort": {
       "already_configured": "Skupina s týmto názvom už existuje.",
@@ -98,6 +101,7 @@
           "availability_windows": "Časové okná sledovania dostupnosti",
           "recovery_window": "Okno obnovy (minúty)",
           "use_device_names": "Zobrazovať názvy zariadení",
+          "collapse_devices": "Zlúčiť entity podľa zariadenia",
           "staleness_use_last_updated": "Počítať aktualizácie atribútov ako aktivitu",
           "signal_enabled": "Povoliť monitorovanie sily signálu"
         },
@@ -111,6 +115,7 @@
           "availability_windows": "Časové okná na sledovanie histórie dostupnosti skupiny (napr. dnes, 3d, 7d).",
           "recovery_window": "Ako dlho (v minútach) zostane entita v senzoroch Nedávno offline alebo Nedávno obnovená po zmene stavu.",
           "use_device_names": "Zobrazuje názov zariadenia HA namiesto priateľského názvu entity v stavoch offline/obnovená. Pre entity neprepojené so zariadením sa použije priateľský názov entity.",
+          "collapse_devices": "Funguje iba pri zapnutej voľbe 'Zobrazovať názvy zariadení'. Keď je zapnuté, viac entít patriacich k rovnakému fyzickému zariadeniu sa počíta ako jedna v každej hodnote senzora, zozname aj udalosti (offline, nízka batéria, zastaraná, slabý signál). Entity sa zlúčia iba vtedy, keď zdieľajú rovnaké zariadenie, názov, úroveň batérie a signál — entity neprepojené so zariadením sa nikdy nezlučujú. Dostupnosť %, MTBF a MTTR zostávajú na entitu.",
           "staleness_use_last_updated": "Keď je zapnuté, akákoľvek aktualizácia entity — vrátane zmien len atribútov alebo opakovaných hlásení rovnakej hodnoty — resetuje časovač zastarania. Keď je vypnuté (predvolené), počíta sa iba zmena hlavného stavu. Zapnite pre zariadenia, ktoré hlásia často, ale len zriedka menia hodnotu (napr. teplota alebo výkon, ktorý zostáva stabilný).",
           "signal_enabled": "Sledovať silu signálu (dBm) pre monitorované entity a upozorniť, keď kvalita signálu klesne na úroveň „slabý\". Po aktivácii budete požiadaní o prepojenie senzora signálu a výber typu siete pre každú entitu."
         }
@@ -131,6 +136,10 @@
         "title": "Mapovanie sily signálu",
         "description": "Pre každú entitu voliteľne vyberte snímač signálu a zvoľte typ siete. Nechajte snímač prázdny pre preskočenie.\n\nPrahové hodnoty (dobré / prijateľné / slabé):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (vyššie je lepšie)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
+      "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“."
     }
   },
   "entity": {

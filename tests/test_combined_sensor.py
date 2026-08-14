@@ -531,6 +531,42 @@ class TestCombinedGroupSensor:
         assert attrs["groups"]["entry_a"]["battery_powered"] == 1
         assert attrs["groups"]["entry_b"]["battery_powered"] == 1
 
+    def test_attributes_populate_per_entity_maps(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """battery_levels/signal_levels/signal_units/suppressed_until/offline_since/
+        last_seen/ok_signal_entities maps populate from device state."""
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        a1 = coordinators[0]._device_states["binary_sensor.a1"]
+        a1.battery_level = 77
+        a1.signal_level = -60
+        a1.signal_unit = "dBm"
+        a1.signal_quality = "ok"
+        a1.last_changed = datetime(2026, 1, 2, 9, 0, 0, tzinfo=timezone.utc)
+        b1 = coordinators[1]._device_states["binary_sensor.b1"]
+        b1.is_suppressed = True
+        b1.suppress_until = datetime(2026, 1, 3, 9, 0, 0, tzinfo=timezone.utc)
+        # Shared entity_id in both coords: second pass finds it already in the
+        # last_seen map (first-wins dedup skip branch).
+        coordinators[1]._device_states["binary_sensor.a1"] = DeviceState(
+            entity_id="binary_sensor.a1",
+            last_changed=datetime(2026, 1, 4, 9, 0, 0, tzinfo=timezone.utc),
+        )
+        # signal must be enabled on a source group for signal maps / ok list.
+        coordinators[0]._signal_enabled = True
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert attrs["battery_levels"]["binary_sensor.a1"] == 77
+        assert attrs["signal_levels"]["binary_sensor.a1"] == -60
+        assert attrs["signal_units"]["binary_sensor.a1"] == "dBm"
+        assert "binary_sensor.a1" in attrs["ok_signal_entities"]
+        assert "binary_sensor.a2" in attrs["offline_since"]
+        assert "binary_sensor.b1" in attrs["suppressed_until"]
+        assert "binary_sensor.a1" in attrs["last_seen"]
+
     def test_attributes_battery_powered_via_battery_map(
         self, mock_hass, group_entry_a, group_entry_b, coordinators
     ):

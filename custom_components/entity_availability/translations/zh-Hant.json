@@ -53,6 +53,7 @@
           "availability_windows": "可用性追蹤時間窗口",
           "recovery_window": "恢復窗口",
           "use_device_names": "顯示設備名稱",
+          "collapse_devices": "按設備合併實體",
           "signal_enabled": "啟用訊號強度監控"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "用於追蹤組可用性歷史記錄的時間窗口（例如 today、3d、7d）。",
           "recovery_window": "實體在狀態轉換後，在「最近離線」或「最近恢復」感測器中保留的時長（分鐘）。",
           "use_device_names": "在離線/已恢復感測器狀態中顯示 HA 設備名稱，而非實體友善名稱。對未關聯設備的實體，回退使用友善名稱。",
+          "collapse_devices": "僅在啟用「顯示設備名稱」時生效。啟用後，屬於同一實體裝置的多個實體在每個感測器值、清單與事件（離線、低電量、資料逾時、訊號差）中都會被計為一個。僅當實體共享相同的設備、名稱、電量水平與訊號時才會合併——未關聯設備的實體永遠不會被合併。可用性 %、MTBF 與 MTTR 仍按實體分別計算。",
           "signal_enabled": "追蹤受監控實體的訊號強度（dBm），並在訊號品質降至「差」時發出警示。啟用後，系統將要求您為每個實體綁定訊號感測器並選擇網路類型。"
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "組名不得為空。",
       "no_entities": "必須至少選擇一個實體。",
       "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
-      "not_enough_groups_selected": "至少選擇兩個組進行合併。"
+      "not_enough_groups_selected": "至少選擇兩個組進行合併。",
+      "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。"
     },
     "abort": {
       "already_configured": "已存在同名組。",
@@ -98,6 +101,7 @@
           "availability_windows": "可用性追蹤時間窗口",
           "recovery_window": "恢復窗口（分鐘）",
           "use_device_names": "顯示設備名稱",
+          "collapse_devices": "按設備合併實體",
           "staleness_use_last_updated": "將屬性更新計為活動",
           "signal_enabled": "啟用訊號強度監控"
         },
@@ -111,6 +115,7 @@
           "availability_windows": "用於追蹤組可用性歷史記錄的時間窗口（例如 today、3d、7d）。",
           "recovery_window": "實體在狀態轉換後，在「最近離線」或「最近恢復」感測器中保留的時長（分鐘）。",
           "use_device_names": "在離線/已恢復感測器狀態中顯示 HA 設備名稱，而非實體友善名稱。對未關聯設備的實體，回退使用友善名稱。",
+          "collapse_devices": "僅在啟用「顯示設備名稱」時生效。啟用後，屬於同一實體裝置的多個實體在每個感測器值、清單與事件（離線、低電量、資料逾時、訊號差）中都會被計為一個。僅當實體共享相同的設備、名稱、電量水平與訊號時才會合併——未關聯設備的實體永遠不會被合併。可用性 %、MTBF 與 MTTR 仍按實體分別計算。",
           "staleness_use_last_updated": "啟用後，實體的任何更新——包括僅屬性變化或重複相同值的回報——都會重置資料逾時計時器。停用（預設）時，只有主狀態發生變化才計數。適用於頻繁回報但值很少變化的設備（如溫度或長期穩定的功率）。",
           "signal_enabled": "追蹤受監控實體的訊號強度（dBm），並在訊號品質降至「差」時發出警示。啟用後，系統將要求您為每個實體綁定訊號感測器並選擇網路類型。"
         }
@@ -131,6 +136,10 @@
         "title": "訊號強度對應",
         "description": "對於每個實體，可選擇性地選取一個訊號感測器並選擇網路類型。將感測器留空以略過。\\n\\n門檻值（良好 / 尚可 / 差）：\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (越高越好)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
+      "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。"
     }
   },
   "entity": {

@@ -68,6 +68,13 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC70 combined_summary groups dict has no non_essential_entities list per group entry
   EC71 combined_summary low_battery_entities_non_essential present in live state (was recorded bug)
 
+  Device-collapse (EC72-EC76 — PR#81):
+  EC72 diagnostics config exposes collapse_devices; derive collapse_active
+  EC73 group_summary entities_collapsed attr present and is a list
+  EC74 combined_summary entities_collapsed attr present and is a list
+  EC75 entities_collapsed never larger than entities, and is a subset (representatives)
+  EC76 offline_count == len(collapsed offline_entities) — count==rows invariant
+
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
   EC26 NE entity offline → offline_count_non_essential increments
@@ -3252,6 +3259,95 @@ for e in cfg['data']['entries']:
                 isinstance(c_attrs.get("low_battery_entities_non_essential"), list),
                 True,
                 f"type={type(c_attrs.get('low_battery_entities_non_essential')).__name__}",
+            )
+
+    # ------------------------------------------------------------------
+    # EC72-EC76: device-collapse feature (collapse_devices, PR#81)
+    # Structural / invariant checks on live state — do not toggle the option.
+    # collapse_active = collapse_devices AND use_device_names.
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (72, 73, 74, 75, 76)):
+        print(
+            "\n=== EC72-EC76: device-collapse feature (PR#81) ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+
+        collapse_on = False
+        if ec_enabled(72):
+            try:
+                raw = api("GET", f"/api/diagnostics/config_entry/{ctx['entry_id']}")
+                cfg = (raw.get("data", raw).get("config")) or {}
+                chk(
+                    "EC72 config.collapse_devices present in diagnostics",
+                    "collapse_devices" in cfg,
+                    True,
+                    f"config keys={list(cfg.keys())}",
+                )
+                collapse_on = bool(cfg.get("collapse_devices")) and bool(
+                    cfg.get("use_device_names")
+                )
+                print(f"EC72 collapse_active={collapse_on}", flush=True)
+            except Exception as e:
+                chk("EC72 diagnostics reachable", False, True, str(e))
+
+        g_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+
+        if ec_enabled(73):
+            chk(
+                "EC73 group_summary entities_collapsed present",
+                "entities_collapsed" in g_attrs,
+                True,
+                f"attrs keys (sample)={list(g_attrs.keys())[:12]}",
+            )
+            chk(
+                "EC73 group_summary entities_collapsed is list",
+                isinstance(g_attrs.get("entities_collapsed"), list),
+                True,
+                f"type={type(g_attrs.get('entities_collapsed')).__name__}",
+            )
+
+        if ec_enabled(74) and combined_prefix:
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk(
+                "EC74 combined_summary entities_collapsed present",
+                "entities_collapsed" in c_attrs,
+                True,
+                f"attrs keys (sample)={list(c_attrs.keys())[:12]}",
+            )
+            chk(
+                "EC74 combined_summary entities_collapsed is list",
+                isinstance(c_attrs.get("entities_collapsed"), list),
+                True,
+            )
+
+        if ec_enabled(75):
+            entities = g_attrs.get("entities") or []
+            collapsed = g_attrs.get("entities_collapsed") or []
+            # Collapse never grows the row set; equal when nothing merges / off.
+            chk(
+                "EC75 entities_collapsed never larger than entities",
+                len(collapsed) <= len(entities),
+                True,
+                f"collapsed={len(collapsed)} entities={len(entities)}",
+            )
+            # collapsed rows are a subset of full membership (representatives).
+            chk(
+                "EC75 entities_collapsed is a subset of entities",
+                set(collapsed).issubset(set(entities)),
+                True,
+            )
+
+        if ec_enabled(76):
+            # Count == rows invariant: group_summary.offline equals the number of
+            # offline entities that survive collapse (offline_entities is collapsed).
+            offline_count = int(gs(f"{prefix}_offline_count").get("state") or 0)
+            offline_list = g_attrs.get("offline_entities") or []
+            chk(
+                "EC76 offline_count == len(collapsed offline_entities)",
+                offline_count,
+                len(offline_list),
+                f"count={offline_count} list={offline_list}",
             )
 
     # ------------------------------------------------------------------

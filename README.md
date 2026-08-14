@@ -104,6 +104,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Availability tracking windows | `today`, `7d` | Which time windows to create availability sensors for |
 | Recovery window (minutes) | `5` | How long entities remain visible in the recently-offline and recently-recovered sensors after the event |
 | Show device names | `off` | When enabled, offline/recovered sensor states show the HA device name (e.g. "Entrance Smoke Detector") instead of the entity friendly name. Falls back to friendly name for entities not linked to an HA device (helpers, template sensors) |
+| Collapse entities by device | `off` | **Requires Show device names.** When enabled, multiple entities belonging to the same physical device are counted as one across every sensor value, list, and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, name, battery level, and signal; entities not linked to a device are never merged. Availability %, MTBF, and MTTR stay per-entity. |
 ![Step 4: Advanced Settings](assets/03_advanced_settings.png)
 
 ### Step 5: Battery Entity Mapping (when battery threshold > 0)
@@ -616,7 +617,6 @@ entity_filter: "all"           # "all" | "offline" | "online"
 show_entity_health: true       # hide/show Bat. & Signal columns in entity list
 sort_by: status                # status | name_asc | name_desc | battery_asc | battery_desc | signal_asc | signal_desc
 group_sort_by: name_asc        # name_asc | name_desc | offline_desc (combined groups)
-collapse_devices: false        # collapse multiple entities from the same device into one row
 availability_thresholds:
   high: 99
   mid: 95
@@ -644,7 +644,6 @@ availability_colors:
 | `show_entity_health` | `true` | Show health columns (Bat. & Signal) in the entity list when the feature is active (regular groups only) |
 | `sort_by` | `status` | Entity list sort order: `status`, `name_asc`, `name_desc`, `battery_asc`, `battery_desc`, `signal_asc`, `signal_desc` (regular groups only) |
 | `group_sort_by` | `name_asc` | Sort order for both the groups breakdown table and the flat entity list: `name_asc`, `name_desc`, `offline_desc` (most offline first). (combined groups only) |
-| `collapse_devices` | `false` | Collapse multiple entities from the same physical device into one row showing worst-case status. Requires **Use Device Names** enabled on the group. Entities with no HA device assignment are never collapsed. |
 | `availability_thresholds` | `{high: 99, mid: 95}` | % thresholds for bar colors (regular groups only) |
 | `availability_colors` | `{high, mid, low}` | Custom hex colors for bars (regular groups only) |
 

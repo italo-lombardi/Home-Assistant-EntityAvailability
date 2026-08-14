@@ -53,6 +53,7 @@
           "availability_windows": "可用性追踪时间窗口",
           "recovery_window": "恢复窗口",
           "use_device_names": "显示设备名称",
+          "collapse_devices": "按设备合并实体",
           "signal_enabled": "启用信号强度监控"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "用于追踪组可用性历史记录的时间窗口（例如 today、3d、7d）。",
           "recovery_window": "实体在状态转换后，在「最近离线」或「最近恢复」传感器中保留的时长（分钟）。",
           "use_device_names": "在离线/已恢复传感器状态中显示 HA 设备名称，而非实体友好名称。对未关联设备的实体，回退使用友好名称。",
+          "collapse_devices": "仅在启用「显示设备名称」时生效。启用后，属于同一物理设备的多个实体在每个传感器值、列表和事件（离线、低电量、数据过期、信号差）中都会被计为一个。仅当实体共享相同的设备、名称、电量水平和信号时才会合并——未关联设备的实体永远不会被合并。可用性 %、MTBF 和 MTTR 仍按实体分别计算。",
           "signal_enabled": "跟踪受监控实体的信号强度（dBm），并在信号质量降至\"差\"时发出提醒。启用后，系统将提示您为每个实体绑定信号传感器并选择网络类型。"
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "组名不能为空。",
       "no_entities": "必须至少选择一个实体。",
       "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
-      "not_enough_groups_selected": "至少选择两个组进行合并。"
+      "not_enough_groups_selected": "至少选择两个组进行合并。",
+      "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。"
     },
     "abort": {
       "already_configured": "已存在同名组。",
@@ -98,6 +101,7 @@
           "availability_windows": "可用性追踪时间窗口",
           "recovery_window": "恢复窗口（分钟）",
           "use_device_names": "显示设备名称",
+          "collapse_devices": "按设备合并实体",
           "staleness_use_last_updated": "将属性更新计为活动",
           "signal_enabled": "启用信号强度监控"
         },
@@ -111,6 +115,7 @@
           "availability_windows": "用于追踪组可用性历史记录的时间窗口（例如 today、3d、7d）。",
           "recovery_window": "实体在状态转换后，在「最近离线」或「最近恢复」传感器中保留的时长（分钟）。",
           "use_device_names": "在离线/已恢复传感器状态中显示 HA 设备名称，而非实体友好名称。对未关联设备的实体，回退使用友好名称。",
+          "collapse_devices": "仅在启用「显示设备名称」时生效。启用后，属于同一物理设备的多个实体在每个传感器值、列表和事件（离线、低电量、数据过期、信号差）中都会被计为一个。仅当实体共享相同的设备、名称、电量水平和信号时才会合并——未关联设备的实体永远不会被合并。可用性 %、MTBF 和 MTTR 仍按实体分别计算。",
           "staleness_use_last_updated": "启用后，实体的任何更新——包括仅属性变化或重复相同值的上报——都会重置数据过期计时器。禁用（默认）时，只有主状态发生变化才计数。适用于频繁上报但值很少变化的设备（如温度或长期稳定的功率）。",
           "signal_enabled": "跟踪受监控实体的信号强度（dBm），并在信号质量降至\"差\"时发出提醒。启用后，系统将提示您为每个实体绑定信号传感器并选择网络类型。"
         }
@@ -131,6 +136,10 @@
         "title": "信号强度映射",
         "description": "对于每个实体，可选择一个信号传感器并选择网络类型。留空传感器则跳过。\n\n阈值（良好 / 一般 / 较差）：\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (值越大越好)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
+      "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。"
     }
   },
   "entity": {

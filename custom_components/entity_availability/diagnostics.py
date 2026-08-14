@@ -13,6 +13,7 @@ from .const import (
     CONF_BAD_STATES,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
+    CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_COOLDOWN,
     CONF_ENTITIES,
@@ -27,6 +28,7 @@ from .const import (
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
+    DEFAULT_COLLAPSE_DEVICES,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_SIGNAL_ENABLED,
@@ -90,6 +92,9 @@ async def async_get_config_entry_diagnostics(
                 "bad_states": data.get(CONF_BAD_STATES, DEFAULT_BAD_STATES),
                 "use_device_names": data.get(
                     CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
+                ),
+                "collapse_devices": data.get(
+                    CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
                 ),
                 "availability_windows": data.get(
                     CONF_AVAILABILITY_WINDOWS, DEFAULT_AVAILABILITY_WINDOWS

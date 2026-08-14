@@ -19,6 +19,7 @@ CONF_SIGNAL_ENABLED = "signal_enabled"
 CONF_SIGNAL_ENTITY_MAP = "signal_entity_map"
 CONF_AVAILABILITY_WINDOWS = "availability_windows"
 CONF_USE_DEVICE_NAMES = "use_device_names"
+CONF_COLLAPSE_DEVICES = "collapse_devices"
 CONF_NON_ESSENTIAL_ENTITIES = "non_essential_entities"
 
 # Entry types
@@ -37,6 +38,7 @@ DEFAULT_BATTERY_THRESHOLD = 20  # percent
 DEFAULT_SIGNAL_ENABLED = False
 DEFAULT_AVAILABILITY_WINDOWS = ["today", "7d"]
 DEFAULT_USE_DEVICE_NAMES = False
+DEFAULT_COLLAPSE_DEVICES = False
 
 # Signal strength thresholds per network type.
 # Each entry: {"label": str, "unit": str, "good": int, "ok": int, "higher_is_better": bool}

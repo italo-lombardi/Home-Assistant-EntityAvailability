@@ -209,10 +209,12 @@ class OfflineCountSensor(DedupCoordinatorSensor):
     @property
     def native_value(self) -> int:
         """Return count of offline devices."""
-        return sum(
-            1
-            for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+        return len(
+            self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                )
+            )
         )
 
     @property
@@ -227,8 +229,11 @@ class OfflineCountSensor(DedupCoordinatorSensor):
                 else None,
                 "last_downtime_seconds": d.last_downtime_seconds,
             }
-            for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                )
+            )
         }
 
 
@@ -261,8 +266,11 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
                 d.entity_id,
                 self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
             )
-            for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                )
+            )
         ]
         if not offline:
             return "None"
@@ -276,8 +284,11 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
         """Return full list in attributes (no truncation)."""
         offline = [
             d.entity_id
-            for d in self.coordinator.device_states.values()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                )
+            )
         ]
         return {"entities": offline, "count": len(offline)}
 
@@ -307,11 +318,14 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
         """Return comma-separated list of low battery device names."""
         low_bat = [
             self._format_device(d)
-            for d in self.coordinator.device_states.values()
-            if d.is_low_battery
-            and not d.is_suppressed
-            and not d.is_offline
-            and not d.is_non_essential
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_low_battery
+                    and not d.is_suppressed
+                    and not d.is_offline
+                    and not d.is_non_essential
+                )
+            )
         ]
         if not low_bat:
             return "None"
@@ -324,14 +338,15 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return per-device battery details."""
         devices: dict[str, Any] = {}
-        for d in self.coordinator.device_states.values():
-            if (
+        for d in self.coordinator.representative_states_matching(
+            lambda d: (
                 d.is_low_battery
                 and not d.is_suppressed
                 and not d.is_offline
                 and not d.is_non_essential
-            ):
-                devices[d.entity_id] = f"{d.battery_level}%"
+            )
+        ):
+            devices[d.entity_id] = f"{d.battery_level}%"
         return {"devices": devices, "count": len(devices)}
 
     def _format_device(self, device) -> str:
@@ -375,8 +390,9 @@ class NonEssentialOfflineEntitiesSensor(DedupCoordinatorSensor):
                 d.entity_id,
                 self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
             )
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential and d.is_offline and not d.is_suppressed
+            for d in self.coordinator.representative_states_matching(
+                lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
+            )
         ]
         if not offline:
             return "None"
@@ -390,8 +406,9 @@ class NonEssentialOfflineEntitiesSensor(DedupCoordinatorSensor):
         """Return full list of non-essential offline entity IDs (no truncation)."""
         entities = [
             d.entity_id
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential and d.is_offline and not d.is_suppressed
+            for d in self.coordinator.representative_states_matching(
+                lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
+            )
         ]
         return {"entities": entities, "count": len(entities)}
 
@@ -432,8 +449,11 @@ class NonEssentialLowBatterySensor(DedupCoordinatorSensor):
         """Return comma-separated list of non-essential low battery device names."""
         low_bat = [
             self._format_device(d)
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential and d.is_low_battery and not d.is_suppressed
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_non_essential and d.is_low_battery and not d.is_suppressed
+                )
+            )
         ]
         if not low_bat:
             return "None"
@@ -446,9 +466,10 @@ class NonEssentialLowBatterySensor(DedupCoordinatorSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return per-device battery details for non-essential devices."""
         devices: dict[str, Any] = {}
-        for d in self.coordinator.device_states.values():
-            if d.is_non_essential and d.is_low_battery and not d.is_suppressed:
-                devices[d.entity_id] = f"{d.battery_level}%"
+        for d in self.coordinator.representative_states_matching(
+            lambda d: d.is_non_essential and d.is_low_battery and not d.is_suppressed
+        ):
+            devices[d.entity_id] = f"{d.battery_level}%"
         return {"devices": devices, "count": len(devices)}
 
 
@@ -477,10 +498,12 @@ class NonEssentialLowBatteryCountSensor(DedupCoordinatorSensor):
 
     @property
     def native_value(self) -> int:
-        return sum(
-            1
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential and d.is_low_battery and not d.is_suppressed
+        return len(
+            self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_non_essential and d.is_low_battery and not d.is_suppressed
+                )
+            )
         )
 
 
@@ -509,10 +532,10 @@ class NonEssentialOfflineCountSensor(DedupCoordinatorSensor):
 
     @property
     def native_value(self) -> int:
-        return sum(
-            1
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential and d.is_offline and not d.is_suppressed
+        return len(
+            self.coordinator.representative_states_matching(
+                lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
+            )
         )
 
 
@@ -546,11 +569,14 @@ class NonEssentialStaleEntitiesSensor(DedupCoordinatorSensor):
                 d.entity_id,
                 self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
             )
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential
-            and d.is_stale
-            and not d.is_suppressed
-            and not d.is_offline
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_non_essential
+                    and d.is_stale
+                    and not d.is_suppressed
+                    and not d.is_offline
+                )
+            )
         ]
         if not stale:
             return "None"
@@ -565,11 +591,14 @@ class NonEssentialStaleEntitiesSensor(DedupCoordinatorSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         entities = [
             d.entity_id
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential
-            and d.is_stale
-            and not d.is_suppressed
-            and not d.is_offline
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_non_essential
+                    and d.is_stale
+                    and not d.is_suppressed
+                    and not d.is_offline
+                )
+            )
         ]
         return {"entities": entities, "count": len(entities)}
 
@@ -599,13 +628,15 @@ class NonEssentialStaleCountSensor(DedupCoordinatorSensor):
 
     @property
     def native_value(self) -> int:
-        return sum(
-            1
-            for d in self.coordinator.device_states.values()
-            if d.is_non_essential
-            and d.is_stale
-            and not d.is_suppressed
-            and not d.is_offline
+        return len(
+            self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_non_essential
+                    and d.is_stale
+                    and not d.is_suppressed
+                    and not d.is_offline
+                )
+            )
         )
 
 
@@ -637,11 +668,14 @@ class StaleEntitiesSensor(DedupCoordinatorSensor):
                 d.entity_id,
                 self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False),
             )
-            for d in self.coordinator.device_states.values()
-            if not d.is_non_essential
-            and d.is_stale
-            and not d.is_suppressed
-            and not d.is_offline
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    not d.is_non_essential
+                    and d.is_stale
+                    and not d.is_suppressed
+                    and not d.is_offline
+                )
+            )
         ]
         if not stale:
             return "None"
@@ -656,11 +690,14 @@ class StaleEntitiesSensor(DedupCoordinatorSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         entities = [
             d.entity_id
-            for d in self.coordinator.device_states.values()
-            if not d.is_non_essential
-            and d.is_stale
-            and not d.is_suppressed
-            and not d.is_offline
+            for d in self.coordinator.representative_states_matching(
+                lambda d: (
+                    not d.is_non_essential
+                    and d.is_stale
+                    and not d.is_suppressed
+                    and not d.is_offline
+                )
+            )
         ]
         return {"entities": entities, "count": len(entities)}
 
@@ -688,13 +725,15 @@ class StaleCountSensor(DedupCoordinatorSensor):
 
     @property
     def native_value(self) -> int:
-        return sum(
-            1
-            for d in self.coordinator.device_states.values()
-            if not d.is_non_essential
-            and d.is_stale
-            and not d.is_suppressed
-            and not d.is_offline
+        return len(
+            self.coordinator.representative_states_matching(
+                lambda d: (
+                    not d.is_non_essential
+                    and d.is_stale
+                    and not d.is_suppressed
+                    and not d.is_offline
+                )
+            )
         )
 
 
@@ -722,13 +761,15 @@ class LowBatteryCountSensor(DedupCoordinatorSensor):
     @property
     def native_value(self) -> int:
         """Return count of devices with low battery."""
-        return sum(
-            1
-            for d in self.coordinator.device_states.values()
-            if d.is_low_battery
-            and not d.is_suppressed
-            and not d.is_offline
-            and not d.is_non_essential
+        return len(
+            self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_low_battery
+                    and not d.is_suppressed
+                    and not d.is_offline
+                    and not d.is_non_essential
+                )
+            )
         )
 
 
@@ -970,6 +1011,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "poor_signal_entities_non_essential",
             "offline_entities_non_essential",
             "non_essential_entities",
+            "entities_collapsed",
         }
     )
 
@@ -1010,83 +1052,93 @@ class GroupSummarySensor(DedupCoordinatorSensor):
 
     @property
     def native_value(self) -> int:
-        """Return total entity count in the group."""
-        return len(self.coordinator.monitored_entities)
+        """Return total entity count (device-collapsed when active)."""
+        return len(self.coordinator.collapsed_entities())
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return detailed group breakdown."""
+        """Return detailed group breakdown.
+
+        When device-collapse is active, every count/list below is computed over
+        collapsed device representatives (via the coordinator's collapse-aware
+        helpers), so counts == rows the card renders. When inactive, the helpers
+        return per-entity values — identical to the previous behavior.
+        """
         states = self.coordinator.device_states
-        total = len(self.coordinator.monitored_entities)
-        offline = sum(
-            1
-            for eid in self.coordinator.monitored_entities
-            if states.get(eid)
-            and states[eid].is_offline
-            and not states[eid].is_suppressed
-            and not states[eid].is_non_essential
+        coord = self.coordinator
+        # Collapsed membership (one representative per device-key when active).
+        # This is the row source the card renders; counts are filters over it.
+        collapsed = coord.collapsed_entities()
+        total = len(collapsed)
+
+        def _match(pred) -> list[str]:
+            return [d.entity_id for d in coord.representative_states_matching(pred)]
+
+        offline_ids = _match(
+            lambda d: d.is_offline and not d.is_suppressed and not d.is_non_essential
         )
-        suppressed = sum(
-            1
-            for eid in self.coordinator.monitored_entities
-            if states.get(eid)
-            and states[eid].is_suppressed
-            and not states[eid].is_non_essential
-        )
-        non_essential_entities = [
-            eid
-            for eid in self.coordinator.monitored_entities
-            if states.get(eid) and states[eid].is_non_essential
-        ]
-        non_essential_entities_unsuppressed = [
-            eid for eid in non_essential_entities if not states[eid].is_suppressed
-        ]
-        non_essential_suppressed = sum(
-            1
-            for eid in self.coordinator.monitored_entities
-            if states.get(eid)
-            and states[eid].is_non_essential
-            and states[eid].is_suppressed
+        offline = len(offline_ids)
+        suppressed = len(_match(lambda d: d.is_suppressed and not d.is_non_essential))
+        non_essential_entities = _match(lambda d: d.is_non_essential)
+        non_essential_suppressed = len(
+            _match(lambda d: d.is_non_essential and d.is_suppressed)
         )
         non_essential = len(non_essential_entities)
-        offline_entities_non_essential = [
-            eid for eid in non_essential_entities_unsuppressed if states[eid].is_offline
-        ]
-        non_essential_offline = len(offline_entities_non_essential)
-        non_essential_online = (
-            non_essential - non_essential_offline - non_essential_suppressed
+        offline_entities_non_essential = _match(
+            lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
         )
-        online = total - offline - suppressed - non_essential
+        non_essential_offline = len(offline_entities_non_essential)
+        if coord.collapse_active:
+            # With collapse a device can have both a suppressed and an unsuppressed
+            # sibling under one key, landing it in two buckets — subtraction would
+            # undercount online. Count online representatives explicitly instead.
+            non_essential_online = len(
+                _match(
+                    lambda d: (
+                        d.is_non_essential and not d.is_offline and not d.is_suppressed
+                    )
+                )
+            )
+            online = len(
+                _match(
+                    lambda d: (
+                        not d.is_offline
+                        and not d.is_suppressed
+                        and not d.is_non_essential
+                    )
+                )
+            )
+        else:
+            # Per-entity path unchanged: subtraction treats an entity with no
+            # DeviceState yet (not processed) as online, matching prior behavior.
+            non_essential_online = (
+                non_essential - non_essential_offline - non_essential_suppressed
+            )
+            online = total - offline - suppressed - non_essential
 
         battery_map = self.coordinator.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
         if battery_map:
             battery_powered = sum(1 for v in battery_map.values() if v)
         else:
-            battery_powered = sum(
-                1
-                for eid in self.coordinator.monitored_entities
-                if states.get(eid)
-                and states[eid].battery_level is not None
-                and not states[eid].is_suppressed
+            battery_powered = len(
+                _match(lambda d: d.battery_level is not None and not d.is_suppressed)
             )
 
-        low_battery_entities = [
-            eid
-            for eid in self.coordinator.monitored_entities
-            if states.get(eid)
-            and states[eid].is_low_battery
-            and not states[eid].is_suppressed
-            and not states[eid].is_offline
-            and not states[eid].is_non_essential
-        ]
+        low_battery_entities = _match(
+            lambda d: (
+                d.is_low_battery
+                and not d.is_suppressed
+                and not d.is_offline
+                and not d.is_non_essential
+            )
+        )
         low_battery = len(low_battery_entities)
-        low_battery_non_essential = sum(
-            1
-            for eid in self.coordinator.monitored_entities
-            if states.get(eid)
-            and states[eid].is_non_essential
-            and states[eid].is_low_battery
-            and not states[eid].is_suppressed
+        low_battery_non_essential = len(
+            _match(
+                lambda d: (
+                    d.is_non_essential and d.is_low_battery and not d.is_suppressed
+                )
+            )
         )
 
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
@@ -1104,27 +1156,22 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         ok_signal_ids = (
             self.coordinator._ok_signal_entity_ids() if signal_enabled else []
         )
-        stale_ids = [
-            eid
-            for eid, d in states.items()
-            if d.is_stale
-            and not d.is_suppressed
-            and not d.is_non_essential
-            and not d.is_offline
-        ]
-        stale_ne_ids = [
-            eid
-            for eid, d in states.items()
-            if d.is_stale
-            and not d.is_suppressed
-            and d.is_non_essential
-            and not d.is_offline
-        ]
-        offline_ids = [
-            eid
-            for eid, d in states.items()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
-        ]
+        stale_ids = _match(
+            lambda d: (
+                d.is_stale
+                and not d.is_suppressed
+                and not d.is_non_essential
+                and not d.is_offline
+            )
+        )
+        stale_ne_ids = _match(
+            lambda d: (
+                d.is_stale
+                and not d.is_suppressed
+                and d.is_non_essential
+                and not d.is_offline
+            )
+        )
         return {
             "entry_id": self.coordinator.entry.entry_id,
             "total_entities": total,
@@ -1151,6 +1198,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "poor_signal": len(poor_signal_ids),
             "poor_signal_non_essential": len(poor_signal_ne_ids),
             "entities": list(self.coordinator.monitored_entities),
+            "entities_collapsed": collapsed,
             "display_names": {
                 eid: _resolve_display_name(self.hass, eid, use_device_names)
                 for eid in self.coordinator.monitored_entities
@@ -1339,7 +1387,12 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
 
 
 class AffectedAreasCountSensor(DedupCoordinatorSensor):
-    """Sensor showing count of unique areas with offline entities."""
+    """Sensor showing count of unique areas with offline entities.
+
+    NOTE: Affected-areas sensors are intentionally NOT device-collapsed. Two
+    entities of the same physical device share an area, so collapsing never
+    changes the set of affected areas — collapsing here would be a no-op.
+    """
 
     _attr_icon = "mdi:home-alert"
     _attr_state_class = SensorStateClass.MEASUREMENT

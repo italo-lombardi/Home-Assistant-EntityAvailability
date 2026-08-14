@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
     area_registry as ar,
@@ -12,6 +14,9 @@ from homeassistant.helpers import (
 from homeassistant.helpers import (
     entity_registry as er,
 )
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .models import DeviceState
 
 
 def resolve_area_name(hass: HomeAssistant, entity_id: str) -> str | None:
@@ -55,3 +60,107 @@ def resolve_display_name(
     if state and state.attributes.get("friendly_name"):
         return state.attributes["friendly_name"]
     return entity_id.split(".")[-1].replace("_", " ").title()
+
+
+def collapse_severity(d: DeviceState) -> int:
+    """Worst-case severity rank for representative selection (red>yellow>grey>green)."""
+    if d.is_offline:
+        return 3  # red
+    if d.is_low_battery or d.signal_quality == "poor":
+        return 2  # yellow
+    if d.is_stale:
+        return 1  # grey
+    return 0  # green
+
+
+def _representative_rank(d: DeviceState) -> tuple[bool, int]:
+    """Rank for picking a device's representative.
+
+    An UNSUPPRESSED member always outranks a suppressed one — otherwise a suppressed
+    entity with high raw severity (e.g. suppressed+offline) could become the
+    representative and hide a genuine, unsuppressed problem on a sibling (stale/low
+    battery/poor signal), dropping the whole device from every active-problem count.
+    Within the same suppression status, worst severity wins.
+    """
+    return (not d.is_suppressed, collapse_severity(d))
+
+
+def collapse_key(hass: HomeAssistant, d: DeviceState) -> str | None:
+    """Return the composite device-collapse key for a DeviceState, or None.
+
+    Key = device_id::display_name::battery::signal::unit::non_essential. Entities
+    with no device_id return None (never collapse — each stays its own row/count).
+    Only display/value fields drive the key, so entities that differ on battery or
+    signal never merge — the same conservative behavior the card used. The
+    non-essential flag is included so essential and non-essential entities on the
+    same device never merge (they render in separate tiers).
+    """
+    ent_reg = er.async_get(hass)
+    entry = ent_reg.async_get(d.entity_id)
+    device_id = entry.device_id if entry else None
+    if not device_id:
+        return None
+    name = resolve_display_name(hass, d.entity_id, use_device_names=True)
+    # Coerce numeric fields to a stable int (or None) so a flaky sensor emitting a
+    # float/NaN can't produce an inconsistent key that silently breaks grouping.
+    battery = _stable_int(d.battery_level)
+    signal = _stable_int(d.signal_level)
+    # Signal unit is meaningless without a level — drop it when level is None.
+    unit = d.signal_unit if signal is not None else None
+    return f"{device_id}::{name}::{battery}::{signal}::{unit}::{d.is_non_essential}"
+
+
+def _stable_int(value: object) -> int | None:
+    """Return int(value), or None if value is None/NaN/non-numeric (stable key part)."""
+    if value is None:
+        return None
+    try:
+        ivalue = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return ivalue
+
+
+def collapse_representatives(
+    hass: HomeAssistant,
+    states: dict[str, DeviceState],
+    collapsible: set[str] | None = None,
+) -> dict[str, str]:
+    """Return {entity_id -> representative entity_id} collapsing same-device entities.
+
+    Groups states by composite key; each key's representative is its worst-severity
+    member, with unsuppressed members always preferred over suppressed ones (ties:
+    first in insertion order). Entities with no device_id (key None) map to
+    themselves. Callers gate on whether collapse is active — this always collapses
+    whatever it is given.
+
+    ``collapsible`` optionally restricts which entities may merge: an entity not in
+    the set always maps to itself and never becomes another entity's representative.
+    Used by combined groups so entities from a group with collapse OFF stay their
+    own rows even when a sibling on the same device comes from a collapse-ON group.
+    ``None`` means every entity is collapsible (single-group behavior).
+    """
+    by_key: dict[str, str] = {}
+    rep_of: dict[str, str] = {}
+    for eid, d in states.items():
+        # Entities from non-collapse groups never merge — own row, own count.
+        if (collapsible is not None and eid not in collapsible) or (
+            key := collapse_key(hass, d)
+        ) is None:
+            rep_of[eid] = eid
+            continue
+        cur = by_key.get(key)
+        if cur is None:
+            by_key[key] = eid
+            rep_of[eid] = eid
+        elif _representative_rank(d) > _representative_rank(states[cur]):
+            # New best-ranked member (unsuppressed first, then worst severity)
+            # becomes the key's representative.
+            by_key[key] = eid
+            for other, r in rep_of.items():
+                if r == cur:
+                    rep_of[other] = eid
+            rep_of[eid] = eid
+        else:
+            rep_of[eid] = by_key[key]
+    return rep_of

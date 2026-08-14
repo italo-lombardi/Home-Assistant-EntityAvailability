@@ -31,8 +31,11 @@ from .const import (
     NO_AREA_SENTINEL,
 )
 from .coordinator import EntityAvailabilityCoordinator
-from .helpers import resolve_area_name, resolve_display_name
-from .models import DeviceState
+from .helpers import (
+    collapse_representatives,
+    resolve_area_name,
+    resolve_display_name,
+)
 from .write_dedup import WriteDedupMixin
 
 _LOGGER = logging.getLogger(__name__)
@@ -130,6 +133,11 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         self._combined_entry_ids = combined_entry_ids
         self._attr_device_info = _device_info(entry.entry_id, group_name)
         self._unsub_listeners: list[Callable[[], None]] = []
+        # Per-tick memo of the collapsed merged device map. Keyed by
+        # (active entry_ids, summed collapse generations) so the global
+        # re-collapse (registry lookups) runs once per tick, not per property read.
+        self._dm_cache_key: tuple | None = None
+        self._dm_cache: dict[str, Any] | None = None
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to all included coordinators."""
@@ -210,6 +218,90 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             )
         return is_available
 
+    def _build_device_map(
+        self,
+        coords: list[EntityAvailabilityCoordinator],
+    ) -> dict[str, Any]:
+        """Return the representative device map across coordinators (one per row).
+
+        First-wins by entity_id. Entities from collapse-active groups merge by
+        device-key to a single representative; entities from collapse-off groups
+        each stay their own entry (per-group intent honored). Drives the combined
+        total and event downtime lookups. Memoized per tick.
+        """
+        # Memoize per tick: same active coords + same collapse generations → reuse.
+        cache_key = (
+            tuple(c.entry.entry_id for c in coords),
+            tuple(c.collapse_generation for c in coords),
+        )
+        if self._dm_cache_key == cache_key and self._dm_cache is not None:
+            return self._dm_cache
+        merged, rep_of = self._device_map_of(coords)
+        reps = dict.fromkeys(rep_of.values())
+        collapsed = {eid: merged[eid] for eid in reps}
+        self._dm_cache_key = cache_key
+        self._dm_cache = collapsed
+        return collapsed
+
+    def _device_map_of(
+        self, coords: list[EntityAvailabilityCoordinator]
+    ) -> tuple[dict[str, Any], dict[str, str]]:
+        """Return (full merged states by entity_id, entity_id -> device-key map).
+
+        The full map keeps EVERY entity (not just representatives); the second map
+        groups entities by physical device. Only entities whose OWNING group has
+        collapse active are collapsible — entities from a collapse-off group stay
+        their own row even when a sibling on the same device comes from a
+        collapse-on group (per-group intent is honored in the combined view). When
+        no group collapses, the map is the identity.
+        """
+        merged: dict[str, Any] = {}
+        collapsible: set[str] = set()
+        for coord in coords:
+            active = coord.collapse_active
+            for eid, d in coord.device_states.items():
+                if eid not in merged:  # first-wins by entity_id for the state
+                    merged[eid] = d
+                # Collapsible if ANY owning group has collapse active — independent
+                # of which coordinator first-wins the state, so a shared entity in
+                # a collapse-on group still collapses even if a collapse-off group
+                # is iterated first.
+                if active:
+                    collapsible.add(eid)
+        if not collapsible:
+            return merged, {eid: eid for eid in merged}
+        return merged, collapse_representatives(self.hass, merged, collapsible)
+
+    @staticmethod
+    def _collapsed_match(
+        merged: dict[str, Any],
+        rep_of: dict[str, str],
+        predicate: Callable[[Any], bool],
+    ) -> list[str]:
+        """Return one entity_id per device with ≥1 member matching predicate."""
+        seen_device: set[str] = set()
+        result: list[str] = []
+        for eid, d in merged.items():
+            if not predicate(d):
+                continue
+            device = rep_of.get(eid, eid)
+            if device in seen_device:
+                continue
+            seen_device.add(device)
+            result.append(eid)
+        return result
+
+    def _use_device_names_map(
+        self, coords: list[EntityAvailabilityCoordinator]
+    ) -> dict[str, bool]:
+        """Return {entity_id -> use_device_names} first-wins across coordinators."""
+        flags: dict[str, bool] = {}
+        for coord in coords:
+            udn = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+            for eid in coord.device_states:
+                flags.setdefault(eid, udn)
+        return flags
+
 
 class CombinedGroupSensor(CombinedSensorBase):
     """Sensor showing total entity count across multiple groups."""
@@ -222,6 +314,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         {
             "display_names",
             "entities",
+            "entities_collapsed",
             "groups",
             "offline_entities",
             "stale_entities",
@@ -379,38 +472,34 @@ class CombinedGroupSensor(CombinedSensorBase):
 
         return _on_update
 
-    @staticmethod
-    def _build_device_map(
-        coords: list[EntityAvailabilityCoordinator],
-    ) -> dict[str, Any]:
-        """Return first-wins dedup map of entity_id → DeviceState across coordinators."""
-        device_map: dict[str, Any] = {}
-        for coord in coords:
-            for d in coord.device_states.values():
-                if d.entity_id not in device_map:
-                    device_map[d.entity_id] = d
-        return device_map
-
     def _current_offline_set(
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
-        """Return deduplicated set of offline, non-suppressed, non-essential entity IDs."""
-        dm = self._build_device_map(coords)
+        """Return deduplicated set of offline, non-suppressed, essential entity IDs."""
+        merged, rep_of = self._device_map_of(coords)
         return frozenset(
-            eid
-            for eid, d in dm.items()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
+            self._collapsed_match(
+                merged,
+                rep_of,
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                ),
+            )
         )
 
     def _current_low_battery_set(
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
-        """Return deduplicated set of low-battery, non-suppressed, non-essential entity IDs."""
-        dm = self._build_device_map(coords)
+        """Return deduplicated set of low-battery, non-suppressed, essential entity IDs."""
+        merged, rep_of = self._device_map_of(coords)
         return frozenset(
-            eid
-            for eid, d in dm.items()
-            if d.is_low_battery and not d.is_suppressed and not d.is_non_essential
+            self._collapsed_match(
+                merged,
+                rep_of,
+                lambda d: (
+                    d.is_low_battery and not d.is_suppressed and not d.is_non_essential
+                ),
+            )
         )
 
     async def async_added_to_hass(self) -> None:
@@ -423,9 +512,11 @@ class CombinedGroupSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> int:
-        return sum(
-            len(coord.monitored_entities) for coord in self._active_coordinators()
-        )
+        active = self._active_coordinators()
+        if any(coord.collapse_active for coord in active):
+            # Collapsed total: unique device representatives (with state) across groups.
+            return len(self._build_device_map(active))
+        return sum(len(coord.monitored_entities) for coord in active)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -434,51 +525,65 @@ class CombinedGroupSensor(CombinedSensorBase):
         active = self._active_coordinators()
         registry = er.async_get(self.hass)
         for coord in active:
-            states = coord.device_states
-            g_non_essential = sum(1 for d in states.values() if d.is_non_essential)
-            g_total = len(coord.monitored_entities) - g_non_essential
-            g_offline_entities = [
-                d.entity_id
-                for d in states.values()
-                if d.is_offline and not d.is_suppressed and not d.is_non_essential
-            ]
+            # Route per-group counts through the coordinator's collapse-aware helpers
+            # so the group-breakdown rows match the group's own (possibly collapsed)
+            # sensor values.
+            def _g(pred, c=coord) -> list[str]:
+                return [d.entity_id for d in c.representative_states_matching(pred)]
+
+            g_collapsed = coord.collapsed_entities()
+            g_non_essential = len(_g(lambda d: d.is_non_essential))
+            g_total = len(g_collapsed) - g_non_essential
+            g_offline_entities = _g(
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                )
+            )
             g_offline = len(g_offline_entities)
-            g_suppressed = sum(
-                1 for d in states.values() if d.is_suppressed and not d.is_non_essential
+            g_suppressed = len(_g(lambda d: d.is_suppressed and not d.is_non_essential))
+            g_non_essential_suppressed = len(
+                _g(lambda d: d.is_non_essential and d.is_suppressed)
             )
-            g_non_essential_suppressed = sum(
-                1 for d in states.values() if d.is_non_essential and d.is_suppressed
+            if coord.collapse_active:
+                # Explicit online predicate: a collapsed device with a suppressed +
+                # an unsuppressed sibling lands in two buckets, so subtraction would
+                # undercount online.
+                g_online = len(
+                    _g(
+                        lambda d: (
+                            not d.is_offline
+                            and not d.is_suppressed
+                            and not d.is_non_essential
+                        )
+                    )
+                )
+            else:
+                g_online = g_total - g_offline - g_suppressed
+            g_stale_entities = _g(
+                lambda d: d.is_stale and not d.is_suppressed and not d.is_non_essential
             )
-            g_online = g_total - g_offline - g_suppressed
-            g_stale_entities = [
-                d.entity_id
-                for d in states.values()
-                if d.is_stale and not d.is_suppressed and not d.is_non_essential
-            ]
             g_stale = len(g_stale_entities)
             g_poor_signal_entities = coord._poor_signal_entity_ids()
             g_poor_signal_entities_ne = coord._poor_signal_ne_entity_ids()
-            g_stale_entities_ne = [
-                d.entity_id
-                for d in states.values()
-                if d.is_stale and not d.is_suppressed and d.is_non_essential
-            ]
-            g_low_battery = sum(
-                1
-                for d in states.values()
-                if d.is_low_battery
-                and not d.is_suppressed
-                and not d.is_offline
-                and not d.is_non_essential
+            g_stale_entities_ne = _g(
+                lambda d: d.is_stale and not d.is_suppressed and d.is_non_essential
+            )
+            g_low_battery = len(
+                _g(
+                    lambda d: (
+                        d.is_low_battery
+                        and not d.is_suppressed
+                        and not d.is_offline
+                        and not d.is_non_essential
+                    )
+                )
             )
             battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
             if battery_map:
                 g_battery_powered = sum(1 for v in battery_map.values() if v)
             else:
-                g_battery_powered = sum(
-                    1
-                    for d in states.values()
-                    if d.battery_level is not None and not d.is_suppressed
+                g_battery_powered = len(
+                    _g(lambda d: d.battery_level is not None and not d.is_suppressed)
                 )
             gname = coord.group_name
             gsummary = registry.async_get_entity_id(
@@ -488,29 +593,27 @@ class CombinedGroupSensor(CombinedSensorBase):
                 _LOGGER.warning(
                     "Could not find group summary entity for %s", coord.entry.entry_id
                 )
-            g_offline_entities_ne = [
-                d.entity_id
-                for d in states.values()
-                if d.is_non_essential and d.is_offline and not d.is_suppressed
-            ]
-            g_non_essential_offline = 0
-            g_non_essential_online = 0
-            g_non_essential_stale = 0
-            g_non_essential_low_battery = 0
-            for d in states.values():
-                if d.is_non_essential and not d.is_suppressed:
-                    if d.is_offline:
-                        g_non_essential_offline += 1
-                    else:
-                        g_non_essential_online += (
-                            1  # online includes stale/low-battery by design
-                        )
-                    if d.is_stale:
-                        g_non_essential_stale += 1
-                    if d.is_low_battery:
-                        g_non_essential_low_battery += (
-                            1  # counts offline+low-battery too, mirrors sensor.py
-                        )
+            g_offline_entities_ne = _g(
+                lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
+            )
+            g_non_essential_offline = len(g_offline_entities_ne)
+            g_non_essential_online = len(
+                _g(
+                    lambda d: (
+                        d.is_non_essential and not d.is_suppressed and not d.is_offline
+                    )
+                )
+            )
+            g_non_essential_stale = len(
+                _g(lambda d: d.is_non_essential and not d.is_suppressed and d.is_stale)
+            )
+            g_non_essential_low_battery = len(
+                _g(
+                    lambda d: (
+                        d.is_non_essential and not d.is_suppressed and d.is_low_battery
+                    )
+                )
+            )
             groups[coord.entry.entry_id] = {
                 "name": gname,
                 "entity_id": gsummary,
@@ -543,98 +646,90 @@ class CombinedGroupSensor(CombinedSensorBase):
                 "non_essential_poor_signal": len(g_poor_signal_entities_ne),
             }
 
-        # Build merged state map (first-wins for shared entities) to dedup all counts.
-        merged_states: dict[str, DeviceState] = {}
-        for coord in active:
-            for eid, d in coord.device_states.items():
-                if eid not in merged_states:
-                    merged_states[eid] = d
+        # Full merged states + device-key map: category lists dedupe by DEVICE so a
+        # device with siblings in different categories appears in each. total/membership
+        # use the representative set (one row per device).
+        merged_states, rep_of = self._device_map_of(active)
 
-        all_entities = list(
+        def _m(pred) -> list[str]:
+            return self._collapsed_match(merged_states, rep_of, pred)
+
+        collapse_on = any(coord.collapse_active for coord in active)
+        raw_entities = list(
             dict.fromkeys(eid for coord in active for eid in coord.monitored_entities)
         )
-        offline_entities = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_offline and not d.is_suppressed and not d.is_non_essential
-        ]
-        stale_entities = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_stale and not d.is_suppressed and not d.is_non_essential
-        ]
-        poor_signal_entities = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.signal_quality == "poor"
-            and not d.is_suppressed
-            and not d.is_non_essential
-        ]
-        offline_entities_non_essential = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_non_essential and d.is_offline and not d.is_suppressed
-        ]
-        stale_entities_non_essential = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_non_essential and d.is_stale and not d.is_suppressed
-        ]
-        poor_signal_entities_non_essential = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_non_essential and d.signal_quality == "poor" and not d.is_suppressed
-        ]
-        low_battery_entities = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_low_battery
-            and not d.is_suppressed
-            and not d.is_offline
-            and not d.is_non_essential
-        ]
-        low_battery_entities_non_essential = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_low_battery and d.is_non_essential and not d.is_suppressed
-        ]
+        # entities_collapsed is the row source the card renders: one representative
+        # per device when active, else the full deduped membership.
+        if collapse_on:
+            reps = dict.fromkeys(rep_of.values())
+            collapsed_entities = [eid for eid in raw_entities if eid in reps]
+        else:
+            collapsed_entities = raw_entities
+        all_entities = collapsed_entities
+        offline_entities = _m(
+            lambda d: d.is_offline and not d.is_suppressed and not d.is_non_essential
+        )
+        stale_entities = _m(
+            lambda d: d.is_stale and not d.is_suppressed and not d.is_non_essential
+        )
+        poor_signal_entities = _m(
+            lambda d: (
+                d.signal_quality == "poor"
+                and not d.is_suppressed
+                and not d.is_non_essential
+            )
+        )
+        offline_entities_non_essential = _m(
+            lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
+        )
+        stale_entities_non_essential = _m(
+            lambda d: d.is_non_essential and d.is_stale and not d.is_suppressed
+        )
+        poor_signal_entities_non_essential = _m(
+            lambda d: (
+                d.is_non_essential
+                and d.signal_quality == "poor"
+                and not d.is_suppressed
+            )
+        )
+        low_battery_entities = _m(
+            lambda d: (
+                d.is_low_battery
+                and not d.is_suppressed
+                and not d.is_offline
+                and not d.is_non_essential
+            )
+        )
+        low_battery_entities_non_essential = _m(
+            lambda d: d.is_low_battery and d.is_non_essential and not d.is_suppressed
+        )
         total = len(all_entities)
         offline = len(offline_entities)
         low_battery = len(low_battery_entities)
-        non_essential_entities = [
-            d.entity_id
-            for d in merged_states.values()
-            if d.is_non_essential and not d.is_suppressed
-        ]
-        non_essential_suppressed = sum(
-            1 for d in merged_states.values() if d.is_non_essential and d.is_suppressed
+        non_essential_entities = _m(
+            lambda d: d.is_non_essential and not d.is_suppressed
+        )
+        non_essential_suppressed = len(
+            _m(lambda d: d.is_non_essential and d.is_suppressed)
         )
         non_essential = len(non_essential_entities) + non_essential_suppressed
-        suppressed = sum(
-            1
-            for d in merged_states.values()
-            if d.is_suppressed and not d.is_non_essential
+        suppressed = len(_m(lambda d: d.is_suppressed and not d.is_non_essential))
+        online = len(
+            _m(
+                lambda d: (
+                    not d.is_offline and not d.is_suppressed and not d.is_non_essential
+                )
+            )
         )
-        online = sum(
-            1
-            for d in merged_states.values()
-            if not d.is_offline and not d.is_suppressed and not d.is_non_essential
+        stale = len(stale_entities)
+        non_essential_online = len(
+            _m(
+                lambda d: (
+                    d.is_non_essential and not d.is_offline and not d.is_suppressed
+                )
+            )
         )
-        stale = sum(
-            1
-            for d in merged_states.values()
-            if d.is_stale and not d.is_suppressed and not d.is_non_essential
-        )
-        non_essential_online = sum(
-            1
-            for d in merged_states.values()
-            if d.is_non_essential and not d.is_offline and not d.is_suppressed
-        )
-        non_essential_offline = sum(
-            1
-            for d in merged_states.values()
-            if d.is_non_essential and d.is_offline and not d.is_suppressed
-        )
+        non_essential_offline = len(offline_entities_non_essential)
         # Dedup battery_powered by collecting device entity_ids (not battery sensor ids).
         # battery_map keys are device entity_ids; battery_level path is already keyed by eid.
         # Using one set handles mixed-config groups without double-counting.
@@ -659,17 +754,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             coord.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0 for coord in active
         )
         signal_enabled = any(coord._signal_enabled for coord in active)
-        poor_signal_count = (
-            sum(
-                1
-                for d in merged_states.values()
-                if d.signal_quality == "poor"
-                and not d.is_suppressed
-                and not d.is_non_essential
-            )
-            if signal_enabled
-            else 0
-        )
+        poor_signal_count = len(poor_signal_entities) if signal_enabled else 0
         display_names: dict[str, str] = {}
         battery_levels: dict[str, Any] = {}
         signal_levels: dict[str, Any] = {}
@@ -747,7 +832,8 @@ class CombinedGroupSensor(CombinedSensorBase):
             "status": status,
             "status_color": status_color,
             "groups": groups,
-            "entities": all_entities,
+            "entities": raw_entities,
+            "entities_collapsed": collapsed_entities,
             "display_names": display_names,
             "battery_levels": battery_levels,
             "signal_levels": signal_levels,
@@ -797,24 +883,24 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> int:
+        merged, rep_of = self._device_map_of(self._active_coordinators())
         return len(
-            {
-                d.entity_id
-                for coord in self._active_coordinators()
-                for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed and not d.is_non_essential
-            }
+            self._collapsed_match(
+                merged,
+                rep_of,
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                ),
+            )
         )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        offline = list(
-            dict.fromkeys(
-                d.entity_id
-                for coord in self._active_coordinators()
-                for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed and not d.is_non_essential
-            )
+        merged, rep_of = self._device_map_of(self._active_coordinators())
+        offline = self._collapsed_match(
+            merged,
+            rep_of,
+            lambda d: d.is_offline and not d.is_suppressed and not d.is_non_essential,
         )
         return {"entities": offline, "count": len(offline)}
 
@@ -835,18 +921,18 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        offline = list(
-            dict.fromkeys(
-                _friendly_name(
-                    self.hass,
-                    d.entity_id,
-                    coord.entry.data.get(CONF_USE_DEVICE_NAMES, False),
-                )
-                for coord in coords
-                for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed and not d.is_non_essential
+        merged, rep_of = self._device_map_of(coords)
+        udn = self._use_device_names_map(coords)
+        offline = [
+            _friendly_name(self.hass, eid, udn.get(eid, False))
+            for eid in self._collapsed_match(
+                merged,
+                rep_of,
+                lambda d: (
+                    d.is_offline and not d.is_suppressed and not d.is_non_essential
+                ),
             )
-        )
+        ]
         if not offline:
             return "None"
         result = ", ".join(offline)
@@ -858,13 +944,11 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        offline = list(
-            dict.fromkeys(
-                d.entity_id
-                for coord in self._active_coordinators()
-                for d in coord.device_states.values()
-                if d.is_offline and not d.is_suppressed and not d.is_non_essential
-            )
+        merged, rep_of = self._device_map_of(self._active_coordinators())
+        offline = self._collapsed_match(
+            merged,
+            rep_of,
+            lambda d: d.is_offline and not d.is_suppressed and not d.is_non_essential,
         )
         return {"entities": offline, "count": len(offline)}
 
@@ -885,17 +969,21 @@ class CombinedLowBatterySensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        low = list(
-            dict.fromkeys(
-                f"{_friendly_name(self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False))} ({d.battery_level}%)"
-                for coord in coords
-                for d in coord.device_states.values()
-                if d.is_low_battery
-                and not d.is_suppressed
-                and not d.is_offline
-                and not d.is_non_essential
+        merged, rep_of = self._device_map_of(coords)
+        udn = self._use_device_names_map(coords)
+        low = [
+            f"{_friendly_name(self.hass, eid, udn.get(eid, False))} ({merged[eid].battery_level}%)"
+            for eid in self._collapsed_match(
+                merged,
+                rep_of,
+                lambda d: (
+                    d.is_low_battery
+                    and not d.is_suppressed
+                    and not d.is_offline
+                    and not d.is_non_essential
+                ),
             )
-        )
+        ]
         if not low:
             return "None"
         result = ", ".join(low)
@@ -907,14 +995,19 @@ class CombinedLowBatterySensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        merged, rep_of = self._device_map_of(self._active_coordinators())
         devices: dict[str, Any] = {
-            d.entity_id: f"{d.battery_level}%"
-            for coord in self._active_coordinators()
-            for d in coord.device_states.values()
-            if d.is_low_battery
-            and not d.is_suppressed
-            and not d.is_offline
-            and not d.is_non_essential
+            eid: f"{merged[eid].battery_level}%"
+            for eid in self._collapsed_match(
+                merged,
+                rep_of,
+                lambda d: (
+                    d.is_low_battery
+                    and not d.is_suppressed
+                    and not d.is_offline
+                    and not d.is_non_essential
+                ),
+            )
         }
         return {"devices": devices, "count": len(devices)}
 
@@ -935,16 +1028,18 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> int:
+        merged, rep_of = self._device_map_of(self._active_coordinators())
         return len(
-            {
-                d.entity_id
-                for coord in self._active_coordinators()
-                for d in coord.device_states.values()
-                if d.is_low_battery
-                and not d.is_suppressed
-                and not d.is_offline
-                and not d.is_non_essential
-            }
+            self._collapsed_match(
+                merged,
+                rep_of,
+                lambda d: (
+                    d.is_low_battery
+                    and not d.is_suppressed
+                    and not d.is_offline
+                    and not d.is_non_essential
+                ),
+            )
         )
 
 
@@ -1065,7 +1160,12 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
 
 
 class CombinedAffectedAreasCountSensor(CombinedSensorBase):
-    """Sensor showing count of unique areas with offline entities across all groups."""
+    """Sensor showing count of unique areas with offline entities across all groups.
+
+    NOTE: Affected-areas sensors are intentionally NOT device-collapsed (single or
+    combined). Entities of the same device share an area, so collapse can't change
+    the affected-area set — it would be a no-op.
+    """
 
     _attr_icon = "mdi:home-alert"
     _attr_state_class = SensorStateClass.MEASUREMENT

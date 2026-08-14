@@ -24,6 +24,7 @@ from .const import (
     CONF_BAD_STATES,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
+    CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_COOLDOWN,
     CONF_ENTITIES,
@@ -39,6 +40,7 @@ from .const import (
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
+    DEFAULT_COLLAPSE_DEVICES,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
     DEFAULT_SIGNAL_ENABLED,
@@ -346,31 +348,40 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Step 3: Advanced settings."""
+        errors: dict[str, str] = {}
         if user_input is not None:
-            self._data[CONF_BATTERY_THRESHOLD] = user_input[CONF_BATTERY_THRESHOLD]
-            self._data[CONF_AVAILABILITY_WINDOWS] = user_input[
-                CONF_AVAILABILITY_WINDOWS
-            ]
-            self._data[CONF_RECOVERY_WINDOW] = user_input[CONF_RECOVERY_WINDOW]
-            self._data[CONF_USE_DEVICE_NAMES] = user_input.get(
-                CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
-            )
-            self._data[CONF_SIGNAL_ENABLED] = user_input.get(
-                CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED
-            )
+            if user_input.get(CONF_COLLAPSE_DEVICES) and not user_input.get(
+                CONF_USE_DEVICE_NAMES
+            ):
+                errors[CONF_COLLAPSE_DEVICES] = "collapse_requires_device_names"
+            if not errors:
+                self._data[CONF_BATTERY_THRESHOLD] = user_input[CONF_BATTERY_THRESHOLD]
+                self._data[CONF_AVAILABILITY_WINDOWS] = user_input[
+                    CONF_AVAILABILITY_WINDOWS
+                ]
+                self._data[CONF_RECOVERY_WINDOW] = user_input[CONF_RECOVERY_WINDOW]
+                self._data[CONF_USE_DEVICE_NAMES] = user_input.get(
+                    CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
+                )
+                self._data[CONF_COLLAPSE_DEVICES] = user_input.get(
+                    CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
+                )
+                self._data[CONF_SIGNAL_ENABLED] = user_input.get(
+                    CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED
+                )
 
-            if self._data[CONF_BATTERY_THRESHOLD] > 0:
-                return await self.async_step_battery_mapping()
+                if self._data[CONF_BATTERY_THRESHOLD] > 0:
+                    return await self.async_step_battery_mapping()
 
-            if self._data[CONF_SIGNAL_ENABLED]:
-                return await self.async_step_signal_mapping()
+                if self._data[CONF_SIGNAL_ENABLED]:
+                    return await self.async_step_signal_mapping()
 
-            self._data[CONF_BATTERY_ENTITY_MAP] = {}
-            self._data[CONF_SIGNAL_ENTITY_MAP] = {}
-            return self.async_create_entry(
-                title=self._data[CONF_GROUP_NAME],
-                data=self._data,
-            )
+                self._data[CONF_BATTERY_ENTITY_MAP] = {}
+                self._data[CONF_SIGNAL_ENTITY_MAP] = {}
+                return self.async_create_entry(
+                    title=self._data[CONF_GROUP_NAME],
+                    data=self._data,
+                )
 
         data_schema = vol.Schema(
             {
@@ -402,12 +413,16 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Optional(
                     CONF_USE_DEVICE_NAMES, default=DEFAULT_USE_DEVICE_NAMES
                 ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_COLLAPSE_DEVICES, default=DEFAULT_COLLAPSE_DEVICES
+                ): selector.BooleanSelector(),
             }
         )
 
         return self.async_show_form(
             step_id="advanced",
             data_schema=data_schema,
+            errors=errors,
         )
 
     async def async_step_battery_mapping(
@@ -538,6 +553,10 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
 
             if set(monitored_raw) & set(non_essential_raw):
                 errors[CONF_ENTITIES] = "duplicate_entities"
+            elif user_input.get(CONF_COLLAPSE_DEVICES) and not user_input.get(
+                CONF_USE_DEVICE_NAMES
+            ):
+                errors[CONF_COLLAPSE_DEVICES] = "collapse_requires_device_names"
             else:
                 self._data = {**self.config_entry.data, **user_input}
                 non_essential = list(dict.fromkeys(non_essential_raw))
@@ -654,6 +673,12 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                     CONF_USE_DEVICE_NAMES,
                     default=current.get(
                         CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
+                    ),
+                ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_COLLAPSE_DEVICES,
+                    default=current.get(
+                        CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
                     ),
                 ): selector.BooleanSelector(),
             }

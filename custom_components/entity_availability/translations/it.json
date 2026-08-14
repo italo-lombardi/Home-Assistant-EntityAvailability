@@ -53,6 +53,7 @@
           "availability_windows": "Finestre di tracciamento disponibilità",
           "recovery_window": "Finestra di recupero",
           "use_device_names": "Mostra nomi dispositivo",
+          "collapse_devices": "Raggruppa entità per dispositivo",
           "signal_enabled": "Abilita il monitoraggio della potenza del segnale"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Finestre temporali per il monitoraggio della disponibilità del gruppo (es. today, 3d, 7d).",
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
           "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
+          "collapse_devices": "Funziona solo quando «Mostra nomi dispositivo» è abilitato. Quando attivo, più entità che appartengono allo stesso dispositivo fisico vengono conteggiate come una sola in ogni valore del sensore, elenco ed evento (offline, batteria scarica, inattiva, segnale scarso). Le entità vengono unite solo quando condividono lo stesso dispositivo, nome, livello di batteria e segnale — le entità non associate a un dispositivo non vengono mai unite. Disponibilità %, MTBF e MTTR restano per entità.",
           "signal_enabled": "Monitora la potenza del segnale (dBm) per le entità controllate e avvisa quando la qualità del segnale scende a \"scarsa\". Dopo l'attivazione, verrà richiesto di associare un sensore del segnale e selezionare il tipo di rete per ciascuna entità."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Il nome del gruppo non può essere vuoto.",
       "no_entities": "Devi selezionare almeno un'entità.",
       "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare.",
-      "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare."
+      "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare.",
+      "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato."
     },
     "abort": {
       "already_configured": "Un gruppo con questo nome esiste già.",
@@ -98,6 +101,7 @@
           "availability_windows": "Finestre di tracciamento disponibilità",
           "recovery_window": "Finestra di recupero (minuti)",
           "use_device_names": "Mostra nomi dispositivo",
+          "collapse_devices": "Raggruppa entità per dispositivo",
           "staleness_use_last_updated": "Conta gli aggiornamenti degli attributi come attività",
           "signal_enabled": "Abilita il monitoraggio della potenza del segnale"
         },
@@ -110,6 +114,7 @@
           "availability_windows": "Finestre temporali per il monitoraggio della disponibilità del gruppo (es. today, 3d, 7d).",
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
           "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
+          "collapse_devices": "Funziona solo quando «Mostra nomi dispositivo» è abilitato. Quando attivo, più entità che appartengono allo stesso dispositivo fisico vengono conteggiate come una sola in ogni valore del sensore, elenco ed evento (offline, batteria scarica, inattiva, segnale scarso). Le entità vengono unite solo quando condividono lo stesso dispositivo, nome, livello di batteria e segnale — le entità non associate a un dispositivo non vengono mai unite. Disponibilità %, MTBF e MTTR restano per entità.",
           "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi o le segnalazioni ripetute dello stesso valore — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile).",
           "entities": "Entità da monitorare per la disponibilità. Sono completamente monitorate e incluse in tutti i KPI e gli avvisi.",
           "signal_enabled": "Monitora la potenza del segnale (dBm) per le entità controllate e avvisa quando la qualità del segnale scende a \"scarsa\". Dopo l'attivazione, verrà richiesto di associare un sensore del segnale e selezionare il tipo di rete per ciascuna entità."
@@ -131,6 +136,10 @@
         "title": "Mappatura della potenza del segnale",
         "description": "Per ogni entità, seleziona facoltativamente un sensore del segnale e scegli il tipo di rete. Lascia il sensore vuoto per saltare.\\n\\nSoglie (buono / discreto / scarso):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (più alto è meglio)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare.",
+      "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato."
     }
   },
   "entity": {

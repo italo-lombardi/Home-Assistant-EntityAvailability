@@ -53,6 +53,7 @@
           "availability_windows": "Ventanas de seguimiento de disponibilidad",
           "recovery_window": "Ventana de recuperación",
           "use_device_names": "Mostrar nombres de dispositivo",
+          "collapse_devices": "Agrupar entidades por dispositivo",
           "signal_enabled": "Habilitar monitoreo de intensidad de señal"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
           "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
+          "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nombre, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad.",
           "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "El nombre del grupo no puede estar vacío.",
       "no_entities": "Debe seleccionar al menos una entidad.",
       "not_enough_groups_selected": "Seleccione al menos dos grupos para combinar.",
-      "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar."
+      "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar.",
+      "collapse_requires_device_names": "Agrupar entidades por dispositivo requiere que «Mostrar nombres de dispositivo» esté activado."
     },
     "abort": {
       "already_configured": "Ya existe un grupo con este nombre.",
@@ -98,6 +101,7 @@
           "availability_windows": "Ventanas de seguimiento de disponibilidad",
           "recovery_window": "Ventana de recuperación (minutos)",
           "use_device_names": "Mostrar nombres de dispositivo",
+          "collapse_devices": "Agrupar entidades por dispositivo",
           "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad",
           "signal_enabled": "Habilitar monitoreo de intensidad de señal"
         },
@@ -110,6 +114,7 @@
           "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
           "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
+          "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nombre, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad.",
           "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable).",
           "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
           "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
@@ -131,6 +136,10 @@
         "title": "Mapeo de Intensidad de Señal",
         "description": "Para cada entidad, selecciona opcionalmente un sensor de señal y elige el tipo de red. Deja el sensor vacío para omitir.\n\nUmbrales (bueno / regular / deficiente):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mayor es mejor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar.",
+      "collapse_requires_device_names": "Agrupar entidades por dispositivo requiere que «Mostrar nombres de dispositivo» esté activado."
     }
   },
   "entity": {
