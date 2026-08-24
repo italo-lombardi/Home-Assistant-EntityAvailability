@@ -68,6 +68,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC70 combined_summary groups dict has no non_essential_entities list per group entry
   EC71 combined_summary low_battery_entities_non_essential present in live state (was recorded bug)
 
+  EC77 combined_summary row_entity_ids attr present and is a dict
+  EC78 row_entity_ids values are valid real entity_ids (no synthetic keys)
+  EC79 combined_summary entities_collapsed entries covered by display_names
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -3348,6 +3352,53 @@ for e in cfg['data']['entries']:
                 offline_count,
                 len(offline_list),
                 f"count={offline_count} list={offline_list}",
+            )
+
+    # ------------------------------------------------------------------
+    # EC77-EC79: combined smart dedup / row_entity_ids (PR#84)
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (77, 78, 79)) and combined_prefix:
+        print(
+            "\n=== EC77-EC79: combined smart dedup / row_entity_ids (PR#84) ===",
+            flush=True,
+        )
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+
+        if ec_enabled(77):
+            chk(
+                "EC77 combined_summary row_entity_ids present",
+                "row_entity_ids" in c_attrs,
+                True,
+                f"attrs keys (sample)={list(c_attrs.keys())[:15]}",
+            )
+            chk(
+                "EC77 combined_summary row_entity_ids is dict",
+                isinstance(c_attrs.get("row_entity_ids"), dict),
+                True,
+                f"type={type(c_attrs.get('row_entity_ids')).__name__}",
+            )
+
+        if ec_enabled(78):
+            row_entity_ids = c_attrs.get("row_entity_ids") or {}
+            # All values must be real HA entity_ids (contain exactly one dot,
+            # no "::" separator that synthetic keys use).
+            bad = [v for v in row_entity_ids.values() if "::" in str(v)]
+            chk(
+                "EC78 row_entity_ids values are real entity_ids (no synthetic keys)",
+                len(bad),
+                0,
+                f"bad values={bad[:5]}",
+            )
+
+        if ec_enabled(79):
+            collapsed = c_attrs.get("entities_collapsed") or []
+            display_names = c_attrs.get("display_names") or {}
+            missing = [rk for rk in collapsed if rk not in display_names]
+            chk(
+                "EC79 all entities_collapsed rows have a display_names entry",
+                len(missing),
+                0,
+                f"missing={missing[:5]}",
             )
 
     # ------------------------------------------------------------------

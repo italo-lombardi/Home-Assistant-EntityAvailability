@@ -767,6 +767,7 @@ class EntityAvailabilityCard extends LitElement {
       const staleEntitiesNonEssential = attrs.stale_entities_non_essential || [];
       const lowBatteryEntities = attrs.low_battery_entities || [];
       const displayNames = attrs.display_names || {};
+      const rowEntityIds = attrs.row_entity_ids || {};
       const batteryLevels = attrs.battery_levels || {};
       const signalLevels = attrs.signal_levels || {};
       const signalUnits = attrs.signal_units || {};
@@ -803,7 +804,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
           ${this._config.show_groups !== false ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
-          ${this._config.show_entities !== false ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true) : nothing}
+          ${this._config.show_entities !== false ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(rowEntityIds[e] || e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true, rowEntityIds) : nothing}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -1007,10 +1008,10 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], batteryEnabled = false, signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = [], iconMode = false) {
+  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], batteryEnabled = false, signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = [], iconMode = false, rowEntityIds = {}) {
     if (entities.length === 0 && total === 0) return nothing;
 
-    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities);
+    const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, rowEntityIds);
     const filter = this._config.entity_filter || "all";
     const showNE = this._config.show_non_essential_stats === true;
     const items = filter === "offline"
@@ -1212,19 +1213,20 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = []) {
-    const items = entities.map((entityId) => {
+  _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = [], rowEntityIds = {}) {
+    const items = entities.map((rowKey) => {
+      const entityId = rowEntityIds[rowKey] || rowKey;
       const state = this.hass.states[entityId];
-      const friendlyName = displayNames[entityId] || state?.attributes?.friendly_name || entityId.split(".").pop();
+      const friendlyName = displayNames[rowKey] || state?.attributes?.friendly_name || entityId.split(".").pop();
       const monitoredOfflineEntities = this._getOfflineEntityIds();
       const isOffline = monitoredOfflineEntities.includes(entityId) || nonEssentialOfflineEntities.includes(entityId);
       const isStale = staleEntities.includes(entityId) || staleEntitiesNonEssential.includes(entityId);
-      const isSuppressed = entityId in suppressedUntil;
+      const isSuppressed = rowKey in suppressedUntil || entityId in suppressedUntil;
       const isNonEssential = nonEssentialEntities.includes(entityId);
-      const battery = batteryLevels[entityId] ?? null;
+      const battery = batteryLevels[rowKey] ?? batteryLevels[entityId] ?? null;
       const isLowBattery = lowBatteryEntities.includes(entityId);
-      const signalLevel = signalEnabled ? (signalLevels[entityId] ?? null) : null;
-      const signalUnit = signalEnabled ? (signalUnits[entityId] ?? "") : null;
+      const signalLevel = signalEnabled ? (signalLevels[rowKey] ?? signalLevels[entityId] ?? null) : null;
+      const signalUnit = signalEnabled ? (signalUnits[rowKey] ?? signalUnits[entityId] ?? "") : null;
       const isPoorSignal = signalEnabled && poorSignalEntities.includes(entityId);
       const isOkSignal = signalEnabled && okSignalEntities.includes(entityId);
 
@@ -1236,7 +1238,7 @@ class EntityAvailabilityCard extends LitElement {
         status = "Suppressed";
       } else if (isOffline) {
         dotColor = "red";
-        const since = offlineSince[entityId];
+        const since = offlineSince[rowKey] || offlineSince[entityId];
         if (since) {
           const diff = Date.now() - new Date(since).getTime();
           const minutes = Math.floor(diff / 60000);

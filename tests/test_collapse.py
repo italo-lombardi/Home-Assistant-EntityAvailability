@@ -420,6 +420,7 @@ def _make_group_coord(
     states: dict[str, DeviceState],
     *,
     collapse: bool = True,
+    use_device_names: bool = True,
 ) -> EntityAvailabilityCoordinator:
     """Build a group coordinator under its own config entry (collapse-on by default)."""
     if hass.config_entries.async_get_entry(entry_id) is None:
@@ -432,7 +433,7 @@ def _make_group_coord(
                 CONF_ENTITIES: list(states),
                 CONF_BAD_STATES: DEFAULT_BAD_STATES,
                 CONF_COLLAPSE_DEVICES: collapse,
-                CONF_USE_DEVICE_NAMES: True,
+                CONF_USE_DEVICE_NAMES: use_device_names,
             },
         ).add_to_hass(hass)
     entry = hass.config_entries.async_get_entry(entry_id)
@@ -525,9 +526,10 @@ class TestCombinedReCollapse:
         assert attrs["stale"] == 1
 
     def test_mixed_toggle_partial_collapse(self, mock_hass):
-        # Same physical device, two entities each: group A (collapse ON) has two,
-        # group B (collapse OFF) has two. A's pair collapses to 1; B's pair stays 2.
-        # Combined shows 3 rows for one device (per-group intent honored).
+        # Group A has use_device_names=True (auto-collapses in combined view).
+        # Group B has use_device_names=False (no collapse — each entity its own row).
+        # Same physical device: A has two entities (collapse to 1), B has two (stay 2).
+        # Combined shows 3 rows total (1 from A + 2 from B).
         for suffix in ("a1", "a2", "b1", "b2"):
             _register_entity(mock_hass, f"binary_sensor.mt_{suffix}", "mtdev")
         coord_a = _make_group_coord(
@@ -541,7 +543,7 @@ class TestCombinedReCollapse:
                     entity_id="binary_sensor.mt_a2", is_offline=True
                 ),
             },
-            collapse=True,
+            use_device_names=True,
         )
         coord_b = _make_group_coord(
             mock_hass,
@@ -554,7 +556,7 @@ class TestCombinedReCollapse:
                     entity_id="binary_sensor.mt_b2", is_offline=True
                 ),
             },
-            collapse=False,
+            use_device_names=False,
         )
         mock_hass.data[DOMAIN] = {"grp_ma": coord_a, "grp_mb": coord_b}
         combined_entry = MockConfigEntry(
@@ -568,10 +570,121 @@ class TestCombinedReCollapse:
             ["grp_ma", "grp_mb"],
         )
         attrs = summary.extra_state_attributes
-        # A's 2 collapse to 1; B's 2 stay separate -> 3 offline rows, not 1, not 4.
+        # A's 2 collapse to 1 (use_device_names=True); B's 2 stay separate -> 3 rows.
         assert attrs["offline"] == 3
         assert len(attrs["entities_collapsed"]) == 3
         assert summary.native_value == 3
+
+
+class TestCombinedSmartDedup:
+    """Same entity_id in multiple groups: merge when config identical, separate rows when different."""
+
+    def test_same_entity_same_config_merges(self, mock_hass):
+        # entity E in both groups with identical config -> one row, counted once.
+        _register_entity(mock_hass, "binary_sensor.shared", None)
+        states = {
+            "binary_sensor.shared": DeviceState(
+                entity_id="binary_sensor.shared", is_offline=True
+            )
+        }
+        coord_a = _make_group_coord(mock_hass, "grp_sd_a", states)
+        coord_b = _make_group_coord(mock_hass, "grp_sd_b", states)
+        mock_hass.data[DOMAIN] = {"grp_sd_a": coord_a, "grp_sd_b": coord_b}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="combined_sd", title="Combined SD"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass,
+            combined_entry,
+            "Combined SD",
+            "combined_sd",
+            ["grp_sd_a", "grp_sd_b"],
+        )
+        assert count.native_value == 1
+
+    def test_same_entity_different_bad_states_keeps_separate(self, mock_hass):
+        # Same entity_id but group A treats "unavailable" as offline, group B doesn't.
+        # Different bad_states -> separate rows -> counted twice.
+        _register_entity(mock_hass, "binary_sensor.diff_bs", None)
+        d = DeviceState(entity_id="binary_sensor.diff_bs", is_offline=True)
+        if mock_hass.config_entries.async_get_entry("grp_bs_a") is None:
+            MockConfigEntry(
+                domain=DOMAIN,
+                entry_id="grp_bs_a",
+                title="grp_bs_a",
+                data={
+                    CONF_GROUP_NAME: "grp_bs_a",
+                    CONF_ENTITIES: ["binary_sensor.diff_bs"],
+                    CONF_BAD_STATES: ["unavailable", "unknown"],
+                    CONF_COLLAPSE_DEVICES: False,
+                    CONF_USE_DEVICE_NAMES: False,
+                },
+            ).add_to_hass(mock_hass)
+        if mock_hass.config_entries.async_get_entry("grp_bs_b") is None:
+            MockConfigEntry(
+                domain=DOMAIN,
+                entry_id="grp_bs_b",
+                title="grp_bs_b",
+                data={
+                    CONF_GROUP_NAME: "grp_bs_b",
+                    CONF_ENTITIES: ["binary_sensor.diff_bs"],
+                    CONF_BAD_STATES: ["unavailable"],  # different
+                    CONF_COLLAPSE_DEVICES: False,
+                    CONF_USE_DEVICE_NAMES: False,
+                },
+            ).add_to_hass(mock_hass)
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(
+                mock_hass, mock_hass.config_entries.async_get_entry("grp_bs_a")
+            )
+            coord_b = EntityAvailabilityCoordinator(
+                mock_hass, mock_hass.config_entries.async_get_entry("grp_bs_b")
+            )
+        coord_a._device_states = {"binary_sensor.diff_bs": d}
+        coord_a._entities = ["binary_sensor.diff_bs"]
+        coord_b._device_states = {"binary_sensor.diff_bs": d}
+        coord_b._entities = ["binary_sensor.diff_bs"]
+        mock_hass.data[DOMAIN] = {"grp_bs_a": coord_a, "grp_bs_b": coord_b}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="combined_bs", title="Combined BS"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass,
+            combined_entry,
+            "Combined BS",
+            "combined_bs",
+            ["grp_bs_a", "grp_bs_b"],
+        )
+        assert count.native_value == 2
+
+    def test_same_entity_different_use_device_names_keeps_separate(self, mock_hass):
+        # Same entity_id: group A has use_device_names=True, group B has False.
+        # Different config -> 2 separate rows in combined view.
+        _register_entity(mock_hass, "binary_sensor.udn_diff", None)
+        d = DeviceState(entity_id="binary_sensor.udn_diff", is_offline=True)
+        coord_a = _make_group_coord(
+            mock_hass, "grp_udn_a", {"binary_sensor.udn_diff": d}, use_device_names=True
+        )
+        coord_b = _make_group_coord(
+            mock_hass,
+            "grp_udn_b",
+            {"binary_sensor.udn_diff": d},
+            use_device_names=False,
+        )
+        mock_hass.data[DOMAIN] = {"grp_udn_a": coord_a, "grp_udn_b": coord_b}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="combined_udn", title="Combined UDN"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass,
+            combined_entry,
+            "Combined UDN",
+            "combined_udn",
+            ["grp_udn_a", "grp_udn_b"],
+        )
+        assert count.native_value == 2
 
 
 class TestOnlineWithSuppressedSibling:

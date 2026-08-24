@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.5.0] - 2026-08-14
+## [0.5.0] - 2026-08-26
 
 ### ⚠️ Breaking
 
@@ -15,6 +15,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **"Collapse entities by device" group option** — counts several entities of the same physical device as one across all sensor values, lists and events. Needs **Show device names** on; entities not tied to a device are never merged. Available when creating a group and in its Options. Translated into all supported languages. (#81)
+- **Combined groups: smart entity dedup and auto-collapse** — two automatic behaviours replace the need for a separate combined collapse toggle (#84):
+  - *Smart dedup*: the same entity in multiple source groups is counted once when all groups share identical configuration (battery sensor, signal sensor, non-essential flag, offline states). If any group differs, each group's interpretation appears as its own row so no monitoring signal is silently dropped.
+  - *Auto-collapse by device key*: entities from source groups that have **Show device names** enabled are automatically collapsed by physical device in the combined view — no extra toggle required. Groups without Show device names keep their entities as individual rows.
 
 ### Changed
 - **Combined groups** count a device once even when its entities are spread across several included groups. Each group's own setting is respected — entities from a group without the option stay separate.
