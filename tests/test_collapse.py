@@ -878,3 +878,42 @@ class TestCombinedOwnToggle:
         )
         attrs = summary.extra_state_attributes
         assert attrs["offline"] == 2  # gate not satisfied -> no collapse
+
+    def test_combined_toggle_collapses_when_only_one_child_has_device_names(
+        self, mock_hass
+    ):
+        # Gate requires "any" child with use_device_names — one child ON, one OFF
+        # is sufficient. Combined toggle ON -> should collapse.
+        _register_entity(mock_hass, "binary_sensor.hd_a", "hddev")
+        _register_entity(mock_hass, "binary_sensor.hd_b", "hddev")
+        a = _make_group_coord(
+            mock_hass,
+            "grp_hda",
+            {
+                "binary_sensor.hd_a": DeviceState(
+                    entity_id="binary_sensor.hd_a", is_offline=True
+                )
+            },
+            collapse=False,
+            use_device_names=True,
+        )
+        b = _make_group_coord(
+            mock_hass,
+            "grp_hdb",
+            {
+                "binary_sensor.hd_b": DeviceState(
+                    entity_id="binary_sensor.hd_b", is_offline=True
+                )
+            },
+            collapse=False,
+            use_device_names=False,
+        )
+        mock_hass.data[DOMAIN] = {"grp_hda": a, "grp_hdb": b}
+        entry = _combined_entry("comb_halfdn", collapse=True)
+        summary = CombinedGroupSensor(
+            mock_hass, entry, "comb_halfdn", "comb_halfdn", ["grp_hda", "grp_hdb"]
+        )
+        attrs = summary.extra_state_attributes
+        # One child has device names -> gate satisfied -> combined toggle collapses both.
+        assert attrs["offline"] == 1
+        assert summary.native_value == 1

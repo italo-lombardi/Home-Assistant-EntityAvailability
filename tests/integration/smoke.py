@@ -75,6 +75,9 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC75 entities_collapsed never larger than entities, and is a subset (representatives)
   EC76 offline_count == len(collapsed offline_entities) — count==rows invariant
 
+  Combined own-collapse toggle (EC77 — PR#82):
+  EC77 combined diagnostics config exposes collapse_devices (combined entry has own toggle)
+
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
   EC26 NE entity offline → offline_count_non_essential increments
@@ -3349,6 +3352,43 @@ for e in cfg['data']['entries']:
                 len(offline_list),
                 f"count={offline_count} list={offline_list}",
             )
+
+    # EC77: combined own-collapse toggle — diagnostics exposes collapse_devices (PR#82)
+    if ec_enabled(77) and combined_prefix:
+        print(
+            "\n=== EC77: combined own-collapse toggle (PR#82) ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        try:
+            entries = api("GET", "/api/config/config_entries/entry")
+            combined_entry = next(
+                (
+                    e
+                    for e in entries
+                    if e["domain"] == "entity_availability"
+                    and "combined" in e["title"].lower()
+                ),
+                None,
+            )
+            combined_entry_id = combined_entry["entry_id"] if combined_entry else ""
+            if combined_entry_id:
+                raw = api(
+                    "GET",
+                    f"/api/diagnostics/config_entry/{combined_entry_id}",
+                )
+                # combined diagnostics returns collapse_devices at top level (not under config)
+                diag = raw.get("data", raw)
+                chk(
+                    "EC77 combined diagnostics exposes collapse_devices",
+                    "collapse_devices" in diag,
+                    True,
+                    f"combined diag keys={list(diag.keys())}",
+                )
+            else:
+                print("EC77 SKIP no combined entry found", flush=True)
+        except Exception as e:
+            chk("EC77 combined diagnostics reachable", False, True, str(e))
 
     # ------------------------------------------------------------------
     restore_all(ctx)
