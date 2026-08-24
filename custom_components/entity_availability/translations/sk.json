@@ -30,7 +30,7 @@
           "collapse_devices": "Zlúčiť entity podľa zariadenia"
         },
         "data_description": {
-          "collapse_devices": "Funguje iba vtedy, keď má aspoň jedna zahrnutá skupina zapnuté „Zobrazovať názvy zariadení“. Keď je zapnuté, viac entít toho istého fyzického zariadenia sa v kombinovanom zobrazení počíta ako jedna — aj pri zahrnutých skupinách, ktoré sa samy nezlučujú. Dostupnosť %, MTBF a MTTR zostávajú na úrovni entity."
+          "collapse_devices": "Keď je vypnuté (predvolené), zlúčenie v kombinovanom zobrazení riadi vlastné nastavenie každej zahrnutej skupiny — skupiny so zapnutým zlúčením budú naďalej spájať entity rovnakého zariadenia aj tu. Keď je zapnuté, vynúti zlúčenie pre všetky entity v kombinovanom zobrazení bez ohľadu na nastavenia jednotlivých skupín. Vyžaduje aspoň jednu zahrnutú skupinu so zapnutou voľbou „Zobrazovať názvy zariadení”. Dostupnosť %, MTBF a MTTR zostávajú na úrovni entity."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Zlúčiť entity podľa zariadenia"
         },
         "data_description": {
-          "collapse_devices": "Funguje iba vtedy, keď má aspoň jedna zahrnutá skupina zapnuté „Zobrazovať názvy zariadení“. Keď je zapnuté, viac entít toho istého fyzického zariadenia sa v kombinovanom zobrazení počíta ako jedna — aj pri zahrnutých skupinách, ktoré sa samy nezlučujú. Dostupnosť %, MTBF a MTTR zostávajú na úrovni entity."
+          "collapse_devices": "Keď je vypnuté (predvolené), zlúčenie v kombinovanom zobrazení riadi vlastné nastavenie každej zahrnutej skupiny — skupiny so zapnutým zlúčením budú naďalej spájať entity rovnakého zariadenia aj tu. Keď je zapnuté, vynúti zlúčenie pre všetky entity v kombinovanom zobrazení bez ohľadu na nastavenia jednotlivých skupín. Vyžaduje aspoň jednu zahrnutú skupinu so zapnutou voľbou „Zobrazovať názvy zariadení”. Dostupnosť %, MTBF a MTTR zostávajú na úrovni entity."
         }
       },
       "battery_mapping": {

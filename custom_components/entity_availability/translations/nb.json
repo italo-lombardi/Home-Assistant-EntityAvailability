@@ -30,7 +30,7 @@
           "collapse_devices": "Slå sammen entiteter per enhet"
         },
         "data_description": {
-          "collapse_devices": "Fungerer bare når minst én inkludert gruppe har «Vis enhetsnavn» aktivert. Når det er på, telles flere entiteter på samme fysiske enhet som én i hele den kombinerte visningen — også for inkluderte grupper som ikke slår sammen på egen hånd. Tilgjengelighet %, MTBF og MTTR forblir per entitet."
+          "collapse_devices": "Når slått av (standard), styrer hver inkludert gruppes egen sammenslåingsinnstilling den kombinerte visningen — grupper med sammenslåing aktivert vil fortsatt slå sammen entiteter fra samme fysiske enhet her. Når slått på, tvinger sammenslåing for alle entiteter i den kombinerte visningen uavhengig av individuelle gruppeinnstillinger. Krever at minst én inkludert gruppe har «Vis enhetsnavn» aktivert. Tilgjengelighet %, MTBF og MTTR forblir per entitet."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Slå sammen entiteter per enhet"
         },
         "data_description": {
-          "collapse_devices": "Fungerer bare når minst én inkludert gruppe har «Vis enhetsnavn» aktivert. Når det er på, telles flere entiteter på samme fysiske enhet som én i hele den kombinerte visningen — også for inkluderte grupper som ikke slår sammen på egen hånd. Tilgjengelighet %, MTBF og MTTR forblir per entitet."
+          "collapse_devices": "Når slått av (standard), styrer hver inkludert gruppes egen sammenslåingsinnstilling den kombinerte visningen — grupper med sammenslåing aktivert vil fortsatt slå sammen entiteter fra samme fysiske enhet her. Når slått på, tvinger sammenslåing for alle entiteter i den kombinerte visningen uavhengig av individuelle gruppeinnstillinger. Krever at minst én inkludert gruppe har «Vis enhetsnavn» aktivert. Tilgjengelighet %, MTBF og MTTR forblir per entitet."
         }
       },
       "battery_mapping": {

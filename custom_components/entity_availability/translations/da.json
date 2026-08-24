@@ -30,7 +30,7 @@
           "collapse_devices": "Saml entiteter efter enhed"
         },
         "data_description": {
-          "collapse_devices": "Virker kun, når mindst én inkluderet gruppe har „Vis enhedsnavne“ aktiveret. Når det er slået til, tælles flere entiteter på samme fysiske enhed som én på tværs af den kombinerede visning — også for inkluderede grupper, der ikke samler af sig selv. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet."
+          "collapse_devices": "Når slået fra (standard), styrer hver inkluderet gruppes egne samlingsindstillinger den kombinerede visning — grupper med samling aktiveret vil stadig slå entiteter af samme enhed sammen her. Når slået til, tvinges samling på tværs af alle entiteter i den kombinerede visning, uanset individuelle gruppeindstillinger. Kræver mindst én inkluderet gruppe med „Vis enhedsnavne“ aktiveret. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet."
         }
       },
       "monitoring": {
@@ -134,7 +134,7 @@
           "collapse_devices": "Saml entiteter efter enhed"
         },
         "data_description": {
-          "collapse_devices": "Virker kun, når mindst én inkluderet gruppe har „Vis enhedsnavne“ aktiveret. Når det er slået til, tælles flere entiteter på samme fysiske enhed som én på tværs af den kombinerede visning — også for inkluderede grupper, der ikke samler af sig selv. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet."
+          "collapse_devices": "Når slået fra (standard), styrer hver inkluderet gruppes egne samlingsindstillinger den kombinerede visning — grupper med samling aktiveret vil stadig slå entiteter af samme enhed sammen her. Når slået til, tvinges samling på tværs af alle entiteter i den kombinerede visning, uanset individuelle gruppeindstillinger. Kræver mindst én inkluderet gruppe med „Vis enhedsnavne“ aktiveret. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet."
         }
       },
       "battery_mapping": {

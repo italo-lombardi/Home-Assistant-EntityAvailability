@@ -30,7 +30,7 @@
           "collapse_devices": "Collapse entities by device"
         },
         "data_description": {
-          "collapse_devices": "Only works when at least one included group has 'Show device names' enabled. When on, multiple entities of the same physical device are counted as one across the combined view — even for included groups that don't collapse on their own. Availability %, MTBF and MTTR stay per-entity."
+          "collapse_devices": "When off (default), each included group's own collapse setting drives the combined view — groups with collapse on will still merge same-device entities here. When on, forces collapse across all entities in the combined view regardless of individual group settings. Requires at least one included group with 'Show device names' enabled. Availability %, MTBF and MTTR stay per-entity."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Collapse entities by device"
         },
         "data_description": {
-          "collapse_devices": "Only works when at least one included group has 'Show device names' enabled. When on, multiple entities of the same physical device are counted as one across the combined view — even for included groups that don't collapse on their own. Availability %, MTBF and MTTR stay per-entity."
+          "collapse_devices": "When off (default), each included group's own collapse setting drives the combined view — groups with collapse on will still merge same-device entities here. When on, forces collapse across all entities in the combined view regardless of individual group settings. Requires at least one included group with 'Show device names' enabled. Availability %, MTBF and MTTR stay per-entity."
         }
       },
       "battery_mapping": {

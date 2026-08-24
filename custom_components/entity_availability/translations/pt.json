@@ -30,7 +30,7 @@
           "collapse_devices": "Agrupar entidades por dispositivo"
         },
         "data_description": {
-          "collapse_devices": "Só funciona quando pelo menos um grupo incluído tem «Mostrar nomes de dispositivo» ativado. Quando ativado, várias entidades do mesmo dispositivo físico são contadas como uma em toda a vista combinada — mesmo para grupos incluídos que não se agrupam por si próprios. A disponibilidade %, o MTBF e o MTTR permanecem por entidade."
+          "collapse_devices": "Quando desativado (predefinição), a definição de agrupamento de cada grupo incluído controla a vista combinada — os grupos com agrupamento ativo continuarão a agregar entidades do mesmo dispositivo aqui. Quando ativado, força o agrupamento em todas as entidades da vista combinada, independentemente das definições individuais de cada grupo. Requer pelo menos um grupo incluído com «Mostrar nomes de dispositivo» ativado. A disponibilidade %, o MTBF e o MTTR permanecem por entidade."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Agrupar entidades por dispositivo"
         },
         "data_description": {
-          "collapse_devices": "Só funciona quando pelo menos um grupo incluído tem «Mostrar nomes de dispositivo» ativado. Quando ativado, várias entidades do mesmo dispositivo físico são contadas como uma em toda a vista combinada — mesmo para grupos incluídos que não se agrupam por si próprios. A disponibilidade %, o MTBF e o MTTR permanecem por entidade."
+          "collapse_devices": "Quando desativado (predefinição), a definição de agrupamento de cada grupo incluído controla a vista combinada — os grupos com agrupamento ativo continuarão a agregar entidades do mesmo dispositivo aqui. Quando ativado, força o agrupamento em todas as entidades da vista combinada, independentemente das definições individuais de cada grupo. Requer pelo menos um grupo incluído com «Mostrar nomes de dispositivo» ativado. A disponibilidade %, o MTBF e o MTTR permanecem por entidade."
         }
       },
       "battery_mapping": {

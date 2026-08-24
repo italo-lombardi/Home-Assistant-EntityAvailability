@@ -30,7 +30,7 @@
           "collapse_devices": "Agrupar entidades por dispositivo"
         },
         "data_description": {
-          "collapse_devices": "Solo funciona cuando al menos un grupo incluido tiene activado «Mostrar nombres de dispositivo». Cuando está activado, varias entidades del mismo dispositivo físico se cuentan como una en toda la vista combinada, incluso para los grupos incluidos que no se agrupan por sí solos. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad."
+          "collapse_devices": "Cuando está desactivado (predeterminado), la configuración de agrupación propia de cada grupo incluido controla la vista combinada — los grupos con agrupación activada seguirán combinando entidades del mismo dispositivo aquí. Cuando está activado, fuerza la agrupación en todas las entidades de la vista combinada independientemente de la configuración de cada grupo. Requiere al menos un grupo incluido con «Mostrar nombres de dispositivo» habilitado. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Agrupar entidades por dispositivo"
         },
         "data_description": {
-          "collapse_devices": "Solo funciona cuando al menos un grupo incluido tiene activado «Mostrar nombres de dispositivo». Cuando está activado, varias entidades del mismo dispositivo físico se cuentan como una en toda la vista combinada, incluso para los grupos incluidos que no se agrupan por sí solos. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad."
+          "collapse_devices": "Cuando está desactivado (predeterminado), la configuración de agrupación propia de cada grupo incluido controla la vista combinada — los grupos con agrupación activada seguirán combinando entidades del mismo dispositivo aquí. Cuando está activado, fuerza la agrupación en todas las entidades de la vista combinada independientemente de la configuración de cada grupo. Requiere al menos un grupo incluido con «Mostrar nombres de dispositivo» habilitado. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad."
         }
       },
       "battery_mapping": {

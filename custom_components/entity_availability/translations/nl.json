@@ -30,7 +30,7 @@
           "collapse_devices": "Entiteiten samenvoegen per apparaat"
         },
         "data_description": {
-          "collapse_devices": "Werkt alleen wanneer ten minste één opgenomen groep 'Apparaatnamen tonen' heeft ingeschakeld. Wanneer ingeschakeld, worden meerdere entiteiten van hetzelfde fysieke apparaat als één geteld in de gecombineerde weergave — zelfs voor opgenomen groepen die zichzelf niet samenvoegen. Beschikbaarheid %, MTBF en MTTR blijven per entiteit."
+          "collapse_devices": "Wanneer uitgeschakeld (standaard), bepaalt de eigen samenvoeginstelling van elke opgenomen groep de gecombineerde weergave — groepen met samenvoegen ingeschakeld voegen ook hier entiteiten van hetzelfde apparaat samen. Wanneer ingeschakeld, wordt samenvoegen afgedwongen voor alle entiteiten in de gecombineerde weergave, ongeacht de individuele groepsinstellingen. Vereist ten minste één opgenomen groep met 'Apparaatnamen tonen' ingeschakeld. Beschikbaarheid %, MTBF en MTTR blijven per entiteit."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Entiteiten samenvoegen per apparaat"
         },
         "data_description": {
-          "collapse_devices": "Werkt alleen wanneer ten minste één opgenomen groep 'Apparaatnamen tonen' heeft ingeschakeld. Wanneer ingeschakeld, worden meerdere entiteiten van hetzelfde fysieke apparaat als één geteld in de gecombineerde weergave — zelfs voor opgenomen groepen die zichzelf niet samenvoegen. Beschikbaarheid %, MTBF en MTTR blijven per entiteit."
+          "collapse_devices": "Wanneer uitgeschakeld (standaard), bepaalt de eigen samenvoeginstelling van elke opgenomen groep de gecombineerde weergave — groepen met samenvoegen ingeschakeld voegen ook hier entiteiten van hetzelfde apparaat samen. Wanneer ingeschakeld, wordt samenvoegen afgedwongen voor alle entiteiten in de gecombineerde weergave, ongeacht de individuele groepsinstellingen. Vereist ten minste één opgenomen groep met 'Apparaatnamen tonen' ingeschakeld. Beschikbaarheid %, MTBF en MTTR blijven per entiteit."
         }
       },
       "battery_mapping": {

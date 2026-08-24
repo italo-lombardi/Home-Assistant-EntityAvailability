@@ -30,7 +30,7 @@
           "collapse_devices": "Raggruppa entità per dispositivo"
         },
         "data_description": {
-          "collapse_devices": "Funziona solo quando almeno un gruppo incluso ha «Mostra nomi dispositivo» attivato. Quando è attivo, più entità dello stesso dispositivo fisico vengono conteggiate come una sola nell'intera vista combinata, anche per i gruppi inclusi che non si raggruppano da soli. La disponibilità %, l'MTBF e l'MTTR restano per entità."
+          "collapse_devices": "Quando disattivato (predefinito), il raggruppamento di ciascun gruppo incluso determina la vista combinata — i gruppi con il raggruppamento attivo uniranno comunque le entità dello stesso dispositivo qui. Quando attivo, forza il raggruppamento su tutte le entità nella vista combinata indipendentemente dalle impostazioni dei singoli gruppi. Richiede almeno un gruppo incluso con «Mostra nomi dispositivo» abilitato. Disponibilità %, MTBF e MTTR restano per entità."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Raggruppa entità per dispositivo"
         },
         "data_description": {
-          "collapse_devices": "Funziona solo quando almeno un gruppo incluso ha «Mostra nomi dispositivo» attivato. Quando è attivo, più entità dello stesso dispositivo fisico vengono conteggiate come una sola nell'intera vista combinata, anche per i gruppi inclusi che non si raggruppano da soli. La disponibilità %, l'MTBF e l'MTTR restano per entità."
+          "collapse_devices": "Quando disattivato (predefinito), il raggruppamento di ciascun gruppo incluso determina la vista combinata — i gruppi con il raggruppamento attivo uniranno comunque le entità dello stesso dispositivo qui. Quando attivo, forza il raggruppamento su tutte le entità nella vista combinata indipendentemente dalle impostazioni dei singoli gruppi. Richiede almeno un gruppo incluso con «Mostra nomi dispositivo» abilitato. Disponibilità %, MTBF e MTTR restano per entità."
         }
       },
       "battery_mapping": {

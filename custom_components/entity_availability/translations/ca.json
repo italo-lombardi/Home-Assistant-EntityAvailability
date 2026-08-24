@@ -30,7 +30,7 @@
           "collapse_devices": "Agrupa les entitats per dispositiu"
         },
         "data_description": {
-          "collapse_devices": "Només funciona quan almenys un grup inclòs té activat «Mostra els noms del dispositiu». Quan està activat, diverses entitats del mateix dispositiu físic es compten com una sola a la vista combinada, fins i tot per a grups inclosos que no s'agrupen pel seu compte. La disponibilitat %, el MTBF i el MTTR es mantenen per entitat."
+          "collapse_devices": "Quan està desactivat (per defecte), la configuració d'agrupació pròpia de cada grup inclòs governa la vista combinada — els grups amb l'agrupació activada continuaran combinant entitats del mateix dispositiu aquí. Quan està activat, força l'agrupació a totes les entitats de la vista combinada independentment de la configuració de cada grup. Requereix almenys un grup inclòs amb «Mostra els noms del dispositiu» activat. La disponibilitat %, l'MTBF i l'MTTR es mantenen per entitat."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Agrupa les entitats per dispositiu"
         },
         "data_description": {
-          "collapse_devices": "Només funciona quan almenys un grup inclòs té activat «Mostra els noms del dispositiu». Quan està activat, diverses entitats del mateix dispositiu físic es compten com una sola a la vista combinada, fins i tot per a grups inclosos que no s'agrupen pel seu compte. La disponibilitat %, el MTBF i el MTTR es mantenen per entitat."
+          "collapse_devices": "Quan està desactivat (per defecte), la configuració d'agrupació pròpia de cada grup inclòs governa la vista combinada — els grups amb l'agrupació activada continuaran combinant entitats del mateix dispositiu aquí. Quan està activat, força l'agrupació a totes les entitats de la vista combinada independentment de la configuració de cada grup. Requereix almenys un grup inclòs amb «Mostra els noms del dispositiu» activat. La disponibilitat %, l'MTBF i l'MTTR es mantenen per entitat."
         }
       },
       "battery_mapping": {

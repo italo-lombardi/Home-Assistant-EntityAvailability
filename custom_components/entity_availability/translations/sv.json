@@ -30,7 +30,7 @@
           "collapse_devices": "Slå ihop entiteter per enhet"
         },
         "data_description": {
-          "collapse_devices": "Fungerar bara när minst en inkluderad grupp har „Visa enhetsnamn“ aktiverat. När det är på räknas flera entiteter på samma fysiska enhet som en i hela den kombinerade vyn — även för inkluderade grupper som inte slår ihop på egen hand. Tillgänglighet %, MTBF och MTTR förblir per entitet."
+          "collapse_devices": "När av (standard) styr varje inkluderad grupps egna komprimerings­inställning den kombinerade vyn — grupper med komprimering aktiverat slår fortfarande ihop entiteter från samma enhet här. När på tvingas komprimering för alla entiteter i den kombinerade vyn oavsett enskilda gruppinställningar. Kräver minst en inkluderad grupp med \"Visa enhetsnamn\" aktiverat. Tillgänglighet %, MTBF och MTTR förblir per entitet."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Slå ihop entiteter per enhet"
         },
         "data_description": {
-          "collapse_devices": "Fungerar bara när minst en inkluderad grupp har „Visa enhetsnamn“ aktiverat. När det är på räknas flera entiteter på samma fysiska enhet som en i hela den kombinerade vyn — även för inkluderade grupper som inte slår ihop på egen hand. Tillgänglighet %, MTBF och MTTR förblir per entitet."
+          "collapse_devices": "När av (standard) styr varje inkluderad grupps egna komprimerings­inställning den kombinerade vyn — grupper med komprimering aktiverat slår fortfarande ihop entiteter från samma enhet här. När på tvingas komprimering för alla entiteter i den kombinerade vyn oavsett enskilda gruppinställningar. Kräver minst en inkluderad grupp med \"Visa enhetsnamn\" aktiverat. Tillgänglighet %, MTBF och MTTR förblir per entitet."
         }
       },
       "battery_mapping": {

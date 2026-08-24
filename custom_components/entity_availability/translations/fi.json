@@ -30,7 +30,7 @@
           "collapse_devices": "Yhdistä entiteetit laitteittain"
         },
         "data_description": {
-          "collapse_devices": "Toimii vain, kun vähintään yhdessä mukaan otetussa ryhmässä on käytössä ”Näytä laitteiden nimet”. Kun tämä on käytössä, saman fyysisen laitteen useat entiteetit lasketaan yhtenä koko yhdistetyssä näkymässä — myös niissä mukaan otetuissa ryhmissä, jotka eivät itse yhdistä. Saatavuus %, MTBF ja MTTR pysyvät entiteettikohtaisina."
+          "collapse_devices": "Kun pois käytöstä (oletus), jokaisen mukaan otetun ryhmän oma yhdistämisasetus ohjaa yhdistettyä näkymää — ryhmät, joissa yhdistäminen on päällä, yhdistävät edelleen saman laitteen entiteetit tässä. Kun päällä, pakottaa yhdistämisen kaikkien yhdistetyn näkymän entiteettien yli ryhmäkohtaisista asetuksista riippumatta. Edellyttää vähintään yhtä mukaan otettua ryhmää, jossa \"Näytä laitteiden nimet\" on käytössä. Saatavuus %, MTBF ja MTTR pysyvät entiteettikohtaisina."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Yhdistä entiteetit laitteittain"
         },
         "data_description": {
-          "collapse_devices": "Toimii vain, kun vähintään yhdessä mukaan otetussa ryhmässä on käytössä ”Näytä laitteiden nimet”. Kun tämä on käytössä, saman fyysisen laitteen useat entiteetit lasketaan yhtenä koko yhdistetyssä näkymässä — myös niissä mukaan otetuissa ryhmissä, jotka eivät itse yhdistä. Saatavuus %, MTBF ja MTTR pysyvät entiteettikohtaisina."
+          "collapse_devices": "Kun pois käytöstä (oletus), jokaisen mukaan otetun ryhmän oma yhdistämisasetus ohjaa yhdistettyä näkymää — ryhmät, joissa yhdistäminen on päällä, yhdistävät edelleen saman laitteen entiteetit tässä. Kun päällä, pakottaa yhdistämisen kaikkien yhdistetyn näkymän entiteettien yli ryhmäkohtaisista asetuksista riippumatta. Edellyttää vähintään yhtä mukaan otettua ryhmää, jossa \"Näytä laitteiden nimet\" on käytössä. Saatavuus %, MTBF ja MTTR pysyvät entiteettikohtaisina."
         }
       },
       "battery_mapping": {

@@ -30,7 +30,7 @@
           "collapse_devices": "Entitások összevonása eszközönként"
         },
         "data_description": {
-          "collapse_devices": "Csak akkor működik, ha legalább egy bevont csoportnál engedélyezve van az „Eszköznevek megjelenítése”. Bekapcsolva ugyanazon fizikai eszköz több entitása egynek számít a kombinált nézetben — még az olyan bevont csoportok esetén is, amelyek maguktól nem vonják össze. A rendelkezésre állás %, az MTBF és az MTTR entitásonként marad."
+          "collapse_devices": "Ha ki van kapcsolva (alapértelmezett), minden egyes beillesztett csoport saját összecsukási beállítása vezérli az összesített nézetet — az összecsukást bekapcsolt csoportok itt is egyesítik az azonos eszközökhöz tartozó entitásokat. Ha be van kapcsolva, az összesített nézet összes entitásán keresztül kényszeríti az összecsukást, az egyedi csoportbeállításoktól függetlenül. Legalább egy beillesztett csoportnak engedélyezett „Eszköznevek megjelenítése\" beállítással kell rendelkeznie. Az elérhetőség %, az MTBF és az MTTR entitásonként marad."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Entitások összevonása eszközönként"
         },
         "data_description": {
-          "collapse_devices": "Csak akkor működik, ha legalább egy bevont csoportnál engedélyezve van az „Eszköznevek megjelenítése”. Bekapcsolva ugyanazon fizikai eszköz több entitása egynek számít a kombinált nézetben — még az olyan bevont csoportok esetén is, amelyek maguktól nem vonják össze. A rendelkezésre állás %, az MTBF és az MTTR entitásonként marad."
+          "collapse_devices": "Ha ki van kapcsolva (alapértelmezett), minden egyes beillesztett csoport saját összecsukási beállítása vezérli az összesített nézetet — az összecsukást bekapcsolt csoportok itt is egyesítik az azonos eszközökhöz tartozó entitásokat. Ha be van kapcsolva, az összesített nézet összes entitásán keresztül kényszeríti az összecsukást, az egyedi csoportbeállításoktól függetlenül. Legalább egy beillesztett csoportnak engedélyezett „Eszköznevek megjelenítése\" beállítással kell rendelkeznie. Az elérhetőség %, az MTBF és az MTTR entitásonként marad."
         }
       },
       "battery_mapping": {

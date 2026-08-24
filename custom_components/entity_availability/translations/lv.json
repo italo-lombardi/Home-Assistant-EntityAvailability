@@ -30,7 +30,7 @@
           "collapse_devices": "Apvienot entitātes pēc ierīces"
         },
         "data_description": {
-          "collapse_devices": "Darbojas tikai tad, ja vismaz vienā iekļautajā grupā ir iespējots “Rādīt ierīces nosaukumus”. Kad ieslēgts, vairākas viena un tā paša fiziskā ierīces entītijas visā apvienotajā skatā tiek uzskatītas par vienu — pat iekļautajām grupām, kuras pašas neapvieno. Pieejamība %, MTBF un MTTR paliek uz katru entītiju."
+          "collapse_devices": "Kad izslēgts (noklusējums), katras iekļautās grupas pašas sakļaušanas iestatījums nosaka apvienotā skata uzvedību — grupas ar ieslēgtu sakļaušanu joprojām apvienos viena ierīces entītijas šeit. Kad ieslēgts, piespiedu kārtā sakļauj visas entītijas apvienotajā skatā neatkarīgi no individuālo grupu iestatījumiem. Nepieciešama vismaz viena iekļautā grupa ar iespējotu opciju \"Rādīt ierīces nosaukumus\". Pieejamības %, MTBF un MTTR paliek katrai entītijai atsevišķi."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Apvienot entitātes pēc ierīces"
         },
         "data_description": {
-          "collapse_devices": "Darbojas tikai tad, ja vismaz vienā iekļautajā grupā ir iespējots “Rādīt ierīces nosaukumus”. Kad ieslēgts, vairākas viena un tā paša fiziskā ierīces entītijas visā apvienotajā skatā tiek uzskatītas par vienu — pat iekļautajām grupām, kuras pašas neapvieno. Pieejamība %, MTBF un MTTR paliek uz katru entītiju."
+          "collapse_devices": "Kad izslēgts (noklusējums), katras iekļautās grupas pašas sakļaušanas iestatījums nosaka apvienotā skata uzvedību — grupas ar ieslēgtu sakļaušanu joprojām apvienos viena ierīces entītijas šeit. Kad ieslēgts, piespiedu kārtā sakļauj visas entītijas apvienotajā skatā neatkarīgi no individuālo grupu iestatījumiem. Nepieciešama vismaz viena iekļautā grupa ar iespējotu opciju \"Rādīt ierīces nosaukumus\". Pieejamības %, MTBF un MTTR paliek katrai entītijai atsevišķi."
         }
       },
       "battery_mapping": {

@@ -30,7 +30,7 @@
           "collapse_devices": "Entitäten nach Gerät zusammenfassen"
         },
         "data_description": {
-          "collapse_devices": "Funktioniert nur, wenn mindestens eine einbezogene Gruppe „Gerätenamen anzeigen“ aktiviert hat. Wenn aktiviert, werden mehrere Entitäten desselben physischen Geräts in der kombinierten Ansicht als eine gezählt — auch für einbezogene Gruppen, die selbst nicht zusammenfassen. Verfügbarkeit %, MTBF und MTTR bleiben pro Entität."
+          "collapse_devices": "Wenn deaktiviert (Standard), steuert die eigene Einklapp-Einstellung jeder eingebundenen Gruppe die kombinierte Ansicht – Gruppen mit aktiviertem Einklappen werden hier weiterhin Entitäten desselben Geräts zusammenführen. Wenn aktiviert, wird das Einklappen für alle Entitäten in der kombinierten Ansicht erzwungen, unabhängig von den individuellen Gruppeneinstellungen. Erfordert mindestens eine eingebundene Gruppe mit aktivierter Option „Gerätenamen anzeigen\". Verfügbarkeit %, MTBF und MTTR bleiben pro Entität."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Entitäten nach Gerät zusammenfassen"
         },
         "data_description": {
-          "collapse_devices": "Funktioniert nur, wenn mindestens eine einbezogene Gruppe „Gerätenamen anzeigen“ aktiviert hat. Wenn aktiviert, werden mehrere Entitäten desselben physischen Geräts in der kombinierten Ansicht als eine gezählt — auch für einbezogene Gruppen, die selbst nicht zusammenfassen. Verfügbarkeit %, MTBF und MTTR bleiben pro Entität."
+          "collapse_devices": "Wenn deaktiviert (Standard), steuert die eigene Einklapp-Einstellung jeder eingebundenen Gruppe die kombinierte Ansicht – Gruppen mit aktiviertem Einklappen werden hier weiterhin Entitäten desselben Geräts zusammenführen. Wenn aktiviert, wird das Einklappen für alle Entitäten in der kombinierten Ansicht erzwungen, unabhängig von den individuellen Gruppeneinstellungen. Erfordert mindestens eine eingebundene Gruppe mit aktivierter Option „Gerätenamen anzeigen\". Verfügbarkeit %, MTBF und MTTR bleiben pro Entität."
         }
       },
       "battery_mapping": {

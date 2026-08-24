@@ -30,7 +30,7 @@
           "collapse_devices": "Grupiraj entitete po uređaju"
         },
         "data_description": {
-          "collapse_devices": "Radi samo kada barem jedna uključena grupa ima omogućeno „Prikaži nazive uređaja“. Kada je uključeno, više entiteta istog fizičkog uređaja broji se kao jedan u cijelom kombiniranom prikazu — čak i za uključene grupe koje se same ne grupiraju. Dostupnost %, MTBF i MTTR ostaju po entitetu."
+          "collapse_devices": "Kad je isključeno (zadano), vlastita postavka sažimanja svake uključene grupe upravlja kombiniranim prikazom — grupe s uključenim sažimanjem i dalje će spajati entitete istog uređaja ovdje. Kad je uključeno, prisiljava sažimanje svih entiteta u kombiniranom prikazu bez obzira na postavke pojedinačnih grupa. Zahtijeva barem jednu uključenu grupu s omogućenom opcijom 'Prikaži nazive uređaja'. Dostupnost %, MTBF i MTTR ostaju po entitetu."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Grupiraj entitete po uređaju"
         },
         "data_description": {
-          "collapse_devices": "Radi samo kada barem jedna uključena grupa ima omogućeno „Prikaži nazive uređaja“. Kada je uključeno, više entiteta istog fizičkog uređaja broji se kao jedan u cijelom kombiniranom prikazu — čak i za uključene grupe koje se same ne grupiraju. Dostupnost %, MTBF i MTTR ostaju po entitetu."
+          "collapse_devices": "Kad je isključeno (zadano), vlastita postavka sažimanja svake uključene grupe upravlja kombiniranim prikazom — grupe s uključenim sažimanjem i dalje će spajati entitete istog uređaja ovdje. Kad je uključeno, prisiljava sažimanje svih entiteta u kombiniranom prikazu bez obzira na postavke pojedinačnih grupa. Zahtijeva barem jednu uključenu grupu s omogućenom opcijom 'Prikaži nazive uređaja'. Dostupnost %, MTBF i MTTR ostaju po entitetu."
         }
       },
       "battery_mapping": {

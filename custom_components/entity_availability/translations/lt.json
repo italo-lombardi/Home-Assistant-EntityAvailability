@@ -30,7 +30,7 @@
           "collapse_devices": "Sujungti objektus pagal įrenginį"
         },
         "data_description": {
-          "collapse_devices": "Veikia tik tada, kai bent vienoje įtrauktoje grupėje įjungta „Rodyti įrenginių pavadinimus“. Kai įjungta, keli to paties fizinio įrenginio objektai visame jungtiniame rodinyje skaičiuojami kaip vienas — net ir įtrauktoms grupėms, kurios pačios nesujungia. Prieinamumas %, MTBF ir MTTR lieka pagal objektą."
+          "collapse_devices": "Kai išjungta (numatytoji reikšmė), kiekvienos įtrauktos grupės pačios nustatytas sujungimas valdo jungtinį rodinį — grupės, kuriose sujungimas įjungtas, vis tiek sujungs to paties įrenginio objektus čia. Kai įjungta, priverčia sujungti visus jungtinio rodinio objektus neatsižvelgiant į atskirų grupių nustatymus. Reikalauja, kad bent vienoje įtrauktoje grupėje būtų įjungta „Rodyti įrenginių pavadinimus“. Pasiekiamumas %, MTBF ir MTTR lieka pagal objektą."
         }
       },
       "monitoring": {
@@ -133,7 +133,7 @@
           "collapse_devices": "Sujungti objektus pagal įrenginį"
         },
         "data_description": {
-          "collapse_devices": "Veikia tik tada, kai bent vienoje įtrauktoje grupėje įjungta „Rodyti įrenginių pavadinimus“. Kai įjungta, keli to paties fizinio įrenginio objektai visame jungtiniame rodinyje skaičiuojami kaip vienas — net ir įtrauktoms grupėms, kurios pačios nesujungia. Prieinamumas %, MTBF ir MTTR lieka pagal objektą."
+          "collapse_devices": "Kai išjungta (numatytoji reikšmė), kiekvienos įtrauktos grupės pačios nustatytas sujungimas valdo jungtinį rodinį — grupės, kuriose sujungimas įjungtas, vis tiek sujungs to paties įrenginio objektus čia. Kai įjungta, priverčia sujungti visus jungtinio rodinio objektus neatsižvelgiant į atskirų grupių nustatymus. Reikalauja, kad bent vienoje įtrauktoje grupėje būtų įjungta „Rodyti įrenginių pavadinimus“. Pasiekiamumas %, MTBF ir MTTR lieka pagal objektą."
         }
       },
       "battery_mapping": {
