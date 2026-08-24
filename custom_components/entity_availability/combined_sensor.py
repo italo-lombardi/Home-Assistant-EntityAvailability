@@ -534,9 +534,7 @@ class CombinedGroupSensor(CombinedSensorBase):
     @property
     def native_value(self) -> int:
         active = self._active_coordinators()
-        if any(coord.collapse_active for coord in active) or (
-            self._combined_collapse_active(active)
-        ):
+        if any(coord.collapse_active for coord in active) or self._combined_collapse_active(active):
             # Collapsed total: unique device representatives (with state) across groups.
             return len(self._build_device_map(active))
         return sum(len(coord.monitored_entities) for coord in active)

@@ -2253,6 +2253,64 @@ async def test_options_flow_preserves_entity_order(
     assert entry.data[CONF_ENTITIES] == original_order
 
 
+async def test_options_flow_new_entity_appends_at_end(
+    hass: HomeAssistant,
+) -> None:
+    """New entities not in original order append at end in submission order."""
+    from custom_components.entity_availability.const import (
+        CONF_NON_ESSENTIAL_ENTITIES,
+        CONF_RECOVERY_WINDOW,
+        CONF_STALENESS_USE_LAST_UPDATED,
+        DEFAULT_RECOVERY_WINDOW,
+    )
+
+    original_order = ["binary_sensor.a", "binary_sensor.b"]
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Append Test",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Append Test",
+            CONF_ENTITIES: original_order,
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 0,
+        },
+        entry_id="append_test",
+        unique_id=f"{DOMAIN}_append_test",
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    # Submit original entities out-of-order plus a new one; new one should append.
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: ["binary_sensor.b", "binary_sensor.c", "binary_sensor.a"],
+            CONF_NON_ESSENTIAL_ENTITIES: [],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_STALENESS_USE_LAST_UPDATED: False,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: [],
+            CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
+            CONF_USE_DEVICE_NAMES: False,
+            CONF_COLLAPSE_DEVICES: False,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    # a,b keep original order; c (new) appends at end in submission order
+    assert entry.data[CONF_ENTITIES] == ["binary_sensor.a", "binary_sensor.b", "binary_sensor.c"]
+
+
 async def test_options_flow_signal_enabled_goes_to_signal_mapping(
     hass: HomeAssistant, mock_config_entry
 ) -> None:

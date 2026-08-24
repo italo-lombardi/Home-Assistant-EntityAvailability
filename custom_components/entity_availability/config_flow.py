@@ -582,8 +582,9 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 self._data = {**self.config_entry.data, **user_input}
                 non_essential = list(dict.fromkeys(non_essential_raw))
                 new_entities = list(dict.fromkeys(monitored_raw + non_essential))
-                # Preserve saved order — sort new_entities by original position,
-                # appending genuinely new entities at the end.
+                # Preserve saved order — sort new_entities by original position.
+                # New entities (not in original_order) get key=len(original_order),
+                # so they append in submission order (list.sort is stable).
                 original_order = self.config_entry.data.get(CONF_ENTITIES, [])
                 orig_idx = {e: i for i, e in enumerate(original_order)}
                 new_entities.sort(key=lambda e: orig_idx.get(e, len(original_order)))

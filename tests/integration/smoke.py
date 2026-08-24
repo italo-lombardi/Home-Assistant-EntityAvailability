@@ -3377,11 +3377,12 @@ for e in cfg['data']['entries']:
                     "GET",
                     f"/api/diagnostics/config_entry/{combined_entry_id}",
                 )
-                # combined diagnostics returns collapse_devices at top level (not under config)
+                # combined diagnostics returns collapse_devices under "config" key
                 diag = raw.get("data", raw)
+                cfg = diag.get("config", diag)
                 chk(
                     "EC77 combined diagnostics exposes collapse_devices",
-                    "collapse_devices" in diag,
+                    "collapse_devices" in cfg,
                     True,
                     f"combined diag keys={list(diag.keys())}",
                 )
