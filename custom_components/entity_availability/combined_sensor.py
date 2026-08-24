@@ -315,6 +315,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             result.append(rk)
         return result
 
+
 class CombinedGroupSensor(CombinedSensorBase):
     """Sensor showing total entity count across multiple groups."""
 
