@@ -54,7 +54,7 @@
           "availability_windows": "Availability tracking windows",
           "recovery_window": "Recovery window",
           "use_device_names": "Show device names",
-          "collapse_devices": "Only works when 'Show device names' is enabled. When on, multiple entities that belong to the same physical device are counted as one across every sensor value, list and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, battery level and signal — entities not linked to a device are never merged, and entities on the same device with different battery or signal readings stay separate. Availability %, MTBF and MTTR stay per-entity. Note: if this group is included in a combined group, its collapse setting is applied automatically in the combined view — no extra configuration needed."
+          "collapse_devices": "Collapse entities by device"
         },
         "data_description": {
           "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
@@ -102,7 +102,7 @@
           "availability_windows": "Availability tracking windows",
           "recovery_window": "Recovery window (minutes)",
           "use_device_names": "Show device names",
-          "collapse_devices": "Only works when 'Show device names' is enabled. When on, multiple entities that belong to the same physical device are counted as one across every sensor value, list and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, battery level and signal — entities not linked to a device are never merged, and entities on the same device with different battery or signal readings stay separate. Availability %, MTBF and MTTR stay per-entity. Note: if this group is included in a combined group, its collapse setting is applied automatically in the combined view — no extra configuration needed.",
+          "collapse_devices": "Collapse entities by device",
           "staleness_use_last_updated": "Count attribute updates as activity"
         },
         "data_description": {

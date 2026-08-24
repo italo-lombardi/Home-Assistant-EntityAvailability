@@ -237,7 +237,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         )
         if self._dm_cache_key == cache_key and self._dm_cache is not None:
             return self._dm_cache
-        merged, rep_of = self._device_map_of(coords)
+        merged, rep_of, _ = self._device_map_of(coords)
         reps = dict.fromkeys(rep_of.values())
         collapsed = {eid: merged[eid] for eid in reps}
         self._dm_cache_key = cache_key
@@ -246,8 +246,8 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
 
     def _device_map_of(
         self, coords: list[EntityAvailabilityCoordinator]
-    ) -> tuple[dict[str, Any], dict[str, str]]:
-        """Return (full merged states by row_key, row_key -> device-key map).
+    ) -> tuple[dict[str, Any], dict[str, str], dict[str, bool]]:
+        """Return (merged states by row_key, row_key→rep map, row_key→use_device_names).
 
         Row key equals entity_id when the entity appears in only one group or
         all groups share identical config (same battery sensor, signal sensor,
@@ -259,12 +259,10 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         — no explicit collapse toggle needed.  Groups with use_device_names=False
         keep their entities as individual rows.
         """
-        # config fingerprint per entity_id: first seen wins if identical across groups.
         seen_fingerprint: dict[str, tuple] = {}
         merged: dict[str, Any] = {}
         collapsible: set[str] = set()
-        # row_key -> real entity_id (needed by display callsites for synthetic keys)
-        row_entity: dict[str, str] = {}
+        udn_map: dict[str, bool] = {}
 
         for coord in coords:
             udn = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
@@ -290,13 +288,13 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                 else:
                     row_key = f"{eid}::{coord.entry.entry_id}"
                 merged[row_key] = d
-                row_entity[row_key] = eid
+                udn_map[row_key] = udn
                 if udn:
                     collapsible.add(row_key)
 
         if not collapsible:
-            return merged, {rk: rk for rk in merged}
-        return merged, collapse_representatives(self.hass, merged, collapsible)
+            return merged, {rk: rk for rk in merged}, udn_map
+        return merged, collapse_representatives(self.hass, merged, collapsible), udn_map
 
     @staticmethod
     def _collapsed_match(
@@ -316,40 +314,6 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             seen_device.add(device)
             result.append(rk)
         return result
-
-    def _use_device_names_map(
-        self, coords: list[EntityAvailabilityCoordinator]
-    ) -> dict[str, bool]:
-        """Return {row_key -> use_device_names} across coordinators.
-
-        Synthetic row keys (entity_id::coord_entry_id) are also covered by
-        matching the coord that owns them.
-        """
-        flags: dict[str, bool] = {}
-        seen_fingerprint: dict[str, tuple] = {}
-        for coord in coords:
-            udn = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
-            battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
-            signal_map = coord.entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
-            non_essential = set(coord.entry.data.get(CONF_NON_ESSENTIAL_ENTITIES, []))
-            bad_states = tuple(
-                sorted(coord.entry.data.get(CONF_BAD_STATES, DEFAULT_BAD_STATES))
-            )
-            for eid in coord.device_states:
-                fingerprint = (
-                    udn,
-                    battery_map.get(eid),
-                    signal_map.get(eid),
-                    eid in non_essential,
-                    bad_states,
-                )
-                if eid not in seen_fingerprint:
-                    seen_fingerprint[eid] = fingerprint
-                    flags[eid] = udn
-                elif seen_fingerprint[eid] != fingerprint:
-                    flags[f"{eid}::{coord.entry.entry_id}"] = udn
-        return flags
-
 
 class CombinedGroupSensor(CombinedSensorBase):
     """Sensor showing total entity count across multiple groups."""
@@ -525,7 +489,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
         """Return deduplicated set of offline, non-suppressed, essential entity IDs."""
-        merged, rep_of = self._device_map_of(coords)
+        merged, rep_of, _ = self._device_map_of(coords)
         return frozenset(
             merged[rk].entity_id
             for rk in self._collapsed_match(
@@ -541,7 +505,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         self, coords: list[EntityAvailabilityCoordinator]
     ) -> frozenset[str]:
         """Return deduplicated set of low-battery, non-suppressed, essential entity IDs."""
-        merged, rep_of = self._device_map_of(coords)
+        merged, rep_of, _ = self._device_map_of(coords)
         return frozenset(
             merged[rk].entity_id
             for rk in self._collapsed_match(
@@ -564,7 +528,7 @@ class CombinedGroupSensor(CombinedSensorBase):
     @property
     def native_value(self) -> int:
         active = self._active_coordinators()
-        _, rep_of = self._device_map_of(active)
+        _, rep_of, _ = self._device_map_of(active)
         reps = dict.fromkeys(rep_of.values())
         return len(reps)
 
@@ -699,7 +663,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         # Full merged states + device-key map: category lists dedupe by DEVICE so a
         # device with siblings in different categories appears in each. total/membership
         # use the representative set (one row per device).
-        merged_states, rep_of = self._device_map_of(active)
+        merged_states, rep_of, udn_map = self._device_map_of(active)
 
         def _m(pred) -> list[str]:
             return self._collapsed_match(merged_states, rep_of, pred)
@@ -805,7 +769,6 @@ class CombinedGroupSensor(CombinedSensorBase):
         )
         signal_enabled = any(coord._signal_enabled for coord in active)
         poor_signal_count = len(poor_signal_entities) if signal_enabled else 0
-        udn_map = self._use_device_names_map(active)
         display_names: dict[str, str] = {}
         battery_levels: dict[str, Any] = {}
         signal_levels: dict[str, Any] = {}
@@ -895,9 +858,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "suppressed_until": suppressed_until,
             "offline_since": offline_since,
             "last_seen": last_seen,
-            "ok_signal_entities": [
-                merged_states[rk].entity_id for rk in ok_signal_eids
-            ],
+            "ok_signal_entities": _eids(list(ok_signal_eids)),
             "offline_entities": _eids(offline_entities),
             "stale_entities": _eids(stale_entities),
             "poor_signal_entities": _eids(poor_signal_entities),
@@ -943,7 +904,7 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> int:
-        merged, rep_of = self._device_map_of(self._active_coordinators())
+        merged, rep_of, _ = self._device_map_of(self._active_coordinators())
         return len(
             self._collapsed_match(
                 merged,
@@ -956,7 +917,7 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        merged, rep_of = self._device_map_of(self._active_coordinators())
+        merged, rep_of, _ = self._device_map_of(self._active_coordinators())
         offline = self._collapsed_match(
             merged,
             rep_of,
@@ -984,8 +945,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        merged, rep_of = self._device_map_of(coords)
-        udn = self._use_device_names_map(coords)
+        merged, rep_of, udn = self._device_map_of(coords)
         offline = [
             _friendly_name(self.hass, merged[rk].entity_id, udn.get(rk, False))
             for rk in self._collapsed_match(
@@ -1007,7 +967,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        merged, rep_of = self._device_map_of(self._active_coordinators())
+        merged, rep_of, _ = self._device_map_of(self._active_coordinators())
         offline = self._collapsed_match(
             merged,
             rep_of,
@@ -1035,8 +995,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         coords = self._active_coordinators()
-        merged, rep_of = self._device_map_of(coords)
-        udn = self._use_device_names_map(coords)
+        merged, rep_of, udn = self._device_map_of(coords)
         low = [
             f"{_friendly_name(self.hass, merged[rk].entity_id, udn.get(rk, False))} ({merged[rk].battery_level}%)"
             for rk in self._collapsed_match(
@@ -1061,7 +1020,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        merged, rep_of = self._device_map_of(self._active_coordinators())
+        merged, rep_of, _ = self._device_map_of(self._active_coordinators())
         devices: dict[str, Any] = {
             merged[rk].entity_id: f"{merged[rk].battery_level}%"
             for rk in self._collapsed_match(
@@ -1094,7 +1053,7 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
 
     @property
     def native_value(self) -> int:
-        merged, rep_of = self._device_map_of(self._active_coordinators())
+        merged, rep_of, _ = self._device_map_of(self._active_coordinators())
         return len(
             self._collapsed_match(
                 merged,

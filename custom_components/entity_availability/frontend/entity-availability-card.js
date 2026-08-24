@@ -1217,7 +1217,7 @@ class EntityAvailabilityCard extends LitElement {
     const items = entities.map((rowKey) => {
       const entityId = rowEntityIds[rowKey] || rowKey;
       const state = this.hass.states[entityId];
-      const friendlyName = displayNames[rowKey] || displayNames[entityId] || state?.attributes?.friendly_name || entityId.split(".").pop();
+      const friendlyName = displayNames[rowKey] || state?.attributes?.friendly_name || entityId.split(".").pop();
       const monitoredOfflineEntities = this._getOfflineEntityIds();
       const isOffline = monitoredOfflineEntities.includes(entityId) || nonEssentialOfflineEntities.includes(entityId);
       const isStale = staleEntities.includes(entityId) || staleEntitiesNonEssential.includes(entityId);
