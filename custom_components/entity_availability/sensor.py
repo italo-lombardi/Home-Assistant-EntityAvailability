@@ -1142,7 +1142,6 @@ class GroupSummarySensor(DedupCoordinatorSensor):
         )
 
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
-        use_last_updated = self.coordinator._staleness_use_last_updated
         battery_enabled = self.coordinator.entry.data.get(CONF_BATTERY_THRESHOLD, 0) > 0
         staleness_enabled = self.coordinator._staleness_threshold > 0
         signal_enabled = self.coordinator._signal_enabled
@@ -1236,10 +1235,13 @@ class GroupSummarySensor(DedupCoordinatorSensor):
                 if d.offline_since is not None
             },
             "last_seen": {
-                eid: ts.isoformat()
+                # DeviceState only tracks `last_changed` (the coordinator reads
+                # `last_updated` directly off the live HA State object for the
+                # staleness calculation itself, but never persists it here) —
+                # so `use_last_updated` does not apply to this attribute.
+                eid: d.last_changed.isoformat()
                 for eid, d in states.items()
-                if (ts := d.last_updated if use_last_updated else d.last_changed)
-                is not None
+                if d.last_changed is not None
             },
         }
 
