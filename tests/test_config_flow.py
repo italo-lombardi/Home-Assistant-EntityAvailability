@@ -2308,7 +2308,11 @@ async def test_options_flow_new_entity_appends_at_end(
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     # a,b keep original order; c (new) appends at end in submission order
-    assert entry.data[CONF_ENTITIES] == ["binary_sensor.a", "binary_sensor.b", "binary_sensor.c"]
+    assert entry.data[CONF_ENTITIES] == [
+        "binary_sensor.a",
+        "binary_sensor.b",
+        "binary_sensor.c",
+    ]
 
 
 async def test_options_flow_signal_enabled_goes_to_signal_mapping(
