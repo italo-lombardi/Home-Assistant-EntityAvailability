@@ -804,7 +804,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
           ${this._config.show_groups !== false ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
-          ${this._config.show_entities !== false ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true, rowEntityIds) : nothing}
+          ${this._config.show_entities !== false ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(rowEntityIds[e] || e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true, rowEntityIds) : nothing}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
