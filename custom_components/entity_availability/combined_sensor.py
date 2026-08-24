@@ -249,11 +249,13 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         """Return (full merged states by entity_id, entity_id -> device-key map).
 
         The full map keeps EVERY entity (not just representatives); the second map
-        groups entities by physical device. Only entities whose OWNING group has
-        collapse active are collapsible — entities from a collapse-off group stay
-        their own row even when a sibling on the same device comes from a
-        collapse-on group (per-group intent is honored in the combined view). When
-        no group collapses, the map is the identity.
+        groups entities by physical device. An entity is collapsible if ANY of its
+        owning groups has collapse active — if Group A (collapse ON) and Group B
+        (collapse OFF) both contain entity E, E collapses in the combined view.
+        Shared entities across groups are an edge case; the "any-group" rule is
+        intentional so collapse-on groups aren't silently defeated by an unrelated
+        group that happens to share an entity. When no group collapses, the map is
+        the identity.
         """
         merged: dict[str, Any] = {}
         collapsible: set[str] = set()
@@ -262,10 +264,6 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             for eid, d in coord.device_states.items():
                 if eid not in merged:  # first-wins by entity_id for the state
                     merged[eid] = d
-                # Collapsible if ANY owning group has collapse active — independent
-                # of which coordinator first-wins the state, so a shared entity in
-                # a collapse-on group still collapses even if a collapse-off group
-                # is iterated first.
                 if active:
                     collapsible.add(eid)
         if not collapsible:

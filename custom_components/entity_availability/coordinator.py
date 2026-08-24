@@ -528,7 +528,6 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # battery/signal drift can change collapse keys between ticks. The
         # monotonic generation lets combined sensors cheaply detect a new tick.
         self._collapse_map = None
-        self._collapse_generation += 1
 
         # Cap elapsed to avoid huge jumps after HA restart or sleep
         # Maximum reasonable elapsed is 2x the scan interval
@@ -900,10 +899,19 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 self._update_count = 0
 
         try:
+            seen_events: set[tuple[str, str]] = set()
             for event_name, payload in pending_events:
+                dedup_key = (event_name, payload.get("entity_id", ""))
+                if dedup_key in seen_events:
+                    continue
+                seen_events.add(dedup_key)
                 self.hass.bus.async_fire(event_name, payload)
         except Exception:  # pragma: no cover
             _LOGGER.warning("[%s] Failed to fire event", self.group_name, exc_info=True)
+
+        # Bump after all state recomputation so combined sensors reading
+        # collapse_generation see a generation that matches the finished device_states.
+        self._collapse_generation += 1
 
         return EntityAvailabilityData(
             devices=dict(self._device_states),

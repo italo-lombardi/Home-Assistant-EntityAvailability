@@ -88,26 +88,27 @@ def _representative_rank(d: DeviceState) -> tuple[bool, int]:
 def collapse_key(hass: HomeAssistant, d: DeviceState) -> str | None:
     """Return the composite device-collapse key for a DeviceState, or None.
 
-    Key = device_id::display_name::battery::signal::unit::non_essential. Entities
-    with no device_id return None (never collapse — each stays its own row/count).
-    Only display/value fields drive the key, so entities that differ on battery or
+    Key = device_id::battery::signal::unit::non_essential. Entities with no
+    device_id return None (never collapse — each stays its own row/count).
+    Only value fields drive the key, so entities that differ on battery or
     signal never merge — the same conservative behavior the card used. The
     non-essential flag is included so essential and non-essential entities on the
     same device never merge (they render in separate tiers).
+    device_id alone guarantees same-device grouping; display_name is excluded so
+    a mid-session device rename cannot split a merged device into two rows.
     """
     ent_reg = er.async_get(hass)
     entry = ent_reg.async_get(d.entity_id)
     device_id = entry.device_id if entry else None
     if not device_id:
         return None
-    name = resolve_display_name(hass, d.entity_id, use_device_names=True)
     # Coerce numeric fields to a stable int (or None) so a flaky sensor emitting a
     # float/NaN can't produce an inconsistent key that silently breaks grouping.
     battery = _stable_int(d.battery_level)
     signal = _stable_int(d.signal_level)
     # Signal unit is meaningless without a level — drop it when level is None.
     unit = d.signal_unit if signal is not None else None
-    return f"{device_id}::{name}::{battery}::{signal}::{unit}::{d.is_non_essential}"
+    return f"{device_id}::{battery}::{signal}::{unit}::{d.is_non_essential}"
 
 
 def _stable_int(value: object) -> int | None:
