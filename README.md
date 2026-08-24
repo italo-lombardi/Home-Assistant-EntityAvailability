@@ -326,6 +326,10 @@ A combined group aggregates two or more monitored groups into a single set of se
 
 See [Step 2b in the Configuration section](#step-2b-create-combined-group-combine-groups-path) for setup instructions.
 
+**Dedup and auto-collapse in combined view:**
+- The same entity in multiple source groups is counted once when all groups share identical configuration (battery sensor, signal sensor, non-essential flag, offline states). If any setting differs, each group's interpretation appears as its own row so no monitoring signal is silently dropped.
+- Source groups with **Show device names** enabled automatically collapse same-device entities into one row in the combined view (using the same device key as the group-level collapse option). Groups without Show device names keep their entities as individual rows.
+
 ### Sensors Created
 
 All entity IDs use the prefix `entity_availability_` followed by the combined group slug.
