@@ -311,6 +311,43 @@ async def test_async_update_options_reloads_entry(
         mock_reload.assert_called_once_with(mock_config_entry.entry_id)
 
 
+async def test_async_update_options_reloads_combined_entries(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_async_update_options reloads combined entries that include the updated group."""
+    from custom_components.entity_availability import _async_update_options
+    from custom_components.entity_availability.const import (
+        CONF_COMBINED_GROUPS,
+        ENTRY_TYPE_COMBINED,
+    )
+
+    hass = mock_hass
+    mock_config_entry.add_to_hass(hass)
+
+    combined = MockConfigEntry(
+        domain=DOMAIN,
+        entry_id="combined_reload_test",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Combined",
+            CONF_COMBINED_GROUPS: [mock_config_entry.entry_id],
+        },
+    )
+    combined.add_to_hass(hass)
+
+    reload_calls = []
+    with patch.object(
+        hass.config_entries,
+        "async_reload",
+        new_callable=AsyncMock,
+        side_effect=lambda eid: reload_calls.append(eid),
+    ):
+        await _async_update_options(hass, mock_config_entry)
+
+    assert mock_config_entry.entry_id in reload_calls
+    assert "combined_reload_test" in reload_calls
+
+
 # ---------------------------------------------------------------------------
 # _async_install_card — already installed short-circuit (line 79)
 # ---------------------------------------------------------------------------

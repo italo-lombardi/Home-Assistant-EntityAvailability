@@ -13,7 +13,13 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import CONF_ENTRY_TYPE, DOMAIN, ENTRY_TYPE_COMBINED, ENTRY_TYPE_GROUP
+from .const import (
+    CONF_ENTRY_TYPE,
+    CONF_COMBINED_GROUPS,
+    DOMAIN,
+    ENTRY_TYPE_COMBINED,
+    ENTRY_TYPE_GROUP,
+)
 from .coordinator import EntityAvailabilityCoordinator
 from .services import async_setup_services, async_unload_services
 
@@ -82,8 +88,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle options update - reload the entry."""
+    """Handle options update - reload the entry and any combined groups that include it."""
     await hass.config_entries.async_reload(entry.entry_id)
+    if entry.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP:
+        for combined in hass.config_entries.async_entries(DOMAIN):
+            if combined.data.get(
+                CONF_ENTRY_TYPE
+            ) == ENTRY_TYPE_COMBINED and entry.entry_id in combined.data.get(
+                CONF_COMBINED_GROUPS, []
+            ):
+                await hass.config_entries.async_reload(combined.entry_id)
 
 
 async def _async_install_card(hass: HomeAssistant) -> None:
