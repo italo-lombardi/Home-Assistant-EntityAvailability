@@ -899,12 +899,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 self._update_count = 0
 
         try:
-            seen_events: set[tuple[str, str]] = set()
             for event_name, payload in pending_events:
-                dedup_key = (event_name, payload.get("entity_id", ""))
-                if dedup_key in seen_events:
-                    continue
-                seen_events.add(dedup_key)
                 self.hass.bus.async_fire(event_name, payload)
         except Exception:  # pragma: no cover
             _LOGGER.warning("[%s] Failed to fire event", self.group_name, exc_info=True)
