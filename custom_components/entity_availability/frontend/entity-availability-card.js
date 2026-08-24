@@ -3,7 +3,7 @@
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.5.0";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -72,9 +72,6 @@ const STATUS_COLORS = {
   yellow: "#ff9800",
   red: "#f44336",
 };
-
-// Severity order for worst-case collapse — hoisted to avoid per-render allocation.
-const COLLAPSE_SEVERITY = { red: 3, yellow: 2, grey: 1, green: 0 };
 
 const cardStyles = css`
   :host {
@@ -701,7 +698,6 @@ class EntityAvailabilityCard extends LitElement {
       show_actions: false,
       show_suppress_toggle: false,
       compact: false,
-      collapse_devices: false,
       sort_by: "status",
       entity_detail: "off",
       entity_filter: "all",
@@ -765,7 +761,7 @@ class EntityAvailabilityCard extends LitElement {
       const nonEssentialOnline = attrs.non_essential_online || 0;
       const nonEssentialOffline = attrs.non_essential_offline || 0;
       const groups = attrs.groups || {};
-      const allEntities = attrs.entities || [];
+      const allEntities = attrs.entities_collapsed || attrs.entities || [];
       const nonEssentialEntities = attrs.non_essential_entities || [];
       const nonEssentialOfflineEntities = attrs.offline_entities_non_essential || [];
       const staleEntitiesNonEssential = attrs.stale_entities_non_essential || [];
@@ -835,7 +831,7 @@ class EntityAvailabilityCard extends LitElement {
     const nonEssential = attrs.non_essential || 0;
     const nonEssentialEntities = attrs.non_essential_entities || [];
     const nonEssentialOfflineEntities = attrs.offline_entities_non_essential || [];
-    const entities = attrs.entities || [];
+    const entities = attrs.entities_collapsed || attrs.entities || [];
     const batteryLevels = attrs.battery_levels || {};
     const suppressedUntil = attrs.suppressed_until || {};
     const staleEntities = attrs.stale_entities || [];
@@ -1340,45 +1336,9 @@ class EntityAvailabilityCard extends LitElement {
       }
     });
 
-    // Collapse entities from the same physical device into one row when collapse_devices is on.
-    // Collapse only when: same device_id + same display name + identical battery + identical signal.
-    // Any mismatch → keep separate rows. Worst-case status across sub-entities.
-    // Entities with no device_id are never collapsed. Applied after sort so order is preserved.
-    if (this._config.collapse_devices === true) {
-      const reg = this.hass.entities;
-      if (!reg) {
-        if (!this._warnedEntitiesUnavailable) {
-          console.warn("[entity-availability-card] collapse_devices: hass.entities unavailable — no collapsing applied");
-          this._warnedEntitiesUnavailable = true;
-        }
-      } else {
-        this._warnedEntitiesUnavailable = false;
-      }
-      const groups = new Map();
-      for (const item of items) {
-        const deviceId = reg?.[item.entityId]?.device_id;
-        // Normalize null/undefined signal to same sentinel so both collapse correctly
-        const sigKey = item.signalLevel ?? "null";
-        // Only include signalUnit in key when signalLevel is present — unit is meaningless when there's no value
-        const sigUnitKey = item.signalLevel != null ? (item.signalUnit ?? "") : "";
-        const key = deviceId
-          ? `${deviceId}::${item.name}::${String(item.battery)}::${sigKey}::${sigUnitKey}`
-          : `__no_device__${item.entityId}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(item);
-      }
-      const collapsed = [];
-      for (const [, group] of groups) {
-        if (group.length === 1) { collapsed.push(group[0]); continue; }
-        // worst = highest severity; use worst.entityId (correct click target, not always group[0])
-        const worst = group.reduce((a, b) =>
-          (COLLAPSE_SEVERITY[b.dotColor] ?? 0) > (COLLAPSE_SEVERITY[a.dotColor] ?? 0) ? b : a
-        );
-        collapsed.push(worst);
-      }
-      return collapsed;
-    }
-
+    // Device-collapse is applied by the integration (config option collapse_devices):
+    // the sensor already provides entities_collapsed as the row source, so the card
+    // just renders whatever entities it was given. No client-side collapsing.
     return items;
   }
 
@@ -2038,16 +1998,6 @@ class EntityAvailabilityCardEditor extends LitElement {
               @change=${(e) => this._updateConfig("compact", e.target.checked)}
             />
             Compact Mode
-          </label>
-        </div>
-        <div class="editor-row checkbox">
-          <label>
-            <input
-              type="checkbox"
-              .checked=${this._config.collapse_devices === true}
-              @change=${(e) => this._updateConfig("collapse_devices", e.target.checked)}
-            />
-            Collapse Entities by Device (requires Use Device Names on group)
           </label>
         </div>
         <div class="editor-row checkbox">

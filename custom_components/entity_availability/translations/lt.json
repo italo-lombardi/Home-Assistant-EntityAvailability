@@ -53,6 +53,7 @@
           "availability_windows": "Pasiekiamumo sekimo langai",
           "recovery_window": "Atkūrimo langas",
           "use_device_names": "Rodyti įrenginių pavadinimus",
+          "collapse_devices": "Sujungti objektus pagal įrenginį",
           "signal_enabled": "Įjungti signalo stiprumo stebėjimą"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Laiko langai grupės pasiekiamumo istorijai sekti (pvz., šiandien, 3d, 7d).",
           "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių\" arba „Neseniai atkurtų\" jutikliuose po būsenos perėjimo.",
           "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu.",
+          "collapse_devices": "Veikia tik įjungus „Rodyti įrenginių pavadinimus\". Kai įjungta, keli objektai, priklausantys tam pačiam fiziniam įrenginiui, skaičiuojami kaip vienas kiekvienoje jutiklio reikšmėje, sąraše ir įvykyje (neprisijungęs, žema baterija, pasenęs, prastas signalas). Objektai sujungiami tik tada, kai jie turi tą patį įrenginį, baterijos lygį ir signalą — objektai, nesusieti su įrenginiu, niekada nesujungiami, o objektai tame pačiame įrenginyje su skirtingais baterijos ar signalo rodmenimis lieka atskiri. Pasiekiamumas %, MTBF ir MTTR lieka kiekvienam objektui atskirai. Pastaba: jei ši grupė įtraukta į jungtinę grupę, kurioje taip pat įjungtas sujungimas, bendri objektai bus sujungti jungtiniame rodinyje.",
           "signal_enabled": "Stebėti signalo stiprumą (dBm) stebimiems objektams ir įspėti, kai signalo kokybė nukrenta iki „prasto\" lygio. Įjungus, būsite paprašyti susieti signalo jutiklį ir pasirinkti tinklo tipą kiekvienam objektui."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
       "no_entities": "Turite pasirinkti bent vieną objektą.",
       "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
-      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui."
+      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui.",
+      "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“."
     },
     "abort": {
       "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
@@ -98,6 +101,7 @@
           "availability_windows": "Pasiekiamumo sekimo langai",
           "recovery_window": "Atkūrimo langas (minutės)",
           "use_device_names": "Rodyti įrenginių pavadinimus",
+          "collapse_devices": "Sujungti objektus pagal įrenginį",
           "staleness_use_last_updated": "Atributų atnaujinimą skaičiuoti kaip aktyvumą",
           "signal_enabled": "Įjungti signalo stiprumo stebėjimą"
         },
@@ -111,6 +115,7 @@
           "availability_windows": "Laiko langai grupės pasiekiamumo istorijai sekti (pvz., šiandien, 3d, 7d).",
           "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių\" arba „Neseniai atkurtų\" jutikliuose po būsenos perėjimo.",
           "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu.",
+          "collapse_devices": "Veikia tik įjungus „Rodyti įrenginių pavadinimus\". Kai įjungta, keli objektai, priklausantys tam pačiam fiziniam įrenginiui, skaičiuojami kaip vienas kiekvienoje jutiklio reikšmėje, sąraše ir įvykyje (neprisijungęs, žema baterija, pasenęs, prastas signalas). Objektai sujungiami tik tada, kai jie turi tą patį įrenginį, baterijos lygį ir signalą — objektai, nesusieti su įrenginiu, niekada nesujungiami, o objektai tame pačiame įrenginyje su skirtingais baterijos ar signalo rodmenimis lieka atskiri. Pasiekiamumas %, MTBF ir MTTR lieka kiekvienam objektui atskirai. Pastaba: jei ši grupė įtraukta į jungtinę grupę, kurioje taip pat įjungtas sujungimas, bendri objektai bus sujungti jungtiniame rodinyje.",
           "staleness_use_last_updated": "Įjungus, bet koks objekto atnaujinimas — įskaitant tik atributų pakeitimus ar pasikartojančias tas pačias reikšmes — atnaujina pasenimo laikmatį. Išjungus (numatytoji reikšmė), skaičiuojamas tik pagrindinės būsenos pasikeitimas. Įjunkite įrenginiams, kurie dažnai praneša, bet retai keičia reikšmę (pvz., temperatūra ar galia, kuri išlieka stabili).",
           "signal_enabled": "Stebėti signalo stiprumą (dBm) stebimiems objektams ir įspėti, kai signalo kokybė nukrenta iki „prasto\" lygio. Įjungus, būsite paprašyti susieti signalo jutiklį ir pasirinkti tinklo tipą kiekvienam objektui."
         }
@@ -131,6 +136,10 @@
         "title": "Signalo stiprumo žemėlapis",
         "description": "Kiekvienam objektui pasirinkite signalo jutiklį ir tinklo tipą. Palikite jutiklį tuščią, jei norite praleisti.\n\nRibinės vertės (gera / tinkama / prasta):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (didesnis — geriau)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
+      "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“."
     }
   },
   "entity": {

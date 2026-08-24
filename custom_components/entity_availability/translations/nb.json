@@ -53,6 +53,7 @@
           "availability_windows": "Tilgjengelighetssporingsvinduer",
           "recovery_window": "Gjenopprettingsvindu",
           "use_device_names": "Vis enhetsnavn",
+          "collapse_devices": "Slå sammen entiteter per enhet",
           "signal_enabled": "Aktiver overvåkning av signalstyrke"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Tidsvinduer for sporing av gruppens tilgjengelighetshistorikk (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
           "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
+          "collapse_devices": "Fungerer bare når «Vis enhetsnavn» er aktivert. Når slått på, telles flere entiteter som tilhører samme fysiske enhet som én i hver sensorverdi, liste og hendelse (offline, lavt batteri, inaktiv, dårlig signal). Entiteter slås bare sammen når de deler samme enhet, batterinivå og signal — entiteter som ikke er koblet til en enhet, slås aldri sammen, og entiteter på samme enhet med ulikt batteri- eller signalnivå forblir separate. Tilgjengelighet %, MTBF og MTTR forblir per entitet. Merk: hvis denne gruppen er inkludert i en kombinert gruppe som også har sammenslåing aktivert, vil delte entiteter slås sammen i den kombinerte visningen.",
           "signal_enabled": "Spor signalstyrke (dBm) for overvåkede enheter og varsle når signalkvaliteten faller til «dårlig». Etter aktivering vil du bli bedt om å koble til en signalsensor og velge nettverkstype for hver enhet."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Gruppenavnet kan ikke være tomt.",
       "no_entities": "Du må velge minst én entitet.",
       "not_enough_groups_selected": "Velg minst to grupper å kombinere.",
-      "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring."
+      "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring.",
+      "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på."
     },
     "abort": {
       "already_configured": "En gruppe med dette navnet finnes allerede.",
@@ -98,6 +101,7 @@
           "availability_windows": "Tilgjengelighetssporingsvinduer",
           "recovery_window": "Gjenopprettingsvindu (minutter)",
           "use_device_names": "Vis enhetsnavn",
+          "collapse_devices": "Slå sammen entiteter per enhet",
           "staleness_use_last_updated": "Tell attributtoppdateringer som aktivitet",
           "signal_enabled": "Aktiver overvåkning av signalstyrke"
         },
@@ -110,6 +114,7 @@
           "availability_windows": "Tidsvinduer for sporing av gruppens tilgjengelighetshistorikk (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
           "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
+          "collapse_devices": "Fungerer bare når «Vis enhetsnavn» er aktivert. Når slått på, telles flere entiteter som tilhører samme fysiske enhet som én i hver sensorverdi, liste og hendelse (offline, lavt batteri, inaktiv, dårlig signal). Entiteter slås bare sammen når de deler samme enhet, batterinivå og signal — entiteter som ikke er koblet til en enhet, slås aldri sammen, og entiteter på samme enhet med ulikt batteri- eller signalnivå forblir separate. Tilgjengelighet %, MTBF og MTTR forblir per entitet. Merk: hvis denne gruppen er inkludert i en kombinert gruppe som også har sammenslåing aktivert, vil delte entiteter slås sammen i den kombinerte visningen.",
           "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil).",
           "entities": "Enheter som overvåkes for tilgjengelighet. Disse er fullt overvåket og inkludert i alle KPI-er og varsler.",
           "signal_enabled": "Spor signalstyrke (dBm) for overvåkede enheter og varsle når signalkvaliteten faller til «dårlig». Etter aktivering vil du bli bedt om å koble til en signalsensor og velge nettverkstype for hver enhet."
@@ -131,6 +136,10 @@
         "title": "Tilordning av signalstyrke",
         "description": "For hver entity, velg eventuelt en signalsensor og velg nettverkstype. La sensoren stå tom for å hoppe over.\n\nTerskler (god / ok / dårlig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (høyere er bedre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring.",
+      "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på."
     }
   },
   "entity": {

@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-14
+
+### ⚠️ Breaking
+
+- **"Collapse entities by device" moved from the card to the group settings.** It's now a group option (Advanced Settings / Options) instead of a card checkbox, and it requires **Show device names**. When you turn it on for a group, entities that belong to the same device are counted as one everywhere — the sensor counts, the lists, and the notification events — so the numbers finally match what the card shows. Entities only merge when they share the same device, battery level and signal — entities on the same device with different battery or signal readings stay separate.
+  - Automations that react to the offline/low-battery/stale/poor-signal events will see one entry per device (not per entity) for groups that use this option. The event still fires for the entity that actually changed; only the count/list in the event data is combined.
+  - Availability %, MTBF and MTTR stay per-entity and are not affected.
+  - Nothing changes until you turn the option on (it's off by default). Turning it on will show a one-time step in the count-sensor history graphs.
+
+### Added
+- **"Collapse entities by device" group option** — counts several entities of the same physical device as one across all sensor values, lists and events. Needs **Show device names** on; entities not tied to a device are never merged. Available when creating a group and in its Options. Translated into all supported languages. (#81)
+
+### Changed
+- **Combined groups** count a device once even when its entities are spread across several included groups. Each group's own setting is respected — entities from a group without the option stay separate.
+- **The card** now simply shows the numbers the integration reports (it no longer does any of its own merging).
+
 ## [0.4.1] - 2026-08-07
 
 > These changes were inadvertently omitted from the v0.4.0 release tag and are included here as a patch release.

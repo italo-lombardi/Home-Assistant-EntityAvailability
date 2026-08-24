@@ -1910,6 +1910,42 @@ def test_setup_state_listeners_cancels_existing(
     assert len(cancel_calls) == 1
 
 
+def test_setup_state_listeners_tracks_battery_and_signal_sensors(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Mapped battery + signal sensors are added to the tracked entity list."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    data = dict(mock_config_data)
+    data[CONF_BATTERY_ENTITY_MAP] = {"binary_sensor.device_a": "sensor.device_a_batt"}
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.device_a_rssi"}
+    }
+    entry = MockConfigEntry(
+        version=1, domain=DOMAIN, title="Test Group", data=data, entry_id="e_track"
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, entry)
+
+    tracked_arg = []
+    with patch(
+        "custom_components.entity_availability.coordinator.async_track_state_change_event",
+        side_effect=lambda hass, tracked, cb: (
+            tracked_arg.extend(tracked) or (lambda: None)
+        ),
+    ):
+        coord._setup_state_listeners()
+
+    assert "sensor.device_a_batt" in tracked_arg
+    assert "sensor.device_a_rssi" in tracked_arg
+
+
 # ---------------------------------------------------------------------------
 # _handle_state_change debounced_refresh callback (lines 311-312)
 # ---------------------------------------------------------------------------

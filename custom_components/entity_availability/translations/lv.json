@@ -53,6 +53,7 @@
           "availability_windows": "Pieejamības izsekošanas logi",
           "recovery_window": "Atjaunošanas logs",
           "use_device_names": "Rādīt ierīces nosaukumus",
+          "collapse_devices": "Apvienot entitātes pēc ierīces",
           "signal_enabled": "Iespējot signāla stipruma uzraudzību"
         },
         "data_description": {
@@ -60,6 +61,7 @@
           "availability_windows": "Laika logi grupas pieejamības vēstures izsekošanai (piemēram, šodien, 3d, 7d).",
           "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē\" vai „Nesen atjaunots\" pēc stāvokļa pārejas.",
           "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci.",
+          "collapse_devices": "Darbojas tikai tad, ja ir iespējots „Rādīt ierīces nosaukumus\". Kad ieslēgts, vairākas entitātes, kas pieder vienai fiziskai ierīcei, tiek skaitītas kā viena katrā sensora vērtībā, sarakstā un notikumā (bezsaistē, zems akumulators, novecojis, vājš signāls). Entitātes tiek apvienotas tikai tad, ja tām ir viena un tā pati ierīce, akumulatora līmenis un signāls — entitātes, kas nav saistītas ar ierīci, nekad netiek apvienotas, un entitātes vienā ierīcē ar atšķirīgiem akumulatora vai signāla rādījumiem paliek atsevišķas. Pieejamība %, MTBF un MTTR paliek katrai entitātei atsevišķi. Piezīme: ja šī grupa ir iekļauta apvienotajā grupā, kurā arī ir iespējota apvienošana, kopīgās entitātes tiks apvienotas apvienotajā skatā.",
           "signal_enabled": "Izsekot signāla stiprumu (dBm) uzraudzītajiem elementiem un brīdināt, kad signāla kvalitāte nokrītas līdz \"vājam\". Pēc iespējošanas jums tiks lūgts saistīt signāla sensoru un katram elementam izvēlēties tīkla veidu."
         }
       },
@@ -76,7 +78,8 @@
       "empty_group_name": "Grupas nosaukums nedrīkst būt tukšs.",
       "no_entities": "Jums jāizvēlas vismaz viena entitāte.",
       "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
-      "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai."
+      "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai.",
+      "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“."
     },
     "abort": {
       "already_configured": "Grupa ar šādu nosaukumu jau eksistē.",
@@ -98,6 +101,7 @@
           "availability_windows": "Pieejamības izsekošanas logi",
           "recovery_window": "Atjaunošanas logs (minūtes)",
           "use_device_names": "Rādīt ierīces nosaukumus",
+          "collapse_devices": "Apvienot entitātes pēc ierīces",
           "staleness_use_last_updated": "Atribūtu atjauninājumus skaitīt kā aktivitāti",
           "signal_enabled": "Iespējot signāla stipruma uzraudzību"
         },
@@ -111,6 +115,7 @@
           "availability_windows": "Laika logi grupas pieejamības vēstures izsekošanai (piemēram, šodien, 3d, 7d).",
           "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē\" vai „Nesen atjaunots\" pēc stāvokļa pārejas.",
           "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci.",
+          "collapse_devices": "Darbojas tikai tad, ja ir iespējots „Rādīt ierīces nosaukumus\". Kad ieslēgts, vairākas entitātes, kas pieder vienai fiziskai ierīcei, tiek skaitītas kā viena katrā sensora vērtībā, sarakstā un notikumā (bezsaistē, zems akumulators, novecojis, vājš signāls). Entitātes tiek apvienotas tikai tad, ja tām ir viena un tā pati ierīce, akumulatora līmenis un signāls — entitātes, kas nav saistītas ar ierīci, nekad netiek apvienotas, un entitātes vienā ierīcē ar atšķirīgiem akumulatora vai signāla rādījumiem paliek atsevišķas. Pieejamība %, MTBF un MTTR paliek katrai entitātei atsevišķi. Piezīme: ja šī grupa ir iekļauta apvienotajā grupā, kurā arī ir iespējota apvienošana, kopīgās entitātes tiks apvienotas apvienotajā skatā.",
           "staleness_use_last_updated": "Ieslēgts — jebkurš entitātes atjauninājums, ieskaitot tikai atribūtu izmaiņas vai atkārtotus vienas un tās pašas vērtības ziņojumus, atiestata novecošanas taimeri. Izslēgts (noklusējums) — tiek skaitītas tikai galvenā stāvokļa izmaiņas. Ieslēdziet ierīcēm, kas bieži ziņo, bet reti maina vērtību (piemēram, temperatūra vai jauda, kas paliek stabila).",
           "signal_enabled": "Izsekot signāla stiprumu (dBm) uzraudzītajiem elementiem un brīdināt, kad signāla kvalitāte nokrītas līdz \"vājam\". Pēc iespējošanas jums tiks lūgts saistīt signāla sensoru un katram elementam izvēlēties tīkla veidu."
         }
@@ -131,6 +136,10 @@
         "title": "Signāla stipruma kartēšana",
         "description": "Katrai entītijai pēc izvēles atlasiet signāla sensoru un izvēlieties tīkla tipu. Atstājiet sensoru tukšu, lai izlaistu.\\n\\nSliekšņi (labi / normāli / slikti):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (jo augstāks, jo labāks)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
+      "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“."
     }
   },
   "entity": {

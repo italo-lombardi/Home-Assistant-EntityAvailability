@@ -15,6 +15,7 @@ from custom_components.entity_availability.const import (
     CONF_BAD_STATES,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
+    CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_COOLDOWN,
     CONF_ENTITIES,
@@ -169,7 +170,33 @@ async def test_step_monitoring_goes_to_advanced(hass: HomeAssistant) -> None:
     assert result["step_id"] == "advanced"
 
 
-async def test_full_config_flow_with_battery(hass: HomeAssistant) -> None:
+async def test_advanced_collapse_requires_device_names(hass: HomeAssistant) -> None:
+    """collapse_devices without use_device_names is rejected with an error."""
+    result = await _init_flow(hass)
+    result = await _step_group(
+        hass, result["flow_id"], "My Devices", ["binary_sensor.test"]
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    assert result["step_id"] == "advanced"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: ["today", "7d"],
+            CONF_USE_DEVICE_NAMES: False,
+            CONF_COLLAPSE_DEVICES: True,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "advanced"
+    assert result["errors"] == {CONF_COLLAPSE_DEVICES: "collapse_requires_device_names"}
     """Test complete flow with battery threshold > 0 shows battery mapping step."""
     result = await _init_flow(hass)
 
@@ -320,6 +347,37 @@ async def test_options_flow(hass: HomeAssistant, mock_config_entry) -> None:
     assert result["data"] == {}
     assert mock_config_entry.data[CONF_COOLDOWN] == 90
     assert mock_config_entry.data[CONF_BATTERY_ENTITY_MAP] == {}
+
+
+async def test_options_collapse_requires_device_names(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Options flow rejects collapse_devices without use_device_names."""
+    mock_config_entry.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_BAD_STATES: ["unavailable"],
+            CONF_COOLDOWN: 90,
+            CONF_STALENESS_THRESHOLD: 15,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: ["today"],
+            CONF_USE_DEVICE_NAMES: False,
+            CONF_COLLAPSE_DEVICES: True,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+    assert result["errors"] == {CONF_COLLAPSE_DEVICES: "collapse_requires_device_names"}
 
 
 async def test_options_flow_with_battery_mapping(

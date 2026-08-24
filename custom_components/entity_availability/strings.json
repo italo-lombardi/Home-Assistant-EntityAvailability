@@ -53,14 +53,16 @@
           "signal_enabled": "Enable signal strength monitoring",
           "availability_windows": "Availability tracking windows",
           "recovery_window": "Recovery window",
-          "use_device_names": "Show device names"
+          "use_device_names": "Show device names",
+          "collapse_devices": "Collapse entities by device"
         },
         "data_description": {
           "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
           "signal_enabled": "Track signal strength for monitored entities and alert when signal quality drops to 'poor'. Supports dBm-based networks (Wi-Fi, Zigbee, Z-Wave, Bluetooth, etc.) and percentage-based sensors. After enabling, you will be asked to bind a signal sensor and select the network type for each entity.",
           "availability_windows": "Time windows for tracking group availability history (e.g. today, 3d, 7d).",
           "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
-          "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device."
+          "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
+          "collapse_devices": "Only works when 'Show device names' is enabled. When on, multiple entities that belong to the same physical device are counted as one across every sensor value, list and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, battery level and signal — entities not linked to a device are never merged, and entities on the same device with different battery or signal readings stay separate. Availability %, MTBF and MTTR stay per-entity. Note: if this group is included in a combined group that also has collapse enabled, shared entities will collapse in the combined view."
         }
       },
       "battery_mapping": {
@@ -76,7 +78,8 @@
       "empty_group_name": "Group name cannot be empty.",
       "no_entities": "You must select at least one entity.",
       "duplicate_entities": "The same entity cannot appear in both lists. Remove duplicates before saving.",
-      "not_enough_groups_selected": "Select at least two groups to combine."
+      "not_enough_groups_selected": "Select at least two groups to combine.",
+      "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled."
     },
     "abort": {
       "already_configured": "A group with this name already exists.",
@@ -99,6 +102,7 @@
           "availability_windows": "Availability tracking windows",
           "recovery_window": "Recovery window (minutes)",
           "use_device_names": "Show device names",
+          "collapse_devices": "Collapse entities by device",
           "staleness_use_last_updated": "Count attribute updates as activity"
         },
         "data_description": {
@@ -112,6 +116,7 @@
           "availability_windows": "Time windows for tracking group availability history (e.g. today, 3d, 7d).",
           "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
           "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
+          "collapse_devices": "Only works when 'Show device names' is enabled. When on, multiple entities that belong to the same physical device are counted as one across every sensor value, list and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, battery level and signal — entities not linked to a device are never merged, and entities on the same device with different battery or signal readings stay separate. Availability %, MTBF and MTTR stay per-entity. Note: if this group is included in a combined group that also has collapse enabled, shared entities will collapse in the combined view.",
           "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
         }
       },
@@ -131,6 +136,10 @@
         "title": "Signal Strength Mapping",
         "description": "For each monitored entity, optionally select a signal sensor and choose the network type. Leave the sensor empty to skip signal monitoring for that entity.\n\nThresholds (good / ok / poor):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / < −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (higher is better)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
       }
+    },
+    "error": {
+      "duplicate_entities": "The same entity cannot appear in both lists. Remove duplicates before saving.",
+      "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled."
     }
   },
   "entity": {
