@@ -363,6 +363,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "display_names",
             "entities",
             "entities_collapsed",
+            "row_entity_ids",
             "groups",
             "offline_entities",
             "stale_entities",
@@ -882,6 +883,11 @@ class CombinedGroupSensor(CombinedSensorBase):
             "groups": groups,
             "entities": raw_entities,
             "entities_collapsed": collapsed_entities,
+            "row_entity_ids": {
+                rk: merged_states[rk].entity_id
+                for rk in merged_states
+                if rk != merged_states[rk].entity_id
+            },
             "display_names": display_names,
             "battery_levels": battery_levels,
             "signal_levels": signal_levels,
