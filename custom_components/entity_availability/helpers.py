@@ -116,8 +116,8 @@ def _stable_int(value: object) -> int | None:
     if value is None:
         return None
     try:
-        ivalue = int(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+        ivalue = round(float(value))  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
         return None
     return ivalue
 
