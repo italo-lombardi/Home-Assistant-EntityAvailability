@@ -867,6 +867,7 @@ class TestCombinedOwnToggle:
         attrs = summary.extra_state_attributes
         # No collapse anywhere -> two separate offline rows.
         assert attrs["offline"] == 2
+        assert summary.native_value == 2
 
     def test_combined_toggle_gated_on_child_device_names(self, mock_hass):
         # Combined toggle on, but NO child has device names -> no-op.

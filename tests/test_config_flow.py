@@ -726,7 +726,12 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
 async def test_combined_options_collapse_requires_child_device_names(
     hass: HomeAssistant,
 ) -> None:
-    """Combined collapse toggle is rejected when no included group has device names."""
+    """Combined collapse toggle is rejected when no included group has device names.
+
+    _create_group_entry produces entries without CONF_USE_DEVICE_NAMES=True
+    (relies on DEFAULT_USE_DEVICE_NAMES=False) — if that default ever flips,
+    update this test to explicitly set use_device_names=False on the entries.
+    """
     entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
     entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
     combined = MockConfigEntry(

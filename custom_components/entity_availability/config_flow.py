@@ -137,6 +137,18 @@ def _build_signal_map_from_input(
     return signal_map
 
 
+def _combined_collapse_gate_met(
+    existing_groups: list,
+    combined_groups: list,
+) -> bool:
+    """Return True if at least one selected group has use_device_names enabled."""
+    return any(
+        e.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
+        for e in existing_groups
+        if e.entry_id in combined_groups
+    )
+
+
 class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Entity Availability."""
 
@@ -256,10 +268,8 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_GROUP_NAME] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
-            elif collapse and not any(
-                e.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
-                for e in existing_groups
-                if e.entry_id in combined_groups
+            elif collapse and not _combined_collapse_gate_met(
+                existing_groups, combined_groups
             ):
                 errors[CONF_COLLAPSE_DEVICES] = "collapse_requires_device_names"
             else:
@@ -859,10 +869,8 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 errors[CONF_GROUP_NAME] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
-            elif collapse and not any(
-                e.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
-                for e in existing_groups
-                if e.entry_id in combined_groups
+            elif collapse and not _combined_collapse_gate_met(
+                existing_groups, combined_groups
             ):
                 errors[CONF_COLLAPSE_DEVICES] = "collapse_requires_device_names"
             else:
