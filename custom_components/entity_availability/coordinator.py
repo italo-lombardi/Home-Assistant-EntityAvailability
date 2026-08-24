@@ -951,6 +951,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         Within a device the first matching member (insertion order) is emitted.
         When collapse is inactive, rep_of maps every entity to itself, so this is
         identical to filtering every entity per-entity (pre-collapse behavior).
+
+        Note: the emitted ID is the first entity that satisfies the predicate,
+        which may differ from the global representative in entities_collapsed
+        (worst-severity member). Example: device has eid_a (stale) and eid_b
+        (offline, worse → global rep). entities_collapsed = [eid_b]; but
+        stale_entities = [eid_a] because eid_b does not satisfy the stale
+        predicate. Automations cross-referencing per-category lists against
+        entities_collapsed should match by device rather than by entity_id.
         """
         rep_of = self._collapsed_map()
         seen_device: set[str] = set()
