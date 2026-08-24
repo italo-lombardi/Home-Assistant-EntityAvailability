@@ -158,6 +158,8 @@ def collapse_representatives(
             # New best-ranked member (unsuppressed first, then worst severity)
             # becomes the key's representative.
             by_key[key] = eid
+            # ponytail: O(n) scan per reassignment → O(n²) per key; fine for typical
+            # HA group sizes (<500 entities); use two-pass if that ceiling is hit.
             for other, r in rep_of.items():
                 if r == cur:
                     rep_of[other] = eid
