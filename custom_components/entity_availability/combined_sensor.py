@@ -561,7 +561,7 @@ class CombinedGroupSensor(CombinedSensorBase):
     @property
     def native_value(self) -> int:
         active = self._active_coordinators()
-        merged, rep_of = self._device_map_of(active)
+        _, rep_of = self._device_map_of(active)
         reps = dict.fromkeys(rep_of.values())
         return len(reps)
 
