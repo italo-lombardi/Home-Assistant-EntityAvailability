@@ -659,6 +659,33 @@ class TestCombinedSmartDedup:
         )
         assert count.native_value == 2
 
+    def test_same_entity_different_use_device_names_keeps_separate(self, mock_hass):
+        # Same entity_id: group A has use_device_names=True, group B has False.
+        # Different config -> 2 separate rows in combined view.
+        _register_entity(mock_hass, "binary_sensor.udn_diff", None)
+        d = DeviceState(entity_id="binary_sensor.udn_diff", is_offline=True)
+        coord_a = _make_group_coord(
+            mock_hass, "grp_udn_a", {"binary_sensor.udn_diff": d}, use_device_names=True
+        )
+        coord_b = _make_group_coord(
+            mock_hass,
+            "grp_udn_b",
+            {"binary_sensor.udn_diff": d},
+            use_device_names=False,
+        )
+        mock_hass.data[DOMAIN] = {"grp_udn_a": coord_a, "grp_udn_b": coord_b}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="combined_udn", title="Combined UDN"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass,
+            combined_entry,
+            "Combined UDN",
+            "combined_udn",
+            ["grp_udn_a", "grp_udn_b"],
+        )
+        assert count.native_value == 2
+
 
 class TestOnlineWithSuppressedSibling:
     def test_online_not_undercounted_by_suppressed_sibling(self, mock_hass):

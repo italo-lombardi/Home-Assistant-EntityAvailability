@@ -276,6 +276,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             )
             for eid, d in coord.device_states.items():
                 fingerprint = (
+                    udn,
                     battery_map.get(eid),
                     signal_map.get(eid),
                     eid in non_essential,
@@ -336,6 +337,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             )
             for eid in coord.device_states:
                 fingerprint = (
+                    udn,
                     battery_map.get(eid),
                     signal_map.get(eid),
                     eid in non_essential,
