@@ -2191,6 +2191,68 @@ async def test_signal_mapping_empty_network_type_falls_back_to_generic(
     )
 
 
+async def test_options_flow_preserves_entity_order(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow re-saves entities in original order even if UI submits them differently.
+
+    Covers the sort-by-original-position fix: user resubmits entities in a
+    different order; saved CONF_ENTITIES must match the original order so that
+    battery_entity_map, signal_entity_map, and diagnostics remain stable.
+    """
+    from custom_components.entity_availability.const import (
+        CONF_NON_ESSENTIAL_ENTITIES,
+        CONF_RECOVERY_WINDOW,
+        CONF_STALENESS_USE_LAST_UPDATED,
+        DEFAULT_RECOVERY_WINDOW,
+    )
+
+    original_order = ["binary_sensor.a", "binary_sensor.b", "binary_sensor.c"]
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Order Test",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Order Test",
+            CONF_ENTITIES: original_order,
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 0,
+        },
+        entry_id="order_test",
+        unique_id=f"{DOMAIN}_order_test",
+    )
+    entry.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry", return_value=True
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    # Submit entities in reverse order — flow must restore original order.
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: ["binary_sensor.c", "binary_sensor.a", "binary_sensor.b"],
+            CONF_NON_ESSENTIAL_ENTITIES: [],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_STALENESS_USE_LAST_UPDATED: False,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: [],
+            CONF_RECOVERY_WINDOW: DEFAULT_RECOVERY_WINDOW,
+            CONF_USE_DEVICE_NAMES: False,
+            CONF_COLLAPSE_DEVICES: False,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert entry.data[CONF_ENTITIES] == original_order
+
+
 async def test_options_flow_signal_enabled_goes_to_signal_mapping(
     hass: HomeAssistant, mock_config_entry
 ) -> None:

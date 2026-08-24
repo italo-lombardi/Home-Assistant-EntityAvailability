@@ -581,9 +581,13 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             else:
                 self._data = {**self.config_entry.data, **user_input}
                 non_essential = list(dict.fromkeys(non_essential_raw))
-                self._data[CONF_ENTITIES] = list(
-                    dict.fromkeys(monitored_raw + non_essential)
-                )
+                new_entities = list(dict.fromkeys(monitored_raw + non_essential))
+                # Preserve saved order — sort new_entities by original position,
+                # appending genuinely new entities at the end.
+                original_order = self.config_entry.data.get(CONF_ENTITIES, [])
+                orig_idx = {e: i for i, e in enumerate(original_order)}
+                new_entities.sort(key=lambda e: orig_idx.get(e, len(original_order)))
+                self._data[CONF_ENTITIES] = new_entities
                 self._data[CONF_NON_ESSENTIAL_ENTITIES] = non_essential
 
                 if self._data.get(CONF_BATTERY_THRESHOLD, 0) > 0:
