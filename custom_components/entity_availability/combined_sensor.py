@@ -877,6 +877,9 @@ class CombinedGroupSensor(CombinedSensorBase):
                 if rk != merged_states[rk].entity_id
             },
             "row_members": {
+                # ponytail: O(n×m) — iterates rep_of per collapsed rep. Acceptable
+                # at current cardinality (<500 entities); refactor to a grouping pass
+                # (like collapsed_member_map) if scale becomes a concern.
                 rep: members
                 for rep in collapsed_entities
                 if len(
