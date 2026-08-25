@@ -21,6 +21,10 @@ All notable changes to this project will be documented in this file.
 - **Combined groups: smart entity dedup and auto-collapse** — two automatic behaviours replace the need for a separate combined collapse toggle (#84):
   - *Smart dedup*: the same entity in multiple source groups is counted once when all groups share identical configuration (battery sensor, signal sensor, non-essential flag, offline states). If any group differs, each group's interpretation appears as its own row so no monitoring signal is silently dropped.
   - *Auto-collapse by device key*: entities from source groups that have **Show device names** enabled are automatically collapsed by physical device in the combined view — no extra toggle required. Groups without Show device names keep their entities as individual rows.
+- **Card: collapsed device row improvements** — when "Collapse entities by device" is active, collapsed rows now surface their device context (#88):
+  - A **`×N` count badge** appears after the device name indicating how many entities are represented by the row
+  - The hover **tooltip** shows `Device: <name> (N entities)` instead of a raw entity ID, and the condition line reads `≥1 entity offline for 3h` / `≥1 entity: Online` rather than implying a single-entity state
+  - Click behavior unchanged — still opens the most-actionable (worst-severity) entity's detail panel
 
 ### Changed
 - **Combined groups** count a device once even when its entities are spread across several included groups. Each group's own setting is respected — entities from a group without the option stay separate.
