@@ -866,9 +866,12 @@ class CombinedGroupSensor(CombinedSensorBase):
                 if len(
                     members := list(
                         dict.fromkeys(
-                            merged_states[rk].entity_id
-                            for rk in rep_of
-                            if rep_of[rk] == rep
+                            [merged_states[rep].entity_id]
+                            + [
+                                merged_states[rk].entity_id
+                                for rk in rep_of
+                                if rep_of[rk] == rep and rk != rep
+                            ]
                         )
                     )
                 )
