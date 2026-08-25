@@ -17,6 +17,7 @@ from custom_components.entity_availability.const import (
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
     CONF_STALENESS_THRESHOLD,
+    CONF_STALENESS_USE_LAST_UPDATED,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
 )
@@ -731,6 +732,40 @@ class TestGroupSummarySensor:
         sensor = GroupSummarySensor(coord, "Test", "test", entry.entry_id)
         sensor.hass = mock_hass
         assert sensor.extra_state_attributes["staleness_enabled"] is False
+
+    def test_last_seen_uses_last_changed_when_staleness_use_last_updated(
+        self, mock_hass, mock_config_data
+    ):
+        """last_seen uses last_changed regardless of staleness_use_last_updated flag.
+
+        Regression test for GitHub #85: DeviceState has no last_updated field;
+        the old code raised AttributeError when staleness_use_last_updated=True.
+        """
+        lc = datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc)
+        entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Test",
+            data={
+                **mock_config_data,
+                CONF_STALENESS_USE_LAST_UPDATED: True,
+            },
+            entry_id="test_ulu_last_seen",
+            unique_id=f"{DOMAIN}_test_ulu_last_seen",
+        )
+        entry.add_to_hass(mock_hass)
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, entry)
+            coord._device_states["binary_sensor.device_a"] = DeviceState(
+                entity_id="binary_sensor.device_a", last_changed=lc
+            )
+        sensor = GroupSummarySensor(coord, "Test", "test", entry.entry_id)
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.device_a" in attrs["last_seen"]
+        assert attrs["last_seen"]["binary_sensor.device_a"] == lc.isoformat()
 
     def test_battery_enabled_false_when_key_absent(self, mock_hass, mock_config_data):
         """battery_enabled must be False when CONF_BATTERY_THRESHOLD is absent from config."""

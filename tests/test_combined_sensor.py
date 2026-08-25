@@ -34,6 +34,7 @@ from custom_components.entity_availability.const import (
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
     CONF_STALENESS_THRESHOLD,
+    CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DOMAIN,
@@ -566,6 +567,59 @@ class TestCombinedGroupSensor:
         assert "binary_sensor.a2" in attrs["offline_since"]
         assert "binary_sensor.b1" in attrs["suppressed_until"]
         assert "binary_sensor.a1" in attrs["last_seen"]
+
+    def test_last_seen_uses_last_changed_when_staleness_use_last_updated(
+        self, mock_hass, combined_entry
+    ):
+        """last_seen uses last_changed regardless of staleness_use_last_updated flag.
+
+        Regression test for GitHub #85: DeviceState has no last_updated field;
+        the old code raised AttributeError when staleness_use_last_updated=True.
+        Uses a real coordinator built from entry data with the flag set — mirrors
+        the actual prod flow that triggered the crash.
+        """
+        lc = datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc)
+        group_entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group ULU",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Group ULU",
+                CONF_ENTITIES: ["binary_sensor.x1"],
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_STALENESS_USE_LAST_UPDATED: True,
+            },
+            entry_id="entry_ulu",
+            unique_id=f"{DOMAIN}_group_ulu",
+        )
+        group_entry.add_to_hass(mock_hass)
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord = EntityAvailabilityCoordinator(mock_hass, group_entry)
+            coord._device_states["binary_sensor.x1"] = DeviceState(
+                entity_id="binary_sensor.x1", last_changed=lc
+            )
+        mock_hass.data[DOMAIN] = {"entry_ulu": coord}
+        combined = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Combined ULU",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+                CONF_GROUP_NAME: "Combined ULU",
+                CONF_COMBINED_GROUPS: ["entry_ulu"],
+            },
+            entry_id="combined_ulu",
+            unique_id=f"{DOMAIN}_combined_ulu",
+        )
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "Combined ULU", "combined_ulu", ["entry_ulu"]
+        )
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.x1" in attrs["last_seen"]
+        assert attrs["last_seen"]["binary_sensor.x1"] == lc.isoformat()
 
     def test_attributes_battery_powered_via_battery_map(
         self, mock_hass, group_entry_a, group_entry_b, coordinators

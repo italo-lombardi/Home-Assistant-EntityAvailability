@@ -6,6 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ## [0.5.0] - 2026-08-26
 
+### Fixed
+- **`last_seen` attribute crash when "Count attribute updates as activity" is enabled** — groups with `staleness_use_last_updated: true` raised `AttributeError: 'DeviceState' object has no attribute 'last_updated'` on every coordinator update cycle, leaving `*_group_summary` and combined sensors stuck `unavailable`. The `last_seen` diagnostic attribute now always uses `last_changed` (the only timestamp `DeviceState` persists); the staleness calculation itself is unaffected and continues to use `last_updated` from the live HA state. (#85, #86)
+
 ### ⚠️ Breaking
 
 - **"Collapse entities by device" moved from the card to the group settings.** It's now a group option (Advanced Settings / Options) instead of a card checkbox, and it requires **Show device names**. When you turn it on for a group, entities that belong to the same device are counted as one everywhere — the sensor counts, the lists, and the notification events — so the numbers finally match what the card shows. Entities only merge when they share the same device, battery level and signal — entities on the same device with different battery or signal readings stay separate.
