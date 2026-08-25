@@ -7,32 +7,29 @@ All notable changes to this project will be documented in this file.
 ## [0.5.0] - 2026-08-26
 
 ### Fixed
-- **`last_seen` attribute crash when "Count attribute updates as activity" is enabled** — groups with `staleness_use_last_updated: true` raised `AttributeError: 'DeviceState' object has no attribute 'last_updated'` on every coordinator update cycle, leaving `*_group_summary` and combined sensors stuck `unavailable`. The `last_seen` diagnostic attribute now always uses `last_changed` (the only timestamp `DeviceState` persists); the staleness calculation itself is unaffected and continues to use `last_updated` from the live HA state. (#85, #86)
+- **`last_seen` attribute crash when "Count attribute updates as activity" is enabled** — groups with `staleness_use_last_updated: true` raised `AttributeError: 'DeviceState' object has no attribute 'last_updated'` on every coordinator update cycle, leaving `*_group_summary` and combined sensors stuck `unavailable`. The `last_seen` diagnostic attribute now always uses `last_changed`; the staleness calculation itself is unaffected. (#85, #86)
+- **Combined groups: suppression dedup is now deterministic** — when the same entity appears in multiple source groups, the combined view previously reflected whichever group was added first. Now: unsuppressed beats suppressed; if both suppressed, the longer/indefinite expiry wins. A per-group mute no longer silences the entity in combined when another group still monitors it actively. (#88)
+- **Combined card: suppression tooltip on collapsed rows** — the suppressed-until tooltip was keyed by entity_id; combined rows use row_key which may differ. Now checks row_key first. (#88)
 
 ### ⚠️ Breaking
 
 - **"Collapse entities by device" moved from the card to the group settings.** It's now a group option (Advanced Settings / Options) instead of a card checkbox, and it requires **Show device names**. When you turn it on for a group, entities that belong to the same device are counted as one everywhere — the sensor counts, the lists, and the notification events — so the numbers finally match what the card shows. Entities only merge when they share the same device, battery level and signal — entities on the same device with different battery or signal readings stay separate.
-  - Automations that react to the offline/low-battery/stale/poor-signal events will see one entry per device (not per entity) for groups that use this option. The event still fires for the entity that actually changed; only the count/list in the event data is combined.
+  - Automations that react to the offline/low-battery/stale/poor-signal events will see one entry per device (not per entity) for groups that use this option.
   - Availability %, MTBF and MTTR stay per-entity and are not affected.
-  - Nothing changes until you turn the option on (it's off by default). Turning it on will show a one-time step in the count-sensor history graphs.
+  - Nothing changes until you turn the option on (it's off by default).
 
 ### Added
-- **"Collapse entities by device" group option** — counts several entities of the same physical device as one across all sensor values, lists and events. Needs **Show device names** on; entities not tied to a device are never merged. Available when creating a group and in its Options. Translated into all supported languages. (#81)
-- **Combined groups: smart entity dedup and auto-collapse** — two automatic behaviours replace the need for a separate combined collapse toggle (#84):
-  - *Smart dedup*: the same entity in multiple source groups is counted once when all groups share identical configuration (battery sensor, signal sensor, non-essential flag, offline states). If any group differs, each group's interpretation appears as its own row so no monitoring signal is silently dropped.
-  - *Auto-collapse by device key*: entities from source groups that have **Show device names** enabled are automatically collapsed by physical device in the combined view — no extra toggle required. Groups without Show device names keep their entities as individual rows.
-- **Card: collapsed device row improvements** — when "Collapse entities by device" is active, collapsed rows now surface their device context (#88):
-  - A **`×N` count badge** appears after the device name indicating how many entities are represented by the row
-  - The hover **tooltip** shows `Device: <name> (N entities)` instead of a raw entity ID, and the condition line reads `≥1 entity offline for 3h` / `≥1 entity: Online` rather than implying a single-entity state
-  - Click behavior unchanged — still opens the most-actionable (worst-severity) entity's detail panel
-  - Fixed: suppression tooltip on combined collapsed rows was keyed by entity_id instead of row_key; now checks row_key first so suppressed state shows correctly on combined cards
-
-### Fixed (continued)
-- **Combined groups: suppression dedup now unsuppressed-wins** — when the same entity appears in multiple combined source groups and is suppressed in one but not another, it now shows as active in the combined view. Previously the result was order-dependent (first group added won). A suppression scoped to one group no longer silences the entity in the combined card when another group still monitors it actively. Using the suppress service without a `group:` parameter (or from the combined card's suppress button) continues to suppress in all groups as before. (#88)
+- **"Collapse entities by device" group option** — counts several entities of the same physical device as one across all sensor values, lists and events. Needs **Show device names** on; entities not tied to a device are never merged. (#81)
+- **Combined groups: smart entity dedup and auto-collapse** (#84):
+  - *Smart dedup*: the same entity in multiple source groups is counted once when all groups share identical configuration. If any setting differs, each group's interpretation appears as its own row.
+  - *Auto-collapse by device key*: source groups with **Show device names** automatically collapse same-device entities in the combined view — no extra toggle required.
+- **Card: collapsed device row improvements** — when "Collapse entities by device" is active (#88):
+  - **`×N` count badge** after the device name showing how many entities are in the row
+  - **Hover tooltip** shows `Device: <name> (N entities)` and `≥1 entity offline for 3h` instead of a single entity's state
 
 ### Changed
-- **Combined groups** count a device once even when its entities are spread across several included groups. Each group's own setting is respected — entities from a group without the option stay separate.
-- **The card** now simply shows the numbers the integration reports (it no longer does any of its own merging).
+- **Combined groups** count a device once even when its entities are spread across several included groups.
+- **The card** now shows the numbers the integration reports (no client-side merging).
 
 ## [0.4.1] - 2026-08-07
 

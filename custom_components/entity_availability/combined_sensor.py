@@ -303,12 +303,16 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                     cur = merged[eid]
                     if cur.is_suppressed and not d.is_suppressed:
                         merged[eid] = d
-                    elif cur.is_suppressed and d.is_suppressed:
-                        if cur.suppress_until is not None and (
+                    elif (
+                        cur.is_suppressed
+                        and d.is_suppressed
+                        and cur.suppress_until is not None
+                        and (
                             d.suppress_until is None
                             or d.suppress_until > cur.suppress_until
-                        ):
-                            merged[eid] = d
+                        )
+                    ):
+                        merged[eid] = d
                     continue
                 else:
                     row_key = f"{eid}::{coord.entry.entry_id}"
