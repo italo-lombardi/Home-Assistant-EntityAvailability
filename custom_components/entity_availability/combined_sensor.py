@@ -684,9 +684,7 @@ class CombinedGroupSensor(CombinedSensorBase):
         # Full merged states + device-key map: category lists dedupe by DEVICE so a
         # device with siblings in different categories appears in each. total/membership
         # use the representative set (one row per device).
-        merged_states, rep_of, udn_map, use_last_updated_map = self._device_map_cached(
-            active
-        )
+        merged_states, rep_of, udn_map, _ = self._device_map_cached(active)
 
         def _m(pred) -> list[str]:
             return self._collapsed_match(merged_states, rep_of, pred)
@@ -814,10 +812,12 @@ class CombinedGroupSensor(CombinedSensorBase):
                 suppressed_until[rk] = d.suppress_until.isoformat()
             if d.offline_since is not None:
                 offline_since[rk] = d.offline_since.isoformat()
-            use_last_updated = use_last_updated_map.get(rk, False)
-            ts = d.last_updated if use_last_updated else d.last_changed
-            if ts is not None:
-                last_seen[rk] = ts.isoformat()
+            # DeviceState only tracks `last_changed` (the coordinator reads
+            # `last_updated` directly off the live HA State object for the
+            # staleness calculation itself, but never persists it here) —
+            # so use_last_updated_map does not apply to this attribute.
+            if d.last_changed is not None:
+                last_seen[rk] = d.last_changed.isoformat()
             if (
                 signal_enabled
                 and d.signal_quality == "ok"
