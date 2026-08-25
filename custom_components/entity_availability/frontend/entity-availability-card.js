@@ -1649,6 +1649,7 @@ class EntityAvailabilityCard extends LitElement {
     }
     const summary = this._getGroupSummary();
     const groups = summary?.attributes?.groups || {};
+    const rowMembers = summary?.attributes?.row_members || {};
     const map = {};
     for (const [entryId, g] of Object.entries(groups)) {
       for (const list of ["offline_entities", "offline_entities_non_essential",
@@ -1657,6 +1658,10 @@ class EntityAvailabilityCard extends LitElement {
           "low_battery_entities", "low_battery_entities_non_essential"]) {
         for (const eid of (g[list] || [])) {
           if (!(eid in map)) map[eid] = entryId;
+          // Also map all members of a collapsed row to the same group
+          for (const member of (rowMembers[eid] || [])) {
+            if (!(member in map)) map[member] = entryId;
+          }
         }
       }
     }
@@ -1664,7 +1669,14 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   async _suppressEntities(entityIds, groupMap) {
-    for (const entityId of entityIds) {
+    const summary = this._getGroupSummary();
+    const rowMembers = summary?.attributes?.row_members || {};
+    // Expand collapsed rows: if a representative has members, suppress all of them
+    // so the whole device row clears, not just the representative.
+    const expanded = [...new Set(
+      entityIds.flatMap(eid => rowMembers[eid]?.length > 1 ? rowMembers[eid] : [eid])
+    )];
+    for (const entityId of expanded) {
       const group = groupMap._default ?? groupMap[entityId] ?? null;
       await this.hass.callService("entity_availability", "suppress", {
         entity_id: entityId,
