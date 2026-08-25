@@ -741,8 +741,6 @@ class TestGroupSummarySensor:
         Regression test for GitHub #85: DeviceState has no last_updated field;
         the old code raised AttributeError when staleness_use_last_updated=True.
         """
-        from datetime import datetime, timezone
-
         lc = datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc)
         entry = MockConfigEntry(
             version=1,
