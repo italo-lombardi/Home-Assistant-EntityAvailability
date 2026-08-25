@@ -693,10 +693,60 @@ class TestCombinedReCollapse:
         assert attrs2["offline"] == 1
         assert attrs2["suppressed"] == 0
 
+    def test_combined_suppression_expiry_longer_wins(self, mock_hass):
+        # Both groups have entity suppressed but with different expiries.
+        # The longer (later) suppress_until must win regardless of group order.
+        _register_entity(mock_hass, "binary_sensor.exp_shared", "expdev")
+        t_short = datetime(2026, 8, 25, 10, 0, 0, tzinfo=timezone.utc)
+        t_long = datetime(2026, 8, 25, 18, 0, 0, tzinfo=timezone.utc)
+        state_short = DeviceState(
+            entity_id="binary_sensor.exp_shared",
+            is_suppressed=True,
+            suppress_until=t_short,
+        )
+        state_long = DeviceState(
+            entity_id="binary_sensor.exp_shared",
+            is_suppressed=True,
+            suppress_until=t_long,
+        )
+        coord_a = _make_group_coord(
+            mock_hass,
+            "grp_exp_a",
+            {"binary_sensor.exp_shared": state_short},
+            use_device_names=False,
+        )
+        coord_b = _make_group_coord(
+            mock_hass,
+            "grp_exp_b",
+            {"binary_sensor.exp_shared": state_long},
+            use_device_names=False,
+        )
+        mock_hass.data[DOMAIN] = {"grp_exp_a": coord_a, "grp_exp_b": coord_b}
+        entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="combined_exp", title="Combined Exp"
+        )
+        summary = CombinedGroupSensor(
+            mock_hass, entry, "Combined Exp", "combined_exp", ["grp_exp_a", "grp_exp_b"]
+        )
+        attrs = summary.extra_state_attributes
+        # Longer expiry wins — suppressed_until should reflect t_long.
+        assert attrs["suppressed"] == 1
+        assert (
+            attrs["suppressed_until"].get("binary_sensor.exp_shared")
+            == t_long.isoformat()
+        )
+
+        # Reverse order — same result.
+        summary2 = CombinedGroupSensor(
+            mock_hass, entry, "Combined Exp", "combined_exp", ["grp_exp_b", "grp_exp_a"]
+        )
+        attrs2 = summary2.extra_state_attributes
+        assert (
+            attrs2["suppressed_until"].get("binary_sensor.exp_shared")
+            == t_long.isoformat()
+        )
+
     def test_mixed_toggle_partial_collapse(self, mock_hass):
-        # Group A has use_device_names=True (auto-collapses in combined view).
-        # Group B has use_device_names=False (no collapse — each entity its own row).
-        # Same physical device: A has two entities (collapse to 1), B has two (stay 2).
         # Combined shows 3 rows total (1 from A + 2 from B).
         for suffix in ("a1", "a2", "b1", "b2"):
             _register_entity(mock_hass, f"binary_sensor.mt_{suffix}", "mtdev")
