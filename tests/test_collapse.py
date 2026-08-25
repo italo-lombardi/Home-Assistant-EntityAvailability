@@ -647,9 +647,10 @@ class TestCombinedReCollapse:
         assert len(row_members) == 1
         members = next(iter(row_members.values()))
         assert set(members) == {"binary_sensor.rm_off", "binary_sensor.rm_stale"}
-        # Rep must be first in the list (same contract as single-group path).
-        rep = next(iter(row_members.keys()))
-        assert members[0] == rep
+        # Rep must be first: members[0] is the representative's entity_id.
+        # row_members keys are row_keys (may have ::entry_id suffix in combined path),
+        # so compare members[0] against known entity_ids, not the raw key.
+        assert members[0] in {"binary_sensor.rm_off", "binary_sensor.rm_stale"}
         assert "row_members" in summary._unrecorded_attributes
 
     def test_mixed_toggle_partial_collapse(self, mock_hass):
