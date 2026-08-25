@@ -72,6 +72,11 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC78 row_entity_ids values are valid real entity_ids (no synthetic keys)
   EC79 combined_summary entities_collapsed entries covered by display_names
 
+  Collapsed device row attrs (EC80-EC81 — PR#88):
+  EC80 group_summary row_members attr present and is a dict (empty when collapse inactive)
+  EC81 combined_summary row_members attr present, is a dict, values are bare entity_ids
+  EC82 combined suppression dedup: suppress in one group, combined shows unsuppressed (unsuppressed-wins)
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -3399,6 +3404,192 @@ for e in cfg['data']['entries']:
                 len(missing),
                 0,
                 f"missing={missing[:5]}",
+            )
+
+    # ------------------------------------------------------------------
+    # EC80-EC81: collapsed device row attrs (PR#88)
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (80, 81)):
+        print(
+            "\n=== EC80-EC81: collapsed device row attrs (PR#88) ===",
+            flush=True,
+        )
+
+        if ec_enabled(80):
+            g_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+            chk(
+                "EC80 group_summary row_members present",
+                "row_members" in g_attrs,
+                True,
+                f"attrs keys (sample)={list(g_attrs.keys())[:15]}",
+            )
+            chk(
+                "EC80 group_summary row_members is dict",
+                isinstance(g_attrs.get("row_members"), dict),
+                True,
+                f"type={type(g_attrs.get('row_members')).__name__}",
+            )
+
+        if ec_enabled(81) and combined_prefix:
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk(
+                "EC81 combined_summary row_members present",
+                "row_members" in c_attrs,
+                True,
+                f"attrs keys (sample)={list(c_attrs.keys())[:15]}",
+            )
+            chk(
+                "EC81 combined_summary row_members is dict",
+                isinstance(c_attrs.get("row_members"), dict),
+                True,
+                f"type={type(c_attrs.get('row_members')).__name__}",
+            )
+            # All member lists must contain only bare entity_ids (no ::suffix)
+            row_members = c_attrs.get("row_members") or {}
+            bad_members = [
+                (rep, m)
+                for rep, members in row_members.items()
+                for m in members
+                if "::" in str(m)
+            ]
+            chk(
+                "EC81 row_members values are bare entity_ids (no synthetic keys)",
+                len(bad_members),
+                0,
+                f"bad={bad_members[:3]}",
+            )
+
+    # ------------------------------------------------------------------
+    # EC82: suppression dedup — unsuppressed-wins in combined (PR#88)
+    # ------------------------------------------------------------------
+    if ec_enabled(82) and combined_prefix:
+        print(
+            "\n=== EC82: suppression dedup — unsuppressed-wins in combined (PR#88) ===",
+            flush=True,
+        )
+        restore_all(ctx)
+        # Find a second group in the combined that:
+        # (a) shares at least one entity with Alpha, AND
+        # (b) has identical config fingerprint for that entity (same battery/signal/NE/bad_states).
+        # Unsuppressed-wins only applies on identical-fingerprint dedup; groups with different
+        # configs get split rows (::entry_id path) which is intentional separate-interpretation
+        # behavior — not a bug and not testable via this EC.
+        all_states = api("GET", "/api/states")
+        beta_prefix_82 = None
+        shared_82 = None
+        alpha_entities_82 = set(ctx["entities"])
+        c_attrs_82 = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+        # Pull combined entities list to detect split rows (::entry_id suffix = different fingerprint)
+        combined_entities_82 = c_attrs_82.get("entities") or []
+        combined_rk_set = set(combined_entities_82)
+        # row_entity_ids keys with ::suffix indicate split-row entities (different fingerprint)
+        split_row_entities_82 = {
+            v for k, v in (c_attrs_82.get("row_entity_ids") or {}).items() if "::" in k
+        }
+
+        for s in all_states:
+            eid_s = s["entity_id"]
+            if "entity_availability" not in eid_s or "group_summary" not in eid_s:
+                continue
+            cand = eid_s.replace("_group_summary", "")
+            if cand == ctx["prefix"]:
+                continue
+            cand_entry = s.get("attributes", {}).get("entry_id", "")
+            if cand_entry not in c_attrs_82.get("groups", {}):
+                continue
+            cand_entities = set(s.get("attributes", {}).get("entities", []))
+            shared = alpha_entities_82 & cand_entities
+            # Only use this group if the shared entity is NOT in a split row
+            # (split-row = entity has a ::suffix row_key in row_entity_ids = different fingerprint)
+            identical_shared = [
+                e
+                for e in shared
+                if e in combined_rk_set
+                and "::" not in e
+                and e not in split_row_entities_82
+            ]
+            if identical_shared:
+                beta_prefix_82 = cand
+                shared_82 = identical_shared[0]
+                break
+
+        if beta_prefix_82 and shared_82:
+            alpha_title_82 = ctx["title"]
+
+            # Suppress in Alpha only (group-scoped)
+            api(
+                "POST",
+                "/api/services/entity_availability/suppress_indefinitely",
+                {"entity_id": shared_82, "group": alpha_title_82},
+            )
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "1",
+            )
+
+            chk(
+                "EC82 suppressed=1 in Alpha (group-scoped)",
+                str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "1",
+            )
+            chk(
+                "EC82 suppressed=0 in Beta (unsuppressed in that group)",
+                str(
+                    gs(f"{beta_prefix_82}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "0",
+            )
+
+            # Combined must show suppressed=0: unsuppressed-wins dedup
+            wait_for(
+                lambda: str(
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "0",
+            )
+            combined_suppressed_82 = (
+                gs(f"{combined_prefix}_combined_summary")
+                .get("attributes", {})
+                .get("suppressed")
+            )
+            chk(
+                "EC82 combined suppressed=0 (unsuppressed-wins — Beta still active)",
+                str(combined_suppressed_82),
+                "0",
+            )
+
+            # Restore
+            api(
+                "POST",
+                "/api/services/entity_availability/unsuppress",
+                {"entity_id": shared_82, "group": alpha_title_82},
+            )
+            wait_for(
+                lambda: str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
+                "0",
+            )
+        else:
+            print(
+                "EC82 skipped — no group in combined shares an identical-fingerprint entity "
+                "with Alpha (groups with different signal/battery/NE config use split rows; "
+                "unsuppressed-wins covered by unit tests instead)",
+                flush=True,
             )
 
     # ------------------------------------------------------------------

@@ -293,7 +293,25 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                     seen_fingerprint[eid] = fingerprint
                     row_key = eid
                 elif seen_fingerprint[eid] == fingerprint:
-                    continue  # identical config — first-wins, skip duplicate
+                    # Deterministic merge precedence (order-independent):
+                    # 1. Unsuppressed beats suppressed — a per-group mute should not
+                    #    silence the entity in combined when another group monitors it.
+                    # 2. Both suppressed: indefinite (suppress_until=None) beats expiry;
+                    #    later expiry beats earlier expiry.
+                    # Note: swaps the whole DeviceState (offline_since, battery, etc.
+                    # come from the winner too — same physical entity, acceptable).
+                    cur = merged[eid]
+                    if (cur.is_suppressed and not d.is_suppressed) or (
+                        cur.is_suppressed
+                        and d.is_suppressed
+                        and cur.suppress_until is not None
+                        and (
+                            d.suppress_until is None
+                            or d.suppress_until > cur.suppress_until
+                        )
+                    ):
+                        merged[eid] = d
+                    continue
                 else:
                     row_key = f"{eid}::{coord.entry.entry_id}"
                 merged[row_key] = d
@@ -342,6 +360,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "entities",
             "entities_collapsed",
             "row_entity_ids",
+            "row_members",
             "groups",
             "offline_entities",
             "stale_entities",
@@ -858,6 +877,26 @@ class CombinedGroupSensor(CombinedSensorBase):
                 rk: merged_states[rk].entity_id
                 for rk in merged_states
                 if rk != merged_states[rk].entity_id
+            },
+            "row_members": {
+                # ponytail: O(n×m) — iterates rep_of per collapsed rep. Acceptable
+                # at current cardinality (<500 entities); refactor to a grouping pass
+                # (like collapsed_member_map) if scale becomes a concern.
+                rep: members
+                for rep in collapsed_entities
+                if len(
+                    members := list(
+                        dict.fromkeys(
+                            [merged_states[rep].entity_id]
+                            + [
+                                merged_states[rk].entity_id
+                                for rk in rep_of
+                                if rep_of[rk] == rep and rk != rep
+                            ]
+                        )
+                    )
+                )
+                > 1
             },
             "display_names": display_names,
             "battery_levels": battery_levels,
