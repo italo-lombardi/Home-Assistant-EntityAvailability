@@ -1004,6 +1004,25 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             result.append(rep)
         return result
 
+    def collapsed_member_map(self) -> dict[str, list[str]]:
+        """Return {representative_entity_id -> [all member entity_ids]} when collapse is active.
+
+        Empty when collapse is inactive. Each list is ordered: representative first,
+        remaining members in _collapsed_map insertion order.
+        """
+        if not self.collapse_active:
+            return {}
+        rep_of = self._collapsed_map()
+        members: dict[str, list[str]] = {}
+        for eid, rep in rep_of.items():
+            members.setdefault(rep, []).append(eid)
+        # Only emit entries with >1 member — singleton rows are trivial/unchanged.
+        return {
+            rep: [rep, *[e for e in eids if e != rep]]
+            for rep, eids in members.items()
+            if len(eids) > 1
+        }
+
     def _offline_entity_ids(self) -> list[str]:
         """Return offline, non-suppressed, essential entity_ids (device-collapsed when active)."""
         return self._representatives_matching(

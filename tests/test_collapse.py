@@ -191,6 +191,75 @@ class TestCollapseCounts:
         # Count == rows the card renders.
         assert attrs["offline"] == len(attrs["entities_collapsed"])
 
+    def test_row_members_emitted_for_collapsed_device(
+        self, mock_hass, two_offline_one_device
+    ):
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=True,
+            use_device_names=True,
+            states=two_offline_one_device,
+        )
+        sensor = GroupSummarySensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        row_members = attrs["row_members"]
+        # dev1_a and dev1_b collapse to one rep; that rep has 2 members.
+        reps_with_multiple = {k: v for k, v in row_members.items() if len(v) > 1}
+        assert len(reps_with_multiple) == 1
+        rep, members = next(iter(reps_with_multiple.items()))
+        assert rep in ("binary_sensor.dev1_a", "binary_sensor.dev1_b")
+        assert set(members) == {"binary_sensor.dev1_a", "binary_sensor.dev1_b"}
+        # dev2 is a single-entity device — absent from row_members.
+        assert "binary_sensor.dev2" not in row_members
+
+    def test_row_members_representative_is_first(
+        self, mock_hass, two_offline_one_device
+    ):
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=True,
+            use_device_names=True,
+            states=two_offline_one_device,
+        )
+        sensor = GroupSummarySensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        row_members = attrs["row_members"]
+        collapsed = attrs["entities_collapsed"]
+        for rep in collapsed:
+            if rep in row_members:
+                assert row_members[rep][0] == rep, (
+                    f"rep {rep} not first in its member list"
+                )
+
+    def test_row_members_empty_when_collapse_off(
+        self, mock_hass, two_offline_one_device
+    ):
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=False,
+            use_device_names=True,
+            states=two_offline_one_device,
+        )
+        sensor = GroupSummarySensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["row_members"] == {}
+
+    def test_row_members_in_unrecorded_attributes(
+        self, mock_hass, two_offline_one_device
+    ):
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=True,
+            use_device_names=True,
+            states=two_offline_one_device,
+        )
+        sensor = GroupSummarySensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        assert "row_members" in sensor._unrecorded_attributes
+
     def test_group_summary_native_value_collapses(
         self, mock_hass, two_offline_one_device
     ):
@@ -524,6 +593,47 @@ class TestCombinedReCollapse:
         assert len(attrs["entities_collapsed"]) == 1  # one physical device
         assert attrs["offline"] == 1
         assert attrs["stale"] == 1
+
+    def test_combined_row_members_emitted_for_cross_group_device(self, mock_hass):
+        # Same device split across two groups -> combined collapses to one row;
+        # row_members must list both entity_ids under the representative.
+        _register_entity(mock_hass, "binary_sensor.rm_off", "rmdev")
+        _register_entity(mock_hass, "binary_sensor.rm_stale", "rmdev")
+        coord_a = _make_group_coord(
+            mock_hass,
+            "grp_rm_a",
+            {
+                "binary_sensor.rm_off": DeviceState(
+                    entity_id="binary_sensor.rm_off", is_offline=True
+                )
+            },
+        )
+        coord_b = _make_group_coord(
+            mock_hass,
+            "grp_rm_b",
+            {
+                "binary_sensor.rm_stale": DeviceState(
+                    entity_id="binary_sensor.rm_stale", is_stale=True
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"grp_rm_a": coord_a, "grp_rm_b": coord_b}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="combined_rm", title="Combined RM"
+        )
+        summary = CombinedGroupSensor(
+            mock_hass,
+            combined_entry,
+            "Combined RM",
+            "combined_rm",
+            ["grp_rm_a", "grp_rm_b"],
+        )
+        attrs = summary.extra_state_attributes
+        row_members = attrs["row_members"]
+        assert len(row_members) == 1
+        members = next(iter(row_members.values()))
+        assert set(members) == {"binary_sensor.rm_off", "binary_sensor.rm_stale"}
+        assert "row_members" in summary._unrecorded_attributes
 
     def test_mixed_toggle_partial_collapse(self, mock_hass):
         # Group A has use_device_names=True (auto-collapses in combined view).

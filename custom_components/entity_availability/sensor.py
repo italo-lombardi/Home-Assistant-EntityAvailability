@@ -1012,6 +1012,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "offline_entities_non_essential",
             "non_essential_entities",
             "entities_collapsed",
+            "row_members",
         }
     )
 
@@ -1198,6 +1199,7 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "poor_signal_non_essential": len(poor_signal_ne_ids),
             "entities": list(self.coordinator.monitored_entities),
             "entities_collapsed": collapsed,
+            "row_members": self.coordinator.collapsed_member_map(),
             "display_names": {
                 eid: _resolve_display_name(self.hass, eid, use_device_names)
                 for eid in self.coordinator.monitored_entities

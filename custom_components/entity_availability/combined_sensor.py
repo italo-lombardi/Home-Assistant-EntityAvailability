@@ -342,6 +342,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "entities",
             "entities_collapsed",
             "row_entity_ids",
+            "row_members",
             "groups",
             "offline_entities",
             "stale_entities",
@@ -858,6 +859,20 @@ class CombinedGroupSensor(CombinedSensorBase):
                 rk: merged_states[rk].entity_id
                 for rk in merged_states
                 if rk != merged_states[rk].entity_id
+            },
+            "row_members": {
+                rep: members
+                for rep in collapsed_entities
+                if len(
+                    members := list(
+                        dict.fromkeys(
+                            merged_states[rk].entity_id
+                            for rk in rep_of
+                            if rep_of[rk] == rep
+                        )
+                    )
+                )
+                > 1
             },
             "display_names": display_names,
             "battery_levels": battery_levels,
