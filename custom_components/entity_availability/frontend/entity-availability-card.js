@@ -1366,7 +1366,9 @@ class EntityAvailabilityCard extends LitElement {
     const areaId = this.hass.entities?.[item.entityId]?.area_id;
     const areaName = areaId ? (this.hass.areas?.[areaId]?.name || null) : null;
 
-    const suppressedUntilIso = suppressedUntilMap[item.entityId];
+    const suppressedUntilIso = (item.rowKey != null && item.rowKey in suppressedUntilMap)
+      ? suppressedUntilMap[item.rowKey]
+      : suppressedUntilMap[item.entityId];
     const suppressedUntil = suppressedUntilIso === null
       ? "indefinitely"
       : suppressedUntilIso

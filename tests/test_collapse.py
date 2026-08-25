@@ -247,6 +247,20 @@ class TestCollapseCounts:
         attrs = sensor.extra_state_attributes
         assert attrs["row_members"] == {}
 
+    def test_row_members_empty_when_use_device_names_off(
+        self, mock_hass, two_offline_one_device
+    ):
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=True,
+            use_device_names=False,
+            states=two_offline_one_device,
+        )
+        sensor = GroupSummarySensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        attrs = sensor.extra_state_attributes
+        assert attrs["row_members"] == {}
+
     def test_row_members_in_unrecorded_attributes(
         self, mock_hass, two_offline_one_device
     ):
