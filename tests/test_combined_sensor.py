@@ -567,6 +567,30 @@ class TestCombinedGroupSensor:
         assert "binary_sensor.b1" in attrs["suppressed_until"]
         assert "binary_sensor.a1" in attrs["last_seen"]
 
+    def test_last_seen_uses_last_changed_when_staleness_use_last_updated(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """last_seen uses last_changed regardless of staleness_use_last_updated flag.
+
+        Regression test for GitHub #85: DeviceState has no last_updated field;
+        the old code raised AttributeError when staleness_use_last_updated=True.
+        """
+        mock_hass.data[DOMAIN] = {
+            "entry_a": coordinators[0],
+            "entry_b": coordinators[1],
+        }
+        lc = datetime(2026, 3, 1, 10, 0, 0, tzinfo=timezone.utc)
+        coordinators[0]._device_states["binary_sensor.a1"].last_changed = lc
+        # Simulate staleness_use_last_updated=True on the coordinator — the old
+        # buggy code read use_last_updated_map per row_key and then accessed
+        # d.last_updated (which doesn't exist on DeviceState), crashing with
+        # AttributeError on every tick. The fix uses d.last_changed unconditionally.
+        coordinators[0]._staleness_use_last_updated = True
+        sensor = self._sensor(mock_hass, combined_entry, coordinators)
+        attrs = sensor.extra_state_attributes
+        assert "binary_sensor.a1" in attrs["last_seen"]
+        assert attrs["last_seen"]["binary_sensor.a1"] == lc.isoformat()
+
     def test_attributes_battery_powered_via_battery_map(
         self, mock_hass, group_entry_a, group_entry_b, coordinators
     ):
