@@ -647,11 +647,51 @@ class TestCombinedReCollapse:
         assert len(row_members) == 1
         members = next(iter(row_members.values()))
         assert set(members) == {"binary_sensor.rm_off", "binary_sensor.rm_stale"}
-        # Rep must be first: members[0] is the representative's entity_id.
-        # row_members keys are row_keys (may have ::entry_id suffix in combined path),
-        # so compare members[0] against known entity_ids, not the raw key.
-        assert members[0] in {"binary_sensor.rm_off", "binary_sensor.rm_stale"}
+        # rm_off is offline (worst severity) so it must be the representative → first.
+        assert members[0] == "binary_sensor.rm_off"
         assert "row_members" in summary._unrecorded_attributes
+
+    def test_combined_suppression_unsuppressed_wins(self, mock_hass):
+        # Entity in two groups: suppressed in A, unsuppressed in B.
+        # Combined must show it as active (unsuppressed-wins) not order-dependent.
+        _register_entity(mock_hass, "binary_sensor.sup_shared", "supdev")
+
+        suppressed_state = DeviceState(
+            entity_id="binary_sensor.sup_shared",
+            is_offline=True,
+            is_suppressed=True,
+        )
+        active_state = DeviceState(
+            entity_id="binary_sensor.sup_shared",
+            is_offline=True,
+            is_suppressed=False,
+        )
+        # Group A: suppressed first, Group B: active — combined must be active.
+        coord_a = _make_group_coord(
+            mock_hass, "grp_sup_a", {"binary_sensor.sup_shared": suppressed_state}
+        )
+        coord_b = _make_group_coord(
+            mock_hass, "grp_sup_b", {"binary_sensor.sup_shared": active_state}
+        )
+        mock_hass.data[DOMAIN] = {"grp_sup_a": coord_a, "grp_sup_b": coord_b}
+        entry = MockConfigEntry(domain=DOMAIN, entry_id="combined_sup", title="Sup")
+        summary = CombinedGroupSensor(
+            mock_hass, entry, "Sup", "sup", ["grp_sup_a", "grp_sup_b"]
+        )
+        attrs = summary.extra_state_attributes
+        # Entity is offline (not suppressed) in combined — should count in offline.
+        assert attrs["offline"] == 1
+        assert attrs["suppressed"] == 0
+
+        # Reverse order: active first, suppressed second — same result.
+        mock_hass.data[DOMAIN] = {"grp_sup_b": coord_b, "grp_sup_a": coord_a}
+        entry2 = MockConfigEntry(domain=DOMAIN, entry_id="combined_sup2", title="Sup2")
+        summary2 = CombinedGroupSensor(
+            mock_hass, entry2, "Sup2", "sup2", ["grp_sup_b", "grp_sup_a"]
+        )
+        attrs2 = summary2.extra_state_attributes
+        assert attrs2["offline"] == 1
+        assert attrs2["suppressed"] == 0
 
     def test_mixed_toggle_partial_collapse(self, mock_hass):
         # Group A has use_device_names=True (auto-collapses in combined view).

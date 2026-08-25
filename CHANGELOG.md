@@ -25,6 +25,10 @@ All notable changes to this project will be documented in this file.
   - A **`×N` count badge** appears after the device name indicating how many entities are represented by the row
   - The hover **tooltip** shows `Device: <name> (N entities)` instead of a raw entity ID, and the condition line reads `≥1 entity offline for 3h` / `≥1 entity: Online` rather than implying a single-entity state
   - Click behavior unchanged — still opens the most-actionable (worst-severity) entity's detail panel
+  - Fixed: suppression tooltip on combined collapsed rows was keyed by entity_id instead of row_key; now checks row_key first so suppressed state shows correctly on combined cards
+
+### Fixed (continued)
+- **Combined groups: suppression dedup now unsuppressed-wins** — when the same entity appears in multiple combined source groups and is suppressed in one but not another, it now shows as active in the combined view. Previously the result was order-dependent (first group added won). A suppression scoped to one group no longer silences the entity in the combined card when another group still monitors it actively. Using the suppress service without a `group:` parameter (or from the combined card's suppress button) continues to suppress in all groups as before. (#88)
 
 ### Changed
 - **Combined groups** count a device once even when its entities are spread across several included groups. Each group's own setting is respected — entities from a group without the option stay separate.

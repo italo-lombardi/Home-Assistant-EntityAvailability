@@ -293,7 +293,14 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                     seen_fingerprint[eid] = fingerprint
                     row_key = eid
                 elif seen_fingerprint[eid] == fingerprint:
-                    continue  # identical config — first-wins, skip duplicate
+                    # Unsuppressed wins: if this group has the entity active but the
+                    # stored entry has it suppressed, replace it. A suppression in one
+                    # group should not silence the entity in combined when another group
+                    # still monitors it actively. (suppress_entity with no group= already
+                    # hits all coordinators, so combined-level suppression works correctly.)
+                    if merged[eid].is_suppressed and not d.is_suppressed:
+                        merged[eid] = d
+                    continue
                 else:
                     row_key = f"{eid}::{coord.entry.entry_id}"
                 merged[row_key] = d
