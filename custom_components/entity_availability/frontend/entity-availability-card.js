@@ -1653,7 +1653,8 @@ class EntityAvailabilityCard extends LitElement {
     for (const [entryId, g] of Object.entries(groups)) {
       for (const list of ["offline_entities", "offline_entities_non_essential",
           "stale_entities", "stale_entities_non_essential",
-          "poor_signal_entities", "poor_signal_entities_non_essential"]) {
+          "poor_signal_entities", "poor_signal_entities_non_essential",
+          "low_battery_entities", "low_battery_entities_non_essential"]) {
         for (const eid of (g[list] || [])) {
           if (!(eid in map)) map[eid] = entryId;
         }
@@ -1683,9 +1684,11 @@ class EntityAvailabilityCard extends LitElement {
       ...(attrs.offline_entities || []),
       ...(attrs.stale_entities || []),
       ...(attrs.poor_signal_entities || []),
+      ...(attrs.low_battery_entities || []),
       ...(includeNE ? (attrs.offline_entities_non_essential || []) : []),
       ...(includeNE ? (attrs.stale_entities_non_essential || []) : []),
       ...(includeNE ? (attrs.poor_signal_entities_non_essential || []) : []),
+      ...(includeNE ? (attrs.low_battery_entities_non_essential || []) : []),
     ];
     await this._suppressEntities([...new Set(ids)], groupMap);
   }
