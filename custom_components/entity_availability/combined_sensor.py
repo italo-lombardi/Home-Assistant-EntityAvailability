@@ -301,9 +301,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                     # Note: swaps the whole DeviceState (offline_since, battery, etc.
                     # come from the winner too — same physical entity, acceptable).
                     cur = merged[eid]
-                    if cur.is_suppressed and not d.is_suppressed:
-                        merged[eid] = d
-                    elif (
+                    if (cur.is_suppressed and not d.is_suppressed) or (
                         cur.is_suppressed
                         and d.is_suppressed
                         and cur.suppress_until is not None
