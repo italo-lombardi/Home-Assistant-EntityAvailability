@@ -3484,9 +3484,7 @@ for e in cfg['data']['entries']:
         combined_rk_set = set(combined_entities_82)
         # row_entity_ids keys with ::suffix indicate split-row entities (different fingerprint)
         split_row_entities_82 = {
-            v
-            for k, v in (c_attrs_82.get("row_entity_ids") or {}).items()
-            if "::" in k
+            v for k, v in (c_attrs_82.get("row_entity_ids") or {}).items() if "::" in k
         }
 
         for s in all_states:
@@ -3526,19 +3524,29 @@ for e in cfg['data']['entries']:
             )
             wait_for(
                 lambda: str(
-                    gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
                 ),
                 "1",
             )
 
             chk(
                 "EC82 suppressed=1 in Alpha (group-scoped)",
-                str(gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")),
+                str(
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
                 "1",
             )
             chk(
                 "EC82 suppressed=0 in Beta (unsuppressed in that group)",
-                str(gs(f"{beta_prefix_82}_group_summary").get("attributes", {}).get("suppressed")),
+                str(
+                    gs(f"{beta_prefix_82}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
+                ),
                 "0",
             )
 
@@ -3570,7 +3578,9 @@ for e in cfg['data']['entries']:
             )
             wait_for(
                 lambda: str(
-                    gs(f"{prefix}_group_summary").get("attributes", {}).get("suppressed")
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("suppressed")
                 ),
                 "0",
             )
