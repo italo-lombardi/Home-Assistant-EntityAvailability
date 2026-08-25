@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **`last_seen` attribute crash when "Count attribute updates as activity" is enabled** — groups with `staleness_use_last_updated: true` raised `AttributeError: 'DeviceState' object has no attribute 'last_updated'` on every coordinator update cycle, leaving `*_group_summary` and combined sensors stuck `unavailable`. The `last_seen` diagnostic attribute now always uses `last_changed` (the only timestamp `DeviceState` persists); the staleness calculation itself is unaffected and continues to use `last_updated` from the live HA state. (#85, #86)
+
 ## [0.5.0] - 2026-08-26
 
 ### ⚠️ Breaking
