@@ -72,6 +72,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC78 row_entity_ids values are valid real entity_ids (no synthetic keys)
   EC79 combined_summary entities_collapsed entries covered by display_names
 
+  Collapsed device row attrs (EC80-EC81 — PR#88):
+  EC80 group_summary row_members attr present and is a dict (empty when collapse inactive)
+  EC81 combined_summary row_members attr present, is a dict, values are bare entity_ids
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -3399,6 +3403,59 @@ for e in cfg['data']['entries']:
                 len(missing),
                 0,
                 f"missing={missing[:5]}",
+            )
+
+    # ------------------------------------------------------------------
+    # EC80-EC81: collapsed device row attrs (PR#88)
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (80, 81)):
+        print(
+            "\n=== EC80-EC81: collapsed device row attrs (PR#88) ===",
+            flush=True,
+        )
+
+        if ec_enabled(80):
+            g_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+            chk(
+                "EC80 group_summary row_members present",
+                "row_members" in g_attrs,
+                True,
+                f"attrs keys (sample)={list(g_attrs.keys())[:15]}",
+            )
+            chk(
+                "EC80 group_summary row_members is dict",
+                isinstance(g_attrs.get("row_members"), dict),
+                True,
+                f"type={type(g_attrs.get('row_members')).__name__}",
+            )
+
+        if ec_enabled(81) and combined_prefix:
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            chk(
+                "EC81 combined_summary row_members present",
+                "row_members" in c_attrs,
+                True,
+                f"attrs keys (sample)={list(c_attrs.keys())[:15]}",
+            )
+            chk(
+                "EC81 combined_summary row_members is dict",
+                isinstance(c_attrs.get("row_members"), dict),
+                True,
+                f"type={type(c_attrs.get('row_members')).__name__}",
+            )
+            # All member lists must contain only bare entity_ids (no ::suffix)
+            row_members = c_attrs.get("row_members") or {}
+            bad_members = [
+                (rep, m)
+                for rep, members in row_members.items()
+                for m in members
+                if "::" in str(m)
+            ]
+            chk(
+                "EC81 row_members values are bare entity_ids (no synthetic keys)",
+                len(bad_members),
+                0,
+                f"bad={bad_members[:3]}",
             )
 
     # ------------------------------------------------------------------
