@@ -647,6 +647,9 @@ class TestCombinedReCollapse:
         assert len(row_members) == 1
         members = next(iter(row_members.values()))
         assert set(members) == {"binary_sensor.rm_off", "binary_sensor.rm_stale"}
+        # Rep must be first in the list (same contract as single-group path).
+        rep = next(iter(row_members.keys()))
+        assert members[0] == rep
         assert "row_members" in summary._unrecorded_attributes
 
     def test_mixed_toggle_partial_collapse(self, mock_hass):

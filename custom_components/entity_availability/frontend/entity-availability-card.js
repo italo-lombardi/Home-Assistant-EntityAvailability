@@ -1387,7 +1387,7 @@ class EntityAvailabilityCard extends LitElement {
     const conditionValue = suppressedUntil
       ? "Suppressed"
       : item.isOffline
-        ? `${isCollapsed ? "≥1 entity o" : "O"}ffline for ${item.status}`
+        ? (isCollapsed ? `≥1 entity offline for ${item.status}` : `Offline for ${item.status}`)
         : isCollapsed
           ? `≥1 entity: ${item.status}`
           : item.status;

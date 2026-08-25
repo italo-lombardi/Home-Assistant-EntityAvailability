@@ -1008,7 +1008,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         """Return {representative_entity_id -> [all member entity_ids]} when collapse is active.
 
         Empty when collapse is inactive. Each list is ordered: representative first,
-        remaining members in _collapsed_map insertion order.
+        remaining members in _collapsed_map insertion order. Rep is always present in
+        eids (collapse_representatives maps every entity including the rep to itself),
+        so the [rep, *rest] construction is safe.
+
+        NOTE: CombinedGroupSensor builds its own row_members inline from merged_states
+        rather than calling this method (it has a different key space). Keep both
+        implementations semantically in sync when changing collapse logic.
         """
         if not self.collapse_active:
             return {}
