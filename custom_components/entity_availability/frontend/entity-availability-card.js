@@ -1359,6 +1359,8 @@ class EntityAvailabilityCard extends LitElement {
     return items;
   }
 
+  _entityWord(n) { return `${n} ${n === 1 ? "entity" : "entities"}`; }
+
   _buildDetailRows(item, suppressedUntilMap) {
     const entityState = this.hass.states[item.entityId];
     const lastChanged = this._computeDuration(item.entityId);
@@ -1387,9 +1389,9 @@ class EntityAvailabilityCard extends LitElement {
     const conditionValue = suppressedUntil
       ? "Suppressed"
       : item.isOffline
-        ? (isCollapsed ? `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"} offline for ${item.status}` : `Offline for ${item.status}`)
+        ? (isCollapsed ? `${this._entityWord(item.memberCount)} offline for ${item.status}` : `Offline for ${item.status}`)
         : isCollapsed
-          ? `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"}: ${item.status}`
+          ? `${this._entityWord(item.memberCount)}: ${item.status}`
           : item.status;
 
     return [
@@ -1412,19 +1414,24 @@ class EntityAvailabilityCard extends LitElement {
       const conditionValue = suppressedUntil
         ? "Suppressed"
         : item.isOffline
-          ? `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"} offline for ${item.status}`
-          : `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"}: ${item.status}`;
+          ? `${this._entityWord(item.memberCount)} offline for ${item.status}`
+          : `${this._entityWord(item.memberCount)}: ${item.status}`;
       rows = [{ label: "Condition", value: conditionValue }];
     } else if (isCollapsed && !compact) {
-      rows = (item.members || [item.entityId]).map((eid) => {
-        const entityState = this.hass.states[eid];
-        const lastChanged = this._computeDuration(eid);
-        const label = entityState?.attributes?.friendly_name || eid.split(".").pop();
-        const value = lastChanged
-          ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
-          : this._formatStateWithUnit(entityState);
-        return { label, value };
-      });
+      if (!item.members) {
+        console.warn("[EA] collapsed row missing members", item.entityId);
+        rows = [];
+      } else {
+        rows = item.members.map((eid) => {
+          const entityState = this.hass.states[eid];
+          const lastChanged = this._computeDuration(eid);
+          const label = entityState?.attributes?.friendly_name || eid.split(".").pop();
+          const value = lastChanged
+            ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
+            : this._formatStateWithUnit(entityState);
+          return { label, value };
+        });
+      }
     } else if (compact) {
       const entityState = this.hass.states[item.entityId];
       const lastChanged = this._computeDuration(item.entityId);
