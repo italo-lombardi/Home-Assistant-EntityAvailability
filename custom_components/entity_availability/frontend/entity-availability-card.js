@@ -651,6 +651,8 @@ const cardStyles = css`
   }
 `;
 
+const _entityWord = (n) => `${n} ${n === 1 ? "entity" : "entities"}`;
+
 class EntityAvailabilityCard extends LitElement {
   static get properties() {
     return {
@@ -1359,8 +1361,6 @@ class EntityAvailabilityCard extends LitElement {
     return items;
   }
 
-  _entityWord(n) { return `${n} ${n === 1 ? "entity" : "entities"}`; }
-
   _buildDetailRows(item, suppressedUntilMap) {
     const entityState = this.hass.states[item.entityId];
     const lastChanged = this._computeDuration(item.entityId);
@@ -1378,6 +1378,9 @@ class EntityAvailabilityCard extends LitElement {
       : null;
 
     const isCollapsed = item.memberCount > 1;
+    const offlineCount = isCollapsed && item.members
+      ? item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length
+      : (item.isOffline ? 1 : 0);
     const deviceName = isCollapsed && item.deviceId
       ? (this.hass.devices?.[item.deviceId]?.name_by_user || this.hass.devices?.[item.deviceId]?.name || null)
       : null;
@@ -1389,9 +1392,9 @@ class EntityAvailabilityCard extends LitElement {
     const conditionValue = suppressedUntil
       ? "Suppressed"
       : item.isOffline
-        ? (isCollapsed ? `${this._entityWord(item.memberCount)} offline for ${item.status}` : `Offline for ${item.status}`)
+        ? (isCollapsed ? `${_entityWord(offlineCount)} offline for ${item.status}` : `Offline for ${item.status}`)
         : isCollapsed
-          ? `${this._entityWord(item.memberCount)}: ${item.status}`
+          ? `${_entityWord(item.memberCount)}: ${item.status}`
           : item.status;
 
     return [
@@ -1408,14 +1411,17 @@ class EntityAvailabilityCard extends LitElement {
   _renderDetailInline(item, suppressedUntilMap) {
     const compact = this._config.compact === true;
     const isCollapsed = item.memberCount > 1;
+    const offlineCount = isCollapsed && item.members
+      ? item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length
+      : (item.isOffline ? 1 : 0);
     let rows;
     if (isCollapsed && compact) {
       const suppressedUntil = suppressedUntilMap?.[item.rowKey] ?? suppressedUntilMap?.[item.entityId] ?? null;
       const conditionValue = suppressedUntil
         ? "Suppressed"
         : item.isOffline
-          ? `${this._entityWord(item.memberCount)} offline for ${item.status}`
-          : `${this._entityWord(item.memberCount)}: ${item.status}`;
+          ? `${_entityWord(offlineCount)} offline for ${item.status}`
+          : `${_entityWord(item.memberCount)}: ${item.status}`;
       rows = [{ label: "Condition", value: conditionValue }];
     } else if (isCollapsed && !compact) {
       if (!item.members) {
