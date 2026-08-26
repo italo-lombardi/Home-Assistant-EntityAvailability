@@ -23,9 +23,10 @@ All notable changes to this project will be documented in this file.
 - **Combined groups: smart entity dedup and auto-collapse** (#84):
   - *Smart dedup*: the same entity in multiple source groups is counted once when all groups share identical configuration. If any setting differs, each group's interpretation appears as its own row.
   - *Auto-collapse by device key*: source groups with **Show device names** automatically collapse same-device entities in the combined view — no extra toggle required.
-- **Card: collapsed device row improvements** — when "Collapse entities by device" is active (#88):
+- **Card: collapsed device row improvements** — when "Collapse entities by device" is active (#88, #89):
   - **`×N` count badge** after the device name showing how many entities are in the row
-  - **Hover tooltip** shows `Device: <name> (N entities)` and `≥1 entity offline for 3h` instead of a single entity's state
+  - **Hover tooltip** shows exact online/offline split (`1 entity offline for 3h · 4 entities: Online`), hides the misleading single-entity HA State row, and shows only the device name without redundant entity count
+  - **Inline detail** (non-compact): shows per-member HA state list; compact mode shows a single Condition row
 
 ### Changed
 - **Combined groups** count a device once even when its entities are spread across several included groups.
