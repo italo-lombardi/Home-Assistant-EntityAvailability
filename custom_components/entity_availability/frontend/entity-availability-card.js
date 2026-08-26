@@ -1406,7 +1406,7 @@ class EntityAvailabilityCard extends LitElement {
 
     const conditionValue = isCollapsed
       ? this._collapsedCondition(item, suppressedUntilMap)
-      : suppressedUntil ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status;
+      : this._isSuppressed(item, suppressedUntilMap) ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status;
 
     return [
       identityRow,
