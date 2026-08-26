@@ -1295,7 +1295,7 @@ class EntityAvailabilityCard extends LitElement {
         status = "Poor Signal";
       }
 
-      return { entityId, rowKey, deviceId, memberCount, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
+      return { entityId, rowKey, deviceId, memberCount, members, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
     });
 
     // Normalize signal level to 0–100 quality score (higher = better).
@@ -1381,21 +1381,21 @@ class EntityAvailabilityCard extends LitElement {
       : null;
 
     const identityRow = deviceName
-      ? { label: "Device", value: `${deviceName} (${item.memberCount} entities)` }
+      ? { label: "Device", value: deviceName }
       : { label: "Entity ID", value: item.entityId };
 
     const conditionValue = suppressedUntil
       ? "Suppressed"
       : item.isOffline
-        ? (isCollapsed ? `≥1 entity offline for ${item.status}` : `Offline for ${item.status}`)
+        ? (isCollapsed ? `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"} offline for ${item.status}` : `Offline for ${item.status}`)
         : isCollapsed
-          ? `≥1 entity: ${item.status}`
+          ? `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"}: ${item.status}`
           : item.status;
 
     return [
       identityRow,
       areaName ? { label: "Area", value: areaName } : null,
-      { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) },
+      !isCollapsed ? { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) } : null,
       { label: "Condition", value: conditionValue },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
       item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : ""}` } : null,
@@ -1405,8 +1405,27 @@ class EntityAvailabilityCard extends LitElement {
 
   _renderDetailInline(item, suppressedUntilMap) {
     const compact = this._config.compact === true;
+    const isCollapsed = item.memberCount > 1;
     let rows;
-    if (compact) {
+    if (isCollapsed && compact) {
+      const suppressedUntil = suppressedUntilMap?.[item.rowKey] ?? suppressedUntilMap?.[item.entityId] ?? null;
+      const conditionValue = suppressedUntil
+        ? "Suppressed"
+        : item.isOffline
+          ? `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"} offline for ${item.status}`
+          : `${item.memberCount} ${item.memberCount === 1 ? "entity" : "entities"}: ${item.status}`;
+      rows = [{ label: "Condition", value: conditionValue }];
+    } else if (isCollapsed && !compact) {
+      rows = (item.members || [item.entityId]).map((eid) => {
+        const entityState = this.hass.states[eid];
+        const lastChanged = this._computeDuration(eid);
+        const label = entityState?.attributes?.friendly_name || eid.split(".").pop();
+        const value = lastChanged
+          ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
+          : this._formatStateWithUnit(entityState);
+        return { label, value };
+      });
+    } else if (compact) {
       const entityState = this.hass.states[item.entityId];
       const lastChanged = this._computeDuration(item.entityId);
       const haStateValue = lastChanged
