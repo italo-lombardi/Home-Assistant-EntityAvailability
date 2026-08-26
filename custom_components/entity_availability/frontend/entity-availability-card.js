@@ -1361,6 +1361,18 @@ class EntityAvailabilityCard extends LitElement {
     return items;
   }
 
+  _collapsedCondition(item, suppressedUntil) {
+    if (suppressedUntil) return "Suppressed";
+    if (!item.isOffline) return `${_entityWord(item.memberCount)}: ${item.status}`;
+    const offlineSet = new Set(this._getOfflineEntityIds());
+    const offlineCount = item.members
+      ? Math.max(item.members.filter(eid => offlineSet.has(eid)).length, 1)
+      : 1;
+    const onlineCount = item.memberCount - offlineCount;
+    const suffix = onlineCount > 0 ? ` · ${_entityWord(onlineCount)}: Online` : "";
+    return `${_entityWord(offlineCount)} offline for ${item.status}${suffix}`;
+  }
+
   _buildDetailRows(item, suppressedUntilMap) {
     const entityState = this.hass.states[item.entityId];
     const lastChanged = this._computeDuration(item.entityId);
@@ -1378,9 +1390,6 @@ class EntityAvailabilityCard extends LitElement {
       : null;
 
     const isCollapsed = item.memberCount > 1;
-    const offlineCount = isCollapsed && item.members
-      ? Math.max(item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length, item.isOffline ? 1 : 0)
-      : (item.isOffline ? 1 : 0);
     const deviceName = isCollapsed && item.deviceId
       ? (this.hass.devices?.[item.deviceId]?.name_by_user || this.hass.devices?.[item.deviceId]?.name || null)
       : null;
@@ -1389,15 +1398,9 @@ class EntityAvailabilityCard extends LitElement {
       ? { label: "Device", value: deviceName }
       : { label: "Entity ID", value: item.entityId };
 
-    const conditionValue = suppressedUntil
-      ? "Suppressed"
-      : item.isOffline && isCollapsed
-        ? `${_entityWord(offlineCount)} offline for ${item.status} · ${_entityWord(item.memberCount - offlineCount)}: Online`
-        : item.isOffline
-          ? `Offline for ${item.status}`
-          : isCollapsed
-            ? `${_entityWord(item.memberCount)}: ${item.status}`
-            : item.status;
+    const conditionValue = isCollapsed
+      ? this._collapsedCondition(item, suppressedUntil)
+      : suppressedUntil ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status;
 
     return [
       identityRow,
@@ -1413,18 +1416,13 @@ class EntityAvailabilityCard extends LitElement {
   _renderDetailInline(item, suppressedUntilMap) {
     const compact = this._config.compact === true;
     const isCollapsed = item.memberCount > 1;
-    const offlineCount = isCollapsed && item.members
-      ? Math.max(item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length, item.isOffline ? 1 : 0)
-      : (item.isOffline ? 1 : 0);
     let rows;
     if (isCollapsed && compact) {
-      const suppressedUntil = suppressedUntilMap?.[item.rowKey] ?? suppressedUntilMap?.[item.entityId] ?? null;
-      const conditionValue = suppressedUntil
-        ? "Suppressed"
-        : item.isOffline
-          ? `${_entityWord(offlineCount)} offline for ${item.status} · ${_entityWord(item.memberCount - offlineCount)}: Online`
-          : `${_entityWord(item.memberCount)}: ${item.status}`;
-      rows = [{ label: "Condition", value: conditionValue }];
+      const suppressedUntilIso = (item.rowKey != null && item.rowKey in suppressedUntilMap)
+        ? suppressedUntilMap[item.rowKey]
+        : suppressedUntilMap[item.entityId];
+      const suppressedUntil = suppressedUntilIso === null ? "indefinitely" : suppressedUntilIso ? this._formatFutureDate(suppressedUntilIso) : null;
+      rows = [{ label: "Condition", value: this._collapsedCondition(item, suppressedUntil) }];
     } else if (isCollapsed && !compact) {
       if (!item.members) {
         console.warn("[EA] collapsed row missing members", item.entityId);
