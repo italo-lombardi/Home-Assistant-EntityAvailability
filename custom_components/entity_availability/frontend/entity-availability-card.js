@@ -651,6 +651,8 @@ const cardStyles = css`
   }
 `;
 
+const _entityWord = (n) => `${n} ${n === 1 ? "entity" : "entities"}`;
+
 class EntityAvailabilityCard extends LitElement {
   static get properties() {
     return {
@@ -1295,7 +1297,7 @@ class EntityAvailabilityCard extends LitElement {
         status = "Poor Signal";
       }
 
-      return { entityId, rowKey, deviceId, memberCount, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
+      return { entityId, rowKey, deviceId, memberCount, members, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
     });
 
     // Normalize signal level to 0–100 quality score (higher = better).
@@ -1359,6 +1361,24 @@ class EntityAvailabilityCard extends LitElement {
     return items;
   }
 
+  _isSuppressed(item, suppressedUntilMap) {
+    const key = (item.rowKey != null && item.rowKey in suppressedUntilMap) ? item.rowKey
+      : item.entityId in suppressedUntilMap ? item.entityId : null;
+    return key !== null;
+  }
+
+  _collapsedCondition(item, suppressedUntilMap) {
+    if (this._isSuppressed(item, suppressedUntilMap)) return "Suppressed";
+    if (!item.isOffline) return `${_entityWord(item.memberCount)}: ${item.status}`;
+    const offlineSet = new Set(this._getOfflineEntityIds());
+    const offlineCount = item.members
+      ? Math.max(item.members.filter(eid => offlineSet.has(eid)).length, 1)
+      : 1;
+    const onlineCount = item.memberCount - offlineCount;
+    const suffix = onlineCount > 0 ? ` · ${_entityWord(onlineCount)}: Online` : "";
+    return `${_entityWord(offlineCount)} offline for ${item.status}${suffix}`;
+  }
+
   _buildDetailRows(item, suppressedUntilMap) {
     const entityState = this.hass.states[item.entityId];
     const lastChanged = this._computeDuration(item.entityId);
@@ -1381,21 +1401,17 @@ class EntityAvailabilityCard extends LitElement {
       : null;
 
     const identityRow = deviceName
-      ? { label: "Device", value: `${deviceName} (${item.memberCount} entities)` }
+      ? { label: "Device", value: deviceName }
       : { label: "Entity ID", value: item.entityId };
 
-    const conditionValue = suppressedUntil
-      ? "Suppressed"
-      : item.isOffline
-        ? (isCollapsed ? `≥1 entity offline for ${item.status}` : `Offline for ${item.status}`)
-        : isCollapsed
-          ? `≥1 entity: ${item.status}`
-          : item.status;
+    const conditionValue = isCollapsed
+      ? this._collapsedCondition(item, suppressedUntilMap)
+      : this._isSuppressed(item, suppressedUntilMap) ? "Suppressed" : item.isOffline ? `Offline for ${item.status}` : item.status;
 
     return [
       identityRow,
       areaName ? { label: "Area", value: areaName } : null,
-      { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) },
+      !isCollapsed ? { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) } : null,
       { label: "Condition", value: conditionValue },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
       item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : ""}` } : null,
@@ -1405,8 +1421,26 @@ class EntityAvailabilityCard extends LitElement {
 
   _renderDetailInline(item, suppressedUntilMap) {
     const compact = this._config.compact === true;
+    const isCollapsed = item.memberCount > 1;
     let rows;
-    if (compact) {
+    if (isCollapsed && compact) {
+      rows = [{ label: "Condition", value: this._collapsedCondition(item, suppressedUntilMap) }];
+    } else if (isCollapsed && !compact) {
+      if (!item.members) {
+        console.warn("[EA] collapsed row missing members", item.entityId);
+        rows = [];
+      } else {
+        rows = item.members.map((eid) => {
+          const entityState = this.hass.states[eid];
+          const lastChanged = this._computeDuration(eid);
+          const label = entityState?.attributes?.friendly_name || eid.split(".").pop();
+          const value = lastChanged
+            ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
+            : this._formatStateWithUnit(entityState);
+          return { label, value };
+        });
+      }
+    } else if (compact) {
       const entityState = this.hass.states[item.entityId];
       const lastChanged = this._computeDuration(item.entityId);
       const haStateValue = lastChanged
