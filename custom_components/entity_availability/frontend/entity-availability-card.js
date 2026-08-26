@@ -1379,7 +1379,7 @@ class EntityAvailabilityCard extends LitElement {
 
     const isCollapsed = item.memberCount > 1;
     const offlineCount = isCollapsed && item.members
-      ? item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length
+      ? Math.max(item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length, item.isOffline ? 1 : 0)
       : (item.isOffline ? 1 : 0);
     const deviceName = isCollapsed && item.deviceId
       ? (this.hass.devices?.[item.deviceId]?.name_by_user || this.hass.devices?.[item.deviceId]?.name || null)
@@ -1414,7 +1414,7 @@ class EntityAvailabilityCard extends LitElement {
     const compact = this._config.compact === true;
     const isCollapsed = item.memberCount > 1;
     const offlineCount = isCollapsed && item.members
-      ? item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length
+      ? Math.max(item.members.filter(eid => this._getOfflineEntityIds().includes(eid)).length, item.isOffline ? 1 : 0)
       : (item.isOffline ? 1 : 0);
     let rows;
     if (isCollapsed && compact) {
