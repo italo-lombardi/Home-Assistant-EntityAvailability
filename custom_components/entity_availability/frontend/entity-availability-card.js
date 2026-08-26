@@ -1392,7 +1392,7 @@ class EntityAvailabilityCard extends LitElement {
     const conditionValue = suppressedUntil
       ? "Suppressed"
       : item.isOffline && isCollapsed
-        ? `${_entityWord(offlineCount)} offline for ${item.status} · ${_entityWord(item.memberCount - offlineCount)} online`
+        ? `${_entityWord(offlineCount)} offline for ${item.status} · ${_entityWord(item.memberCount - offlineCount)}: Online`
         : item.isOffline
           ? `Offline for ${item.status}`
           : isCollapsed
@@ -1422,7 +1422,7 @@ class EntityAvailabilityCard extends LitElement {
       const conditionValue = suppressedUntil
         ? "Suppressed"
         : item.isOffline
-          ? `${_entityWord(offlineCount)} offline for ${item.status} · ${_entityWord(item.memberCount - offlineCount)} online`
+          ? `${_entityWord(offlineCount)} offline for ${item.status} · ${_entityWord(item.memberCount - offlineCount)}: Online`
           : `${_entityWord(item.memberCount)}: ${item.status}`;
       rows = [{ label: "Condition", value: conditionValue }];
     } else if (isCollapsed && !compact) {
