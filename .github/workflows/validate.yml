@@ -52,6 +52,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements_test.txt 2>/dev/null || true
-          pip install pytest pytest-homeassistant-custom-component
+          pip install pytest pytest-homeassistant-custom-component pytest-cov
       - name: Run tests
         run: pytest tests/ --tb=short -q
