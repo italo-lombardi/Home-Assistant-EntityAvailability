@@ -1,4 +1,4 @@
-pytest>=9.0
-pytest-asyncio>=1.4.0
+# Only pin PHACC + repo-specific deps. PHACC transitively pins pytest,
+# pytest-asyncio, pytest-cov, etc. Pinning them directly causes unsatisfiable
+# dependabot bumps (pytest==9.0.3 is hard-pinned upstream).
 pytest-homeassistant-custom-component>=0.13.356
-pytest-cov>=7.1.0
