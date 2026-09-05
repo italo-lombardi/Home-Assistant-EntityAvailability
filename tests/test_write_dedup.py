@@ -184,6 +184,8 @@ def test_mixin_no_unrecorded_attrs_compares_full() -> None:
 
     s = _S()
     assert s._ea_should_write() is True
+    # Identical attrs + value: dedups even on the no-``_unrecorded`` path.
+    assert s._ea_should_write() is False
     s.extra_state_attributes = {"x": 2}
     assert s._ea_should_write() is True
 
