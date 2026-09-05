@@ -171,6 +171,41 @@ def test_mixin_unrecorded_attrs_excluded_from_dedup() -> None:
     assert s._ea_should_write() is True
 
 
+def test_mixin_combined_unrecorded_attrs_preferred() -> None:
+    """Component-level unrecorded attrs (HA's combined set) are also stripped.
+
+    HA strips ``_entity_component_unrecorded_attributes | _unrecorded_attributes``
+    (the name-mangled ``__combined_unrecorded_attributes``). The dedup view must
+    mirror that union, not just the per-instance set, or a component-level
+    unrecorded key would drive a write the recorder then strips.
+    """
+
+    class _S(WriteDedupMixin):
+        # Name-mangled exactly as HA's Entity metaclass writes it.
+        _Entity__combined_unrecorded_attributes = frozenset({"comp_only", "last_seen"})
+        _unrecorded_attributes = frozenset({"last_seen"})
+
+        def __init__(self) -> None:
+            self.value = 1
+            self.extra_state_attributes: dict = {
+                "offline": 0,
+                "last_seen": {"a": "t0"},
+                "comp_only": 1,
+            }
+
+        def _ea_current_value(self):
+            return self.value
+
+    s = _S()
+    assert s._ea_should_write() is True  # first publish
+    # Only the component-level unrecorded key churns → recorder strips it → dedup.
+    s.extra_state_attributes = {"offline": 0, "last_seen": {"a": "t1"}, "comp_only": 2}
+    assert s._ea_should_write() is False
+    # A recorded key still writes.
+    s.extra_state_attributes = {"offline": 1, "last_seen": {"a": "t1"}, "comp_only": 2}
+    assert s._ea_should_write() is True
+
+
 def test_mixin_no_unrecorded_attrs_compares_full() -> None:
     """Without ``_unrecorded_attributes`` the full attrs dict is compared."""
 

@@ -45,19 +45,29 @@ class WriteDedupMixin:
     def _ea_dedup_attrs(self) -> Any:
         """Return the attrs view used for the dedup comparison.
 
-        Excludes any key in ``_unrecorded_attributes`` so the write decision
-        matches what the recorder actually stores. Volatile-but-unrecorded
-        maps (``last_seen``, ``signal_levels``, ``battery_levels`` …) advance
-        every coordinator tick, but the recorder strips them before storing —
-        comparing the full dict would force a fresh state row per tick that is
-        byte-identical once stored. Comparing the stored view instead means the
-        sensor only writes when a *recorded* value changes, and no future
-        volatile-but-unrecorded attribute can re-introduce this bug.
+        Excludes any key the recorder strips so the write decision matches what
+        the recorder actually stores. HA strips the *combined* unrecorded set
+        (``_entity_component_unrecorded_attributes | _unrecorded_attributes``,
+        exposed as the name-mangled ``__combined_unrecorded_attributes``), so we
+        read that when present and fall back to the per-instance
+        ``_unrecorded_attributes``. Volatile-but-unrecorded maps (``last_seen``,
+        ``signal_levels``, ``battery_levels`` …) advance every coordinator tick,
+        but the recorder strips them before storing — comparing the full dict
+        would force a fresh state row per tick that is byte-identical once
+        stored. Comparing the stored view instead means the sensor only writes
+        when a *recorded* value changes, and no future volatile-but-unrecorded
+        attribute (ours or a component-level one) can re-introduce this bug.
         """
         attrs = getattr(self, "extra_state_attributes", None)
         if not attrs:
             return attrs
-        skip = getattr(self, "_unrecorded_attributes", frozenset())
+        skip = getattr(
+            self,
+            "_Entity__combined_unrecorded_attributes",
+            None,
+        )
+        if skip is None:
+            skip = getattr(self, "_unrecorded_attributes", frozenset())
         if not skip:
             return attrs
         return {k: v for k, v in attrs.items() if k not in skip}
