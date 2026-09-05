@@ -353,7 +353,12 @@ class CombinedGroupSensor(CombinedSensorBase):
     _attr_icon = "mdi:format-list-group"
     # No state_class: see GroupSummarySensor.
 
-    # Per-entity list/dict attrs: large, no historical value.
+    # Per-entity list/dict attrs: large, no historical value. This set is now
+    # load-bearing for two concerns: (1) keeping recorder rows small, and
+    # (2) the write-dedup comparison (WriteDedupMixin._ea_dedup_attrs excludes
+    # exactly these keys). Any volatile attr this sensor emits MUST be listed
+    # here — otherwise it advances every tick and re-introduces the per-tick
+    # redundant-write amplification even though the recorder would strip it.
     _unrecorded_attributes = frozenset(
         {
             "display_names",

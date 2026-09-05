@@ -987,10 +987,13 @@ class GroupSummarySensor(DedupCoordinatorSensor):
     _attr_has_entity_name = True
 
     # Large dict/list attrs: live state machine access is fine but no value in
-    # recording per-entity snapshots historically. Keeps recorder rows small.
-    # These are also excluded from the write-dedup comparison by the base
-    # WriteDedupMixin (see write_dedup._ea_dedup_attrs), so volatile maps such
-    # as last_seen/signal_levels/battery_levels never force a redundant row.
+    # recording per-entity snapshots historically. This set is now load-bearing
+    # for two concerns: (1) keeping recorder rows small, and (2) the write-dedup
+    # comparison (WriteDedupMixin._ea_dedup_attrs excludes exactly these keys).
+    # Any volatile attr this sensor emits MUST be listed here — otherwise it
+    # advances every tick and re-introduces the per-tick redundant-write
+    # amplification (last_seen/signal_levels/battery_levels …) even though the
+    # recorder would strip it.
     _unrecorded_attributes = frozenset(
         {
             "display_names",
