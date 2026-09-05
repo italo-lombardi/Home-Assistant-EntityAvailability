@@ -61,6 +61,9 @@ class WriteDedupMixin:
         attrs = getattr(self, "extra_state_attributes", None)
         if not attrs:
             return attrs
+        # ponytail: soft-coupled to HA's name-mangled __combined_unrecorded_attributes.
+        # If a future HA renames it, getattr(..., None) falls back to the per-instance
+        # set — we lose only component-level exclusions (mild amplification), never crash.
         skip = getattr(
             self,
             "_Entity__combined_unrecorded_attributes",
