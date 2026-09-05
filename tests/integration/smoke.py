@@ -3593,6 +3593,69 @@ for e in cfg['data']['entries']:
             )
 
     # ------------------------------------------------------------------
+    # EC83: write dedup on recorder-stored attr view (PR#95)
+    # group_summary.native_value is the entity COUNT (constant across
+    # offline/online — those are recorded *attributes*), so HA last_changed
+    # never moves; we observe last_updated, which advances on every write and
+    # is frozen by dedup. A churn-only tick (a member's last_seen advances but
+    # no recorded summary value changes) must NOT rewrite the summary. A real
+    # recorded change (member offline → offline/online attrs change) must.
+    # ------------------------------------------------------------------
+    if ec_enabled(83):
+        print(
+            "\n=== EC83: write dedup on recorder-stored attr view (PR#95) ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        summary_eid = f"{prefix}_group_summary"
+        member = ctx["entities"][0]
+        base_attrs = dict(gs(member).get("attributes", {}))
+
+        # Let the summary settle, then snapshot its last write time.
+        wait(WAIT_FOR_TIMEOUT // 2 or 20)
+        u0 = gs(summary_eid).get("last_updated")
+
+        # Churn-only: bump a non-state attr on the member. Its last_updated
+        # advances (feeding the summary's volatile unrecorded maps) while its
+        # STATE — and thus every recorded summary count — stays put.
+        for i in range(3):
+            bumped = dict(base_attrs)
+            bumped["_ea_smoke_churn"] = i
+            ss(member, gs(member).get("state", "on"), bumped)
+            wait(WAIT_FOR_TIMEOUT // 3 or 15)
+
+        chk(
+            "EC83 offline_count unchanged across churn-only ticks",
+            gs(f"{prefix}_offline_count").get("state"),
+            "0",
+        )
+        # Dedup held: the summary did not rewrite → last_updated frozen.
+        u1 = gs(summary_eid).get("last_updated")
+        chk(
+            "EC83 summary last_updated frozen on churn-only ticks (dedup held)",
+            u1,
+            u0,
+            f"u0={u0} u1={u1}",
+        )
+
+        # A genuine recorded change: take the member offline (EC1's trigger).
+        # offline/online attrs change → the summary must write → last_updated
+        # advances past the frozen value.
+        ss(member, "unavailable", {"friendly_name": "test"})
+        wait_for(
+            lambda: gs(f"{prefix}_offline_count").get("state"),
+            "1",
+        )
+        u2 = gs(summary_eid).get("last_updated")
+        chk(
+            "EC83 summary last_updated advances on a real recorded change",
+            u2 != u1,
+            True,
+            f"u1={u1} u2={u2}",
+        )
+        restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
     restore_all(ctx)
     print(
         f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
