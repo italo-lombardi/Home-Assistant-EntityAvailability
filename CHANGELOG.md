@@ -14,7 +14,8 @@ All notable changes to this project will be documented in this file.
 
 ## [0.5.0] - 2026-08-26
 
-### Fixed — groups with `staleness_use_last_updated: true` raised `AttributeError: 'DeviceState' object has no attribute 'last_updated'` on every coordinator update cycle, leaving `*_group_summary` and combined sensors stuck `unavailable`. The `last_seen` diagnostic attribute now always uses `last_changed`; the staleness calculation itself is unaffected. (#85, #86)
+### Fixed
+- **`last_seen` attribute crash when "Count attribute updates as activity" is enabled** — groups with `staleness_use_last_updated: true` raised `AttributeError: 'DeviceState' object has no attribute 'last_updated'` on every coordinator update cycle, leaving `*_group_summary` and combined sensors stuck `unavailable`. The `last_seen` diagnostic attribute now always uses `last_changed`; the staleness calculation itself is unaffected. (#85, #86)
 - **Combined groups: suppression dedup is now deterministic** — when the same entity appears in multiple source groups, the combined view previously reflected whichever group was added first. Now: unsuppressed beats suppressed; if both suppressed, the longer/indefinite expiry wins. A per-group mute no longer silences the entity in combined when another group still monitors it actively. (#88)
 - **Combined card: suppression tooltip on collapsed rows** — the suppressed-until tooltip was keyed by entity_id; combined rows use row_key which may differ. Now checks row_key first. (#88)
 
