@@ -8,7 +8,8 @@ lists, or per-device dictionaries, the value is identical the vast majority of
 ticks, so each refresh produces a redundant recorder row.
 
 The mixin and base classes in this module compare the just-computed
-``native_value``/``is_on``, ``extra_state_attributes`` and ``available``
+``native_value``/``is_on``, ``extra_state_attributes`` (restricted to the keys
+the recorder actually stores — see ``_ea_dedup_attrs``) and ``available``
 against the previously published triple and short-circuit
 ``async_write_ha_state`` when all three match. The first write always goes
 through (the cache starts empty), so an entity always publishes an initial
@@ -41,10 +42,30 @@ class WriteDedupMixin:
         """Return the value subclasses publish (``native_value`` or ``is_on``)."""
         raise NotImplementedError
 
+    def _ea_dedup_attrs(self) -> Any:
+        """Return the attrs view used for the dedup comparison.
+
+        Excludes any key in ``_unrecorded_attributes`` so the write decision
+        matches what the recorder actually stores. Volatile-but-unrecorded
+        maps (``last_seen``, ``signal_levels``, ``battery_levels`` …) advance
+        every coordinator tick, but the recorder strips them before storing —
+        comparing the full dict would force a fresh state row per tick that is
+        byte-identical once stored. Comparing the stored view instead means the
+        sensor only writes when a *recorded* value changes, and no future
+        volatile-but-unrecorded attribute can re-introduce this bug.
+        """
+        attrs = getattr(self, "extra_state_attributes", None)
+        if not attrs:
+            return attrs
+        skip = getattr(self, "_unrecorded_attributes", frozenset())
+        if not skip:
+            return attrs
+        return {k: v for k, v in attrs.items() if k not in skip}
+
     def _ea_should_write(self) -> bool:
         """Return True when value, attrs, or availability differ from cache."""
         value = self._ea_current_value()
-        attrs = getattr(self, "extra_state_attributes", None)
+        attrs = self._ea_dedup_attrs()
         available = getattr(self, "available", True)
         if (
             value == self._ea_last_value
