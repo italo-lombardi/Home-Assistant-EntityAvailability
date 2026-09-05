@@ -986,12 +986,14 @@ class GroupSummarySensor(DedupCoordinatorSensor):
     # statistics would be constant rows sampled every 5 min. Stays a valid state sensor.
     _attr_has_entity_name = True
 
-    # last_seen timestamps advance every tick — exclude from dedup comparison
-    # so the sensor only writes when monitoring data actually changes.
-    _EA_SKIP_DEDUP_KEYS = frozenset({"last_seen"})
-
     # Large dict/list attrs: live state machine access is fine but no value in
-    # recording per-entity snapshots historically. Keeps recorder rows small.
+    # recording per-entity snapshots historically. This set is now load-bearing
+    # for two concerns: (1) keeping recorder rows small, and (2) the write-dedup
+    # comparison (WriteDedupMixin._ea_dedup_attrs excludes exactly these keys).
+    # Any volatile attr this sensor emits MUST be listed here — otherwise it
+    # advances every tick and re-introduces the per-tick redundant-write
+    # amplification (last_seen/signal_levels/battery_levels …) even though the
+    # recorder would strip it.
     _unrecorded_attributes = frozenset(
         {
             "display_names",
@@ -1015,27 +1017,6 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "row_members",
         }
     )
-
-    def _ea_should_write(self) -> bool:
-        """Write only when attrs excluding last_seen change."""
-        value = self._ea_current_value()
-        raw_attrs = self.extra_state_attributes
-        attrs = (
-            {k: v for k, v in raw_attrs.items() if k not in self._EA_SKIP_DEDUP_KEYS}
-            if raw_attrs
-            else raw_attrs
-        )
-        available = getattr(self, "available", True)
-        if (
-            value == self._ea_last_value
-            and attrs == self._ea_last_attrs
-            and available == self._ea_last_available
-        ):
-            return False
-        self._ea_last_value = value
-        self._ea_last_attrs = attrs
-        self._ea_last_available = available
-        return True
 
     def __init__(
         self,

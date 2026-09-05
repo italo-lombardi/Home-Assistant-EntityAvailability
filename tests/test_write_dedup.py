@@ -141,6 +141,90 @@ def test_mixin_default_value_raises() -> None:
         WriteDedupMixin()._ea_current_value()
 
 
+def test_mixin_unrecorded_attrs_excluded_from_dedup() -> None:
+    """Keys in ``_unrecorded_attributes`` never drive the write decision.
+
+    Volatile-but-unrecorded maps (``last_seen`` etc.) advance every tick but
+    the recorder strips them before storing, so comparing them would force a
+    redundant state row per tick. The dedup compare must use the stored view.
+    """
+
+    class _S(WriteDedupMixin):
+        _unrecorded_attributes = frozenset({"last_seen"})
+
+        def __init__(self) -> None:
+            self.value = 1
+            self.extra_state_attributes: dict = {"offline": 0, "last_seen": {"a": "t0"}}
+
+        def _ea_current_value(self):
+            return self.value
+
+    s = _S()
+    assert s._ea_should_write() is True  # first publish
+    # Only the unrecorded key churns → no recorded change → dedup wins.
+    s.extra_state_attributes = {"offline": 0, "last_seen": {"a": "t1"}}
+    assert s._ea_should_write() is False
+    s.extra_state_attributes = {"offline": 0, "last_seen": {"a": "t2", "b": "t3"}}
+    assert s._ea_should_write() is False
+    # A recorded key changing still writes.
+    s.extra_state_attributes = {"offline": 1, "last_seen": {"a": "t4"}}
+    assert s._ea_should_write() is True
+
+
+def test_mixin_combined_unrecorded_attrs_preferred() -> None:
+    """Component-level unrecorded attrs (HA's combined set) are also stripped.
+
+    HA strips ``_entity_component_unrecorded_attributes | _unrecorded_attributes``
+    (the name-mangled ``__combined_unrecorded_attributes``). The dedup view must
+    mirror that union, not just the per-instance set, or a component-level
+    unrecorded key would drive a write the recorder then strips.
+    """
+
+    class _S(WriteDedupMixin):
+        # Name-mangled exactly as HA's Entity metaclass writes it.
+        _Entity__combined_unrecorded_attributes = frozenset({"comp_only", "last_seen"})
+        _unrecorded_attributes = frozenset({"last_seen"})
+
+        def __init__(self) -> None:
+            self.value = 1
+            self.extra_state_attributes: dict = {
+                "offline": 0,
+                "last_seen": {"a": "t0"},
+                "comp_only": 1,
+            }
+
+        def _ea_current_value(self):
+            return self.value
+
+    s = _S()
+    assert s._ea_should_write() is True  # first publish
+    # Only the component-level unrecorded key churns → recorder strips it → dedup.
+    s.extra_state_attributes = {"offline": 0, "last_seen": {"a": "t1"}, "comp_only": 2}
+    assert s._ea_should_write() is False
+    # A recorded key still writes.
+    s.extra_state_attributes = {"offline": 1, "last_seen": {"a": "t1"}, "comp_only": 2}
+    assert s._ea_should_write() is True
+
+
+def test_mixin_no_unrecorded_attrs_compares_full() -> None:
+    """Without ``_unrecorded_attributes`` the full attrs dict is compared."""
+
+    class _S(WriteDedupMixin):
+        def __init__(self) -> None:
+            self.value = 1
+            self.extra_state_attributes: dict = {"x": 1}
+
+        def _ea_current_value(self):
+            return self.value
+
+    s = _S()
+    assert s._ea_should_write() is True
+    # Identical attrs + value: dedups even on the no-``_unrecorded`` path.
+    assert s._ea_should_write() is False
+    s.extra_state_attributes = {"x": 2}
+    assert s._ea_should_write() is True
+
+
 def test_dedup_coordinator_sensor_skips_unchanged(mock_coordinator) -> None:
     """`OfflineCountSensor._handle_coordinator_update` writes once, then dedups."""
     sensor = OfflineCountSensor(mock_coordinator, "Test Group", "test_group", "eid")
@@ -247,6 +331,79 @@ async def test_combined_sensor_dedup(
         coord.device_states["binary_sensor.device_a"].is_offline = False
         callback_fn()  # changed -> write
     assert write.call_count == 2
+
+    await sensor.async_will_remove_from_hass()
+
+
+@pytest.mark.asyncio
+async def test_combined_sensor_last_seen_churn_dedups(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Regression: last_seen churn must NOT defeat CombinedGroupSensor dedup.
+
+    A busy multi-member group advances a member's ``last_changed`` (and so the
+    ``last_seen`` attr map) on nearly every tick even when the count and all
+    recorded attrs are stable. ``last_seen`` is in ``_unrecorded_attributes``,
+    so the recorder strips it — comparing it in dedup produced one redundant
+    state row per tick (~68k/day on the worst combined_summary sensor). The
+    base ``WriteDedupMixin`` now excludes unrecorded keys from the compare, so
+    only a genuine recorded change writes.
+    """
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+        coord._device_states = {
+            "binary_sensor.device_a": DeviceState(
+                entity_id="binary_sensor.device_a",
+                is_offline=False,
+                last_changed=datetime.now(timezone.utc),
+            ),
+        }
+    mock_hass.data.setdefault(DOMAIN, {})[mock_config_entry.entry_id] = coord
+
+    combined_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Combined",
+        data={},
+        entry_id="combined_last_seen_eid",
+    )
+    sensor = CombinedGroupSensor(
+        mock_hass, combined_entry, "Combined", "combined", [mock_config_entry.entry_id]
+    )
+    # last_seen is derived from d.last_changed; confirm it's actually emitted so
+    # the test would fail if the attr were dropped rather than dedup-excluded.
+    assert "last_seen" in sensor.extra_state_attributes
+    assert "last_seen" in CombinedGroupSensor._unrecorded_attributes
+
+    captured: list = []
+
+    def _fake_add_listener(cb):
+        captured.append(cb)
+        return lambda: None
+
+    coord.async_add_listener = MagicMock(side_effect=_fake_add_listener)
+    with patch.object(sensor, "async_write_ha_state") as write:
+        await sensor.async_added_to_hass()
+        cb = captured[0]
+        cb()  # first publish
+        # Only last_seen advances (a member re-reports) — no recorded change.
+        for i in range(1, 6):
+            coord.device_states["binary_sensor.device_a"].last_changed = datetime.now(
+                timezone.utc
+            ) + timedelta(seconds=i)
+            cb()
+        assert write.call_count == 1, (
+            f"last_seen churn defeated dedup: {write.call_count} writes"
+        )
+        # A real recorded change (device goes offline) still writes.
+        coord.device_states["binary_sensor.device_a"].is_offline = True
+        coord.device_states["binary_sensor.device_a"].offline_since = datetime.now(
+            timezone.utc
+        )
+        cb()
+        assert write.call_count == 2
 
     await sensor.async_will_remove_from_hass()
 

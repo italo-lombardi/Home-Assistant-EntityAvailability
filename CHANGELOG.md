@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-05
+
+### Fixed
+- **Recorder write amplification on summary sensors** — the `*_group_summary` and combined-group summary sensors called `async_write_ha_state()` on every coordinator tick even when nothing recorded actually changed. Volatile-but-unrecorded attributes (`last_seen`, `signal_levels`, `battery_levels`, `offline_since`, `suppressed_until` …) advanced each tick and defeated the write-dedup guard, producing a redundant States row per tick per sensor (one class alone had accumulated ~729k rows). The dedup comparison now uses the *recorder-stored* view of the attributes — exactly the set Home Assistant strips (`_entity_component_unrecorded_attributes | _unrecorded_attributes`) — so a sensor only writes when a recorded value truly changes. Availability history is unchanged; this only stops the duplicate no-op rows. Forward-only: existing rows purge normally at the 40-day retention. (#95)
+
+### Changed
+- **Write-dedup attribute compare is now cheap on large groups** — the per-entity maps (moved to `_unrecorded_attributes`) are no longer part of the dedup equality check, so the comparison is over a handful of scalars instead of O(members) nested dicts. (#95)
+
 ## [0.5.0] - 2026-08-26
 
 ### Fixed
