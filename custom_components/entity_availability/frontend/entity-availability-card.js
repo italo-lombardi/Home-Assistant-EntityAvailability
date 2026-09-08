@@ -1549,9 +1549,11 @@ class EntityAvailabilityCard extends LitElement {
 
   _formatStateWithUnit(entityState) {
     if (!entityState) return "unknown";
-    const formatted = this._formatIsoState(entityState.state);
+    const raw = this._formatIsoState(entityState.state);
     const unit = entityState.attributes?.unit_of_measurement;
-    return unit ? `${formatted} ${unit}` : formatted;
+    const label = this.hass?.formatEntityState?.(entityState);
+    const display = label && label !== entityState.state ? `${label} (${raw})` : raw;
+    return unit ? `${display} ${unit}` : display;
   }
 
   _formatIsoState(stateValue) {

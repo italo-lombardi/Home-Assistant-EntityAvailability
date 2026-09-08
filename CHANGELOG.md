@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-08
+
+### Added
+- **Card: translated state labels in HA State tooltip** — the "HA State" tooltip row now shows a human-readable label alongside the raw HA state. Binary sensors with `device_class: problem` display "Clear (off)" / "Problem (on)"; presence sensors show "Home (home)" / "Away (not_home)"; any entity type supported by HA's built-in translations benefits automatically. Falls back to raw state on HA < 2023.6. Numeric states and states where the label equals the raw value show no redundant suffix. (#96)
+
 ## [0.5.1] - 2026-09-05
 
 ### Fixed

@@ -38,6 +38,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Self-managed storage** -- no recorder dependency; data stored in `.storage`
 - **Recorder-friendly writes** -- sensors only publish state when value or attributes actually change, so steady-state networks don't generate redundant history rows every coordinator tick
 - **Survives HA restarts** -- availability history persisted via HA Store
+- **Human-readable state labels in tooltip** -- the card's HA State tooltip row shows translated labels (e.g. "Clear (off)", "Problem (on)", "Home (home)") alongside raw states, sourced from HA's built-in translation layer
 
 ---
 
