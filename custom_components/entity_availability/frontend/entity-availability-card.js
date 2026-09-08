@@ -1555,10 +1555,9 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _formatStateDisplay(entityState) {
+    if (!entityState) return "unknown";
     const raw = this._formatStateWithUnit(entityState);
-    if (!entityState) return raw;
-    const isNumeric = !isNaN(parseFloat(entityState.state)) && isFinite(entityState.state);
-    if (isNumeric) return raw;
+    if (isFinite(parseFloat(entityState.state))) return raw;
     let label;
     try { label = this.hass?.formatEntityState?.(entityState); } catch (_) { return raw; }
     if (!label) return raw;
