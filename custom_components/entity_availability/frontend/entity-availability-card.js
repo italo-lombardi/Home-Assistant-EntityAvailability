@@ -1558,6 +1558,8 @@ class EntityAvailabilityCard extends LitElement {
     if (!entityState) return "unknown";
     const raw = this._formatStateWithUnit(entityState);
     const s = entityState.state;
+    // Guard on raw state string, not on raw (which may be a reformatted ISO date).
+    // ISO timestamps: parseFloat("2026-…") → NaN → isFinite false → fall through to label path (correct).
     if (!s || isFinite(parseFloat(s))) return raw;
     let label;
     try { label = this.hass?.formatEntityState?.(entityState); } catch (_) { return raw; }
