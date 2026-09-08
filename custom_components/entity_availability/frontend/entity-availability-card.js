@@ -1411,7 +1411,7 @@ class EntityAvailabilityCard extends LitElement {
     return [
       identityRow,
       areaName ? { label: "Area", value: areaName } : null,
-      !isCollapsed ? { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) } : null,
+      !isCollapsed ? { label: "HA State", value: lastChanged ? `${this._formatStateDisplay(entityState)} · ${lastChanged}` : this._formatStateDisplay(entityState) } : null,
       { label: "Condition", value: conditionValue },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
       item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : ""}` } : null,
@@ -1435,8 +1435,8 @@ class EntityAvailabilityCard extends LitElement {
           const lastChanged = this._computeDuration(eid);
           const label = entityState?.attributes?.friendly_name || eid.split(".").pop();
           const value = lastChanged
-            ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
-            : this._formatStateWithUnit(entityState);
+            ? `${this._formatStateDisplay(entityState)} · ${lastChanged}`
+            : this._formatStateDisplay(entityState);
           return { label, value };
         });
       }
@@ -1444,8 +1444,8 @@ class EntityAvailabilityCard extends LitElement {
       const entityState = this.hass.states[item.entityId];
       const lastChanged = this._computeDuration(item.entityId);
       const haStateValue = lastChanged
-        ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
-        : this._formatStateWithUnit(entityState);
+        ? `${this._formatStateDisplay(entityState)} · ${lastChanged}`
+        : this._formatStateDisplay(entityState);
       rows = [{ label: "HA State", value: haStateValue }];
     } else {
       rows = this._buildDetailRows(item, suppressedUntilMap);
@@ -1551,9 +1551,20 @@ class EntityAvailabilityCard extends LitElement {
     if (!entityState) return "unknown";
     const raw = this._formatIsoState(entityState.state);
     const unit = entityState.attributes?.unit_of_measurement;
-    const label = this.hass?.formatEntityState?.(entityState);
-    const display = label && label !== entityState.state ? `${label} (${raw})` : raw;
-    return unit ? `${display} ${unit}` : display;
+    return unit ? `${raw} ${unit}` : raw;
+  }
+
+  _formatStateDisplay(entityState) {
+    const raw = this._formatStateWithUnit(entityState);
+    if (!entityState) return raw;
+    const isNumeric = !isNaN(parseFloat(entityState.state)) && isFinite(entityState.state);
+    if (isNumeric) return raw;
+    let label;
+    try { label = this.hass?.formatEntityState?.(entityState); } catch (_) { return raw; }
+    if (!label) return raw;
+    // Suppress redundant label: "Home (home)" adds no info — only show when meaningfully different.
+    if (label.toLowerCase() === entityState.state.toLowerCase()) return raw;
+    return `${label} · ${raw}`;
   }
 
   _formatIsoState(stateValue) {
