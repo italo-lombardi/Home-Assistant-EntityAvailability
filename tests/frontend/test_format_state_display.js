@@ -46,12 +46,13 @@ class CardStub {
   _formatStateDisplay(entityState) {
     if (!entityState) return "unknown";
     const raw = this._formatStateWithUnit(entityState);
-    if (isFinite(parseFloat(entityState.state))) return raw;
+    const s = entityState.state;
+    if (!s || isFinite(parseFloat(s))) return raw;
     let label;
     try { label = this.hass?.formatEntityState?.(entityState); } catch (_) { return raw; }
     if (!label) return raw;
-    if (label.toLowerCase() === entityState.state.toLowerCase()) return raw;
-    return `${label} · ${raw}`;
+    if (label.toLowerCase() === s.toLowerCase()) return raw;
+    return `${label} (${raw})`;
   }
 }
 
@@ -84,11 +85,11 @@ console.log("\n_formatStateDisplay — null guard");
 console.log("\n_formatStateDisplay — binary sensor (problem class)");
 {
   const card = new CardStub({ hass: { formatEntityState: () => "Clear" } });
-  assert("off → Clear · off", card._formatStateDisplay({ state: "off", attributes: {} }), "Clear · off");
+  assert("off → Clear (off)", card._formatStateDisplay({ state: "off", attributes: {} }), "Clear (off)");
 }
 {
   const card = new CardStub({ hass: { formatEntityState: () => "Problem" } });
-  assert("on → Problem · on", card._formatStateDisplay({ state: "on", attributes: {} }), "Problem · on");
+  assert("on → Problem (on)", card._formatStateDisplay({ state: "on", attributes: {} }), "Problem (on)");
 }
 
 // ---------------------------------------------------------------------------
@@ -101,7 +102,7 @@ console.log("\n_formatStateDisplay — case-insensitive guard (no redundant labe
 }
 {
   const card = new CardStub({ hass: { formatEntityState: () => "Away" } });
-  assert("Away · not_home (genuinely different)", card._formatStateDisplay({ state: "not_home", attributes: {} }), "Away · not_home");
+  assert("Away (not_home) (genuinely different)", card._formatStateDisplay({ state: "not_home", attributes: {} }), "Away (not_home)");
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +118,7 @@ console.log("\n_formatStateDisplay — numeric bypass (isFinite(parseFloat(state
   assert("zero float",card._formatStateDisplay({ state: "0.0",  attributes: {} }), "0.0");
   assert("scientific",card._formatStateDisplay({ state: "1e3",  attributes: {} }), "1e3");
   assert("negative",  card._formatStateDisplay({ state: "-5",   attributes: {} }), "-5");
+  assert("empty string → raw (no label path)", card._formatStateDisplay({ state: "", attributes: {} }), "");
 }
 
 // ---------------------------------------------------------------------------

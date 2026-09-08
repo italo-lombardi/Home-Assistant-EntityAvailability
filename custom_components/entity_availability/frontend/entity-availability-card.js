@@ -1557,13 +1557,14 @@ class EntityAvailabilityCard extends LitElement {
   _formatStateDisplay(entityState) {
     if (!entityState) return "unknown";
     const raw = this._formatStateWithUnit(entityState);
-    if (isFinite(parseFloat(entityState.state))) return raw;
+    const s = entityState.state;
+    if (!s || isFinite(parseFloat(s))) return raw;
     let label;
     try { label = this.hass?.formatEntityState?.(entityState); } catch (_) { return raw; }
     if (!label) return raw;
     // Suppress redundant label: "Home (home)" adds no info — only show when meaningfully different.
-    if (label.toLowerCase() === entityState.state.toLowerCase()) return raw;
-    return `${label} · ${raw}`;
+    if (label.toLowerCase() === s.toLowerCase()) return raw;
+    return `${label} (${raw})`;
   }
 
   _formatIsoState(stateValue) {
