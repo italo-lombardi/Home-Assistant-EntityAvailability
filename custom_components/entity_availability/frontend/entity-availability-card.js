@@ -1,9 +1,9 @@
 /**
- * Entity Availability Card v0.4.0
+ * Entity Availability Card v0.5.2
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.5.0";
+const CARD_VERSION = "0.5.2";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
