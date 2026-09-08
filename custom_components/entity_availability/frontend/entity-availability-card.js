@@ -1,9 +1,9 @@
 /**
- * Entity Availability Card v0.4.0
+ * Entity Availability Card v0.5.2
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.5.0";
+const CARD_VERSION = "0.5.2";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -1411,7 +1411,7 @@ class EntityAvailabilityCard extends LitElement {
     return [
       identityRow,
       areaName ? { label: "Area", value: areaName } : null,
-      !isCollapsed ? { label: "HA State", value: lastChanged ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}` : this._formatStateWithUnit(entityState) } : null,
+      !isCollapsed ? { label: "HA State", value: lastChanged ? `${this._formatStateDisplay(entityState)} · ${lastChanged}` : this._formatStateDisplay(entityState) } : null,
       { label: "Condition", value: conditionValue },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
       item.signalLevel !== null && item.signalLevel !== undefined ? { label: "Signal", value: `${item.signalLevel}${item.signalUnit ? " " + item.signalUnit : ""}${item.isPoorSignal ? " (poor)" : ""}` } : null,
@@ -1435,8 +1435,8 @@ class EntityAvailabilityCard extends LitElement {
           const lastChanged = this._computeDuration(eid);
           const label = entityState?.attributes?.friendly_name || eid.split(".").pop();
           const value = lastChanged
-            ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
-            : this._formatStateWithUnit(entityState);
+            ? `${this._formatStateDisplay(entityState)} · ${lastChanged}`
+            : this._formatStateDisplay(entityState);
           return { label, value };
         });
       }
@@ -1444,8 +1444,8 @@ class EntityAvailabilityCard extends LitElement {
       const entityState = this.hass.states[item.entityId];
       const lastChanged = this._computeDuration(item.entityId);
       const haStateValue = lastChanged
-        ? `${this._formatStateWithUnit(entityState)} · ${lastChanged}`
-        : this._formatStateWithUnit(entityState);
+        ? `${this._formatStateDisplay(entityState)} · ${lastChanged}`
+        : this._formatStateDisplay(entityState);
       rows = [{ label: "HA State", value: haStateValue }];
     } else {
       rows = this._buildDetailRows(item, suppressedUntilMap);
@@ -1549,9 +1549,24 @@ class EntityAvailabilityCard extends LitElement {
 
   _formatStateWithUnit(entityState) {
     if (!entityState) return "unknown";
-    const formatted = this._formatIsoState(entityState.state);
+    const raw = this._formatIsoState(entityState.state);
     const unit = entityState.attributes?.unit_of_measurement;
-    return unit ? `${formatted} ${unit}` : formatted;
+    return unit ? `${raw} ${unit}` : raw;
+  }
+
+  _formatStateDisplay(entityState) {
+    if (!entityState) return "unknown";
+    const raw = this._formatStateWithUnit(entityState);
+    const s = entityState.state;
+    // Guard on raw state string, not on raw (which may be a reformatted ISO date).
+    // ISO timestamps: parseFloat("2026-…") → NaN → isFinite false → fall through to label path (correct).
+    if (!s || isFinite(parseFloat(s))) return raw;
+    let label;
+    try { label = this.hass?.formatEntityState?.(entityState); } catch (_) { return raw; }
+    if (!label) return raw;
+    // Suppress redundant label: "Home (home)" adds no info — only show when meaningfully different.
+    if (label.toLowerCase() === s.toLowerCase()) return raw;
+    return `${label} (${raw})`;
   }
 
   _formatIsoState(stateValue) {
