@@ -360,8 +360,17 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         several monitored entities (or the same entity shared across groups) appears
         once. Device-less entities and entities from collapse-off groups fall back to
         their entity_id, so each stays its own row (never merged into a shared bucket).
+        The raw entity_id is always tracked too, so the same entity shared across a
+        collapse-on and a collapse-off group (which yield different tokens) still
+        dedups to one row instead of double-counting.
         Sorted by resolved display name (casefold) with entity_id tiebreak → the joined
         state string is deterministic.
+
+        When two distinct entities on the same device collapse to one row, the kept
+        representative is first-seen in coordinator iteration order. The final
+        name-sort makes the displayed string deterministic regardless; only which
+        coordinator's timestamp backs the merged device is iteration-order dependent,
+        which is immaterial for the recovery lists (they carry no severity rank).
         """
         seen: set[str] = set()
         result: list[tuple[EntityAvailabilityCoordinator, Any]] = []
@@ -373,9 +382,10 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                 token = (
                     collapse_key(self.hass, d) if collapse else None
                 ) or d.entity_id
-                if token in seen:
+                if token in seen or d.entity_id in seen:
                     continue
                 seen.add(token)
+                seen.add(d.entity_id)
                 result.append((coord, d))
         result.sort(
             key=lambda cd: (
