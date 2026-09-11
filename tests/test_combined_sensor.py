@@ -3817,8 +3817,9 @@ class TestCombinedRecentlyCollapse:
     def test_shared_entity_both_collapse_off_one_row(self, mock_hass):
         """Same entity in two collapse-OFF groups -> one row (no dup).
 
-        No group collapses, so every token is the entity_id. The shared entity
-        must still dedup to a single row via the entity_id guard.
+        No group collapses, so every token is the entity_id and the shared entity
+        dedups via the token check itself (coord_b's entity_id token already in
+        `seen`). Guards that the both-off combined case never regresses to two rows.
         """
         off_data = {
             CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
