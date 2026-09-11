@@ -587,15 +587,114 @@ async def test_debounce_cancel_on_rapid_state_changes(
                 )
                 return evt
 
-            # First state change — schedules debounce, no previous cancel
+            # First state change — schedules the group-wide timer, no previous cancel
             coord._handle_state_change(make_event(entity_id))
-            assert coord._debounce_cancel_map.get(entity_id) is first_cancel
+            assert coord._refresh_timer is first_cancel
             assert len(cancel_calls) == 0
 
-            # Second rapid state change — cancels first, schedules new
-            coord._handle_state_change(make_event(entity_id))
-            assert coord._debounce_cancel_map.get(entity_id) is second_cancel
-            assert len(cancel_calls) == 1  # first cancel was called
+            # Second rapid state change (any entity) — cancels first, re-arms
+            coord._handle_state_change(make_event("binary_sensor.other"))
+            assert coord._refresh_timer is second_cancel
+            assert len(cancel_calls) == 1  # first timer was cancelled
+
+
+async def test_burst_coalesces_to_single_refresh(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """N state changes inside the debounce window trigger exactly ONE refresh.
+
+    This is the fix for the O(N²) fan-out: previously each of N entities armed
+    its own timer, each firing a full refresh (N refreshes for one burst).
+    """
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        captured = []
+
+        def fake_call_later(h, delay, callback):
+            captured.append(callback)
+            return lambda: None
+
+        def make_event(eid):
+            evt = MagicMock()
+            evt.data.get.side_effect = lambda key, default=None: (
+                eid if key == "entity_id" else None
+            )
+            return evt
+
+        with patch(
+            "custom_components.entity_availability.coordinator.async_call_later",
+            side_effect=fake_call_later,
+        ):
+            # 50 entities flap in one window — only the last-armed timer survives
+            for i in range(50):
+                coord._handle_state_change(make_event(f"binary_sensor.e{i}"))
+
+        # async_call_later was invoked once per event (re-arm), but only ONE
+        # timer is live; firing it schedules exactly one coalesced refresh.
+        assert len(captured) == 50
+        with patch.object(coord, "async_refresh", new_callable=AsyncMock) as ref:
+            captured[-1](None)  # last-armed timer fires
+            await hass.async_block_till_done()
+        assert ref.await_count == 1
+
+
+async def test_event_during_refresh_triggers_trailing_rerun(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """An event arriving mid-refresh re-runs the refresh once (no lost update)."""
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        refresh_calls = []
+
+        async def fake_refresh():
+            refresh_calls.append(True)
+            # First refresh: simulate an event landing while we're running
+            if len(refresh_calls) == 1:
+                coord._refresh_again = True
+
+        with patch.object(coord, "async_refresh", side_effect=fake_refresh):
+            await coord._run_coalesced_refresh()
+
+        # Ran twice: the initial run + one trailing re-run for the mid-flight event
+        assert len(refresh_calls) == 2
+        assert coord._refresh_again is False
+        assert coord._refresh_task is None
+
+
+async def test_debounced_group_refresh_flags_when_task_in_flight(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """When a refresh task is already running, the timer only sets the re-run flag."""
+    hass = mock_hass
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+    running = MagicMock()
+    running.done.return_value = False
+    coord._refresh_task = running
+
+    with patch.object(hass, "async_create_task") as mock_task:
+        coord._debounced_group_refresh(None)
+
+    assert coord._refresh_again is True
+    mock_task.assert_not_called()
 
 
 async def test_recovery_attributes_across_multiple_cycles(
@@ -692,10 +791,10 @@ async def test_suppressed_entity_skips_availability_storage(
     )
 
 
-async def test_async_shutdown_cancels_debounce_map(
+async def test_async_shutdown_cancels_refresh_timer(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """async_shutdown calls every cancel in _debounce_cancel_map and clears it."""
+    """async_shutdown cancels the pending refresh timer and clears the re-run flag."""
     hass = mock_hass
 
     with patch.object(
@@ -710,12 +809,14 @@ async def test_async_shutdown_cancels_debounce_map(
         def fake_cancel():
             cancel_called.append(True)
 
-        coord._debounce_cancel_map["binary_sensor.x"] = fake_cancel
+        coord._refresh_timer = fake_cancel
+        coord._refresh_again = True
 
         await coord.async_shutdown()
 
     assert len(cancel_called) == 1
-    assert coord._debounce_cancel_map == {}
+    assert coord._refresh_timer is None
+    assert coord._refresh_again is False
 
 
 async def test_async_update_data_save_error_logs_warning(
@@ -1593,7 +1694,7 @@ async def test_shutdown_cancels_state_change_listener(
 async def test_shutdown_cancels_debounce(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """async_shutdown cancels all per-entity debounce timers."""
+    """async_shutdown cancels the pending group-wide refresh timer."""
     hass = mock_hass
 
     with patch.object(
@@ -1606,12 +1707,12 @@ async def test_shutdown_cancels_debounce(
     def debounce_cancel():
         debounce_called.append(True)
 
-    coord._debounce_cancel_map["binary_sensor.device_a"] = debounce_cancel
+    coord._refresh_timer = debounce_cancel
     coord._dirty = False
     await coord.async_shutdown()
 
     assert len(debounce_called) == 1
-    assert len(coord._debounce_cancel_map) == 0
+    assert coord._refresh_timer is None
 
 
 # ---------------------------------------------------------------------------
@@ -1947,14 +2048,14 @@ def test_setup_state_listeners_tracks_battery_and_signal_sensors(
 
 
 # ---------------------------------------------------------------------------
-# _handle_state_change debounced_refresh callback (lines 311-312)
+# _handle_state_change debounced_refresh callback
 # ---------------------------------------------------------------------------
 
 
 async def test_debounced_refresh_callback_creates_task(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """The debounced refresh callback clears _debounce_cancel and schedules a refresh."""
+    """The debounced refresh callback clears the timer and schedules a refresh."""
     hass = mock_hass
 
     with patch.object(
@@ -1977,14 +2078,13 @@ async def test_debounced_refresh_callback_creates_task(
 
     assert len(captured_callbacks) == 1
 
-    # Now invoke the callback: entry removed from map and refresh scheduled
-    with patch.object(coord, "async_request_refresh", new_callable=AsyncMock):
-        with patch.object(
-            hass, "async_create_task", side_effect=lambda coro: coro.close()
-        ) as mock_task:
-            captured_callbacks[0](None)  # simulate the timer firing
+    # Now invoke the callback: timer cleared and a coalesced refresh task created
+    with patch.object(
+        hass, "async_create_task", side_effect=lambda coro: coro.close()
+    ) as mock_task:
+        captured_callbacks[0](None)  # simulate the timer firing
 
-    assert "unknown" not in coord._debounce_cancel_map
+    assert coord._refresh_timer is None
     mock_task.assert_called_once()
 
 
@@ -3153,17 +3253,16 @@ async def test_bus_events_multi_entity_offline_count(
         assert first_evt.data["entity_id"] == "binary_sensor.device_a"
         assert second_evt.data["entity_id"] == "binary_sensor.device_b"
 
-        # When device_a fired: only device_a was offline (device_b not yet marked)
-        assert first_evt.data["offline_count"] == 1
-        assert first_evt.data["offline_entities"] == ["binary_sensor.device_a"]
+        # Counts are stamped after the full sweep, so every event in one sweep
+        # reflects the FINAL offline set (both devices) rather than whichever
+        # partial mid-loop state existed when that transition was appended.
+        both = ["binary_sensor.device_a", "binary_sensor.device_b"]
+        assert first_evt.data["offline_count"] == 2
+        assert first_evt.data["offline_entities"] == both
         assert isinstance(first_evt.data["offline_entities"], list)
 
-        # When device_b fired: both were offline
         assert second_evt.data["offline_count"] == 2
-        assert second_evt.data["offline_entities"] == [
-            "binary_sensor.device_a",
-            "binary_sensor.device_b",
-        ]  # order matches self._entities insertion order (dict, Python 3.7+)
+        assert second_evt.data["offline_entities"] == both
         assert isinstance(second_evt.data["offline_entities"], list)
 
         # Recover device_a only
@@ -3376,21 +3475,102 @@ async def test_bus_events_low_battery_multi_entity_count(
         await hass.async_block_till_done()
 
         assert len(events) == 2
-        # Both battery levels set before the update; device_a fires first because
-        # _device_states preserves insertion order (device_a added first).
-        # When device_a's event fires, device_b's is_low_battery is not yet set.
+        # Counts are stamped after the full sweep, so both events reflect the
+        # FINAL low-battery set (both devices), not the partial mid-loop state.
+        both = {"binary_sensor.device_a", "binary_sensor.device_b"}
         first = events[0]
         assert first.data["entity_id"] == "binary_sensor.device_a"
-        assert first.data["low_battery_count"] == 1
-        assert first.data["low_battery_entities"] == ["binary_sensor.device_a"]
-        # Second event: both low
+        assert first.data["low_battery_count"] == 2
+        assert set(first.data["low_battery_entities"]) == both
         second = events[1]
         assert second.data["entity_id"] == "binary_sensor.device_b"
         assert second.data["low_battery_count"] == 2
-        assert set(second.data["low_battery_entities"]) == {
-            "binary_sensor.device_a",
-            "binary_sensor.device_b",
-        }
+        assert set(second.data["low_battery_entities"]) == both
+
+
+async def test_bus_events_mixed_categories_single_sweep(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Multiple categories transitioning in one sweep get correctly-routed lists.
+
+    Guards the post-loop per-category stamp: an offline event must carry the
+    offline list, a stale event the stale list, a low-battery event the
+    low-battery list — never cross-contaminated.
+    """
+    hass = mock_hass
+    config = dict(mock_config_data)
+    config[CONF_ENTITIES] = [
+        "binary_sensor.off_dev",
+        "binary_sensor.stale_dev",
+        "binary_sensor.batt_dev",
+    ]
+    config[CONF_STALENESS_THRESHOLD] = 1
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=config,
+        entry_id="mixed_cat_test",
+        unique_id=f"{DOMAIN}_mixed_cat",
+    )
+    entry.add_to_hass(hass)
+
+    offline_events: list = []
+    stale_events: list = []
+    battery_events: list = []
+    hass.bus.async_listen(
+        "entity_availability_offline", lambda e: offline_events.append(e)
+    )
+    hass.bus.async_listen("entity_availability_stale", lambda e: stale_events.append(e))
+    hass.bus.async_listen(
+        "entity_availability_low_battery", lambda e: battery_events.append(e)
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._startup_time = datetime.now(timezone.utc) - timedelta(
+            seconds=STARTUP_GRACE_PERIOD + 10
+        )
+        coord._last_update = None
+        hass.states.async_set("binary_sensor.off_dev", STATE_ON)
+        hass.states.async_set("binary_sensor.stale_dev", STATE_ON)
+        hass.states.async_set("binary_sensor.batt_dev", STATE_ON)
+        await coord._async_update_data()
+
+        # Arrange all three transitions to land in ONE sweep:
+        hass.states.async_set("binary_sensor.off_dev", STATE_UNAVAILABLE)
+        coord.device_states["binary_sensor.off_dev"].cooldown_start = datetime.now(
+            timezone.utc
+        ) - timedelta(seconds=61)
+        coord.device_states["binary_sensor.stale_dev"].last_changed = datetime.now(
+            timezone.utc
+        ) - timedelta(minutes=5)
+        coord.device_states["binary_sensor.batt_dev"].battery_level = 5
+
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        assert len(offline_events) == 1
+        assert len(stale_events) == 1
+        assert len(battery_events) == 1
+
+        # Each event carries ONLY its own category's list — no cross-contamination.
+        assert offline_events[0].data["offline_entities"] == ["binary_sensor.off_dev"]
+        assert offline_events[0].data["offline_count"] == 1
+        assert "stale_entities" not in offline_events[0].data
+        assert "low_battery_entities" not in offline_events[0].data
+
+        assert stale_events[0].data["stale_entities"] == ["binary_sensor.stale_dev"]
+        assert stale_events[0].data["stale_count"] == 1
+        assert "offline_entities" not in stale_events[0].data
+
+        assert battery_events[0].data["low_battery_entities"] == [
+            "binary_sensor.batt_dev"
+        ]
+        assert battery_events[0].data["low_battery_count"] == 1
+        assert "offline_entities" not in battery_events[0].data
 
 
 async def test_suppressed_entity_clears_offline_while_suppressed(
