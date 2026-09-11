@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-09-11
+
+### Fixed
+- **Event-loop starvation / high CPU on large groups with many flapping entities** — a group monitoring hundreds of entities that were rapidly changing state (e.g. many entities stuck cycling through `unavailable`/`unknown`) could saturate the event loop and drive CPU up. Each state-change event armed its *own* debounce timer, and every timer fired a full group-wide refresh, so **K** entities flapping inside one debounce window triggered **K** full O(N) scans — O(N×K), quadratic in the worst case. State changes are now coalesced behind a single group-wide trailing-edge timer: any number of events inside the 0.5s window trigger **exactly one** refresh. An event that lands while a refresh is already running schedules exactly one trailing re-run, so no update is ever dropped. The per-entity `last_changed` capture stays synchronous (unchanged across restarts), and the 30s periodic full sweep is untouched. (#97)
+
+### Changed
+- **Per-event `*_count` / `*_entities` payloads are now computed once per sweep** instead of once per transition, removing a second O(N×M) cost inside the update loop. Behavioral effect: when multiple entities of the same category transition in a *single* coordinator sweep, every event fired in that sweep now reports the **final** count/entity-list for that category (fully consistent) rather than the partial mid-loop value each event happened to observe. Single-transition sweeps are unchanged. (#97)
+
 ## [0.5.2] - 2026-09-08
 
 ### Added
