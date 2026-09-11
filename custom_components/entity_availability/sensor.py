@@ -1254,18 +1254,32 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
         return self.coordinator.recovery_window_minutes * 60
 
     def _refresh_cache(self) -> list:
-        """Compute and return offline devices whose offline event is within the recovery window."""
+        """Compute and return offline devices whose offline event is within the recovery window.
+
+        Device-collapsed when active (one representative per device) and sorted by
+        display name so the joined state string is deterministic — same collapse and
+        ordering contract as the offline/low-battery sensors.
+        """
         now = datetime.now(timezone.utc)
         cutoff = self._window_seconds()
-        self._cached_devices = [
-            d
-            for d in self.coordinator.device_states.values()
-            if d.is_offline
-            and not d.is_suppressed
-            and not d.is_non_essential
-            and d.recently_offline_at is not None
-            and (now - d.recently_offline_at).total_seconds() <= cutoff
-        ]
+        use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        self._cached_devices = sorted(
+            self.coordinator.representative_states_matching(
+                lambda d: (
+                    d.is_offline
+                    and not d.is_suppressed
+                    and not d.is_non_essential
+                    and d.recently_offline_at is not None
+                    and (now - d.recently_offline_at).total_seconds() <= cutoff
+                )
+            ),
+            key=lambda d: (
+                _resolve_display_name(
+                    self.hass, d.entity_id, use_device_names
+                ).casefold(),
+                d.entity_id,
+            ),
+        )
         _LOGGER.debug(
             "[%s] RecentlyOfflineSensor cache refreshed: %d device(s) within %ss window",
             self.entity_id,
@@ -1325,18 +1339,32 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
         return self.coordinator.recovery_window_minutes * 60
 
     def _refresh_cache(self) -> list:
-        """Compute and return online devices whose recovery event is within the recovery window."""
+        """Compute and return online devices whose recovery event is within the recovery window.
+
+        Device-collapsed when active (one representative per device) and sorted by
+        display name so the joined state string is deterministic — same collapse and
+        ordering contract as the offline/low-battery sensors.
+        """
         now = datetime.now(timezone.utc)
         cutoff = self._window_seconds()
-        self._cached_devices = [
-            d
-            for d in self.coordinator.device_states.values()
-            if not d.is_offline
-            and not d.is_suppressed
-            and not d.is_non_essential
-            and d.last_recovery is not None
-            and (now - d.last_recovery).total_seconds() <= cutoff
-        ]
+        use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        self._cached_devices = sorted(
+            self.coordinator.representative_states_matching(
+                lambda d: (
+                    not d.is_offline
+                    and not d.is_suppressed
+                    and not d.is_non_essential
+                    and d.last_recovery is not None
+                    and (now - d.last_recovery).total_seconds() <= cutoff
+                )
+            ),
+            key=lambda d: (
+                _resolve_display_name(
+                    self.hass, d.entity_id, use_device_names
+                ).casefold(),
+                d.entity_id,
+            ),
+        )
         _LOGGER.debug(
             "[%s] RecentlyRecoveredSensor cache refreshed: %d device(s) within %ss window",
             self.entity_id,

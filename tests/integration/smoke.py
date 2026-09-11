@@ -77,6 +77,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC81 combined_summary row_members attr present, is a dict, values are bare entity_ids
   EC82 combined suppression dedup: suppress in one group, combined shows unsuppressed (unsuppressed-wins)
 
+  recently_* device-collapse + sort (EC84-EC85 — PR#98):
+  EC84 recently_offline: count==len(entities), no duplicate ids, entities sorted by display name
+  EC85 recently_recovered: count==len(entities), no duplicate ids, entities sorted by display name
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -3653,6 +3657,97 @@ for e in cfg['data']['entries']:
             True,
             f"u1={u1} u2={u2}",
         )
+        restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC84-EC85: recently_offline / recently_recovered device-collapse + sort (PR#98)
+    # These four sensors route through the same one-rep-per-device collapse and
+    # name-sort as offline_entities. Structural invariants provable on live state:
+    #   - count == len(entities) (attr/state agree)
+    #   - entities has no duplicate ids (a device never lists twice)
+    #   - entities is sorted by resolved display name (deterministic order)
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (84, 85)):
+        print(
+            "\n=== EC84-EC85: recently_* device-collapse + sort (PR#98) ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+
+        def _names_sorted(entity_ids: list[str]) -> bool:
+            """True if entity_ids are ordered by (resolved name casefold, id)."""
+            keys = []
+            for eid in entity_ids:
+                fn = gs_safe(eid).get("attributes", {}).get("friendly_name") or eid
+                keys.append((str(fn).casefold(), eid))
+            return keys == sorted(keys)
+
+        # Drive at least one entity offline so the list is non-trivial.
+        target_85 = ctx["entities"][0]
+        ss(target_85, "unavailable", {"friendly_name": "zzz smoke"})
+
+        if ec_enabled(84):
+            wait_for(
+                lambda: (
+                    target_85
+                    in gs(f"{prefix}_recently_offline")
+                    .get("attributes", {})
+                    .get("entities", [])
+                ),
+                True,
+            )
+            ro = gs(f"{prefix}_recently_offline").get("attributes", {})
+            ents = ro.get("entities") or []
+            chk(
+                "EC84 recently_offline count == len(entities)",
+                ro.get("count"),
+                len(ents),
+                f"count={ro.get('count')} entities={ents}",
+            )
+            chk(
+                "EC84 recently_offline entities has no duplicate ids",
+                len(ents),
+                len(set(ents)),
+                f"entities={ents}",
+            )
+            chk(
+                "EC84 recently_offline entities sorted by display name",
+                _names_sorted(ents),
+                True,
+                f"entities={ents}",
+            )
+
+        if ec_enabled(85):
+            ss(target_85, "on", {"friendly_name": target_85.split(".")[-1]})
+            wait_for(
+                lambda: (
+                    target_85
+                    in gs(f"{prefix}_recently_recovered")
+                    .get("attributes", {})
+                    .get("entities", [])
+                ),
+                True,
+            )
+            rr = gs(f"{prefix}_recently_recovered").get("attributes", {})
+            ents = rr.get("entities") or []
+            chk(
+                "EC85 recently_recovered count == len(entities)",
+                rr.get("count"),
+                len(ents),
+                f"count={rr.get('count')} entities={ents}",
+            )
+            chk(
+                "EC85 recently_recovered entities has no duplicate ids",
+                len(ents),
+                len(set(ents)),
+                f"entities={ents}",
+            )
+            chk(
+                "EC85 recently_recovered entities sorted by display name",
+                _names_sorted(ents),
+                True,
+                f"entities={ents}",
+            )
         restore_and_wait(ctx)
 
     # ------------------------------------------------------------------

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Duplicate device names in `recently_offline` / `recently_recovered` sensors** — these four sensors (single-group and combined) listed entities one-per-entity, bypassing the device-collapse machinery that `offline_entities` / `low_battery` / `stale` / `poor_signal` already use. A device exposing two monitored entities (or the same device present in two source groups) rendered its name twice — once per entity, and in combined groups sometimes under two *different* display names (device name from a collapse-on group, entity name from a collapse-off group). They now route through the same one-representative-per-device collapse: a device appears once when device-collapse is active. The combined variants apply each source group's own recovery window before collapsing, so cross-group dedup never loses a device that only one group's window includes. (#98)
+
+### Changed
+- **`recently_offline` / `recently_recovered` output is now name-sorted** (case-insensitive, entity-id tiebreak) instead of dict-insertion order. The joined state string and the `entities` attribute are now deterministic across reads, which also reduces spurious recorder writes when the underlying set is unchanged but its iteration order drifted. (#98)
+
 ## [0.5.3] - 2026-09-11
 
 ### Fixed
