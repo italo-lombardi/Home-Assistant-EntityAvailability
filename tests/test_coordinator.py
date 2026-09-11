@@ -3279,6 +3279,115 @@ async def test_bus_events_multi_entity_offline_count(
         assert isinstance(rec_evt.data["offline_entities"], list)
 
 
+async def test_bus_events_multi_entity_recovery_final_count(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """>1 same-category recovery in one sweep: every event carries final count.
+
+    This is the flapping direction the bug reporter hit — entities cycling
+    unavailable/unknown recover in bursts. Both EVENT_RECOVERED payloads in a
+    single sweep must reflect the FINAL (post-sweep) offline set (empty), not
+    the partial mid-loop value each recovery observed as it was appended.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    hass.states.async_set("binary_sensor.device_b", STATE_UNAVAILABLE)
+
+    recovered_events: list = []
+    hass.bus.async_listen(
+        "entity_availability_recovered", lambda e: recovered_events.append(e)
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        device_b = coord.device_states["binary_sensor.device_b"]
+
+        # Both offline in one sweep
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=61)
+        device_b.cooldown_start = datetime.now(timezone.utc) - timedelta(seconds=61)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert device_a.is_offline is True
+        assert device_b.is_offline is True
+
+        # Recover BOTH in the SAME sweep
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        hass.states.async_set("binary_sensor.device_b", STATE_ON)
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        assert device_a.is_offline is False
+        assert device_b.is_offline is False
+        assert len(recovered_events) == 2
+
+        # Events fire in entity insertion order
+        first_evt, second_evt = recovered_events
+        assert first_evt.data["entity_id"] == "binary_sensor.device_a"
+        assert second_evt.data["entity_id"] == "binary_sensor.device_b"
+
+        # Both events see the FINAL offline set: empty. If the count were stamped
+        # mid-loop, device_a's recovery event would report offline_count == 1
+        # (device_b not yet recovered) — that is the bug this guards against.
+        for evt in (first_evt, second_evt):
+            assert evt.data["offline_count"] == 0
+            assert evt.data["offline_entities"] == []
+            assert isinstance(evt.data["offline_entities"], list)
+
+
+async def test_bus_events_multi_entity_battery_ok_final_count(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """>1 battery recovering in one sweep: every battery_ok event has final count."""
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_ON)
+    hass.states.async_set("binary_sensor.device_b", STATE_ON)
+
+    ok_events: list = []
+    hass.bus.async_listen(
+        "entity_availability_battery_ok", lambda e: ok_events.append(e)
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        device_b = coord.device_states["binary_sensor.device_b"]
+
+        # Both low battery in one sweep
+        device_a.battery_level = 10
+        device_b.battery_level = 12
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert device_a.is_low_battery is True
+        assert device_b.is_low_battery is True
+
+        # Recover BOTH batteries in the SAME sweep
+        device_a.battery_level = 90
+        device_b.battery_level = 95
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+        assert device_a.is_low_battery is False
+        assert device_b.is_low_battery is False
+        assert len(ok_events) == 2
+
+        # Both events reflect the FINAL low-battery set (empty), not mid-loop.
+        for evt in ok_events:
+            assert evt.data["low_battery_count"] == 0
+            assert evt.data["low_battery_entities"] == []
+            assert isinstance(evt.data["low_battery_entities"], list)
+
+
 async def test_bus_events_suppressed_entity_excluded(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:

@@ -283,8 +283,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             self._unsub_state_change()
             self._unsub_state_change = None
         # Cancel any pending debounce timer and stop the coalesced-refresh loop
-        # from re-running. An in-flight refresh finishes its current pass; HA
-        # cancels the pending task on unload, so we do not await it here.
+        # from re-running (_refresh_again=False). An in-flight refresh task is
+        # left to complete its current pass — it is short-lived and nulls
+        # _refresh_task itself in its finally, so we do not await it here.
         if self._refresh_timer is not None:
             self._refresh_timer()
             self._refresh_timer = None
