@@ -42,6 +42,8 @@ from custom_components.entity_availability.sensor import (
     GroupSummarySensor,
     LowBatteryCountSensor,
     OfflineCountSensor,
+    RecentlyOfflineSensor,
+    RecentlyRecoveredSensor,
     StaleCountSensor,
 )
 
@@ -1127,3 +1129,126 @@ class TestCollapseKeyStableNumerics:
         # Both resolve the NaN/None battery to the same "None" key segment.
         assert "::None::" in key_nan
         assert key_nan.split("::")[2] == key_none.split("::")[2]
+
+
+_NOW = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+
+class TestRecentlyOfflineCollapse:
+    """RecentlyOfflineSensor must device-collapse and sort like the offline sensor.
+
+    Regression guard for the duplicate-display-name bug: a device exposing two
+    monitored entities (or shown under two names) previously appeared twice.
+    """
+
+    def _sensor(self, mock_hass, states, *, collapse, use_device_names):
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=collapse,
+            use_device_names=use_device_names,
+            states=states,
+        )
+        sensor = RecentlyOfflineSensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        return sensor
+
+    def _two_entities_one_device(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.ro_a", "rodev")
+        _register_entity(mock_hass, "binary_sensor.ro_b", "rodev")
+        return {
+            "binary_sensor.ro_a": DeviceState(
+                entity_id="binary_sensor.ro_a",
+                is_offline=True,
+                recently_offline_at=_NOW - timedelta(minutes=1),
+            ),
+            "binary_sensor.ro_b": DeviceState(
+                entity_id="binary_sensor.ro_b",
+                is_offline=True,
+                recently_offline_at=_NOW - timedelta(minutes=1),
+            ),
+        }
+
+    def test_collapse_on_one_row(self, mock_hass):
+        sensor = self._sensor(
+            mock_hass,
+            self._two_entities_one_device(mock_hass),
+            collapse=True,
+            use_device_names=True,
+        )
+        with patch("custom_components.entity_availability.sensor.datetime") as mock_dt:
+            mock_dt.now.return_value = _NOW
+            sensor._refresh_cache()
+            attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 1
+
+    def test_collapse_off_two_rows(self, mock_hass):
+        sensor = self._sensor(
+            mock_hass,
+            self._two_entities_one_device(mock_hass),
+            collapse=False,
+            use_device_names=True,
+        )
+        with patch("custom_components.entity_availability.sensor.datetime") as mock_dt:
+            mock_dt.now.return_value = _NOW
+            sensor._refresh_cache()
+            attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 2
+
+    def test_sorted_by_display_name(self, mock_hass):
+        # Insertion order (z, a) must NOT drive output; name-sort → a before z.
+        _register_entity(mock_hass, "binary_sensor.zzz", "zdev")
+        _register_entity(mock_hass, "binary_sensor.aaa", "adev")
+        mock_hass.states.async_set(
+            "binary_sensor.zzz", STATE_UNAVAILABLE, {"friendly_name": "Zulu"}
+        )
+        mock_hass.states.async_set(
+            "binary_sensor.aaa", STATE_UNAVAILABLE, {"friendly_name": "Alpha"}
+        )
+        states = {
+            "binary_sensor.zzz": DeviceState(
+                entity_id="binary_sensor.zzz",
+                is_offline=True,
+                recently_offline_at=_NOW - timedelta(minutes=1),
+            ),
+            "binary_sensor.aaa": DeviceState(
+                entity_id="binary_sensor.aaa",
+                is_offline=True,
+                recently_offline_at=_NOW - timedelta(minutes=1),
+            ),
+        }
+        # use_device_names=False → friendly_name drives the sort key.
+        sensor = self._sensor(mock_hass, states, collapse=False, use_device_names=False)
+        with patch("custom_components.entity_availability.sensor.datetime") as mock_dt:
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+        assert value == "Alpha, Zulu"
+
+
+class TestRecentlyRecoveredCollapse:
+    """RecentlyRecoveredSensor must device-collapse the recovered list too."""
+
+    def test_collapse_on_one_row(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.rr_a", "rrdev")
+        _register_entity(mock_hass, "binary_sensor.rr_b", "rrdev")
+        states = {
+            "binary_sensor.rr_a": DeviceState(
+                entity_id="binary_sensor.rr_a",
+                is_offline=False,
+                last_recovery=_NOW - timedelta(minutes=1),
+            ),
+            "binary_sensor.rr_b": DeviceState(
+                entity_id="binary_sensor.rr_b",
+                is_offline=False,
+                last_recovery=_NOW - timedelta(minutes=1),
+            ),
+        }
+        coord = _make_coordinator(
+            mock_hass, collapse=True, use_device_names=True, states=states
+        )
+        sensor = RecentlyRecoveredSensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        with patch("custom_components.entity_availability.sensor.datetime") as mock_dt:
+            mock_dt.now.return_value = _NOW
+            sensor._refresh_cache()
+            attrs = sensor.extra_state_attributes
+        assert attrs["count"] == 1

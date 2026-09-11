@@ -29,10 +29,12 @@ from custom_components.entity_availability.const import (
     CONF_AVAILABILITY_WINDOWS,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
+    CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_RECOVERY_WINDOW,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
@@ -3486,3 +3488,401 @@ class TestCombinedPerGroupListAttrs:
         # Suppressed NE tracked separately
         assert g["non_essential_suppressed"] == 1
         assert g["non_essential"] == 1
+
+
+class TestCombinedRecentlyCollapse:
+    """Combined recently_* sensors must device-collapse across groups.
+
+    Regression guard for the duplicate-display-name bug: a device (or the same
+    shared entity) present in two source groups previously rendered twice.
+    """
+
+    def _collapse_entry(self, entry_id: str, name: str, entities: list[str]):
+        return MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title=name,
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: name,
+                CONF_ENTITIES: entities,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_COLLAPSE_DEVICES: True,
+                CONF_USE_DEVICE_NAMES: True,
+            },
+            entry_id=entry_id,
+        )
+
+    def _coord(self, hass, entry, states):
+        with patch.object(
+            EntityAvailabilityCoordinator,
+            "_async_save_storage",
+            new_callable=AsyncMock,
+        ):
+            coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._device_states = states
+        coord._entities = list(states)
+        return coord
+
+    def test_same_device_across_groups_one_row(self, mock_hass):
+        """Two entities on the same device, one per group, collapse to one row."""
+        entry_a = self._collapse_entry("c_entry_a", "Group A", ["binary_sensor.ca"])
+        entry_b = self._collapse_entry("c_entry_b", "Group B", ["binary_sensor.cb"])
+        off = _NOW - timedelta(minutes=1)
+        coord_a = self._coord(
+            mock_hass,
+            entry_a,
+            {
+                "binary_sensor.ca": DeviceState(
+                    entity_id="binary_sensor.ca",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        coord_b = self._coord(
+            mock_hass,
+            entry_b,
+            {
+                "binary_sensor.cb": DeviceState(
+                    entity_id="binary_sensor.cb",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"c_entry_a": coord_a, "c_entry_b": coord_b}
+        combined = _make_combined_entry(
+            "c_combined", "Combined", ["c_entry_a", "c_entry_b"]
+        )
+
+        # Both entities resolve to the SAME device -> identical collapse_key.
+        ent_reg = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "shared_dev"
+        ent_reg.async_get.return_value = ent_entry
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "Shared Device"
+        dev_reg.async_get.return_value = device
+
+        sensor = _make_recently_offline_sensor(mock_hass, combined, [coord_a, coord_b])
+        with (
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+            attrs = sensor.extra_state_attributes
+
+        assert value == "Shared Device"
+        assert attrs["count"] == 1
+
+    def test_recovered_same_device_across_groups_one_row(self, mock_hass):
+        """Recovered variant: same device in two groups collapses to one row."""
+        entry_a = self._collapse_entry("r_entry_a", "Group A", ["binary_sensor.ra"])
+        entry_b = self._collapse_entry("r_entry_b", "Group B", ["binary_sensor.rb"])
+        rec = _NOW - timedelta(minutes=1)
+        coord_a = self._coord(
+            mock_hass,
+            entry_a,
+            {
+                "binary_sensor.ra": DeviceState(
+                    entity_id="binary_sensor.ra",
+                    is_offline=False,
+                    last_recovery=rec,
+                )
+            },
+        )
+        coord_b = self._coord(
+            mock_hass,
+            entry_b,
+            {
+                "binary_sensor.rb": DeviceState(
+                    entity_id="binary_sensor.rb",
+                    is_offline=False,
+                    last_recovery=rec,
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"r_entry_a": coord_a, "r_entry_b": coord_b}
+        combined = _make_combined_entry(
+            "r_combined", "Combined", ["r_entry_a", "r_entry_b"]
+        )
+
+        ent_reg = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "shared_dev2"
+        ent_reg.async_get.return_value = ent_entry
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "Shared Device 2"
+        dev_reg.async_get.return_value = device
+
+        sensor = _make_recently_recovered_sensor(
+            mock_hass, combined, [coord_a, coord_b]
+        )
+        with (
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+            attrs = sensor.extra_state_attributes
+
+        assert value == "Shared Device 2"
+        assert attrs["count"] == 1
+
+    def test_differing_recovery_window_per_group(self, mock_hass):
+        """Per-coord window: device inside group A's window but outside group B's.
+
+        The same device is offline 8 min ago in both groups. Group A window=10 (in),
+        group B window=5 (out). It must appear exactly once, judged by group A.
+        """
+        entry_a = self._collapse_entry("w_entry_a", "Group A", ["binary_sensor.wa"])
+        entry_a = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group A",
+            data={**entry_a.data, CONF_RECOVERY_WINDOW: 10},
+            entry_id="w_entry_a",
+        )
+        entry_b = self._collapse_entry("w_entry_b", "Group B", ["binary_sensor.wb"])
+        entry_b = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group B",
+            data={**entry_b.data, CONF_RECOVERY_WINDOW: 5},
+            entry_id="w_entry_b",
+        )
+        off = _NOW - timedelta(minutes=8)
+        coord_a = self._coord(
+            mock_hass,
+            entry_a,
+            {
+                "binary_sensor.wa": DeviceState(
+                    entity_id="binary_sensor.wa",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        coord_b = self._coord(
+            mock_hass,
+            entry_b,
+            {
+                "binary_sensor.wb": DeviceState(
+                    entity_id="binary_sensor.wb",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"w_entry_a": coord_a, "w_entry_b": coord_b}
+        combined = _make_combined_entry(
+            "w_combined", "Combined", ["w_entry_a", "w_entry_b"]
+        )
+
+        ent_reg = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "win_dev"
+        ent_reg.async_get.return_value = ent_entry
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "Window Device"
+        dev_reg.async_get.return_value = device
+
+        sensor = _make_recently_offline_sensor(mock_hass, combined, [coord_a, coord_b])
+        with (
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            attrs = sensor.extra_state_attributes
+
+        # Group A (window 10) includes it; group B (window 5) excludes it.
+        # Collapsed across groups -> exactly one row.
+        assert attrs["count"] == 1
+
+    def test_shared_entity_mixed_collapse_config_one_row(self, mock_hass):
+        """Same entity in a collapse-ON and a collapse-OFF group -> one row.
+
+        Group A has device-collapse active (token = collapse_key), group B has it
+        off (token = entity_id). The tokens differ, so a token-only dedup would let
+        the same entity survive twice. Tracking raw entity_id collapses it to one.
+        """
+        entry_a = self._collapse_entry("m_entry_a", "Group A", ["binary_sensor.shared"])
+        entry_b = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group B",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Group B",
+                CONF_ENTITIES: ["binary_sensor.shared"],
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_COLLAPSE_DEVICES: False,
+                CONF_USE_DEVICE_NAMES: False,
+            },
+            entry_id="m_entry_b",
+        )
+        off = _NOW - timedelta(minutes=1)
+        coord_a = self._coord(
+            mock_hass,
+            entry_a,
+            {
+                "binary_sensor.shared": DeviceState(
+                    entity_id="binary_sensor.shared",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        coord_b = self._coord(
+            mock_hass,
+            entry_b,
+            {
+                "binary_sensor.shared": DeviceState(
+                    entity_id="binary_sensor.shared",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"m_entry_a": coord_a, "m_entry_b": coord_b}
+        combined = _make_combined_entry(
+            "m_combined", "Combined", ["m_entry_a", "m_entry_b"]
+        )
+
+        ent_reg = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "mixed_dev"
+        ent_reg.async_get.return_value = ent_entry
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "Mixed Device"
+        dev_reg.async_get.return_value = device
+
+        sensor = _make_recently_offline_sensor(mock_hass, combined, [coord_a, coord_b])
+        with (
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            attrs = sensor.extra_state_attributes
+
+        assert attrs["count"] == 1
+        assert attrs["entities"] == ["binary_sensor.shared"]
+
+    def test_shared_entity_both_collapse_off_one_row(self, mock_hass):
+        """Same entity in two collapse-OFF groups -> one row (no dup).
+
+        No group collapses, so every token is the entity_id and the shared entity
+        dedups via the token check itself (coord_b's entity_id token already in
+        `seen`). Guards that the both-off combined case never regresses to two rows.
+        """
+        off_data = {
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            CONF_COLLAPSE_DEVICES: False,
+            CONF_USE_DEVICE_NAMES: False,
+        }
+        entry_a = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group A",
+            data={
+                **off_data,
+                CONF_GROUP_NAME: "Group A",
+                CONF_ENTITIES: ["binary_sensor.shared"],
+            },
+            entry_id="o_entry_a",
+        )
+        entry_b = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group B",
+            data={
+                **off_data,
+                CONF_GROUP_NAME: "Group B",
+                CONF_ENTITIES: ["binary_sensor.shared"],
+            },
+            entry_id="o_entry_b",
+        )
+        off = _NOW - timedelta(minutes=1)
+        coord_a = self._coord(
+            mock_hass,
+            entry_a,
+            {
+                "binary_sensor.shared": DeviceState(
+                    entity_id="binary_sensor.shared",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        coord_b = self._coord(
+            mock_hass,
+            entry_b,
+            {
+                "binary_sensor.shared": DeviceState(
+                    entity_id="binary_sensor.shared",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"o_entry_a": coord_a, "o_entry_b": coord_b}
+        combined = _make_combined_entry(
+            "o_combined", "Combined", ["o_entry_a", "o_entry_b"]
+        )
+
+        sensor = _make_recently_offline_sensor(mock_hass, combined, [coord_a, coord_b])
+        with patch(
+            "custom_components.entity_availability.combined_sensor.datetime"
+        ) as mock_dt:
+            mock_dt.now.return_value = _NOW
+            attrs = sensor.extra_state_attributes
+
+        assert attrs["count"] == 1
+        assert attrs["entities"] == ["binary_sensor.shared"]

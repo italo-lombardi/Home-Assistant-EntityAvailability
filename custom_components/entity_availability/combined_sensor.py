@@ -35,6 +35,7 @@ from .const import (
 )
 from .coordinator import EntityAvailabilityCoordinator
 from .helpers import (
+    collapse_key,
     collapse_representatives,
     resolve_area_name,
     resolve_display_name,
@@ -345,6 +346,60 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             seen_device.add(device)
             result.append(rk)
         return result
+
+    def _collapsed_recovery_pairs(
+        self, predicate: Callable[[EntityAvailabilityCoordinator, Any], bool]
+    ) -> list[tuple[EntityAvailabilityCoordinator, Any]]:
+        """Return device-collapsed, name-sorted (coord, DeviceState) pairs for a
+        per-coord recovery-window predicate.
+
+        The predicate is applied while the owning coordinator is still in scope so
+        each device is judged against ITS OWN group's recovery window (windows differ
+        per source group). Survivors are then deduped by device-collapse key — one
+        row per physical device — instead of by raw entity_id, so a device exposing
+        several monitored entities (or the same entity shared across groups) appears
+        once. Device-less entities and entities from collapse-off groups fall back to
+        their entity_id, so each stays its own row (never merged into a shared bucket).
+        The raw entity_id is always tracked too, so the same entity shared across a
+        collapse-on and a collapse-off group (which yield different tokens) still
+        dedups to one row instead of double-counting.
+        Sorted by resolved display name (casefold) with entity_id tiebreak → the joined
+        state string is deterministic.
+
+        When two distinct entities on the same device collapse to one row, the kept
+        representative is first-seen in coordinator iteration order. The final
+        name-sort makes the displayed string deterministic regardless; only which
+        coordinator's timestamp backs the merged device is iteration-order dependent,
+        which is immaterial for the recovery lists (they carry no severity rank).
+        """
+        seen: set[str] = set()
+        result: list[tuple[EntityAvailabilityCoordinator, Any]] = []
+        for coord in self._active_coordinators():
+            collapse = coord.collapse_active
+            for d in coord.device_states.values():
+                if not predicate(coord, d):
+                    continue
+                token = (
+                    collapse_key(self.hass, d) if collapse else None
+                ) or d.entity_id
+                if token in seen or d.entity_id in seen:
+                    continue
+                seen.add(token)
+                seen.add(d.entity_id)
+                result.append((coord, d))
+        result.sort(
+            key=lambda cd: (
+                self._pair_name(*cd).casefold(),
+                cd[1].entity_id,
+            )
+        )
+        return result
+
+    def _pair_name(self, coord: EntityAvailabilityCoordinator, d: Any) -> str:
+        """Resolve the display name for a (coord, DeviceState) pair."""
+        return _friendly_name(
+            self.hass, d.entity_id, coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+        )
 
 
 class CombinedGroupSensor(CombinedSensorBase):
@@ -1135,37 +1190,23 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
         self._attr_translation_key = "recently_offline"
 
     def _matching_devices(self):
-        now = datetime.now(timezone.utc)
-        seen: set[str] = set()
-        result = []
-        for coord in self._active_coordinators():
-            cutoff = coord.recovery_window_minutes * 60
-            for d in coord.device_states.values():
-                if (
-                    d.is_offline
-                    and not d.is_suppressed
-                    and not d.is_non_essential
-                    and d.recently_offline_at is not None
-                    and (now - d.recently_offline_at).total_seconds() <= cutoff
-                    and d.entity_id not in seen
-                ):
-                    seen.add(d.entity_id)
-                    result.append((coord, d))
-        return result
+        return self._collapsed_recovery_pairs(
+            lambda coord, d: (
+                d.is_offline
+                and not d.is_suppressed
+                and not d.is_non_essential
+                and d.recently_offline_at is not None
+                and (datetime.now(timezone.utc) - d.recently_offline_at).total_seconds()
+                <= coord.recovery_window_minutes * 60
+            )
+        )
 
     @property
     def native_value(self) -> str:
         pairs = self._matching_devices()
         if not pairs:
             return "None"
-        result = ", ".join(
-            _friendly_name(
-                self.hass,
-                d.entity_id,
-                coord.entry.data.get(CONF_USE_DEVICE_NAMES, False),
-            )
-            for coord, d in pairs
-        )
+        result = ", ".join(self._pair_name(coord, d) for coord, d in pairs)
         return (
             result[: MAX_STATE_LENGTH - 3] + "..."
             if len(result) > MAX_STATE_LENGTH - 3
@@ -1193,37 +1234,23 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
         self._attr_translation_key = "recently_recovered"
 
     def _matching_devices(self):
-        now = datetime.now(timezone.utc)
-        seen: set[str] = set()
-        result = []
-        for coord in self._active_coordinators():
-            cutoff = coord.recovery_window_minutes * 60
-            for d in coord.device_states.values():
-                if (
-                    not d.is_offline
-                    and not d.is_suppressed
-                    and not d.is_non_essential
-                    and d.last_recovery is not None
-                    and (now - d.last_recovery).total_seconds() <= cutoff
-                    and d.entity_id not in seen
-                ):
-                    seen.add(d.entity_id)
-                    result.append((coord, d))
-        return result
+        return self._collapsed_recovery_pairs(
+            lambda coord, d: (
+                not d.is_offline
+                and not d.is_suppressed
+                and not d.is_non_essential
+                and d.last_recovery is not None
+                and (datetime.now(timezone.utc) - d.last_recovery).total_seconds()
+                <= coord.recovery_window_minutes * 60
+            )
+        )
 
     @property
     def native_value(self) -> str:
         pairs = self._matching_devices()
         if not pairs:
             return "None"
-        result = ", ".join(
-            _friendly_name(
-                self.hass,
-                d.entity_id,
-                coord.entry.data.get(CONF_USE_DEVICE_NAMES, False),
-            )
-            for coord, d in pairs
-        )
+        result = ", ".join(self._pair_name(coord, d) for coord, d in pairs)
         return (
             result[: MAX_STATE_LENGTH - 3] + "..."
             if len(result) > MAX_STATE_LENGTH - 3
