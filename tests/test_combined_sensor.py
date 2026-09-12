@@ -3886,3 +3886,124 @@ class TestCombinedRecentlyCollapse:
 
         assert attrs["count"] == 1
         assert attrs["entities"] == ["binary_sensor.shared"]
+
+    def test_distinct_devices_across_groups_two_rows(self, mock_hass):
+        """Collapse ON, but two DISTINCT physical devices (different device_id) in
+        two groups -> the device_id token differentiates -> two rows."""
+        entry_a = self._collapse_entry("d_entry_a", "Group A", ["binary_sensor.da"])
+        entry_b = self._collapse_entry("d_entry_b", "Group B", ["binary_sensor.db"])
+        off = _NOW - timedelta(minutes=1)
+        coord_a = self._coord(
+            mock_hass,
+            entry_a,
+            {
+                "binary_sensor.da": DeviceState(
+                    entity_id="binary_sensor.da",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        coord_b = self._coord(
+            mock_hass,
+            entry_b,
+            {
+                "binary_sensor.db": DeviceState(
+                    entity_id="binary_sensor.db",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"d_entry_a": coord_a, "d_entry_b": coord_b}
+        combined = _make_combined_entry(
+            "d_combined", "Combined", ["d_entry_a", "d_entry_b"]
+        )
+
+        # Each entity resolves to a DIFFERENT device_id -> distinct tokens.
+        def _entry_for(eid):
+            e = MagicMock()
+            e.device_id = "dev_a" if eid == "binary_sensor.da" else "dev_b"
+            return e
+
+        ent_reg = MagicMock()
+        ent_reg.async_get.side_effect = _entry_for
+        dev_reg = MagicMock()
+        dev_reg.async_get.return_value = None  # name falls back to entity slug
+
+        sensor = _make_recently_offline_sensor(mock_hass, combined, [coord_a, coord_b])
+        with (
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            attrs = sensor.extra_state_attributes
+
+        assert attrs["count"] == 2
+
+    def test_device_less_entities_fall_back_to_entity_id(self, mock_hass):
+        """Collapse ON, but both entities have NO device_id -> token falls back to
+        entity_id -> two distinct entities stay two rows (no spurious merge)."""
+        entry_a = self._collapse_entry("nl_entry_a", "Group A", ["binary_sensor.nla"])
+        entry_b = self._collapse_entry("nl_entry_b", "Group B", ["binary_sensor.nlb"])
+        off = _NOW - timedelta(minutes=1)
+        coord_a = self._coord(
+            mock_hass,
+            entry_a,
+            {
+                "binary_sensor.nla": DeviceState(
+                    entity_id="binary_sensor.nla",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        coord_b = self._coord(
+            mock_hass,
+            entry_b,
+            {
+                "binary_sensor.nlb": DeviceState(
+                    entity_id="binary_sensor.nlb",
+                    is_offline=True,
+                    recently_offline_at=off,
+                )
+            },
+        )
+        mock_hass.data[DOMAIN] = {"nl_entry_a": coord_a, "nl_entry_b": coord_b}
+        combined = _make_combined_entry(
+            "nl_combined", "Combined", ["nl_entry_a", "nl_entry_b"]
+        )
+
+        # No registry entry for either -> device_id None -> token = entity_id.
+        ent_reg = MagicMock()
+        ent_reg.async_get.return_value = None
+        dev_reg = MagicMock()
+        dev_reg.async_get.return_value = None
+
+        sensor = _make_recently_offline_sensor(mock_hass, combined, [coord_a, coord_b])
+        with (
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            attrs = sensor.extra_state_attributes
+
+        assert attrs["count"] == 2

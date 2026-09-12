@@ -88,38 +88,51 @@ def _representative_rank(d: DeviceState) -> tuple[bool, int]:
 def collapse_key(hass: HomeAssistant, d: DeviceState) -> str | None:
     """Return the composite device-collapse key for a DeviceState, or None.
 
-    Key = device_id::battery::signal::unit::non_essential. Entities with no
-    device_id return None (never collapse — each stays its own row/count).
-    Only value fields drive the key, so entities that differ on battery or
-    signal never merge — the same conservative behavior the card used. The
-    non-essential flag is included so essential and non-essential entities on the
-    same device never merge (they render in separate tiers).
-    device_id alone guarantees same-device grouping; display_name is excluded so
-    a mid-session device rename cannot split a merged device into two rows.
+    Entities with no device_id return None (never collapse — each stays its own
+    row/count). This key is only a COARSE same-device+same-tier bucket; the real
+    same-vs-different-source decision (with None-as-wildcard) is made by the meet in
+    ``collapse_representatives``, which a flat string key cannot express. So the key
+    deliberately omits the source fields and keys ONLY on device_id + non_essential.
+
+    Values (battery_level, signal_level) are intentionally NOT in the key: a live
+    reading drifting across a boundary (e.g. -70/-71 dBm) would otherwise reshuffle
+    rows every poll and amplify recorder writes. Provenance (which sensor) lives on
+    the DeviceState and is compared by the meet, not baked into this string.
     """
     ent_reg = er.async_get(hass)
     entry = ent_reg.async_get(d.entity_id)
     device_id = entry.device_id if entry else None
     if not device_id:
         return None
-    # Coerce numeric fields to a stable int (or None) so a flaky sensor emitting a
-    # float/NaN can't produce an inconsistent key that silently breaks grouping.
-    battery = _stable_int(d.battery_level)
-    signal = _stable_int(d.signal_level)
-    # Signal unit is meaningless without a level — drop it when level is None.
-    unit = d.signal_unit if signal is not None else None
-    return f"{device_id}::{battery}::{signal}::{unit}::{d.is_non_essential}"
+    return f"{device_id}::{d.is_non_essential}"
 
 
-def _stable_int(value: object) -> int | None:
-    """Return int(value), or None if value is None/NaN/non-numeric (stable key part)."""
-    if value is None:
-        return None
-    try:
-        ivalue = round(float(value))  # type: ignore[arg-type]
-    except (TypeError, ValueError, OverflowError):
-        return None
-    return ivalue
+def _sources_compatible(
+    a: tuple[str | None, str | None], b: tuple[str | None, str | None]
+) -> bool:
+    """Two (battery_source, signal_source) pairs may share a row.
+
+    Per axis: equal, or at least one None (None = wildcard, merges). Two DISTINCT
+    concrete sources on the same axis conflict → never merge (e.g. two battery
+    sensors on one device stay separate rows).
+    """
+    return all((x == y) or (x is None) or (y is None) for x, y in zip(a, b))
+
+
+def _tighten(
+    rep: tuple[str | None, str | None], member: tuple[str | None, str | None]
+) -> tuple[str | None, str | None]:
+    """Meet: rep absorbs a member's CONCRETE source on any axis the rep left None.
+
+    Monotone (None→concrete only, never concrete→other) and idempotent. The binary
+    op itself is NOT commutative on conflicting concretes (``_tighten((b1,_),(b2,_))``
+    keeps b1), but conflicting concretes never reach it — ``_sources_compatible``
+    gates the merge first — so a cluster's tightened pair converges to the same value
+    regardless of the order compatible members join. This is what lets a both-None
+    sibling merge into a bound rep via a REAL concrete match against the tightened
+    rep, not a wildcard bridge.
+    """
+    return tuple(r if r is not None else m for r, m in zip(rep, member))  # type: ignore[return-value]
 
 
 def collapse_representatives(
@@ -129,11 +142,31 @@ def collapse_representatives(
 ) -> dict[str, str]:
     """Return {entity_id -> representative entity_id} collapsing same-device entities.
 
-    Groups states by composite key; each key's representative is its worst-severity
-    member, with unsuppressed members always preferred over suppressed ones (ties:
-    first in insertion order). Entities with no device_id (key None) map to
-    themselves. Callers gate on whether collapse is active — this always collapses
-    whatever it is given.
+    Buckets entities by coarse key (device_id + non-essential tier), then within each
+    bucket merges by SOURCE compatibility: two entities share a row iff their
+    (battery_source, signal_source) pairs are compatible (equal or wildcard-None per
+    axis). Distinct concrete sources on an axis (e.g. two battery sensors on one
+    device) stay separate rows. Entities with no device_id (key None) map to
+    themselves.
+
+    Within a bucket, clusters are grown against a REPRESENTATIVE whose source pair
+    TIGHTENS as members join (a meet: absorbs concrete sources on axes the rep left
+    None). Candidates are processed in a deterministic total order — unsuppressed
+    first, then worst severity, then entity_id descending (``reverse=True``) — so a
+    source-less wildcard member attaches to the same concrete cluster regardless of
+    dict/registration order. The resulting row COUNT (set of representatives) is fully
+    stable across restarts and severity changes.
+
+    Caveat: the rank component reads LIVE severity, so WHICH sibling is the chosen
+    representative can shift between two equally-valid members when their severity
+    flips (e.g. one goes stale). This only moves the representative *entity_id* within
+    a row, never the row count, and the rep-id attrs (``row_entity_ids`` /
+    ``row_members``) are unrecorded — so it is a cosmetic display shift, not a recorder
+    write. The same class of shift applies to WHICH cluster a source-less wildcard
+    member joins when a device bucket holds two distinct concrete sources (e.g.
+    ``{(bat1, None), (None, sig1), (bat2, sig1)}``): the row count is invariant, only
+    the wildcard's parent row differs by order, and both are unrecorded. A
+    source-stable tiebreak could pin either if a card ever needs that.
 
     ``collapsible`` optionally restricts which entities may merge: an entity not in
     the set always maps to itself and never becomes another entity's representative.
@@ -141,8 +174,8 @@ def collapse_representatives(
     own rows even when a sibling on the same device comes from a collapse-ON group.
     ``None`` means every entity is collapsible (single-group behavior).
     """
-    by_key: dict[str, str] = {}
     rep_of: dict[str, str] = {}
+    buckets: dict[str, list[str]] = {}
     for eid, d in states.items():
         # Entities from non-collapse groups never merge — own row, own count.
         if (collapsible is not None and eid not in collapsible) or (
@@ -150,20 +183,23 @@ def collapse_representatives(
         ) is None:
             rep_of[eid] = eid
             continue
-        cur = by_key.get(key)
-        if cur is None:
-            by_key[key] = eid
-            rep_of[eid] = eid
-        elif _representative_rank(d) > _representative_rank(states[cur]):
-            # New best-ranked member (unsuppressed first, then worst severity)
-            # becomes the key's representative.
-            by_key[key] = eid
-            # ponytail: O(n) scan per reassignment → O(n²) per key; fine for typical
-            # HA group sizes (<500 entities); use two-pass if that ceiling is hit.
-            for other, r in rep_of.items():
-                if r == cur:
-                    rep_of[other] = eid
-            rep_of[eid] = eid
-        else:
-            rep_of[eid] = by_key[key]
+        buckets.setdefault(key, []).append(eid)
+
+    for members in buckets.values():
+        # Deterministic processing order: best-ranked first (unsuppressed, worst
+        # severity), entity_id tiebreak. Governs which concrete cluster a shared
+        # wildcard member meets first → stable assignment across runs.
+        members.sort(key=lambda e: (_representative_rank(states[e]), e), reverse=True)
+        # Each cluster: representative entity_id -> its (tightened) source pair.
+        reps: dict[str, tuple[str | None, str | None]] = {}
+        for eid in members:
+            src = (states[eid].battery_source, states[eid].signal_source)
+            for rep_eid, rep_src in reps.items():
+                if _sources_compatible(rep_src, src):
+                    reps[rep_eid] = _tighten(rep_src, src)
+                    rep_of[eid] = rep_eid
+                    break
+            else:
+                reps[eid] = src
+                rep_of[eid] = eid
     return rep_of

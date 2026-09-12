@@ -20,6 +20,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
+    BATTERY_HYSTERESIS,
     CONF_BAD_STATES,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
@@ -51,7 +52,9 @@ from .const import (
     EVENT_STALE,
     EVENT_STALE_RECOVERED,
     SCAN_INTERVAL,
+    SIGNAL_HYSTERESIS,
     SIGNAL_NETWORK_TYPES,
+    STALENESS_HYSTERESIS,
     STARTUP_GRACE_PERIOD,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
@@ -603,6 +606,19 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             # Set non-essential flag (must be before suppressed continue so both flags are set)
             device.is_non_essential = entity_id in self._non_essential
 
+            # Collapse provenance: WHICH sensor supplies battery/signal (static config,
+            # not a live value). Must be set BEFORE the suppressed continue below, else
+            # a suppressed same-device sibling keeps stale/None sources and mis-splits
+            # from its unsuppressed twin for a cycle. Also set the signal unit here for
+            # the same reason (it rides the collapse decision).
+            device.battery_source = (
+                self._get_battery_source(entity_id)
+                if self._battery_threshold > 0
+                else None
+            )
+            device.signal_source = self._get_signal_source(entity_id)
+            device.signal_unit = self._signal_unit_of(entity_id)
+
             # Restore suppression from loaded data
             if entity_id in self._suppressed and not device.is_suppressed:
                 device.is_suppressed = True
@@ -660,21 +676,27 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 and device.battery_level is not None
                 and device.battery_level < self._battery_threshold
             )
+            # De-jitter: once low, stay low until the level clears the threshold by
+            # BATTERY_HYSTERESIS — a reading resting on the boundary won't flip the
+            # flag (and its recorded count) every poll.
+            if (
+                device.is_low_battery
+                and self._battery_threshold > 0
+                and device.battery_level is not None
+                and device.battery_level < self._battery_threshold + BATTERY_HYSTERESIS
+            ):
+                battery_low = True
 
             # Signal check — clear level when sensor unavailable (same as battery: no stale value)
             if self._signal_enabled:
-                mapping = self._signal_map.get(entity_id)
                 fresh_signal = self._get_signal_level(entity_id)
                 device.signal_level = fresh_signal
-                if mapping:
-                    nt = mapping.get("network_type", "generic")
-                    device.signal_unit = SIGNAL_NETWORK_TYPES.get(
-                        nt, SIGNAL_NETWORK_TYPES["generic"]
-                    )["unit"]
-                else:
-                    device.signal_unit = None
+                # signal_unit already set above (before the suppressed continue) so it
+                # stays consistent with signal_source for the collapse decision.
                 device.signal_quality = (
-                    self._classify_signal(entity_id, fresh_signal)
+                    self._classify_signal(
+                        entity_id, fresh_signal, device.signal_quality
+                    )
                     if fresh_signal is not None
                     else None
                 )
@@ -704,7 +726,16 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     if stale_ts.tzinfo is None:  # pragma: no cover
                         stale_ts = stale_ts.replace(tzinfo=timezone.utc)
                     age = (now - stale_ts).total_seconds() / 60
-                    if age > self._staleness_threshold:
+                    # De-jitter: enter stale above threshold; once stale, stay stale
+                    # until age falls below the exit threshold, so an age hovering on
+                    # the boundary won't flip the flag every poll. The band is capped
+                    # at half the threshold so it can never reach 0 (which would trap a
+                    # freshly-recovered entity, age≈0, as permanently stale).
+                    band = min(STALENESS_HYSTERESIS, self._staleness_threshold / 2)
+                    exit_threshold = self._staleness_threshold - band
+                    if age > self._staleness_threshold or (
+                        device.is_stale and age > exit_threshold
+                    ):
                         is_stale = True
                         _LOGGER.debug(
                             "[%s] %s is stale: last activity %.1f min ago (threshold=%d min)",
@@ -1151,9 +1182,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # Auto-detection fallback: no map or entity not in map
         state = self.hass.states.get(entity_id)
         if state and state.attributes:
-            battery = state.attributes.get("battery_level") or state.attributes.get(
-                "battery"
-            )
+            # `is not None`, not `or`: a real 0% reading (dead battery) is falsy and
+            # must NOT fall through to a sibling/guessed sensor (that would silently
+            # report another sensor's level for a flat battery). Also keeps this branch
+            # aligned with _get_battery_source, so value and provenance can't diverge.
+            battery = state.attributes.get("battery_level")
+            if battery is None:
+                battery = state.attributes.get("battery")
             if battery is not None:
                 level = self._parse_battery_state(str(battery).replace("%", ""))
                 _LOGGER.debug(
@@ -1201,32 +1236,51 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         except (ValueError, TypeError):
             return None
 
-    def _get_battery_from_device_registry(self, entity_id: str) -> int | None:
-        """Look up battery level via the device registry."""
-        ent_reg = er.async_get(self.hass)
+    def _battery_sibling_of(
+        self, entity_id: str, *, require_usable_state: bool = False
+    ) -> str | None:
+        """Return the entity_id of a device_class=battery sibling on the same device.
 
+        Single sibling-selection path shared by the value getter (registry branch) and
+        the source getter, so the two can't drift onto different sensors. Iterates the
+        device's entities in registry order and returns the first battery sibling.
+
+        ``require_usable_state=True`` (value path) skips a sibling whose state is
+        unavailable/unknown/None or doesn't parse to a level, so the level actually
+        comes back — matching where a usable reading lives. ``False`` (source path,
+        default) is provenance-only and availability-blind: which sensor supplies the
+        battery doesn't change because it blipped unavailable, and a source flipping to
+        None mid-blip would wildcard-merge and flap the identity this collapse
+        stabilizes. Returns the sibling's entity_id, or None.
+        """
+        ent_reg = er.async_get(self.hass)
         entry = ent_reg.async_get(entity_id)
         if not entry or not entry.device_id:
             return None
-
-        # Find all entities on the same device with battery device class
         for ent in er.async_entries_for_device(ent_reg, entry.device_id):
             if ent.entity_id == entity_id:
                 continue
-            if ent.original_device_class == SensorDeviceClass.BATTERY or (
-                ent.device_class == SensorDeviceClass.BATTERY
+            if ent.original_device_class != SensorDeviceClass.BATTERY and (
+                ent.device_class != SensorDeviceClass.BATTERY
             ):
+                continue
+            if require_usable_state:
                 bat_state = self.hass.states.get(ent.entity_id)
-                if bat_state and bat_state.state not in (
-                    "unavailable",
-                    "unknown",
-                    None,
-                ):
-                    level = self._parse_battery_state(bat_state.state)
-                    if level is not None:
-                        return level
-
+                if not bat_state or bat_state.state in ("unavailable", "unknown", None):
+                    continue
+                if self._parse_battery_state(bat_state.state) is None:
+                    continue
+            return ent.entity_id
         return None
+
+    def _get_battery_from_device_registry(self, entity_id: str) -> int | None:
+        """Look up battery level via the device registry (shared sibling selection)."""
+        sibling = self._battery_sibling_of(entity_id, require_usable_state=True)
+        if sibling is None:
+            return None
+        bat_state = self.hass.states.get(sibling)
+        # Selection already guaranteed a usable, parseable state.
+        return self._parse_battery_state(bat_state.state)
 
     def _get_signal_level(self, entity_id: str) -> int | None:
         """Get signal level from the configured signal sensor for an entity."""
@@ -1244,17 +1298,99 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         except (ValueError, TypeError):
             return None
 
-    def _classify_signal(self, entity_id: str, level: int) -> SignalQuality:
+    def _get_battery_source(self, entity_id: str) -> str | None:
+        """Return WHICH sensor supplies this entity's battery (collapse provenance).
+
+        Mirrors _get_battery_level's precedence branch-for-branch so the source always
+        matches the value's origin (drift between the two would resurface the wrong-merge
+        bug this prevents): own device_class=battery state → own id; explicit map → the
+        mapped sensor; own battery_level/battery attribute → own id; a sibling
+        device_class=battery entity on the same device → that sibling; the guessed
+        ``sensor.<slug>_battery`` entity → that guess. None means "no known source" and
+        acts as a wildcard in the collapse meet — so two DISTINCT batteries on one device
+        each resolve to a concrete, different id and never wrongly merge into one row.
+
+        Provenance is deliberately NOT gated on the source being currently available
+        (unlike the value path, which must clear on unavailable): which sensor supplies
+        the battery doesn't change because that sensor blipped unavailable for one poll,
+        and a source flipping to None mid-blip would wildcard-merge the row and flap the
+        exact identity this collapse stabilizes. So the sibling lookup here is
+        availability-blind (``require_usable_state=False``) while the value path's is
+        usable-state-gated. On a device with two battery siblings where the first is
+        chronically unavailable, source names that first sibling while the value comes
+        from the second (usable) one — an accepted cosmetic provenance mismatch, NOT a
+        merge hazard: both members of the device compute the same (first) sibling, so the
+        row identity stays stable and never flaps.
+        """
+        state = self.hass.states.get(entity_id)
+        if state and state.attributes.get("device_class") == "battery":
+            return entity_id
+        battery_map = self.entry.data.get(CONF_BATTERY_ENTITY_MAP)
+        if battery_map is not None and entity_id in battery_map:
+            return battery_map[entity_id] or None
+        if (
+            state
+            and state.attributes
+            and (
+                state.attributes.get("battery_level") is not None
+                or state.attributes.get("battery") is not None
+            )
+        ):
+            return entity_id
+        sibling = self._battery_sibling_of(entity_id)
+        if sibling is not None:
+            return sibling
+        parts = entity_id.split(".", 1)
+        if len(parts) == 2:  # pragma: no branch
+            guessed = f"sensor.{parts[1]}_battery"
+            if self.hass.states.get(guessed) is not None:
+                return guessed
+        return None
+
+    def _get_signal_source(self, entity_id: str) -> str | None:
+        """Return WHICH sensor supplies this entity's signal (collapse provenance).
+
+        Signal is map-only, so the source is the mapped sensor id, or None (wildcard).
+        """
+        if not self._signal_enabled:
+            return None
+        mapping = self._signal_map.get(entity_id)
+        if not mapping:
+            return None
+        return mapping.get("sensor") or None
+
+    def _signal_unit_of(self, entity_id: str) -> str | None:
+        """Return the signal unit for an entity from its mapping, or None."""
+        if not self._signal_enabled:
+            return None
+        mapping = self._signal_map.get(entity_id)
+        if not mapping:
+            return None
+        nt = mapping.get("network_type", "generic")
+        return SIGNAL_NETWORK_TYPES.get(nt, SIGNAL_NETWORK_TYPES["generic"])["unit"]
+
+    def _classify_signal(
+        self, entity_id: str, level: int, prev: SignalQuality | None = None
+    ) -> SignalQuality:
         """Classify signal level as 'good', 'ok', or 'poor' based on network type.
 
         >= works for both higher-is-better (LQI/%) and lower-is-better (dBm) scales.
+        De-jitter, POOR/OK BOUNDARY ONLY: if the entity was already 'poor', the level
+        must clear the poor/ok boundary by SIGNAL_HYSTERESIS to leave 'poor', so a level
+        resting on that boundary won't flip 'poor' (the sole quality feeding a recorded
+        count) every poll. The shift is toward 'ok' on the >= scale for both directions.
+        The good/ok boundary is intentionally NOT de-jittered — it feeds no recorded
+        count, so a good/ok wobble is display-only, not write amplification.
         """
         mapping = self._signal_map.get(entity_id, {})
         nt = mapping.get("network_type", "generic")
         thresholds = SIGNAL_NETWORK_TYPES.get(nt, SIGNAL_NETWORK_TYPES["generic"])
         if level >= thresholds["good"]:
             return "good"
-        if level >= thresholds["ok"]:
+        ok_threshold = thresholds["ok"]
+        if prev == "poor":
+            ok_threshold += SIGNAL_HYSTERESIS
+        if level >= ok_threshold:
             return "ok"
         return "poor"
 
