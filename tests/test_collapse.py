@@ -98,6 +98,19 @@ def _register_entity(
         ent_reg.async_update_entity(entry.entity_id, device_id=device.id)
 
 
+def _get_device(hass: HomeAssistant, device_id: str):
+    """Return the registry device for a DOMAIN identifier (version-agnostic).
+
+    ``async_get_device(identifiers=...)`` is deprecated and raises on newer HA;
+    ``async_get_device_by_identifier`` is absent on older HA. ``async_get_or_create``
+    is idempotent on both and returns the existing device (created by
+    ``_register_entity``) without mutating it when only identifiers are passed.
+    """
+    return dr.async_get(hass).async_get_or_create(
+        config_entry_id=_REG_ENTRY_ID, identifiers={(DOMAIN, device_id)}
+    )
+
+
 def _make_coordinator(
     hass: HomeAssistant,
     *,
@@ -1654,7 +1667,7 @@ class TestSingleGroupListTable:
         _register_entity(mock_hass, "sensor.balcony_luminance", "balcony")
         # Device registry name resolves for both entities under use_device_names.
         dev_reg = dr.async_get(mock_hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, "balcony")})
+        device = _get_device(mock_hass, "balcony")
         dev_reg.async_update_device(device.id, name_by_user="Balcony")
         coord = _make_coordinator(
             mock_hass,
@@ -1681,7 +1694,7 @@ class TestCombinedRespectSettings:
         _register_entity(mock_hass, "binary_sensor.b_motion", "bdev")
         _register_entity(mock_hass, "binary_sensor.b_lux", "bdev")
         dev_reg = dr.async_get(mock_hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, "bdev")})
+        device = _get_device(mock_hass, "bdev")
         dev_reg.async_update_device(device.id, name_by_user="Balcony")
         states = {
             "binary_sensor.b_motion": DeviceState(
@@ -1714,7 +1727,7 @@ class TestCombinedRespectSettings:
         _register_entity(mock_hass, "binary_sensor.c_motion", "cdev")
         _register_entity(mock_hass, "binary_sensor.c_lux", "cdev")
         dev_reg = dr.async_get(mock_hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, "cdev")})
+        device = _get_device(mock_hass, "cdev")
         dev_reg.async_update_device(device.id, name_by_user="Balcony")
         states = {
             "binary_sensor.c_motion": DeviceState(
@@ -1748,7 +1761,7 @@ class TestCombinedRespectSettings:
         for eid in ("binary_sensor.t_a", "binary_sensor.t_b", "binary_sensor.t_c"):
             _register_entity(mock_hass, eid, "tdev")
         dev_reg = dr.async_get(mock_hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, "tdev")})
+        device = _get_device(mock_hass, "tdev")
         dev_reg.async_update_device(device.id, name_by_user="Balcony")
         states = {
             eid: DeviceState(entity_id=eid, is_offline=True)
@@ -1781,7 +1794,7 @@ class TestCombinedRespectSettings:
         _register_entity(mock_hass, "binary_sensor.mb2_a", "mb2dev")
         _register_entity(mock_hass, "binary_sensor.mb2_b", "mb2dev")
         dev_reg = dr.async_get(mock_hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, "mb2dev")})
+        device = _get_device(mock_hass, "mb2dev")
         dev_reg.async_update_device(device.id, name_by_user="MultiBat")
         states = {
             "binary_sensor.mb2_a": DeviceState(
@@ -1829,7 +1842,7 @@ class TestCombinedRespectSettings:
         _register_entity(mock_hass, "binary_sensor.sp_on", "spdev")
         _register_entity(mock_hass, "binary_sensor.sp_off", "spdev")
         dev_reg = dr.async_get(mock_hass)
-        device = dev_reg.async_get_device(identifiers={(DOMAIN, "spdev")})
+        device = _get_device(mock_hass, "spdev")
         dev_reg.async_update_device(device.id, name_by_user="Split")
         coord_on = _make_group_coord(
             mock_hass,
