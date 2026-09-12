@@ -124,10 +124,13 @@ def _tighten(
 ) -> tuple[str | None, str | None]:
     """Meet: rep absorbs a member's CONCRETE source on any axis the rep left None.
 
-    Monotone (None→concrete only, never concrete→other), commutative, idempotent —
-    so a merged cluster's source pair converges to the same value regardless of the
-    order members join. This is what lets a both-None sibling merge into a bound rep
-    via a REAL concrete match against the tightened rep, not a wildcard bridge.
+    Monotone (None→concrete only, never concrete→other) and idempotent. The binary
+    op itself is NOT commutative on conflicting concretes (``_tighten((b1,_),(b2,_))``
+    keeps b1), but conflicting concretes never reach it — ``_sources_compatible``
+    gates the merge first — so a cluster's tightened pair converges to the same value
+    regardless of the order compatible members join. This is what lets a both-None
+    sibling merge into a bound rep via a REAL concrete match against the tightened
+    rep, not a wildcard bridge.
     """
     return tuple(r if r is not None else m for r, m in zip(rep, member))  # type: ignore[return-value]
 

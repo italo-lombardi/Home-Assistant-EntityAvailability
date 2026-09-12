@@ -5364,6 +5364,102 @@ async def test_classify_signal_zwave_thresholds(
     assert coord._classify_signal("binary_sensor.device_a", -86) == "poor"
 
 
+async def test_battery_hysteresis_band_stays_low_then_clears(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Once low, battery stays flagged inside the dead-band (regression: write-amp).
+
+    Default threshold=20, BATTERY_HYSTERESIS=3 → band is [20, 23). A level resting
+    in the band must NOT flip is_low_battery (and its recorded count) each poll; the
+    flag only clears at threshold+HYSTERESIS. Guards the exact `<`/`<=` boundary the
+    write-amp fix is named for — a regression here would pass line/branch coverage.
+    """
+    from custom_components.entity_availability.const import BATTERY_HYSTERESIS
+
+    hass = mock_hass
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+        async def _poll_level(level: int) -> bool:
+            hass.states.async_set(
+                "binary_sensor.device_a",
+                STATE_ON,
+                {"friendly_name": "Device A", "battery_level": level},
+            )
+            coord._last_update = None
+            await coord._async_update_data()
+            return coord.device_states["binary_sensor.device_a"].is_low_battery
+
+        threshold = coord._battery_threshold
+        # Below threshold → flagged.
+        assert await _poll_level(threshold - 5) is True
+        # Rises into the dead-band [threshold, threshold+HYSTERESIS) → STAYS flagged.
+        assert await _poll_level(threshold + 1) is True
+        assert await _poll_level(threshold + BATTERY_HYSTERESIS - 1) is True
+        # Clears the band exactly at threshold+HYSTERESIS → flag drops.
+        assert await _poll_level(threshold + BATTERY_HYSTERESIS) is False
+
+
+async def test_staleness_hysteresis_band_stays_stale_then_clears(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """Once stale, entity stays flagged inside the dead-band until it clears it.
+
+    threshold=10min, STALENESS_HYSTERESIS=1 → exit at 9min. An entity aging in the
+    band must not flip is_stale (and its recorded count) each poll. The band is
+    capped at threshold/2 so a freshly-recovered (age≈0) entity is never trapped.
+    """
+    hass = mock_hass
+
+    from custom_components.entity_availability.const import (
+        CONF_STALENESS_THRESHOLD,
+        CONF_STALENESS_USE_LAST_UPDATED,
+    )
+
+    # use_last_updated=True so age is driven by state.last_updated, which this test
+    # sets each poll (device.last_changed is seeded once and would not re-age).
+    sdata = dict(mock_config_data)
+    sdata[CONF_STALENESS_THRESHOLD] = 10
+    sdata[CONF_STALENESS_USE_LAST_UPDATED] = True
+    stale_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=sdata,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, stale_entry)
+
+        async def _poll_age(minutes: float) -> bool:
+            ts = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+            hass.states._states["binary_sensor.device_a"] = State(
+                "binary_sensor.device_a",
+                STATE_ON,
+                {"friendly_name": "Device A", "battery_level": 80},
+                last_changed=ts,
+                last_updated=ts,
+            )
+            coord._last_update = None
+            await coord._async_update_data()
+            return coord.device_states["binary_sensor.device_a"].is_stale
+
+        # Older than threshold → stale.
+        assert await _poll_age(15) is True
+        # Ages back into the band (below 10min, above the 9min exit) → STAYS stale.
+        assert await _poll_age(9.5) is True
+        # Clears the exit threshold (≤9min) → flag drops.
+        assert await _poll_age(8) is False
+        # A freshly-recovered entity (age≈0) is never trapped by the band.
+        assert await _poll_age(0) is False
+
+
 async def test_classify_signal_unknown_network_type_falls_back_to_generic(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
