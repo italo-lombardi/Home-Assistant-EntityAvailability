@@ -3,7 +3,7 @@
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
  */
 
-const CARD_VERSION = "0.5.2";
+const CARD_VERSION = "0.5.3";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -653,6 +653,16 @@ const cardStyles = css`
 
 const _entityWord = (n) => `${n} ${n === 1 ? "entity" : "entities"}`;
 
+// Collapsed-row offline/online split for the condition string. Pure arithmetic,
+// extracted so it can be unit-checked without a DOM (see test_card_counts.mjs).
+// offlineMemberCount is floored at 1 by the caller; online is the remainder,
+// never negative because offlineMemberCount <= memberCount.
+const _collapsedCounts = (memberCount, offlineMemberCount) => {
+  const offlineCount = offlineMemberCount || 1;
+  const onlineCount = Math.max(memberCount - offlineCount, 0);
+  return { offlineCount, onlineCount };
+};
+
 class EntityAvailabilityCard extends LitElement {
   static get properties() {
     return {
@@ -772,22 +782,24 @@ class EntityAvailabilityCard extends LitElement {
       const nonEssential = attrs.non_essential || 0;
       const nonEssentialOnline = attrs.non_essential_online || 0;
       const nonEssentialOffline = attrs.non_essential_offline || 0;
-      const groups = attrs.groups || {};
-      const allEntities = attrs.entities_collapsed || attrs.entities || [];
-      const nonEssentialEntities = attrs.non_essential_entities || [];
-      const nonEssentialOfflineEntities = attrs.offline_entities_non_essential || [];
-      const staleEntitiesNonEssential = attrs.stale_entities_non_essential || [];
-      const lowBatteryEntities = attrs.low_battery_entities || [];
-      const displayNames = attrs.display_names || {};
-      const rowEntityIds = attrs.row_entity_ids || {};
-      const rowMembers = attrs.row_members || {};
-      const batteryLevels = attrs.battery_levels || {};
-      const signalLevels = attrs.signal_levels || {};
-      const signalUnits = attrs.signal_units || {};
-      const suppressedUntil = attrs.suppressed_until || {};
-      const offlineSince = attrs.offline_since || {};
-      const poorSignalEntities = attrs.poor_signal_entities || [];
-      const okSignalEntities = attrs.ok_signal_entities || [];
+      const groups = (attrs.groups && typeof attrs.groups === "object") ? attrs.groups : {};
+      const asList = (v, fallback) => Array.isArray(v) ? v : (Array.isArray(fallback) ? fallback : []);
+      const asMap = (v) => (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+      const allEntities = asList(attrs.entities_collapsed, attrs.entities);
+      const nonEssentialEntities = asList(attrs.non_essential_entities);
+      const nonEssentialOfflineEntities = asList(attrs.offline_entities_non_essential);
+      const staleEntitiesNonEssential = asList(attrs.stale_entities_non_essential);
+      const lowBatteryEntities = asList(attrs.low_battery_entities);
+      const displayNames = asMap(attrs.display_names);
+      const rowEntityIds = asMap(attrs.row_entity_ids);
+      const rowMembers = asMap(attrs.row_members);
+      const batteryLevels = asMap(attrs.battery_levels);
+      const signalLevels = asMap(attrs.signal_levels);
+      const signalUnits = asMap(attrs.signal_units);
+      const suppressedUntil = asMap(attrs.suppressed_until);
+      const offlineSince = asMap(attrs.offline_since);
+      const poorSignalEntities = asList(attrs.poor_signal_entities);
+      const okSignalEntities = asList(attrs.ok_signal_entities);
       // Feature-enabled flags: battery/staleness must NEVER appear when the
       // feature is disabled (threshold=0), even if counts are non-zero.
       const batteryEnabled = attrs.battery_enabled || false;
@@ -1228,6 +1240,7 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   _buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities = [], displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = [], rowEntityIds = {}, rowMembers = {}) {
+    const monitoredOfflineEntities = this._getOfflineEntityIds();
     const items = entities.map((rowKey) => {
       const entityId = rowEntityIds[rowKey] || rowKey;
       const members = rowMembers[rowKey] || null;
@@ -1235,17 +1248,34 @@ class EntityAvailabilityCard extends LitElement {
       const deviceId = memberCount > 1 ? (this.hass.entities?.[entityId]?.device_id ?? null) : null;
       const state = this.hass.states[entityId];
       const friendlyName = displayNames[rowKey] || state?.attributes?.friendly_name || entityId.split(".").pop();
-      const monitoredOfflineEntities = this._getOfflineEntityIds();
-      const isOffline = monitoredOfflineEntities.includes(entityId) || nonEssentialOfflineEntities.includes(entityId);
-      const isStale = staleEntities.includes(entityId) || staleEntitiesNonEssential.includes(entityId);
+      // Derive per-flag status by scanning the row's MEMBERS, not just the
+      // representative entity id. A collapsed row's members are same-tier
+      // (collapse_key buckets by device_id + non_essential), so scanning any
+      // member is safe; scanning the rep alone drops a non-rep member that is
+      // offline/stale/etc. under an otherwise-OK representative.
+      const scanIds = members || [entityId];
+      const inAny = (list) => scanIds.some((id) => list.includes(id));
+      const isOffline = inAny(monitoredOfflineEntities) || inAny(nonEssentialOfflineEntities);
+      const isStale = inAny(staleEntities) || inAny(staleEntitiesNonEssential);
       const isSuppressed = rowKey in suppressedUntil || entityId in suppressedUntil;
-      const isNonEssential = nonEssentialEntities.includes(entityId);
-      const battery = batteryLevels[rowKey] ?? batteryLevels[entityId] ?? null;
-      const isLowBattery = lowBatteryEntities.includes(entityId);
-      const signalLevel = signalEnabled ? (signalLevels[rowKey] ?? signalLevels[entityId] ?? null) : null;
-      const signalUnit = signalEnabled ? (signalUnits[rowKey] ?? signalUnits[entityId] ?? "") : null;
-      const isPoorSignal = signalEnabled && poorSignalEntities.includes(entityId);
-      const isOkSignal = signalEnabled && okSignalEntities.includes(entityId);
+      const isNonEssential = inAny(nonEssentialEntities);
+      // Value reads prefer the rep key, then fall back to the first member that
+      // has a value — so a member-scanned flag (isLowBattery/isPoorSignal) can't
+      // show its status with an empty cell when the flagged member isn't the rep
+      // (reachable on a same-tier severity tie where the tiebreak picks a
+      // different rep). memberVal keeps value and flag pointing at one member.
+      const memberVal = (map) => {
+        for (const id of scanIds) {
+          if (map[id] != null) return map[id];
+        }
+        return null;
+      };
+      const battery = batteryLevels[rowKey] ?? batteryLevels[entityId] ?? memberVal(batteryLevels);
+      const isLowBattery = inAny(lowBatteryEntities);
+      const signalLevel = signalEnabled ? (signalLevels[rowKey] ?? signalLevels[entityId] ?? memberVal(signalLevels)) : null;
+      const signalUnit = signalEnabled ? (signalUnits[rowKey] ?? signalUnits[entityId] ?? memberVal(signalUnits) ?? "") : null;
+      const isPoorSignal = signalEnabled && inAny(poorSignalEntities);
+      const isOkSignal = signalEnabled && inAny(okSignalEntities);
 
       let dotColor = "green";
       let status = "Online";
@@ -1297,7 +1327,24 @@ class EntityAvailabilityCard extends LitElement {
         status = "Poor Signal";
       }
 
-      return { entityId, rowKey, deviceId, memberCount, members, name: friendlyName, dotColor, status, battery, isOffline, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
+      // Offline member tally for the collapsed-row condition string, computed
+      // here from the SAME two lists isOffline used (essential + NE), so the
+      // "N offline" count can't disagree with the row's own offline dot.
+      // ponytail: the backend offline lists are rep-collapsed (one entity id per
+      // device, see _collapsed_match), so a device with 2+ offline members shows
+      // "1 offline" here. Parity with prior behavior (the old members.filter used
+      // the same rep-collapsed set); fix needs a per-row offline count from the
+      // backend if exact multi-member tallies ever matter.
+      const offlineMemberCount = isOffline
+        ? Math.max(
+            scanIds.filter(
+              (id) => monitoredOfflineEntities.includes(id) || nonEssentialOfflineEntities.includes(id),
+            ).length,
+            1,
+          )
+        : 0;
+
+      return { entityId, rowKey, deviceId, memberCount, members, name: friendlyName, dotColor, status, battery, isOffline, offlineMemberCount, isStale, isSuppressed, isNonEssential, signalLevel, signalUnit, isPoorSignal, isOkSignal };
     });
 
     // Normalize signal level to 0–100 quality score (higher = better).
@@ -1370,11 +1417,7 @@ class EntityAvailabilityCard extends LitElement {
   _collapsedCondition(item, suppressedUntilMap) {
     if (this._isSuppressed(item, suppressedUntilMap)) return "Suppressed";
     if (!item.isOffline) return `${_entityWord(item.memberCount)}: ${item.status}`;
-    const offlineSet = new Set(this._getOfflineEntityIds());
-    const offlineCount = item.members
-      ? Math.max(item.members.filter(eid => offlineSet.has(eid)).length, 1)
-      : 1;
-    const onlineCount = item.memberCount - offlineCount;
+    const { offlineCount, onlineCount } = _collapsedCounts(item.memberCount, item.offlineMemberCount);
     const suffix = onlineCount > 0 ? ` · ${_entityWord(onlineCount)}: Online` : "";
     return `${_entityWord(offlineCount)} offline for ${item.status}${suffix}`;
   }
@@ -1464,12 +1507,21 @@ class EntityAvailabilityCard extends LitElement {
 
   _getOfflineEntityIds() {
     const isCombined = this._isCombinedGroup();
-    const prefix = isCombined
-      ? `entity_availability_combined_${this._config.group}`
-      : `entity_availability_${this._config.group}`;
+    // Single-source: in combined mode read offline_entities off the summary
+    // sensor (same snapshot the row list comes from) instead of the separate
+    // *_offline_entities sensor, which ticks independently and desyncs row dots
+    // from the header count.
+    if (isCombined) {
+      const summary = this._getEntity(
+        `sensor.entity_availability_combined_${this._config.group}_combined_summary`,
+      );
+      const list = summary?.attributes?.offline_entities;
+      return Array.isArray(list) ? list : [];
+    }
+    const prefix = `entity_availability_${this._config.group}`;
     const entity = this._getEntity(`sensor.${prefix}_offline_entities`);
     if (!entity || !entity.attributes) return [];
-    return entity.attributes.entities || [];
+    return Array.isArray(entity.attributes.entities) ? entity.attributes.entities : [];
   }
 
   _getEntity(entityId) {
