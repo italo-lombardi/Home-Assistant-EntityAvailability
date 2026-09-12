@@ -81,6 +81,12 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC84 recently_offline: count==len(entities), no duplicate ids, entities sorted by display name
   EC85 recently_recovered: count==len(entities), no duplicate ids, entities sorted by display name
 
+  Collapse offline surfacing + combined write-dedup (EC86-EC89 — PR#101):
+  EC86 non-rep NE offline id surfaces in offline_entities_non_essential (backend contract; card path not smoke-covered)
+  EC87 no collapsed row mixes essential + non-essential members (same-tier invariant)
+  EC88 combined_summary last_updated advances on a real member-offline settle (positive control)
+  EC89 combined_summary last_updated frozen on churn-only ticks (dedup + rowsig)
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -454,6 +460,7 @@ for e in cfg['data']['entries']:
         "mapped_battery_entity": mapped_battery_entity,
         "mapped_battery_sensor": mapped_battery_sensor,
         "combined_prefix": combined_prefix,
+        "combined_entry_id": combined["entry_id"] if combined else "",
     }
 
 
@@ -3749,6 +3756,353 @@ for e in cfg['data']['entries']:
                 f"entities={ents}",
             )
         restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC86-EC89: device-collapse offline surfacing + combined write-dedup (PR#101)
+    #
+    # PR#101 fixed two card defects. These ECs guard the BACKEND contracts the
+    # card depends on — they do NOT exercise the card itself (no DOM in smoke):
+    #
+    #   DEFECT 1 (card, client-side): the card's _buildEntityItems derived
+    #     isOffline/isNonEssential off the REP entity_id only, so a collapsed
+    #     row whose NON-REP member was the offline one rendered as "online".
+    #     The backend was ALWAYS correct — offline_entities_non_essential
+    #     already carried the non-rep id (see _collapsed_match, combined_sensor
+    #     .py:335: predicate fires on whichever member matches, deduped by
+    #     device). The fix made the card LOOK at ids the backend already gave it.
+    #     EC86 therefore proves the DATA is present (non-rep offline id surfaces),
+    #     NOT that the card reads it. The card member-scan itself has no live-HA
+    #     coverage; its only coverage is manual/visual repro + test_card_counts
+    #     .mjs count math. Accepted gap — stated, not hidden.
+    #
+    #   DEFECT 2 (backend): a membership move that left the flat offline COUNT
+    #     unchanged could be dedup-frozen out of the recorder view. Freeze is
+    #     NOT live-reproducible (needs a crafted membership swap) so it stays
+    #     unit-only in test_collapse.py. EC88/EC89 guard the observable half:
+    #     combined_summary last_updated advances on a real member-touching
+    #     settle (EC88, positive control) and stays frozen under churn-only
+    #     ticks (EC89) — EC89 is a tautology without EC88's positive control.
+    #
+    # Fixture: a group whose collapsed row has a distinct rep + non-rep NE
+    # member on one device (the provisioned "Collapse" group). Discover-or-
+    # skip-loud: never hard-fail when the topology isn't present.
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (86, 87, 88, 89)):
+        print(
+            "\n=== EC86-EC89: collapse offline surfacing + combined dedup (PR#101) ===",
+            flush=True,
+        )
+        restore_all(ctx)
+
+        import subprocess
+
+        def _config_ne(entry_id: str) -> list[str]:
+            """CONFIG non_essential_entities from storage (not the reps-only attr).
+
+            A collapsed row folds every member of a device under ONE
+            representative, so a group's ``non_essential_entities`` attribute
+            reports only the REP of each row — a folded NON-rep NE member never
+            appears there. NE tier classification must therefore come from the
+            stored config, mirroring _discover_ne_group.
+            """
+            try:
+                raw = subprocess.check_output(
+                    [
+                        "python3",
+                        "-c",
+                        (
+                            "import json;"
+                            "cfg=json.load(open('/workspaces/home-assistant-core"
+                            "/config/.storage/core.config_entries'));"
+                            "print(json.dumps(next((e['data'].get("
+                            "'non_essential_entities') or [] for e in "
+                            "cfg['data']['entries'] if e['entry_id']=="
+                            f"{entry_id!r}), [])))"
+                        ),
+                    ],
+                    text=True,
+                )
+                return json.loads(raw.strip())
+            except Exception:
+                return []
+
+        # EC87: same-tier invariant on EVERY collapsed row across ALL groups —
+        # topology-independent, runs even when no NE-member fixture is present.
+        # A collapsed row must never mix essential + non-essential members
+        # (collapse_key folds the NE flag into the device key:
+        # f"{device_id}::{is_non_essential}"). Tier oracle = CONFIG NE.
+        if ec_enabled(87):
+            mixed_rows = []
+            checked_rows_87 = 0
+            for s in api("GET", "/api/states"):
+                eid_s = s["entity_id"]
+                if not (
+                    "entity_availability" in eid_s
+                    and eid_s.endswith("_group_summary")
+                    and "combined" not in eid_s
+                ):
+                    continue
+                a = s.get("attributes", {})
+                rm = a.get("row_members") or {}
+                entry_id_s = a.get("entry_id")
+                if not (rm and entry_id_s):
+                    continue
+                cfg_ne = set(_config_ne(entry_id_s))
+                for rep, members in rm.items():
+                    checked_rows_87 += 1
+                    tiers = {(str(m) in cfg_ne) for m in members}
+                    if len(tiers) > 1:
+                        mixed_rows.append((eid_s, rep, members))
+            chk(
+                "EC87 no collapsed row mixes essential + non-essential members",
+                len(mixed_rows),
+                0,
+                f"checked_rows={checked_rows_87} mixed={mixed_rows[:3]}",
+            )
+
+        # Discover a collapsed row with a distinct rep + non-rep NE member.
+
+        # Discover a collapsed row with a distinct rep + non-rep NE member,
+        # crossing CONFIG NE against row_members (a folded non-rep NE member
+        # is not in the reps-only group attr, so config NE is the oracle).
+        group_prefix_86 = None
+        rep_86 = None
+        non_rep_ne_86 = None
+        collapse_on_86 = False
+        for s in api("GET", "/api/states"):
+            eid_s = s["entity_id"]
+            if not (
+                "entity_availability" in eid_s
+                and eid_s.endswith("_group_summary")
+                and "combined" not in eid_s
+            ):
+                continue
+            g_attrs = s.get("attributes", {})
+            entry_id_s = g_attrs.get("entry_id")
+            row_members_g = g_attrs.get("row_members") or {}
+            if not (entry_id_s and row_members_g):
+                continue
+            cfg_ne = set(_config_ne(entry_id_s))
+            if not cfg_ne:
+                continue
+            for rep, members in row_members_g.items():
+                rep_bare = str(rep).split("::")[0]
+                ne_others = [
+                    str(m) for m in members if str(m) != rep_bare and str(m) in cfg_ne
+                ]
+                if ne_others:
+                    group_prefix_86 = eid_s.replace("_group_summary", "")
+                    rep_86 = rep_bare
+                    non_rep_ne_86 = ne_others[0]
+                    # Confirm collapse is genuinely active for this entry.
+                    try:
+                        raw = api(
+                            "GET",
+                            f"/api/diagnostics/config_entry/{entry_id_s}",
+                        )
+                        cfg = (raw.get("data", raw).get("config")) or {}
+                        collapse_on_86 = bool(cfg.get("collapse_devices")) and bool(
+                            cfg.get("use_device_names")
+                        )
+                    except Exception:
+                        collapse_on_86 = False
+                    break
+            if non_rep_ne_86:
+                break
+
+        if not (group_prefix_86 and non_rep_ne_86):
+            print(
+                "  EC86/EC88/EC89: skipped (no collapsed row with a distinct "
+                "non-rep non-essential member — provision the 'Collapse' fixture)",
+                flush=True,
+            )
+        elif not collapse_on_86:
+            print(
+                "  EC86/EC88/EC89: skipped (collapse not active for fixture: "
+                "needs collapse_devices AND use_device_names)",
+                flush=True,
+            )
+        else:
+            print(
+                f"  collapse fixture: group={group_prefix_86} "
+                f"rep={rep_86} non_rep_ne={non_rep_ne_86}",
+                flush=True,
+            )
+            base_86 = dict(gs(non_rep_ne_86).get("attributes", {}))
+            state_86 = gs(non_rep_ne_86).get("state") or "on"
+
+            # EC88/EC89 observe combined_summary write-dedup. Anchor on a
+            # COMBINED that actually contains this device — a member move only
+            # touches summaries whose row_members include it. Fall back to
+            # ctx's combined only if it also carries the id.
+            summary_eid_86 = None
+            for s in api("GET", "/api/states"):
+                eid_s = s["entity_id"]
+                if not eid_s.endswith("_combined_summary"):
+                    continue
+                rm = s.get("attributes", {}).get("row_members") or {}
+                if any(
+                    non_rep_ne_86 == str(m) for members in rm.values() for m in members
+                ):
+                    summary_eid_86 = eid_s
+                    break
+
+            # EC86: drive ONLY the non-rep NE member offline (rep left online).
+            # Its exact bare id must surface in offline_entities_non_essential.
+            # Backend contract (DEFECT 1): the data the card needs is present.
+            # This does NOT exercise the card's member-scan (no DOM in smoke) —
+            # that path is covered by manual/visual repro + test_card_counts.mjs
+            # count math only. Accepted gap, stated plainly.
+            oe_eid_86 = f"{group_prefix_86}_offline_entities_non_essential"
+
+            def _ne_offline_ids():
+                a = gs(oe_eid_86).get("attributes", {})
+                return a.get("entities") or []
+
+            if ec_enabled(86):
+                # Precondition (per _representatives_matching, coordinator.py:1033):
+                # the list emits the FIRST matching member per device. Driving the
+                # target is only guaranteed to be the emitted id if the row starts
+                # CLEAN — no other member of this device already offline. Assert
+                # that, else the "first matching member" could be a different id.
+                ss(non_rep_ne_86, state_86, base_86)
+                wait_for(lambda: non_rep_ne_86 not in _ne_offline_ids(), True)
+                chk(
+                    "EC86 precondition: target row clean before driving "
+                    "(no sibling already offline)",
+                    non_rep_ne_86 in _ne_offline_ids(),
+                    False,
+                    f"pre-list={_ne_offline_ids()}",
+                )
+                ss(non_rep_ne_86, "unavailable", {"friendly_name": "smoke ne"})
+                wait_for(lambda: non_rep_ne_86 in _ne_offline_ids(), True)
+                chk(
+                    "EC86 non-rep NE offline id surfaces in "
+                    "offline_entities_non_essential (backend contract)",
+                    non_rep_ne_86 in _ne_offline_ids(),
+                    True,
+                    f"non_rep={non_rep_ne_86} list={_ne_offline_ids()}",
+                )
+                # Rep still online → cardinality ceiling: one id per device.
+                # Must NOT assert count==2 or both ids (rep-collapse dedup).
+                ss(non_rep_ne_86, state_86, base_86)
+                wait_for(lambda: non_rep_ne_86 not in _ne_offline_ids(), True)
+
+            # Combined recorded scalars — used by EC88 landing signal and EC89
+            # sibling-noise guard. combined_summary aggregates N coordinators, so
+            # any sibling entity moving during the observation window can rewrite
+            # it; these scalars let EC89 detect that and skip-loud instead of
+            # false-failing.
+            def _combined_scalars():
+                a = gs(summary_eid_86).get("attributes", {})
+                return (
+                    gs(summary_eid_86).get("state"),
+                    a.get("offline"),
+                    a.get("non_essential_offline"),
+                )
+
+            # EC88: positive control. A real member-touching settle (drive the
+            # non-rep NE member offline) MUST advance combined_summary
+            # last_updated. Moving signal = the non_essential_offline scalar
+            # the combined view records — NOT rowsig isolation (unit-only).
+            if ec_enabled(88) and not summary_eid_86:
+                print(
+                    "  EC88/EC89: skipped (no combined contains the fixture device)",
+                    flush=True,
+                )
+            elif ec_enabled(88):
+
+                def _combined_ne_offline():
+                    return (
+                        gs(summary_eid_86)
+                        .get("attributes", {})
+                        .get("offline_entities_non_essential")
+                        or []
+                    )
+
+                # Precondition: the combined must NOT already list the target
+                # (residual state from EC86 or a prior run leaves it there for
+                # up to one SCAN_INTERVAL). Positive control needs a real
+                # ABSENT -> PRESENT transition; if the id is already present at
+                # u0, driving offline is a no-op and last_updated never moves.
+                # wait_for returns the last value on TIMEOUT (no raise), so a
+                # dirty precondition would silently proceed and false-FAIL the
+                # positive control with a misleading "didn't advance" message.
+                # Assert the row cleared; skip-loud (not red) if it didn't.
+                ss(non_rep_ne_86, state_86, base_86)
+                wait_for(lambda: non_rep_ne_86 not in _combined_ne_offline(), True)
+                if non_rep_ne_86 in _combined_ne_offline():
+                    print(
+                        "  EC88: inconclusive (target still listed in combined "
+                        "after clean-wait — residual state did not clear within "
+                        "SCAN_INTERVAL); re-run on a quiescent fixture",
+                        flush=True,
+                    )
+                else:
+                    u0_88 = gs(summary_eid_86).get("last_updated")
+                    ss(
+                        non_rep_ne_86,
+                        "unavailable",
+                        {"friendly_name": "smoke ne"},
+                    )
+                    # Wait for the write to PROVABLY land (offline id surfaces in
+                    # the combined) rather than a blind sleep — a coalesced
+                    # refresh (PR#97) can land after a fixed sleep on a cold
+                    # devcontainer, which would false-FAIL the positive control.
+                    wait_for(lambda: non_rep_ne_86 in _combined_ne_offline(), True)
+                    u1_88 = gs(summary_eid_86).get("last_updated")
+                    chk(
+                        "EC88 combined_summary last_updated advances on real "
+                        "member-offline settle (positive control)",
+                        u1_88 != u0_88,
+                        True,
+                        f"u0={u0_88} u1={u1_88}",
+                    )
+                ss(non_rep_ne_86, state_86, base_86)
+                wait(WAIT_FOR_TIMEOUT // 3 or 15)
+
+            # EC89: churn-only — bumping a non-monitored attr (state frozen) must
+            # NOT produce a spurious combined_summary write. NOTE: the source
+            # group's own write-dedup can legitimately drop the churn tick (the
+            # attr is not a recorded value), so the tick may never reach the
+            # combined at all. This EC therefore proves "no spurious combined
+            # write on attr churn" — NOT "a tick reached the combined and was
+            # deduped there". The stronger claim would need a coordinator-re-read
+            # value, which would make it a state move (defeating churn-only).
+            if ec_enabled(89) and summary_eid_86:
+                ss(non_rep_ne_86, state_86, base_86)
+                wait(WAIT_FOR_TIMEOUT // 3 or 15)
+                u0_89 = gs(summary_eid_86).get("last_updated")
+                scalars0_89 = _combined_scalars()
+                for i in range(3):
+                    bumped = dict(base_86)
+                    bumped["_ea_smoke_churn"] = i
+                    ss(non_rep_ne_86, state_86, bumped)
+                    wait(WAIT_FOR_TIMEOUT // 3 or 15)
+                u1_89 = gs(summary_eid_86).get("last_updated")
+                scalars1_89 = _combined_scalars()
+                # Sibling-noise guard: combined aggregates N coordinators. If any
+                # sibling moved during the churn window its recorded scalars
+                # change → the summary legitimately rewrote and the freeze check
+                # is inconclusive (not a dedup failure). Skip-loud in that case.
+                if scalars0_89 != scalars1_89:
+                    print(
+                        "  EC89: inconclusive (a sibling entity moved during the "
+                        f"churn window — scalars {scalars0_89} -> {scalars1_89}); "
+                        "re-run on a quiescent fixture",
+                        flush=True,
+                    )
+                else:
+                    chk(
+                        "EC89 combined_summary last_updated shows no spurious "
+                        "write on churn-only attr bumps",
+                        u1_89,
+                        u0_89,
+                        f"u0={u0_89} u1={u1_89}",
+                    )
+                ss(non_rep_ne_86, state_86, base_86)
+
+        restore_all(ctx)
 
     # ------------------------------------------------------------------
     restore_all(ctx)
