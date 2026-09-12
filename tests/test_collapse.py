@@ -40,6 +40,7 @@ from custom_components.entity_availability.const import (
     CONF_COLLAPSE_DEVICES,
     CONF_ENTITIES,
     CONF_GROUP_NAME,
+    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_BAD_STATES,
     DOMAIN,
@@ -1916,3 +1917,163 @@ class TestCombinedRespectSettings:
         names.hass = mock_hass
         assert count.native_value == 2
         assert names.native_value == "Orphan {2}"
+
+
+def _make_ne_group_coord(
+    hass: HomeAssistant,
+    entry_id: str,
+    entities: list[str],
+    non_essential: list[str],
+) -> EntityAvailabilityCoordinator:
+    """Group coordinator that derives is_non_essential from config via the real sweep.
+
+    Unlike ``_make_group_coord``/``_make_coordinator`` (which hand-set
+    ``_device_states`` and never populate ``CONF_NON_ESSENTIAL_ENTITIES`` nor run
+    ``_async_update_data``), this drives the actual coordinator pipeline so the
+    per-tick propagation at coordinator.py:607
+    (``device.is_non_essential = entity_id in self._non_essential``) is exercised.
+    """
+    if hass.config_entries.async_get_entry(entry_id) is None:
+        MockConfigEntry(
+            domain=DOMAIN,
+            entry_id=entry_id,
+            title=entry_id,
+            data={
+                CONF_GROUP_NAME: entry_id,
+                CONF_ENTITIES: entities,
+                CONF_NON_ESSENTIAL_ENTITIES: non_essential,
+                CONF_BAD_STATES: DEFAULT_BAD_STATES,
+                CONF_COLLAPSE_DEVICES: True,
+                CONF_USE_DEVICE_NAMES: True,
+            },
+        ).add_to_hass(hass)
+    entry = hass.config_entries.async_get_entry(entry_id)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+    return coord
+
+
+class TestCombinedWriteSkipOnTierChange:
+    """Regression: a tier settle that keeps the collapsed row COUNT flat but moves
+    row MEMBERSHIP must still trigger a combined_summary write. Before the
+    ``_ea_dedup_attrs`` rowsig override, row_members/offline_entities_non_essential
+    were unrecorded and stripped from the write-dedup compare, so native_value
+    (=len(reps)) staying flat froze a stale attrs dict on the live state.
+    """
+
+    async def test_membership_move_flat_count_still_writes(self, mock_hass):
+        # One device, four essential entities: a,b,c,d -> one row {a,b,c,d}? No:
+        # we want TWO collapsed rows so a tier flip moves a member between them
+        # while len(reps) stays 2. Start a,b essential + c,d non-essential.
+        for eid in ("switch.wd_a", "switch.wd_b", "switch.wd_c", "switch.wd_d"):
+            _register_entity(mock_hass, eid, "wddev")
+            mock_hass.states.async_set(eid, "on")
+        coord = _make_ne_group_coord(
+            mock_hass,
+            "wd_grp",
+            ["switch.wd_a", "switch.wd_b", "switch.wd_c", "switch.wd_d"],
+            ["switch.wd_c", "switch.wd_d"],
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            await coord._async_update_data()
+        mock_hass.data[DOMAIN] = {"wd_grp": coord}
+        combined_entry = MockConfigEntry(domain=DOMAIN, entry_id="wd_comb", title="WD")
+        summary = CombinedGroupSensor(
+            mock_hass, combined_entry, "WD", "wd_comb", ["wd_grp"]
+        )
+        summary.hass = mock_hass
+
+        # Two collapsed rows: wddev::False {a,b}, wddev::True {c,d}. Count = 2.
+        attrs0 = summary.extra_state_attributes
+        assert summary.native_value == 2
+        assert len(attrs0["row_members"]) == 2
+
+        # Prime the write-dedup cache (first call always writes).
+        assert summary._ea_should_write() is True
+        # No change -> no write.
+        assert summary._ea_should_write() is False
+
+        # Flip b -> non-essential via the real config-derived set + re-sweep.
+        # Rows become wddev::False {a} (drops out of row_members: 1 member),
+        # wddev::True {b,c,d}. Row COUNT stays 2, no entity is offline, so the
+        # recorded scalars (offline=0, non_essential_offline=0, len(reps)=2) are
+        # all unchanged. Only row_members membership moved.
+        coord._non_essential = ["switch.wd_b", "switch.wd_c", "switch.wd_d"]
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            await coord._async_update_data()
+
+        attrs1 = summary.extra_state_attributes
+        assert summary.native_value == 2  # count flat
+        assert attrs1["offline"] == 0 and attrs1["non_essential_offline"] == 0
+        # Membership genuinely moved (b left ::False row, joined ::True row).
+        assert attrs1["row_members"] != attrs0["row_members"]
+        # The load-bearing assertion: the write must fire despite flat scalars.
+        assert summary._ea_should_write() is True
+
+    async def test_rowsig_ignores_volatile_values(self, mock_hass):
+        # Guards PR#95/#97: a drifting battery/signal reading (unrecorded, volatile)
+        # must NOT move the rowsig, so it must NOT re-introduce a per-tick write.
+        for eid in ("switch.rv_a", "switch.rv_b"):
+            _register_entity(mock_hass, eid, "rvdev")
+            mock_hass.states.async_set(eid, "on")
+        coord = _make_ne_group_coord(
+            mock_hass, "rv_grp", ["switch.rv_a", "switch.rv_b"], []
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            await coord._async_update_data()
+        mock_hass.data[DOMAIN] = {"rv_grp": coord}
+        combined_entry = MockConfigEntry(domain=DOMAIN, entry_id="rv_comb", title="RV")
+        summary = CombinedGroupSensor(
+            mock_hass, combined_entry, "RV", "rv_comb", ["rv_grp"]
+        )
+        summary.hass = mock_hass
+        assert summary._ea_should_write() is True  # prime
+        # Drift a signal value on the collapsed row's members; row STRUCTURE
+        # (rep -> member ids) is unchanged, so no write.
+        for d in coord.device_states.values():
+            d.signal_level = (d.signal_level or -60) - 1
+        assert summary._ea_should_write() is False
+
+
+class TestRowMembersTierHomogeneity:
+    """Card contract: every member of a collapsed row shares one tier, so the
+    card may derive a row's non-essential status from any member. This is the
+    invariant that makes the card's member-scan (isNonEssential from members,
+    not just the representative) unambiguous.
+    """
+
+    async def test_collapsed_row_members_are_same_tier(self, mock_hass):
+        # Device with both essential and non-essential entities: they must land in
+        # SEPARATE rows (collapse_key = device_id::is_non_essential), never mixed.
+        _register_entity(mock_hass, "switch.th_e1", "thdev")
+        _register_entity(mock_hass, "switch.th_e2", "thdev")
+        _register_entity(mock_hass, "switch.th_n1", "thdev")
+        _register_entity(mock_hass, "switch.th_n2", "thdev")
+        for eid in ("switch.th_e1", "switch.th_e2", "switch.th_n1", "switch.th_n2"):
+            mock_hass.states.async_set(eid, "on")
+        coord = _make_ne_group_coord(
+            mock_hass,
+            "th_grp",
+            ["switch.th_e1", "switch.th_e2", "switch.th_n1", "switch.th_n2"],
+            ["switch.th_n1", "switch.th_n2"],
+        )
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            await coord._async_update_data()
+        ne = set(coord._non_essential)
+        rep_of = collapse_representatives(mock_hass, coord.device_states)
+        by_rep: dict[str, list[str]] = {}
+        for eid, rep in rep_of.items():
+            by_rep.setdefault(rep, []).append(eid)
+        for members in by_rep.values():
+            tiers = {eid in ne for eid in members}
+            assert len(tiers) == 1, f"mixed-tier row: {members}"

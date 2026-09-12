@@ -442,6 +442,34 @@ class CombinedGroupSensor(CombinedSensorBase):
         }
     )
 
+    def _ea_dedup_attrs(self) -> Any:
+        """Widen the write-dedup compare to see collapsed-row membership changes.
+
+        ``row_members`` and ``offline_entities_non_essential`` are unrecorded (so
+        they never amplify recorder rows), but that also removes them from the
+        write-dedup compare. When a non-essential tier settle keeps the collapsed
+        ROW COUNT flat, ``native_value`` (``len(reps)``) is unchanged and every
+        moved list is unrecorded, so ``_ea_should_write`` would skip the write and
+        freeze a stale attrs dict on the live state the card reads. We fold a
+        compact signature of the rep→members STRUCTURE (entity ids only, never
+        volatile values like battery/signal) back into the compared view so a real
+        membership change triggers a write. Drifting readings cannot move it, so
+        the per-tick write-amp reduction (see ``_unrecorded_attributes``) holds.
+        """
+        stored = super()._ea_dedup_attrs()
+        # CombinedGroupSensor.extra_state_attributes always returns a populated
+        # dict, so super() (which passes non-dicts straight through) always
+        # returns a dict here.
+        rowsig = tuple(
+            sorted(
+                (rep, tuple(members))
+                for rep, members in (
+                    self.extra_state_attributes.get("row_members") or {}
+                ).items()
+            )
+        )
+        return {**stored, "_ea_rowsig": rowsig}
+
     def __init__(self, hass, entry, group_name, group_slug, combined_entry_ids):
         super().__init__(hass, entry, group_name, group_slug, combined_entry_ids)
         self._attr_unique_id = f"{entry.entry_id}_combined_summary"
