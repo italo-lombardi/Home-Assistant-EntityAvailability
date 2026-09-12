@@ -354,14 +354,14 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
 
         The predicate is applied while the owning coordinator is still in scope so
         each device is judged against ITS OWN group's recovery window (windows differ
-        per source group). Survivors are then deduped by device-collapse key — one
-        row per physical device — instead of by raw entity_id, so a device exposing
-        several monitored entities (or the same entity shared across groups) appears
-        once. Device-less entities and entities from collapse-off groups fall back to
-        their entity_id, so each stays its own row (never merged into a shared bucket).
-        The raw entity_id is always tracked too, so the same entity shared across a
-        collapse-on and a collapse-off group (which yield different tokens) still
-        dedups to one row instead of double-counting.
+        per source group). Survivors are then deduped by physical device_id — one
+        row per device — instead of by raw entity_id, so a device exposing several
+        monitored entities (or the same entity shared across groups) appears once.
+        This is device-based regardless of the group's collapse setting: a recovery
+        list is a per-device concept and shows names only, so same-device rows are
+        always redundant. Device-less entities fall back to their entity_id, so each
+        stays its own row. The raw entity_id is always tracked too, so the same entity
+        shared across two groups still dedups to one row instead of double-counting.
         Sorted by resolved display name (casefold) with entity_id tiebreak → the joined
         state string is deterministic.
 
@@ -375,22 +375,22 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         result: list[tuple[EntityAvailabilityCoordinator, Any]] = []
         ent_reg = er.async_get(self.hass)
         for coord in self._active_coordinators():
-            collapse = coord.collapse_active
             for d in coord.device_states.values():
                 if not predicate(coord, d):
                     continue
-                # Dedup by physical device (device_id) so the same device seen through
-                # two coordinators appears once — not by collapse_key, which differs
-                # per coordinator for one device and produced the doubled "Name, Name".
-                # collapse-off groups / device-less entities fall back to entity_id so
-                # each stays its own row.
-                token = None
-                if collapse:
-                    entry = ent_reg.async_get(d.entity_id)
-                    token = (
-                        f"dev::{entry.device_id}" if entry and entry.device_id else None
-                    )
-                token = token or d.entity_id
+                # Dedup by physical device (device_id) so two entities on one device
+                # — or the same device seen through two coordinators — appear once,
+                # not by collapse_key (differs per coordinator, produced "Name, Name").
+                # Device-based, NOT collapse-gated: a recovery list is a per-device
+                # concept and shows names only, so same-device rows are always
+                # redundant regardless of the group's collapse setting. Device-less
+                # entities fall back to entity_id so each stays its own row.
+                entry = ent_reg.async_get(d.entity_id)
+                token = (
+                    f"dev::{entry.device_id}"
+                    if entry and entry.device_id
+                    else d.entity_id
+                )
                 if token in seen or d.entity_id in seen:
                     continue
                 seen.add(token)

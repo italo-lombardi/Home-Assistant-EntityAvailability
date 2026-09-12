@@ -4007,3 +4007,84 @@ class TestCombinedRecentlyCollapse:
             attrs = sensor.extra_state_attributes
 
         assert attrs["count"] == 2
+
+    def test_collapse_off_same_device_two_entities_one_row(self, mock_hass):
+        """Regression: two entities on ONE device in a collapse-OFF group must dedup
+        to one recovery row (was doubled 'Name, Name' because the device token was
+        only built under collapse_active). Recovery lists are per-device + names-only,
+        so same-device rows are always redundant regardless of the collapse setting.
+        """
+        # collapse_devices defaults False -> collapse_active is False for this entry.
+        entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Smart Devices",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Smart Devices",
+                CONF_ENTITIES: [
+                    "binary_sensor.balcony_motion",
+                    "sensor.balcony_luminance",
+                ],
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_USE_DEVICE_NAMES: True,
+            },
+            entry_id="sd_entry",
+        )
+        rec = _NOW - timedelta(minutes=1)
+        coord = self._coord(
+            mock_hass,
+            entry,
+            {
+                "binary_sensor.balcony_motion": DeviceState(
+                    entity_id="binary_sensor.balcony_motion",
+                    is_offline=False,
+                    last_recovery=rec,
+                ),
+                "sensor.balcony_luminance": DeviceState(
+                    entity_id="sensor.balcony_luminance",
+                    is_offline=False,
+                    last_recovery=rec,
+                ),
+            },
+        )
+        assert coord.collapse_active is False
+        mock_hass.data[DOMAIN] = {"sd_entry": coord}
+        combined = _make_combined_entry("sd_combined", "Combined", ["sd_entry"])
+
+        # Both entities resolve to the SAME physical device.
+        ent_reg = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "balcony_dev"
+        ent_reg.async_get.return_value = ent_entry
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "Balcony Luminance Motion Sensor"
+        dev_reg.async_get.return_value = device
+
+        sensor = _make_recently_recovered_sensor(mock_hass, combined, [coord])
+        with (
+            patch(
+                "custom_components.entity_availability.combined_sensor.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+            attrs = sensor.extra_state_attributes
+
+        # One row, name shown once — not "Balcony..., Balcony...".
+        assert attrs["count"] == 1
+        assert value == "Balcony Luminance Motion Sensor"
