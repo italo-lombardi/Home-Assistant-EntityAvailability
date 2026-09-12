@@ -3734,12 +3734,20 @@ class TestCombinedRecentlyCollapse:
         # Collapsed across groups -> exactly one row.
         assert attrs["count"] == 1
 
-    def test_shared_entity_mixed_collapse_config_one_row(self, mock_hass):
-        """Same entity in a collapse-ON and a collapse-OFF group -> one row.
+    def test_shared_entity_mixed_collapse_config_two_rows(self, mock_hass):
+        """Same entity in two DIFFERENT-config groups -> two rows (matches severity).
 
-        Group A has device-collapse active (token = collapse_key), group B has it
-        off (token = entity_id). The tokens differ, so a token-only dedup would let
-        the same entity survive twice. Tracking raw entity_id collapses it to one.
+        Group A: udn-on/collapse-on. Group B: udn-off/collapse-off. The differing
+        use_device_names gives the entity two row_keys in the merged map
+        (``shared`` and ``shared::m_entry_b``) with distinct representatives, so the
+        recovery list yields two rows — the SAME grain the offline/severity path
+        yields for this input. (The old behavior special-cased recovery to fold by
+        raw entity_id to one row; that was the exact grain disagreement this change
+        removes.) Because udn differs, the two rows resolve to different display
+        strings (device name vs entity friendly_name), so they do NOT fold to
+        ``{N}``; recovery renders both names for one physical entity. That is a
+        property of the eid::coord "different config = separate interpretation"
+        design shared with the offline list, not a recovery-specific behavior.
         """
         entry_a = self._collapse_entry("m_entry_a", "Group A", ["binary_sensor.shared"])
         entry_b = MockConfigEntry(
@@ -3811,8 +3819,8 @@ class TestCombinedRecentlyCollapse:
             mock_dt.now.return_value = _NOW
             attrs = sensor.extra_state_attributes
 
-        assert attrs["count"] == 1
-        assert attrs["entities"] == ["binary_sensor.shared"]
+        assert attrs["count"] == 2
+        assert attrs["entities"] == ["binary_sensor.shared", "binary_sensor.shared"]
 
     def test_shared_entity_both_collapse_off_one_row(self, mock_hass):
         """Same entity in two collapse-OFF groups -> one row (no dup).
@@ -4007,3 +4015,86 @@ class TestCombinedRecentlyCollapse:
             attrs = sensor.extra_state_attributes
 
         assert attrs["count"] == 2
+
+    def test_collapse_off_same_device_two_entities_stay_two_rows(self, mock_hass):
+        """Two entities on ONE device in a collapse-OFF group stay two recovery rows
+        (collapse_active is False, so recovery mirrors the group's own setting — same
+        gate severity uses). Both resolve to the same device name (use_device_names is
+        ON), so the identical display strings fold to "<name> {2}" at render — the
+        name is shown once with a {2} marker, never doubled as "Name, Name", and the
+        count stays 2.
+        """
+        # collapse_devices defaults False -> collapse_active is False for this entry.
+        entry = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Smart Devices",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Smart Devices",
+                CONF_ENTITIES: [
+                    "binary_sensor.balcony_motion",
+                    "sensor.balcony_luminance",
+                ],
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                CONF_USE_DEVICE_NAMES: True,
+            },
+            entry_id="sd_entry",
+        )
+        rec = _NOW - timedelta(minutes=1)
+        coord = self._coord(
+            mock_hass,
+            entry,
+            {
+                "binary_sensor.balcony_motion": DeviceState(
+                    entity_id="binary_sensor.balcony_motion",
+                    is_offline=False,
+                    last_recovery=rec,
+                ),
+                "sensor.balcony_luminance": DeviceState(
+                    entity_id="sensor.balcony_luminance",
+                    is_offline=False,
+                    last_recovery=rec,
+                ),
+            },
+        )
+        assert coord.collapse_active is False
+        mock_hass.data[DOMAIN] = {"sd_entry": coord}
+        combined = _make_combined_entry("sd_combined", "Combined", ["sd_entry"])
+
+        # Both entities resolve to the SAME physical device.
+        ent_reg = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "balcony_dev"
+        ent_reg.async_get.return_value = ent_entry
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "Balcony Luminance Motion Sensor"
+        dev_reg.async_get.return_value = device
+
+        sensor = _make_recently_recovered_sensor(mock_hass, combined, [coord])
+        with (
+            patch(
+                "custom_components.entity_availability.combined_sensor.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.combined_sensor.datetime"
+            ) as mock_dt,
+        ):
+            mock_dt.now.return_value = _NOW
+            value = sensor.native_value
+            attrs = sensor.extra_state_attributes
+
+        # Two rows (collapse OFF), rendered once with a {2} marker — not doubled.
+        assert attrs["count"] == 2
+        assert value == "Balcony Luminance Motion Sensor {2}"

@@ -31,7 +31,7 @@ from .const import (
     NO_AREA_SENTINEL,
 )
 from .coordinator import EntityAvailabilityCoordinator
-from .helpers import resolve_area_name, resolve_display_name
+from .helpers import render_name_list, resolve_area_name, resolve_display_name
 from .write_dedup import DedupCoordinatorSensor
 
 _LOGGER = logging.getLogger(__name__)
@@ -272,12 +272,7 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        if not offline:
-            return "None"
-        result = ", ".join(offline)
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
+        return render_name_list(offline, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -327,12 +322,7 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        if not low_bat:
-            return "None"
-        result = ", ".join(low_bat)
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
+        return render_name_list(low_bat, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -394,12 +384,7 @@ class NonEssentialOfflineEntitiesSensor(DedupCoordinatorSensor):
                 lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
             )
         ]
-        if not offline:
-            return "None"
-        result = ", ".join(offline)
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
+        return render_name_list(offline, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -455,12 +440,7 @@ class NonEssentialLowBatterySensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        if not low_bat:
-            return "None"
-        result = ", ".join(low_bat)
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
+        return render_name_list(low_bat, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -578,14 +558,7 @@ class NonEssentialStaleEntitiesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        if not stale:
-            return "None"
-        result = ", ".join(stale)
-        return (
-            result
-            if len(result) <= MAX_STATE_LENGTH - 3
-            else result[: MAX_STATE_LENGTH - 3] + "..."
-        )
+        return render_name_list(stale, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -677,14 +650,7 @@ class StaleEntitiesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        if not stale:
-            return "None"
-        result = ", ".join(stale)
-        return (
-            result
-            if len(result) <= MAX_STATE_LENGTH - 3
-            else result[: MAX_STATE_LENGTH - 3] + "..."
-        )
+        return render_name_list(stale, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1292,16 +1258,14 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
     def native_value(self) -> str:
         """Return comma-separated friendly names of recently offline entities."""
         devices = self._refresh_cache()
-        if not devices:
-            return "None"
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
-        result = ", ".join(
-            _resolve_display_name(self.hass, d.entity_id, use_device_names)
-            for d in devices
+        return render_name_list(
+            [
+                _resolve_display_name(self.hass, d.entity_id, use_device_names)
+                for d in devices
+            ],
+            MAX_STATE_LENGTH,
         )
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1377,16 +1341,14 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
     def native_value(self) -> str:
         """Return comma-separated friendly names of recently recovered entities."""
         devices = self._refresh_cache()
-        if not devices:
-            return "None"
         use_device_names = self.coordinator.entry.data.get(CONF_USE_DEVICE_NAMES, False)
-        result = ", ".join(
-            _resolve_display_name(self.hass, d.entity_id, use_device_names)
-            for d in devices
+        return render_name_list(
+            [
+                _resolve_display_name(self.hass, d.entity_id, use_device_names)
+                for d in devices
+            ],
+            MAX_STATE_LENGTH,
         )
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1646,12 +1608,7 @@ class PoorSignalSensor(DedupCoordinatorSensor):
             for eid in self.coordinator._poor_signal_entity_ids()
             if eid in states
         ]
-        if not poor:
-            return "None"
-        result = ", ".join(poor)
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
+        return render_name_list(poor, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1722,12 +1679,7 @@ class NonEssentialPoorSignalSensor(DedupCoordinatorSensor):
             for eid in self.coordinator._poor_signal_ne_entity_ids()
             if eid in states
         ]
-        if not poor:
-            return "None"
-        result = ", ".join(poor)
-        if len(result) > MAX_STATE_LENGTH - 3:
-            result = result[: MAX_STATE_LENGTH - 3] + "..."
-        return result
+        return render_name_list(poor, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

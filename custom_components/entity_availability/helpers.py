@@ -62,6 +62,59 @@ def resolve_display_name(
     return entity_id.split(".")[-1].replace("_", " ").title()
 
 
+def dedup_display_names(names: list[str]) -> list[str]:
+    """Collapse identical display strings to ``"<name> {N}"`` and sort by name.
+
+    After device-collapse and name resolution, two rows can still render the
+    same string (e.g. two entities on a device shown by device name, or two
+    device-less entities sharing a friendly_name). Rendering them twice reads
+    as a bug and, for recovery lists, flaps the recorded state string. Group
+    identical strings: count==1 → ``"<name>"``; count>1 → ``"<name> {N}"``.
+    N is the post-collapse row count, so it agrees with the numeric count
+    sensors. Sorted by the bare display string so severity and recovery lists
+    share one deterministic order.
+    """
+    counts: dict[str, int] = {}
+    for name in names:
+        counts[name] = counts.get(name, 0) + 1
+    return [
+        name if n == 1 else f"{name} {{{n}}}"
+        for name, n in sorted(counts.items(), key=lambda kv: (kv[0].casefold(), kv[0]))
+    ]
+
+
+def render_name_list(names: list[str], max_len: int) -> str:
+    """Sort + {N}-dedup names, join with ", ", truncate to max_len.
+
+    Empty input renders ``"None"`` (the sentinel every list sensor uses).
+    Truncation drops whole trailing names on the ", " boundary so a ``{N}``
+    marker is never sliced mid-token (e.g. ``"...Motion {1"``). If even the
+    first name overflows, that single name is byte-truncated with a trailing
+    ``"..."`` as a last resort.
+    """
+    deduped = dedup_display_names(names)
+    if not deduped:
+        return "None"
+    result = ", ".join(deduped)
+    if len(result) <= max_len:
+        return result
+    # Overflow: keep whole names on the ", " boundary until the next would exceed
+    # the budget (room left for "..."). Guaranteed to drop at least one name, so
+    # the loop always breaks — it can never run to natural completion here (that
+    # would mean every name fit, contradicting the len(result) > max_len guard).
+    budget = max_len - 3
+    if len(deduped[0]) > budget:  # even the first name alone overflows
+        return deduped[0][:budget] + "..."
+    kept = [deduped[0]]
+    used = len(deduped[0])
+    for name in deduped[1:]:  # pragma: no branch - guard guarantees a break
+        if used + 2 + len(name) > budget:
+            break
+        kept.append(name)
+        used += 2 + len(name)
+    return ", ".join(kept) + "..."
+
+
 def collapse_severity(d: DeviceState) -> int:
     """Worst-case severity rank for representative selection (red>yellow>grey>green)."""
     if d.is_offline:
