@@ -159,7 +159,11 @@ def collapse_representatives(
     flips (e.g. one goes stale). This only moves the representative *entity_id* within
     a row, never the row count, and the rep-id attrs (``row_entity_ids`` /
     ``row_members``) are unrecorded — so it is a cosmetic display shift, not a recorder
-    write. A source-stable tiebreak could pin it if a card ever needs that.
+    write. The same class of shift applies to WHICH cluster a source-less wildcard
+    member joins when a device bucket holds two distinct concrete sources (e.g.
+    ``{(bat1, None), (None, sig1), (bat2, sig1)}``): the row count is invariant, only
+    the wildcard's parent row differs by order, and both are unrecorded. A
+    source-stable tiebreak could pin either if a card ever needs that.
 
     ``collapsible`` optionally restricts which entities may merge: an entity not in
     the set always maps to itself and never becomes another entity's representative.
