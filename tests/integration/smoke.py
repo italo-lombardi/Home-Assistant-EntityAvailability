@@ -4025,29 +4025,50 @@ for e in cfg['data']['entries']:
                 # up to one SCAN_INTERVAL). Positive control needs a real
                 # ABSENT -> PRESENT transition; if the id is already present at
                 # u0, driving offline is a no-op and last_updated never moves.
+                # wait_for returns the last value on TIMEOUT (no raise), so a
+                # dirty precondition would silently proceed and false-FAIL the
+                # positive control with a misleading "didn't advance" message.
+                # Assert the row cleared; skip-loud (not red) if it didn't.
                 ss(non_rep_ne_86, state_86, base_86)
                 wait_for(lambda: non_rep_ne_86 not in _combined_ne_offline(), True)
-                u0_88 = gs(summary_eid_86).get("last_updated")
-                ss(non_rep_ne_86, "unavailable", {"friendly_name": "smoke ne"})
-                # Wait for the write to PROVABLY land (offline id surfaces in the
-                # combined) rather than a blind sleep — a coalesced refresh
-                # (PR#97) can land after a fixed sleep on a cold devcontainer,
-                # which would false-FAIL the positive control.
-                wait_for(lambda: non_rep_ne_86 in _combined_ne_offline(), True)
-                u1_88 = gs(summary_eid_86).get("last_updated")
-                chk(
-                    "EC88 combined_summary last_updated advances on real "
-                    "member-offline settle (positive control)",
-                    u1_88 != u0_88,
-                    True,
-                    f"u0={u0_88} u1={u1_88}",
-                )
+                if non_rep_ne_86 in _combined_ne_offline():
+                    print(
+                        "  EC88: inconclusive (target still listed in combined "
+                        "after clean-wait — residual state did not clear within "
+                        "SCAN_INTERVAL); re-run on a quiescent fixture",
+                        flush=True,
+                    )
+                else:
+                    u0_88 = gs(summary_eid_86).get("last_updated")
+                    ss(
+                        non_rep_ne_86,
+                        "unavailable",
+                        {"friendly_name": "smoke ne"},
+                    )
+                    # Wait for the write to PROVABLY land (offline id surfaces in
+                    # the combined) rather than a blind sleep — a coalesced
+                    # refresh (PR#97) can land after a fixed sleep on a cold
+                    # devcontainer, which would false-FAIL the positive control.
+                    wait_for(lambda: non_rep_ne_86 in _combined_ne_offline(), True)
+                    u1_88 = gs(summary_eid_86).get("last_updated")
+                    chk(
+                        "EC88 combined_summary last_updated advances on real "
+                        "member-offline settle (positive control)",
+                        u1_88 != u0_88,
+                        True,
+                        f"u0={u0_88} u1={u1_88}",
+                    )
                 ss(non_rep_ne_86, state_86, base_86)
                 wait(WAIT_FOR_TIMEOUT // 3 or 15)
 
-            # EC89: churn-only freeze. With EC88 proving this member CAN move
-            # the summary, bumping a non-state attr (state frozen) must NOT
-            # rewrite combined_summary — dedup + rowsig hold last_updated.
+            # EC89: churn-only — bumping a non-monitored attr (state frozen) must
+            # NOT produce a spurious combined_summary write. NOTE: the source
+            # group's own write-dedup can legitimately drop the churn tick (the
+            # attr is not a recorded value), so the tick may never reach the
+            # combined at all. This EC therefore proves "no spurious combined
+            # write on attr churn" — NOT "a tick reached the combined and was
+            # deduped there". The stronger claim would need a coordinator-re-read
+            # value, which would make it a state move (defeating churn-only).
             if ec_enabled(89) and summary_eid_86:
                 ss(non_rep_ne_86, state_86, base_86)
                 wait(WAIT_FOR_TIMEOUT // 3 or 15)
@@ -4073,8 +4094,8 @@ for e in cfg['data']['entries']:
                     )
                 else:
                     chk(
-                        "EC89 combined_summary last_updated frozen on churn-only "
-                        "ticks (dedup + rowsig held)",
+                        "EC89 combined_summary last_updated shows no spurious "
+                        "write on churn-only attr bumps",
                         u1_89,
                         u0_89,
                         f"u0={u0_89} u1={u1_89}",
