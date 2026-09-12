@@ -36,6 +36,7 @@ from .const import (
 from .coordinator import EntityAvailabilityCoordinator
 from .helpers import (
     collapse_representatives,
+    render_name_list,
     resolve_area_name,
     resolve_display_name,
 )
@@ -264,9 +265,11 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         multiple groups with DIFFERENT config, each group gets its own row keyed
         as ``entity_id::coord_entry_id`` so each interpretation is visible.
 
-        An entity is auto-collapsible when its owning group has use_device_names=True
-        — no explicit collapse toggle needed.  Groups with use_device_names=False
-        keep their entities as individual rows.
+        An entity is auto-collapsible when its owning group is collapse-active
+        (use_device_names=True AND collapse_devices=True) — the same gate a
+        standalone group uses. Groups that are not collapse-active keep their
+        entities as individual rows, so combined mirrors each source group's
+        own collapse setting.
         """
         seen_fingerprint: dict[str, tuple] = {}
         merged: dict[str, Any] = {}
@@ -275,6 +278,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
 
         for coord in coords:
             udn = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
+            collapse_active = coord.collapse_active
             battery_map = coord.entry.data.get(CONF_BATTERY_ENTITY_MAP, {})
             signal_map = coord.entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
             non_essential = set(coord.entry.data.get(CONF_NON_ESSENTIAL_ENTITIES, []))
@@ -316,7 +320,7 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                     row_key = f"{eid}::{coord.entry.entry_id}"
                 merged[row_key] = d
                 udn_map[row_key] = udn
-                if udn:
+                if collapse_active:
                     collapsible.add(row_key)
 
         if not collapsible:
@@ -349,52 +353,40 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
     def _collapsed_recovery_pairs(
         self, predicate: Callable[[EntityAvailabilityCoordinator, Any], bool]
     ) -> list[tuple[EntityAvailabilityCoordinator, Any]]:
-        """Return device-collapsed, name-sorted (coord, DeviceState) pairs for a
+        """Return collapse-gated, name-sorted (coord, DeviceState) pairs for a
         per-coord recovery-window predicate.
 
         The predicate is applied while the owning coordinator is still in scope so
         each device is judged against ITS OWN group's recovery window (windows differ
-        per source group). Survivors are then deduped by physical device_id — one
-        row per device — instead of by raw entity_id, so a device exposing several
-        monitored entities (or the same entity shared across groups) appears once.
-        This is device-based regardless of the group's collapse setting: a recovery
-        list is a per-device concept and shows names only, so same-device rows are
-        always redundant. Device-less entities fall back to their entity_id, so each
-        stays its own row. The raw entity_id is always tracked too, so the same entity
-        shared across two groups still dedups to one row instead of double-counting.
-        Sorted by resolved display name (casefold) with entity_id tiebreak → the joined
-        state string is deterministic.
-
-        When two distinct entities on the same device collapse to one row, the kept
-        representative is first-seen in coordinator iteration order. The final
-        name-sort makes the displayed string deterministic regardless; only which
-        coordinator's timestamp backs the merged device is iteration-order dependent,
-        which is immaterial for the recovery lists (they carry no severity rank).
+        per source group). Survivors then collapse through the SAME source-aware
+        ``rep_of`` map severity uses (built once by ``_device_map_cached`` across all
+        coords): one row per representative. Because it is the identical map, the
+        recovery list and the offline/battery/count lists agree at every grain —
+        including multi-source devices, where two battery sensors on one physical
+        device stay two rows in both. Non-collapse-active groups map each row to
+        itself (never collapse), device-less entities map to themselves, and a device
+        split across two collapse-active groups merges to one row because ``rep_of``
+        is cross-coord. Sorted by resolved display name (casefold) with entity_id
+        tiebreak; identical display strings then fold to ``"<name> {N}"`` at render,
+        so a collapse-off device with two entities never renders "Name, Name".
         """
+        coords = self._active_coordinators()
+        merged, rep_of, _ = self._device_map_cached(coords)
+        # row_key lookup: an entity appears in ``merged`` keyed by entity_id, or by
+        # ``entity_id::entry_id`` when the same entity_id is monitored by two groups
+        # with different config. Same key derivation _device_map_of used.
         seen: set[str] = set()
         result: list[tuple[EntityAvailabilityCoordinator, Any]] = []
-        ent_reg = er.async_get(self.hass)
-        for coord in self._active_coordinators():
+        for coord in coords:
             for d in coord.device_states.values():
                 if not predicate(coord, d):
                     continue
-                # Dedup by physical device (device_id) so two entities on one device
-                # — or the same device seen through two coordinators — appear once,
-                # not by collapse_key (differs per coordinator, produced "Name, Name").
-                # Device-based, NOT collapse-gated: a recovery list is a per-device
-                # concept and shows names only, so same-device rows are always
-                # redundant regardless of the group's collapse setting. Device-less
-                # entities fall back to entity_id so each stays its own row.
-                entry = ent_reg.async_get(d.entity_id)
-                token = (
-                    f"dev::{entry.device_id}"
-                    if entry and entry.device_id
-                    else d.entity_id
-                )
-                if token in seen or d.entity_id in seen:
+                split_key = f"{d.entity_id}::{coord.entry.entry_id}"
+                row_key = split_key if split_key in merged else d.entity_id
+                rep = rep_of.get(row_key, row_key)
+                if rep in seen:
                     continue
-                seen.add(token)
-                seen.add(d.entity_id)
+                seen.add(rep)
                 result.append((coord, d))
         result.sort(
             key=lambda cd: (
@@ -1072,14 +1064,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
                 ),
             )
         ]
-        if not offline:
-            return "None"
-        result = ", ".join(offline)
-        return (
-            result[: MAX_STATE_LENGTH - 3] + "..."
-            if len(result) > MAX_STATE_LENGTH - 3
-            else result
-        )
+        return render_name_list(offline, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1125,14 +1110,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
                 ),
             )
         ]
-        if not low:
-            return "None"
-        result = ", ".join(low)
-        return (
-            result[: MAX_STATE_LENGTH - 3] + "..."
-            if len(result) > MAX_STATE_LENGTH - 3
-            else result
-        )
+        return render_name_list(low, MAX_STATE_LENGTH)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1213,13 +1191,8 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         pairs = self._matching_devices()
-        if not pairs:
-            return "None"
-        result = ", ".join(self._pair_name(coord, d) for coord, d in pairs)
-        return (
-            result[: MAX_STATE_LENGTH - 3] + "..."
-            if len(result) > MAX_STATE_LENGTH - 3
-            else result
+        return render_name_list(
+            [self._pair_name(coord, d) for coord, d in pairs], MAX_STATE_LENGTH
         )
 
     @property
@@ -1257,13 +1230,8 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
     @property
     def native_value(self) -> str:
         pairs = self._matching_devices()
-        if not pairs:
-            return "None"
-        result = ", ".join(self._pair_name(coord, d) for coord, d in pairs)
-        return (
-            result[: MAX_STATE_LENGTH - 3] + "..."
-            if len(result) > MAX_STATE_LENGTH - 3
-            else result
+        return render_name_list(
+            [self._pair_name(coord, d) for coord, d in pairs], MAX_STATE_LENGTH
         )
 
     @property

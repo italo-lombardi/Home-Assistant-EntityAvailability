@@ -108,6 +108,46 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Collapse entities by device | `off` | **Requires Show device names.** When enabled, multiple entities belonging to the same physical device are counted as one across every sensor value, list, and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, name, battery level, and signal; entities not linked to a device are never merged. Availability %, MTBF, and MTTR stay per-entity. |
 ![Step 4: Advanced Settings](assets/03_advanced_settings.png)
 
+### Device names, collapse, and the `{N}` marker
+
+**Show device names** and **Collapse entities by device** are related but distinct. Device names controls the *label* on a row; collapse controls *how many rows* a physical device produces. A group is **collapse active** only when **both** are on — the config flow rejects "collapse on / device names off" (`collapse_requires_device_names`), because collapse only earns its keep when device names would otherwise make two entities on one device render as the *same* string.
+
+Every list sensor renders each row once, sorted alphabetically. When two rows resolve to the **same** display string (two entities on a device shown by device name, or two entities sharing a friendly name), they are folded to `"<name> {N}"`, where `N` is the number of rows behind that name. `{N}` is a render-time marker only — it is not part of any device or entity name, and the numeric count sensors still count `N`. Severity lists (`offline_entities`, `low_battery`, `stale`, `poor_signal`) and recovery lists (`recently_offline`, `recently_recovered`) share the same collapse decision and the same sort, so their order and counts always agree within a group.
+
+#### Single group
+
+One device ("Balcony") exposes two monitored entities — a motion binary sensor ("Balcony Motion") and a luminance sensor ("Balcony Luminance"). It goes offline, then recovers:
+
+| use_device_names | collapse_devices | collapse active | `offline_entities` (severity) | `recently_offline` (recovery) | `affected_areas_recently_offline` |
+|:---:|:---:|:---:|---|---|---|
+| off | off | no | 2 / `"Balcony Luminance, Balcony Motion"` | 2 / `"Balcony Luminance, Balcony Motion"` | 1 / `"Balcony Area"` |
+| off | on¹ | no | 2 / `"Balcony Luminance, Balcony Motion"` | 2 / `"Balcony Luminance, Balcony Motion"` | 1 / `"Balcony Area"` |
+| on | off | no | 2 / `"Balcony {2}"` | 2 / `"Balcony {2}"` | 1 / `"Balcony Area"` |
+| on | on | **yes** | 1 / `"Balcony"` | 1 / `"Balcony"` | 1 / `"Balcony Area"` |
+
+¹ The config flow blocks this combination; it is only reachable via legacy or hand-edited YAML data, where the runtime still treats collapse as inactive.
+
+- **Device names off**: the two entities render as *distinct* friendly names, so nothing needs folding.
+- **Device names on, collapse off**: both entities resolve to the device name. You asked not to collapse, so each keeps its own row (count is 2) — but the identical strings fold to `"Balcony {2}"` so the state never reads as the doubled `"Balcony, Balcony"`.
+- **Both on**: the device is one row (count 1) labeled by its device name.
+- **Affected-areas sensors dedupe by area**, so one device always contributes one area regardless of the toggles.
+
+#### Combined groups
+
+A combined group re-applies each source group's **own** collapse decision — it mirrors what each group would show standalone. Two entities on one device merge in the combined view only when **their owning group is collapse active**; if the owning group is collapse-off, they stay separate rows (and fold to `{N}` when the device name repeats). When the same physical device appears through two *different* collapse-active groups, it still counts once.
+
+Two source groups, each with two entities on one device ("Balcony" in group A, "Kitchen" in group B), with different toggles:
+
+| Group A (udn / collapse) | Group B (udn / collapse) | combined `offline_entities` | combined `recently_offline` |
+|:---:|:---:|---|---|
+| on / on (active) | on / on (active) | 2 / `"Balcony, Kitchen"` | 2 / `"Balcony, Kitchen"` |
+| on / on (active) | on / off | 3 / `"Balcony, Kitchen {2}"` | 3 / `"Balcony, Kitchen {2}"` |
+| on / off | on / off | 4 / `"Balcony {2}, Kitchen {2}"` | 4 / `"Balcony {2}, Kitchen {2}"` |
+| off / off | off / off | 4 / `"Balcony Luminance, Balcony Motion, Kitchen Humidity, Kitchen Temp"` | 4 / (same, per-entity) |
+
+When the *same* entity appears in two groups with **different** config, each interpretation stays a separate row (it is not silently merged). Affected-areas sensors always dedupe by area across the whole combined view.
+
+
 ### Step 5: Battery Entity Mapping (when battery threshold > 0)
 
 If you enable battery monitoring, a confirmation step appears showing each monitored entity with its auto-detected battery sensor. You can:

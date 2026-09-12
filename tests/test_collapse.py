@@ -32,6 +32,8 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.entity_availability.combined_sensor import (
     CombinedGroupSensor,
     CombinedOfflineCountSensor,
+    CombinedOfflineEntitiesSensor,
+    CombinedRecentlyOfflineSensor,
 )
 from custom_components.entity_availability.const import (
     CONF_BAD_STATES,
@@ -51,12 +53,15 @@ from custom_components.entity_availability.helpers import (
     _tighten,
     collapse_key,
     collapse_representatives,
+    dedup_display_names,
+    render_name_list,
 )
 from custom_components.entity_availability.models import DeviceState
 from custom_components.entity_availability.sensor import (
     GroupSummarySensor,
     LowBatteryCountSensor,
     OfflineCountSensor,
+    OfflineDevicesSensor,
     RecentlyOfflineSensor,
     RecentlyRecoveredSensor,
     StaleCountSensor,
@@ -1525,3 +1530,376 @@ class TestCollapseRepresentativesSources:
         assert rep["binary_sensor.ce_out"] == "binary_sensor.ce_out"
         assert rep["binary_sensor.ce_in"] == "binary_sensor.ce_in"
         assert _row_count(rep) == 2
+
+
+class TestDedupDisplayNames:
+    """Unit tests for the {N} display-dedup + sort helper (change 3 + 4)."""
+
+    def test_distinct_names_sorted_alphabetically(self):
+        # Luminance before Motion — severity list order matches recovery order.
+        assert dedup_display_names(["Balcony Motion", "Balcony Luminance"]) == [
+            "Balcony Luminance",
+            "Balcony Motion",
+        ]
+
+    def test_identical_names_fold_to_brace_count(self):
+        assert dedup_display_names(["Balcony", "Balcony"]) == ["Balcony {2}"]
+
+    def test_triple_identical(self):
+        assert dedup_display_names(["Kitchen", "Kitchen", "Kitchen"]) == ["Kitchen {3}"]
+
+    def test_battery_suffix_kept_distinct(self):
+        # Same base name, different % — NOT folded (full display string differs).
+        assert dedup_display_names(["Balcony (10%)", "Balcony (90%)"]) == [
+            "Balcony (10%)",
+            "Balcony (90%)",
+        ]
+
+    def test_empty(self):
+        assert dedup_display_names([]) == []
+
+    def test_render_none_on_empty(self):
+        assert render_name_list([], 255) == "None"
+
+    def test_render_joins_and_dedups(self):
+        assert render_name_list(["B", "A", "A"], 255) == "A {2}, B"
+
+    def test_render_truncates(self):
+        names = [f"{i}" + "x" * 120 for i in range(5)]
+        out = render_name_list(names, 255)
+        assert out.endswith("...")
+        assert len(out) <= 255
+
+    def test_casefold_tie_is_deterministic(self):
+        # GAP 1: casefold alone would leave "abc"/"ABC" in dict/insertion order,
+        # reflapping the recorded string. The raw-string secondary key pins order:
+        # uppercase codepoints sort before lowercase, so "ABC" precedes "abc".
+        assert dedup_display_names(["abc", "ABC"]) == ["ABC", "abc"]
+        assert dedup_display_names(["abc", "ABC"]) == dedup_display_names(
+            ["ABC", "abc"]
+        )
+
+    def test_render_truncates_on_boundary_no_split_marker(self):
+        # GAP 2: three distinct 100-char names overflow 255. Truncation drops whole
+        # names on the ", " boundary — the kept text never ends mid-name and no
+        # "{N}" marker is sliced. Exercises the drop-trailing-name path.
+        names = [c * 100 for c in ("a", "b", "c")]
+        out = render_name_list(names, 255)
+        assert out.endswith("...")
+        assert len(out) <= 255
+        # only whole names kept before the sentinel; no partial name fragment.
+        kept = out[:-3].split(", ")
+        assert all(len(k) == 100 for k in kept)
+
+    def test_render_folded_marker_not_split(self):
+        # GAP 2/3: a folded "{N}" string that overflows must not truncate to a
+        # dangling "... {" / "{1". Long identical name folds to "<name> {3}";
+        # combined with a second long name it overflows and the first is dropped
+        # whole, so the surviving output never contains a broken marker.
+        long_name = "L" * 200
+        names = [long_name, long_name, long_name, "M" * 200]
+        out = render_name_list(names, 255)
+        assert len(out) <= 255
+        assert out.endswith("...")
+        assert "{" not in out or "}" in out  # never an unclosed brace
+
+    def test_render_first_name_overflows_byte_truncated(self):
+        # GAP 2: a single name longer than the whole budget can't be kept whole,
+        # so it byte-truncates with a trailing "...". Exercises the kept==[] path.
+        out = render_name_list(["Z" * 400], 255)
+        assert out.endswith("...")
+        assert len(out) == 255
+
+
+class TestSingleGroupListTable:
+    """Single-group offline_entities: the 3-row README table.
+
+    Device 'Balcony' with two entities (Motion + Luminance). use_device_names
+    OFF -> entity friendly names, two distinct rows sorted alphabetically.
+    use_device_names ON + collapse ON -> one collapsed row (device name).
+    """
+
+    def _offline_states(self):
+        return {
+            "binary_sensor.balcony_motion": DeviceState(
+                entity_id="binary_sensor.balcony_motion", is_offline=True
+            ),
+            "sensor.balcony_luminance": DeviceState(
+                entity_id="sensor.balcony_luminance", is_offline=True
+            ),
+        }
+
+    def test_udn_off_two_rows_alphabetical(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.balcony_motion", "balcony")
+        _register_entity(mock_hass, "sensor.balcony_luminance", "balcony")
+        mock_hass.states.async_set(
+            "binary_sensor.balcony_motion", "off", {"friendly_name": "Balcony Motion"}
+        )
+        mock_hass.states.async_set(
+            "sensor.balcony_luminance", "off", {"friendly_name": "Balcony Luminance"}
+        )
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=False,
+            use_device_names=False,
+            states=self._offline_states(),
+        )
+        sensor = OfflineDevicesSensor(coord, "G", "g", _REG_ENTRY_ID)
+        sensor.hass = mock_hass
+        # Luminance before Motion.
+        assert sensor.native_value == "Balcony Luminance, Balcony Motion"
+
+    def test_udn_on_collapse_on_one_row(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.balcony_motion", "balcony")
+        _register_entity(mock_hass, "sensor.balcony_luminance", "balcony")
+        # Device registry name resolves for both entities under use_device_names.
+        dev_reg = dr.async_get(mock_hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, "balcony")})
+        dev_reg.async_update_device(device.id, name_by_user="Balcony")
+        coord = _make_coordinator(
+            mock_hass,
+            collapse=True,
+            use_device_names=True,
+            states=self._offline_states(),
+        )
+        sensor = OfflineDevicesSensor(coord, "G", "g", _REG_ENTRY_ID)
+        sensor.hass = mock_hass
+        # Collapsed to one device row.
+        assert sensor.native_value == "Balcony"
+
+
+class TestCombinedRespectSettings:
+    """Combined offline_entities respects each source group's OWN collapse gate.
+
+    Change 1: a source group is collapse-active only when use_device_names AND
+    collapse_devices. A udn-ON but collapse-OFF group must NOT collapse in combined.
+    """
+
+    def test_udn_on_collapse_off_group_does_not_collapse(self, mock_hass):
+        # Two entities on one device, group udn ON but collapse OFF -> stay 2 rows,
+        # both render the device name -> "Balcony {2}".
+        _register_entity(mock_hass, "binary_sensor.b_motion", "bdev")
+        _register_entity(mock_hass, "binary_sensor.b_lux", "bdev")
+        dev_reg = dr.async_get(mock_hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, "bdev")})
+        dev_reg.async_update_device(device.id, name_by_user="Balcony")
+        states = {
+            "binary_sensor.b_motion": DeviceState(
+                entity_id="binary_sensor.b_motion", is_offline=True
+            ),
+            "binary_sensor.b_lux": DeviceState(
+                entity_id="binary_sensor.b_lux", is_offline=True
+            ),
+        }
+        coord = _make_group_coord(
+            mock_hass, "g_off", states, collapse=False, use_device_names=True
+        )
+        assert coord.collapse_active is False
+        mock_hass.data[DOMAIN] = {"g_off": coord}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="comb_off", title="Combined"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass, combined_entry, "Combined", "comb_off", ["g_off"]
+        )
+        assert count.native_value == 2
+        names = CombinedOfflineEntitiesSensor(
+            mock_hass, combined_entry, "Combined", "comb_off", ["g_off"]
+        )
+        names.hass = mock_hass
+        assert names.native_value == "Balcony {2}"
+
+    def test_udn_on_collapse_on_group_collapses(self, mock_hass):
+        # Same device, group collapse-active -> one row.
+        _register_entity(mock_hass, "binary_sensor.c_motion", "cdev")
+        _register_entity(mock_hass, "binary_sensor.c_lux", "cdev")
+        dev_reg = dr.async_get(mock_hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, "cdev")})
+        dev_reg.async_update_device(device.id, name_by_user="Balcony")
+        states = {
+            "binary_sensor.c_motion": DeviceState(
+                entity_id="binary_sensor.c_motion", is_offline=True
+            ),
+            "binary_sensor.c_lux": DeviceState(
+                entity_id="binary_sensor.c_lux", is_offline=True
+            ),
+        }
+        coord = _make_group_coord(
+            mock_hass, "g_on", states, collapse=True, use_device_names=True
+        )
+        assert coord.collapse_active is True
+        mock_hass.data[DOMAIN] = {"g_on": coord}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="comb_on", title="Combined"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass, combined_entry, "Combined", "comb_on", ["g_on"]
+        )
+        assert count.native_value == 1
+        names = CombinedOfflineEntitiesSensor(
+            mock_hass, combined_entry, "Combined", "comb_on", ["g_on"]
+        )
+        names.hass = mock_hass
+        assert names.native_value == "Balcony"
+
+    def test_udn_on_collapse_off_three_entities_fold_to_brace_three(self, mock_hass):
+        # GAP 3: three entities on one collapse-OFF (udn-on) device -> 3 rows, all
+        # render the device name -> "Balcony {3}", and count agrees at 3.
+        for eid in ("binary_sensor.t_a", "binary_sensor.t_b", "binary_sensor.t_c"):
+            _register_entity(mock_hass, eid, "tdev")
+        dev_reg = dr.async_get(mock_hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, "tdev")})
+        dev_reg.async_update_device(device.id, name_by_user="Balcony")
+        states = {
+            eid: DeviceState(entity_id=eid, is_offline=True)
+            for eid in ("binary_sensor.t_a", "binary_sensor.t_b", "binary_sensor.t_c")
+        }
+        coord = _make_group_coord(
+            mock_hass, "g_three", states, collapse=False, use_device_names=True
+        )
+        mock_hass.data[DOMAIN] = {"g_three": coord}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="comb_three", title="Combined"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass, combined_entry, "Combined", "comb_three", ["g_three"]
+        )
+        names = CombinedOfflineEntitiesSensor(
+            mock_hass, combined_entry, "Combined", "comb_three", ["g_three"]
+        )
+        names.hass = mock_hass
+        # count and marker N agree — the whole point of change 2.
+        assert count.native_value == 3
+        assert names.native_value == "Balcony {3}"
+
+    def test_recovery_matches_severity_multi_battery_device(self, mock_hass):
+        # GAP 4: one physical device, two entities with DISTINCT battery sources,
+        # collapse-ON group. Source-aware collapse keeps them 2 rows. Recovery must
+        # yield the SAME row count as offline/severity — both route through the same
+        # rep_of now, so both are 2. Guards against the old raw-device_id recovery
+        # token that would have merged them to 1 while severity kept 2.
+        _register_entity(mock_hass, "binary_sensor.mb2_a", "mb2dev")
+        _register_entity(mock_hass, "binary_sensor.mb2_b", "mb2dev")
+        dev_reg = dr.async_get(mock_hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, "mb2dev")})
+        dev_reg.async_update_device(device.id, name_by_user="MultiBat")
+        states = {
+            "binary_sensor.mb2_a": DeviceState(
+                entity_id="binary_sensor.mb2_a",
+                is_offline=True,
+                battery_source="sensor.bat_a",
+                recently_offline_at=_NOW - timedelta(minutes=1),
+            ),
+            "binary_sensor.mb2_b": DeviceState(
+                entity_id="binary_sensor.mb2_b",
+                is_offline=True,
+                battery_source="sensor.bat_b",
+                recently_offline_at=_NOW - timedelta(minutes=1),
+            ),
+        }
+        coord = _make_group_coord(
+            mock_hass, "g_mb2", states, collapse=True, use_device_names=True
+        )
+        assert coord.collapse_active is True
+        mock_hass.data[DOMAIN] = {"g_mb2": coord}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="comb_mb2", title="Combined"
+        )
+        offline_count = CombinedOfflineCountSensor(
+            mock_hass, combined_entry, "Combined", "comb_mb2", ["g_mb2"]
+        ).native_value
+        recovery = CombinedRecentlyOfflineSensor(
+            mock_hass, combined_entry, "Combined", "comb_mb2", ["g_mb2"]
+        )
+        recovery.hass = mock_hass
+        with patch(
+            "custom_components.entity_availability.combined_sensor.datetime"
+        ) as mock_dt:
+            mock_dt.now.return_value = _NOW
+            recovery_count = recovery.extra_state_attributes["count"]
+        # Source-aware split: both paths agree at 2 rows.
+        assert offline_count == 2
+        assert recovery_count == 2
+
+    def test_recovery_two_entities_split_across_on_off_groups(self, mock_hass):
+        # GAP 5: two DISTINCT entities on ONE device, split so entity1 is in a
+        # collapse-ON group and entity2 in a collapse-OFF group. entity2 is not
+        # collapsible (its group is collapse-off) so it never merges; entity1 has no
+        # same-device sibling within a collapse-active group. Result: 2 rows.
+        _register_entity(mock_hass, "binary_sensor.sp_on", "spdev")
+        _register_entity(mock_hass, "binary_sensor.sp_off", "spdev")
+        dev_reg = dr.async_get(mock_hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, "spdev")})
+        dev_reg.async_update_device(device.id, name_by_user="Split")
+        coord_on = _make_group_coord(
+            mock_hass,
+            "g_sp_on",
+            {
+                "binary_sensor.sp_on": DeviceState(
+                    entity_id="binary_sensor.sp_on",
+                    is_offline=True,
+                    recently_offline_at=_NOW - timedelta(minutes=1),
+                )
+            },
+            collapse=True,
+            use_device_names=True,
+        )
+        coord_off = _make_group_coord(
+            mock_hass,
+            "g_sp_off",
+            {
+                "binary_sensor.sp_off": DeviceState(
+                    entity_id="binary_sensor.sp_off",
+                    is_offline=True,
+                    recently_offline_at=_NOW - timedelta(minutes=1),
+                )
+            },
+            collapse=False,
+            use_device_names=True,
+        )
+        mock_hass.data[DOMAIN] = {"g_sp_on": coord_on, "g_sp_off": coord_off}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="comb_sp", title="Combined"
+        )
+        offline_count = CombinedOfflineCountSensor(
+            mock_hass, combined_entry, "Combined", "comb_sp", ["g_sp_on", "g_sp_off"]
+        ).native_value
+        recovery = CombinedRecentlyOfflineSensor(
+            mock_hass, combined_entry, "Combined", "comb_sp", ["g_sp_on", "g_sp_off"]
+        )
+        recovery.hass = mock_hass
+        with patch(
+            "custom_components.entity_availability.combined_sensor.datetime"
+        ) as mock_dt:
+            mock_dt.now.return_value = _NOW
+            recovery_count = recovery.extra_state_attributes["count"]
+        # collapse-OFF group's entity stays its own row; recovery agrees with offline.
+        assert offline_count == 2
+        assert recovery_count == 2
+
+    def test_device_less_same_name_fold_to_brace_two(self, mock_hass):
+        # GAP 6: two device-less entities sharing an identical friendly_name fold to
+        # "{2}" at the sensor level (not just the unit helper). Device-less entities
+        # map to themselves in rep_of, so they stay 2 rows, then render-fold.
+        mock_hass.states.async_set("sensor.dl_a", "off", {"friendly_name": "Orphan"})
+        mock_hass.states.async_set("sensor.dl_b", "off", {"friendly_name": "Orphan"})
+        states = {
+            "sensor.dl_a": DeviceState(entity_id="sensor.dl_a", is_offline=True),
+            "sensor.dl_b": DeviceState(entity_id="sensor.dl_b", is_offline=True),
+        }
+        coord = _make_group_coord(
+            mock_hass, "g_dl", states, collapse=False, use_device_names=False
+        )
+        mock_hass.data[DOMAIN] = {"g_dl": coord}
+        combined_entry = MockConfigEntry(
+            domain=DOMAIN, entry_id="comb_dl", title="Combined"
+        )
+        count = CombinedOfflineCountSensor(
+            mock_hass, combined_entry, "Combined", "comb_dl", ["g_dl"]
+        )
+        names = CombinedOfflineEntitiesSensor(
+            mock_hass, combined_entry, "Combined", "comb_dl", ["g_dl"]
+        )
+        names.hass = mock_hass
+        assert count.native_value == 2
+        assert names.native_value == "Orphan {2}"

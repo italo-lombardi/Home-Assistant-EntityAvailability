@@ -3276,7 +3276,9 @@ class TestNonEssentialAndStaleSensors:
             d.is_non_essential = True
             d.is_low_battery = True
             d.battery_level = 5
-            mock_hass.states.async_set(eid, "on", {"friendly_name": "X" * 120})
+            mock_hass.states.async_set(
+                eid, "on", {"friendly_name": f"X{i}" + "x" * 120}
+            )
         sensor = NonEssentialLowBatterySensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
@@ -3323,12 +3325,14 @@ class TestNonEssentialAndStaleSensors:
         self, mock_coordinator, mock_hass
     ):
         """NonEssentialStaleEntitiesSensor truncates long lists."""
-        for eid in list(mock_coordinator.device_states):
+        for i, eid in enumerate(list(mock_coordinator.device_states)):
             d = mock_coordinator.device_states[eid]
             d.is_non_essential = True
             d.is_stale = True
             d.is_offline = False
-            mock_hass.states.async_set(eid, "on", {"friendly_name": "Y" * 120})
+            mock_hass.states.async_set(
+                eid, "on", {"friendly_name": f"Y{i}" + "y" * 120}
+            )
         sensor = NonEssentialStaleEntitiesSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
@@ -3382,11 +3386,13 @@ class TestNonEssentialAndStaleSensors:
 
     def test_stale_entities_sensor_truncates(self, mock_coordinator, mock_hass):
         """StaleEntitiesSensor truncates long lists."""
-        for eid in list(mock_coordinator.device_states):
+        for i, eid in enumerate(list(mock_coordinator.device_states)):
             d = mock_coordinator.device_states[eid]
             d.is_stale = True
             d.is_offline = False
-            mock_hass.states.async_set(eid, "on", {"friendly_name": "Z" * 120})
+            mock_hass.states.async_set(
+                eid, "on", {"friendly_name": f"Z{i}" + "z" * 120}
+            )
         sensor = StaleEntitiesSensor(
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
