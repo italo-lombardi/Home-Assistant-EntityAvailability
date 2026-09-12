@@ -2,9 +2,19 @@
 
 Collapse merges multiple entities of the same physical device into one across
 every count/list/event, gated on both collapse_devices AND use_device_names.
-The composite key is device_id::name::battery::signal::unit::non_essential, so
-entities that differ on any of those never merge (matching the old card behavior).
-Availability/MTBF/MTTR and area sensors are intentionally NOT collapsed.
+
+Collapse is SOURCE-based, not value-based. The coarse bucket key is
+``device_id::non_essential`` (see ``collapse_key``); within a bucket entities
+merge by the compatibility of their ``(battery_source, signal_source)`` pairs —
+i.e. WHICH battery/signal SENSOR feeds each entity, not the live reading. Per
+axis two entities are compatible when the sources are equal OR at least one is
+None (None = wildcard, merges). Two DISTINCT concrete sources on one axis (e.g.
+two different battery sensors on one device) conflict and never merge. A merged
+cluster's representative TIGHTENS (a meet): it absorbs a member's concrete source
+on any axis it left None, so a both-None sibling can join a bound cluster via a
+real concrete match rather than a wildcard bridge, deterministically and
+independent of insertion order. Availability/MTBF/MTTR and area sensors are
+intentionally NOT collapsed.
 """
 
 from __future__ import annotations
@@ -36,7 +46,12 @@ from custom_components.entity_availability.const import (
 from custom_components.entity_availability.coordinator import (
     EntityAvailabilityCoordinator,
 )
-from custom_components.entity_availability.helpers import collapse_key
+from custom_components.entity_availability.helpers import (
+    _sources_compatible,
+    _tighten,
+    collapse_key,
+    collapse_representatives,
+)
 from custom_components.entity_availability.models import DeviceState
 from custom_components.entity_availability.sensor import (
     GroupSummarySensor,
@@ -383,15 +398,22 @@ class TestNoDeviceId:
 
 
 class TestDifferentBatteryNoCollapse:
-    def test_same_device_different_battery_stays_separate(self, mock_hass):
+    def test_same_device_distinct_battery_source_stays_separate(self, mock_hass):
+        # Two DISTINCT concrete battery sources on one device conflict on the battery
+        # axis -> never merge -> 2 rows. (Value-based splitting is gone; provenance
+        # is what splits now.)
         _register_entity(mock_hass, "binary_sensor.bat_a", "batdev")
         _register_entity(mock_hass, "binary_sensor.bat_b", "batdev")
         states = {
             "binary_sensor.bat_a": DeviceState(
-                entity_id="binary_sensor.bat_a", is_offline=True, battery_level=10
+                entity_id="binary_sensor.bat_a",
+                is_offline=True,
+                battery_source="sensor.bat_a",
             ),
             "binary_sensor.bat_b": DeviceState(
-                entity_id="binary_sensor.bat_b", is_offline=True, battery_level=90
+                entity_id="binary_sensor.bat_b",
+                is_offline=True,
+                battery_source="sensor.bat_b",
             ),
         }
         coord = _make_coordinator(
@@ -399,8 +421,54 @@ class TestDifferentBatteryNoCollapse:
         )
         sensor = OfflineCountSensor(coord, "G", "g", "collapse_test_entry")
         sensor.hass = mock_hass
-        # Different battery levels -> different key -> no merge.
+        # Distinct battery sources -> conflict on battery axis -> no merge.
         assert sensor.native_value == 2
+
+    def test_same_device_same_battery_source_merges(self, mock_hass):
+        # Same concrete battery source on both -> compatible -> one row.
+        _register_entity(mock_hass, "binary_sensor.sb_a", "sbdev")
+        _register_entity(mock_hass, "binary_sensor.sb_b", "sbdev")
+        states = {
+            "binary_sensor.sb_a": DeviceState(
+                entity_id="binary_sensor.sb_a",
+                is_offline=True,
+                battery_source="sensor.shared_bat",
+            ),
+            "binary_sensor.sb_b": DeviceState(
+                entity_id="binary_sensor.sb_b",
+                is_offline=True,
+                battery_source="sensor.shared_bat",
+            ),
+        }
+        coord = _make_coordinator(
+            mock_hass, collapse=True, use_device_names=True, states=states
+        )
+        sensor = OfflineCountSensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        assert sensor.native_value == 1
+
+    def test_same_device_one_battery_source_none_merges(self, mock_hass):
+        # One concrete battery source + one None (wildcard) -> compatible -> one row.
+        _register_entity(mock_hass, "binary_sensor.wb_a", "wbdev")
+        _register_entity(mock_hass, "binary_sensor.wb_b", "wbdev")
+        states = {
+            "binary_sensor.wb_a": DeviceState(
+                entity_id="binary_sensor.wb_a",
+                is_offline=True,
+                battery_source="sensor.wb_bat",
+            ),
+            "binary_sensor.wb_b": DeviceState(
+                entity_id="binary_sensor.wb_b",
+                is_offline=True,
+                battery_source=None,
+            ),
+        }
+        coord = _make_coordinator(
+            mock_hass, collapse=True, use_device_names=True, states=states
+        )
+        sensor = OfflineCountSensor(coord, "G", "g", "collapse_test_entry")
+        sensor.hass = mock_hass
+        assert sensor.native_value == 1
 
 
 class TestNonEssentialSeparation:
@@ -1114,21 +1182,51 @@ class TestEventFirePayload:
             assert e.data["offline_count"] == 1
 
 
-class TestCollapseKeyStableNumerics:
-    def test_nan_battery_coerced_to_none_in_key(self, mock_hass):
-        # A flaky sensor emitting NaN must not produce a wobbly key: NaN coerces to
-        # None so the entity keys the same as a genuine None-battery sibling.
-        _register_entity(mock_hass, "binary_sensor.nan_bat", "nandev")
-        d_nan = DeviceState(
-            entity_id="binary_sensor.nan_bat", battery_level=float("nan")
+class TestCollapseKeyShape:
+    """collapse_key is the coarse device_id::non_essential bucket (source-based
+    merge decided later by the meet); it deliberately omits live values/sources."""
+
+    def test_key_is_device_id_and_non_essential(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.k_ess", "kdev")
+        _register_entity(mock_hass, "binary_sensor.k_ne", "kdev")
+        d_ess = DeviceState(entity_id="binary_sensor.k_ess", is_non_essential=False)
+        d_ne = DeviceState(entity_id="binary_sensor.k_ne", is_non_essential=True)
+        key_ess = collapse_key(mock_hass, d_ess)
+        key_ne = collapse_key(mock_hass, d_ne)
+        # Two parts only: <device_id>::<non_essential>.
+        assert key_ess.endswith("::False")
+        assert key_ne.endswith("::True")
+        # Same device, different tier -> different key (never merge across tiers).
+        assert key_ess.split("::")[0] == key_ne.split("::")[0]
+        assert key_ess != key_ne
+
+    def test_key_ignores_battery_and_signal_values(self, mock_hass):
+        # Live battery/signal values must NOT enter the key (no wobble-driven churn).
+        _register_entity(mock_hass, "binary_sensor.k_v1", "kvdev")
+        _register_entity(mock_hass, "binary_sensor.k_v2", "kvdev")
+        d1 = DeviceState(
+            entity_id="binary_sensor.k_v1", battery_level=10, signal_level=-70
         )
-        _register_entity(mock_hass, "binary_sensor.none_bat", "nandev")
-        d_none = DeviceState(entity_id="binary_sensor.none_bat", battery_level=None)
-        key_nan = collapse_key(mock_hass, d_nan)
-        key_none = collapse_key(mock_hass, d_none)
-        # Both resolve the NaN/None battery to the same "None" key segment.
-        assert "::None::" in key_nan
-        assert key_nan.split("::")[2] == key_none.split("::")[2]
+        d2 = DeviceState(
+            entity_id="binary_sensor.k_v2", battery_level=90, signal_level=-40
+        )
+        # Different values, same device+tier -> identical bucket key.
+        assert collapse_key(mock_hass, d1).endswith("::False")
+        assert (
+            collapse_key(mock_hass, d1).split("::")[0]
+            == collapse_key(mock_hass, d2).split("::")[0]
+        )
+
+    def test_key_none_when_no_device(self, mock_hass):
+        # Device-less entity -> None (never collapses, own row/count).
+        _register_entity(mock_hass, "binary_sensor.k_nodev", None)
+        d = DeviceState(entity_id="binary_sensor.k_nodev")
+        assert collapse_key(mock_hass, d) is None
+
+    def test_key_none_when_not_registered(self, mock_hass):
+        # Entity not in the registry -> no entry -> None.
+        d = DeviceState(entity_id="binary_sensor.k_unregistered")
+        assert collapse_key(mock_hass, d) is None
 
 
 _NOW = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -1252,3 +1350,178 @@ class TestRecentlyRecoveredCollapse:
             sensor._refresh_cache()
             attrs = sensor.extra_state_attributes
         assert attrs["count"] == 1
+
+
+class TestSourcesCompatible:
+    """_sources_compatible: per-axis equal or wildcard-None; distinct concrete conflict."""
+
+    def test_both_none_compatible(self):
+        assert _sources_compatible((None, None), (None, None)) is True
+
+    def test_equal_concrete_compatible(self):
+        assert _sources_compatible(("bat", "rssi"), ("bat", "rssi")) is True
+
+    def test_wildcard_one_none_compatible(self):
+        assert _sources_compatible(("bat", None), (None, "rssi")) is True
+        assert _sources_compatible((None, "rssi"), ("bat", "rssi")) is True
+
+    def test_distinct_concrete_battery_conflicts(self):
+        assert _sources_compatible(("bat_a", None), ("bat_b", None)) is False
+
+    def test_distinct_concrete_signal_conflicts(self):
+        assert _sources_compatible((None, "rssi_a"), (None, "rssi_b")) is False
+
+
+class TestTighten:
+    """_tighten: rep absorbs a member's concrete source on axes it left None (meet)."""
+
+    def test_none_axis_absorbs_concrete(self):
+        assert _tighten(("bat_a", None), (None, "rssi")) == ("bat_a", "rssi")
+
+    def test_concrete_axis_is_kept(self):
+        # Rep's concrete source is never overwritten by a member's other concrete.
+        assert _tighten(("bat_a", "rssi"), ("bat_b", "rssi")) == ("bat_a", "rssi")
+
+    def test_idempotent_and_wildcard_member(self):
+        assert _tighten(("bat_a", "rssi"), (None, None)) == ("bat_a", "rssi")
+
+
+def _src_states(
+    entity_ids_to_src: dict[str, tuple[str | None, str | None]],
+) -> dict[str, DeviceState]:
+    """Build a states dict from {entity_id: (battery_source, signal_source)}."""
+    return {
+        eid: DeviceState(entity_id=eid, battery_source=bs, signal_source=ss)
+        for eid, (bs, ss) in entity_ids_to_src.items()
+    }
+
+
+def _row_count(rep_of: dict[str, str]) -> int:
+    """Number of distinct rows (representatives)."""
+    return len(set(rep_of.values()))
+
+
+class TestCollapseRepresentativesSources:
+    """collapse_representatives merges by (battery_source, signal_source) within a bucket."""
+
+    def test_same_both_sources_one_row(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.cs_a", "csdev")
+        _register_entity(mock_hass, "binary_sensor.cs_b", "csdev")
+        states = _src_states(
+            {
+                "binary_sensor.cs_a": ("sensor.bat", "sensor.rssi"),
+                "binary_sensor.cs_b": ("sensor.bat", "sensor.rssi"),
+            }
+        )
+        rep = collapse_representatives(mock_hass, states)
+        assert _row_count(rep) == 1
+
+    def test_distinct_battery_same_signal_splits(self, mock_hass):
+        # Multi-battery device: distinct battery sources split EVEN IF signal matches.
+        _register_entity(mock_hass, "binary_sensor.mb_a", "mbdev")
+        _register_entity(mock_hass, "binary_sensor.mb_b", "mbdev")
+        states = _src_states(
+            {
+                "binary_sensor.mb_a": ("sensor.bat_a", "sensor.rssi"),
+                "binary_sensor.mb_b": ("sensor.bat_b", "sensor.rssi"),
+            }
+        )
+        rep = collapse_representatives(mock_hass, states)
+        assert _row_count(rep) == 2
+
+    def test_distinct_signal_same_battery_splits(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.ms_a", "msdev")
+        _register_entity(mock_hass, "binary_sensor.ms_b", "msdev")
+        states = _src_states(
+            {
+                "binary_sensor.ms_a": ("sensor.bat", "sensor.rssi_a"),
+                "binary_sensor.ms_b": ("sensor.bat", "sensor.rssi_b"),
+            }
+        )
+        rep = collapse_representatives(mock_hass, states)
+        assert _row_count(rep) == 2
+
+    def test_none_battery_merges_with_concrete_sibling(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.wc_a", "wcdev")
+        _register_entity(mock_hass, "binary_sensor.wc_b", "wcdev")
+        states = _src_states(
+            {
+                "binary_sensor.wc_a": ("sensor.bat", None),
+                "binary_sensor.wc_b": (None, None),
+            }
+        )
+        rep = collapse_representatives(mock_hass, states)
+        assert _row_count(rep) == 1
+
+    def test_meet_three_members_merge_order_independent(self, mock_hass):
+        # A=(bat_a, None), B=(None, rssi), C=(bat_a, rssi) on one device.
+        # C tightens the rep to (bat_a, rssi); B joins on rssi==rssi; A on bat_a==bat_a.
+        # All 3 collapse to ONE row regardless of insertion order.
+        _register_entity(mock_hass, "binary_sensor.meet_a", "meetdev")
+        _register_entity(mock_hass, "binary_sensor.meet_b", "meetdev")
+        _register_entity(mock_hass, "binary_sensor.meet_c", "meetdev")
+        src = {
+            "binary_sensor.meet_a": ("sensor.bat_a", None),
+            "binary_sensor.meet_b": (None, "sensor.rssi"),
+            "binary_sensor.meet_c": ("sensor.bat_a", "sensor.rssi"),
+        }
+        orders = [
+            ["binary_sensor.meet_a", "binary_sensor.meet_b", "binary_sensor.meet_c"],
+            ["binary_sensor.meet_c", "binary_sensor.meet_b", "binary_sensor.meet_a"],
+            ["binary_sensor.meet_b", "binary_sensor.meet_a", "binary_sensor.meet_c"],
+        ]
+        for order in orders:
+            states = _src_states({eid: src[eid] for eid in order})
+            rep = collapse_representatives(mock_hass, states)
+            assert _row_count(rep) == 1, f"order {order} did not merge to 1 row"
+
+    def test_conflict_determinism_stable_row_identity(self, mock_hass):
+        # A=(bat_a, None), B=(bat_b, None), C=(None, rssi) on one device.
+        # A and B conflict on battery -> 2 rows always. C is a wildcard on battery;
+        # it must attach to the SAME cluster (same standalone rep) across orders.
+        _register_entity(mock_hass, "binary_sensor.cf_a", "cfdev")
+        _register_entity(mock_hass, "binary_sensor.cf_b", "cfdev")
+        _register_entity(mock_hass, "binary_sensor.cf_c", "cfdev")
+        src = {
+            "binary_sensor.cf_a": ("sensor.bat_a", None),
+            "binary_sensor.cf_b": ("sensor.bat_b", None),
+            "binary_sensor.cf_c": (None, "sensor.rssi"),
+        }
+        orders = [
+            ["binary_sensor.cf_a", "binary_sensor.cf_b", "binary_sensor.cf_c"],
+            ["binary_sensor.cf_c", "binary_sensor.cf_b", "binary_sensor.cf_a"],
+            ["binary_sensor.cf_b", "binary_sensor.cf_c", "binary_sensor.cf_a"],
+        ]
+        results = []
+        for order in orders:
+            states = _src_states({eid: src[eid] for eid in order})
+            rep = collapse_representatives(mock_hass, states)
+            assert _row_count(rep) == 2, f"order {order} not 2 rows"
+            results.append(rep["binary_sensor.cf_c"])
+        # C attaches to the SAME representative across every insertion order.
+        assert len(set(results)) == 1, f"C's row identity drifted: {results}"
+
+    def test_device_less_entity_maps_to_itself(self, mock_hass):
+        _register_entity(mock_hass, "binary_sensor.dl_x", None)
+        states = _src_states({"binary_sensor.dl_x": ("sensor.bat", "sensor.rssi")})
+        rep = collapse_representatives(mock_hass, states)
+        assert rep == {"binary_sensor.dl_x": "binary_sensor.dl_x"}
+
+    def test_collapsible_excludes_entity_from_merge(self, mock_hass):
+        # A collapsible sibling and a NON-collapsible sibling on one device: the
+        # excluded one stays its own row even though sources are compatible.
+        _register_entity(mock_hass, "binary_sensor.ce_in", "cedev")
+        _register_entity(mock_hass, "binary_sensor.ce_out", "cedev")
+        states = _src_states(
+            {
+                "binary_sensor.ce_in": ("sensor.bat", None),
+                "binary_sensor.ce_out": ("sensor.bat", None),
+            }
+        )
+        rep = collapse_representatives(
+            mock_hass, states, collapsible={"binary_sensor.ce_in"}
+        )
+        # ce_out excluded -> its own row; ce_in -> its own row (nothing to merge with).
+        assert rep["binary_sensor.ce_out"] == "binary_sensor.ce_out"
+        assert rep["binary_sensor.ce_in"] == "binary_sensor.ce_in"
+        assert _row_count(rep) == 2

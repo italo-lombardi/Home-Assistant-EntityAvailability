@@ -5291,6 +5291,46 @@ async def test_classify_signal_poor(
     assert coord._classify_signal("binary_sensor.device_a", -90) == "poor"
 
 
+async def test_classify_signal_poor_hysteresis(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """A 'poor' entity resting near the poor/ok boundary stays poor (de-jitter)."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+        SIGNAL_HYSTERESIS,
+    )
+
+    data = dict(mock_config_entry.data)
+    data[CONF_SIGNAL_ENABLED] = True
+    data[CONF_SIGNAL_ENTITY_MAP] = {
+        "binary_sensor.device_a": {"sensor": "sensor.x", "network_type": "wifi"}
+    }
+    mock_config_entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+
+    # wifi: ok=-80. -80 alone is 'ok', but a level in the hysteresis band above
+    # the boundary must stay 'poor' when the entity was already poor.
+    assert coord._classify_signal("binary_sensor.device_a", -80) == "ok"
+    assert coord._classify_signal("binary_sensor.device_a", -80, prev="poor") == "poor"
+    # Must clear the boundary by SIGNAL_HYSTERESIS to leave 'poor'.
+    clear = -80 + SIGNAL_HYSTERESIS
+    assert coord._classify_signal("binary_sensor.device_a", clear, prev="poor") == "ok"
+    # A prev='poor' entity that reaches 'good' is unaffected by the band.
+    assert coord._classify_signal("binary_sensor.device_a", -45, prev="poor") == "good"
+
+
 async def test_classify_signal_zwave_thresholds(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
@@ -5947,3 +5987,521 @@ def test_setup_state_listeners_includes_signal_sensors(
     assert "sensor.b_rssi" in tracked_ids
     # Original entities still tracked
     assert "binary_sensor.device_a" in tracked_ids
+
+
+# ---------------------------------------------------------------------------
+# Collapse provenance: _get_battery_source / _get_signal_source / _signal_unit_of
+# ---------------------------------------------------------------------------
+
+
+def _source_coord(hass, mock_config_data, entry_id, extra):
+    """Build a coordinator with mock_config_data merged with `extra` overrides."""
+    data = dict(mock_config_data)
+    data.update(extra)
+    entry = MockConfigEntry(
+        version=1, domain=DOMAIN, title="Test Group", data=data, entry_id=entry_id
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        return EntityAvailabilityCoordinator(hass, entry)
+
+
+def test_get_battery_source_own_state_device_class(mock_hass, mock_config_data):
+    """Own state device_class=battery (auto-detect) -> returns its own entity_id."""
+    mock_hass.states.async_set("sensor.own_bat", "55", {"device_class": "battery"})
+    coord = _source_coord(mock_hass, mock_config_data, "bs_own", {})
+    assert coord._get_battery_source("sensor.own_bat") == "sensor.own_bat"
+
+
+def test_get_battery_source_explicit_map(mock_hass, mock_config_data):
+    """Explicit battery map -> the mapped sensor id."""
+    from custom_components.entity_availability.const import CONF_BATTERY_ENTITY_MAP
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "bs_map",
+        {CONF_BATTERY_ENTITY_MAP: {"binary_sensor.device_a": "sensor.mapped_bat"}},
+    )
+    assert coord._get_battery_source("binary_sensor.device_a") == "sensor.mapped_bat"
+
+
+def test_get_battery_source_empty_map_value_is_none(mock_hass, mock_config_data):
+    """A falsy (empty-string) map value -> None (no known source)."""
+    from custom_components.entity_availability.const import CONF_BATTERY_ENTITY_MAP
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "bs_empty",
+        {CONF_BATTERY_ENTITY_MAP: {"binary_sensor.device_a": ""}},
+    )
+    assert coord._get_battery_source("binary_sensor.device_a") is None
+
+
+def test_get_battery_source_not_in_map_is_none(mock_hass, mock_config_data):
+    """Entity absent from a non-empty map and no own battery state -> None."""
+    from custom_components.entity_availability.const import CONF_BATTERY_ENTITY_MAP
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "bs_absent",
+        {CONF_BATTERY_ENTITY_MAP: {"binary_sensor.other": "sensor.other_bat"}},
+    )
+    assert coord._get_battery_source("binary_sensor.device_a") is None
+
+
+def test_get_battery_source_own_attribute(mock_hass, mock_config_data):
+    """Entity carrying a battery_level ATTRIBUTE (not device_class) -> its own id.
+
+    Mirrors _get_battery_level's attribute branch. Without this, two attribute-battery
+    entities on one device both read None and wrongly merge into one row.
+    """
+    mock_hass.states.async_set("sensor.attr_a", "on", {"battery_level": 40})
+    mock_hass.states.async_set("sensor.attr_b", "on", {"battery": 12})
+    coord = _source_coord(mock_hass, mock_config_data, "bs_attr", {})
+    assert coord._get_battery_source("sensor.attr_a") == "sensor.attr_a"
+    assert coord._get_battery_source("sensor.attr_b") == "sensor.attr_b"
+
+
+def test_get_battery_source_device_class_unavailable_is_sticky(
+    mock_hass, mock_config_data
+):
+    """A device_class=battery entity blipping unavailable still reports its own id.
+
+    Provenance must not gate on live availability (unlike the value path) — a source
+    flipping to None mid-blip would wildcard-merge the row and flap its identity.
+    """
+    mock_hass.states.async_set(
+        "sensor.own_bat", "unavailable", {"device_class": "battery"}
+    )
+    coord = _source_coord(mock_hass, mock_config_data, "bs_blip", {})
+    assert coord._get_battery_source("sensor.own_bat") == "sensor.own_bat"
+
+
+def test_get_battery_source_registry_sibling(mock_hass, mock_config_data):
+    """A device_class=battery sibling on the same device -> that sibling's id."""
+    mock_self = MagicMock()
+    mock_self.entity_id = "binary_sensor.device_a"
+    mock_self.original_device_class = None
+    mock_self.device_class = None
+    mock_sib = MagicMock()
+    mock_sib.entity_id = "sensor.device_a_battery_level"
+    mock_sib.original_device_class = "battery"
+    mock_sib.device_class = "battery"
+    mock_reg_entry = MagicMock()
+    mock_reg_entry.device_id = "dev_a"
+
+    coord = _source_coord(mock_hass, mock_config_data, "bs_sibling", {})
+    with (
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_get"
+        ) as mock_er,
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_entries_for_device"
+        ) as mock_entries,
+    ):
+        mock_ent_reg = MagicMock()
+        mock_ent_reg.async_get.return_value = mock_reg_entry
+        mock_er.return_value = mock_ent_reg
+        mock_entries.return_value = [mock_self, mock_sib]
+        # No own state, not in map, no attribute -> falls through to the sibling.
+        assert (
+            coord._get_battery_source("binary_sensor.device_a")
+            == "sensor.device_a_battery_level"
+        )
+
+
+def test_get_battery_source_guessed_naming_convention(mock_hass, mock_config_data):
+    """No map/attr/sibling but a `sensor.<slug>_battery` exists -> the guessed id."""
+    mock_hass.states.async_set("sensor.thing_battery", "80")
+    coord = _source_coord(mock_hass, mock_config_data, "bs_guess", {})
+    with (
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_get"
+        ) as mock_er,
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_entries_for_device"
+        ) as mock_entries,
+    ):
+        mock_ent_reg = MagicMock()
+        mock_ent_reg.async_get.return_value = None  # no registry entry -> no sibling
+        mock_er.return_value = mock_ent_reg
+        mock_entries.return_value = []
+        assert coord._get_battery_source("sensor.thing") == "sensor.thing_battery"
+
+
+def test_get_battery_source_all_branches_exhausted_is_none(mock_hass, mock_config_data):
+    """No own state, no map, no attribute, no sibling, no guessed entity -> None."""
+    coord = _source_coord(mock_hass, mock_config_data, "bs_none", {})
+    with (
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_get"
+        ) as mock_er,
+    ):
+        mock_ent_reg = MagicMock()
+        mock_ent_reg.async_get.return_value = None
+        mock_er.return_value = mock_ent_reg
+        assert coord._get_battery_source("sensor.nothing") is None
+
+
+async def test_battery_level_zero_attribute_returns_own_not_sibling(
+    mock_hass: HomeAssistant, mock_config_data
+) -> None:
+    """A real 0% attribute reading must win over a sibling — not fall through.
+
+    `battery_level: 0` is falsy; the value path uses `is not None`, so a dead battery
+    reports its own 0 rather than silently reading a device_class sibling at a healthy
+    level. Regression guard for the `or`->`is not None` fix.
+    """
+    hass = mock_hass
+    hass.states.async_set(
+        "binary_sensor.device_a",
+        STATE_ON,
+        {"friendly_name": "Device A", "battery_level": 0},
+    )
+    coord = _source_coord(mock_hass, mock_config_data, "bs_zero", {})
+    with patch.object(
+        coord, "_battery_sibling_of", return_value="sensor.device_a_battery"
+    ) as mock_sib:
+        assert coord._get_battery_level("binary_sensor.device_a") == 0
+        # 0 is a real level from the attribute branch -> sibling lookup never reached.
+        mock_sib.assert_not_called()
+
+
+def test_battery_sibling_of_require_usable_skips_unusable_first(
+    mock_hass, mock_config_data
+):
+    """require_usable_state=True skips a sibling with no usable state, returns the next.
+
+    Value path (_get_battery_from_device_registry) uses this: a first battery sibling
+    that is unavailable must be skipped so the level comes from the next usable sibling.
+    """
+    mock_hass.states.async_set("sensor.bat_down", "unavailable")
+    mock_hass.states.async_set("sensor.bat_up", "77")
+    mock_self = MagicMock()
+    mock_self.entity_id = "binary_sensor.device_a"
+    mock_self.original_device_class = None
+    mock_self.device_class = None
+    mock_down = MagicMock()
+    mock_down.entity_id = "sensor.bat_down"
+    mock_down.original_device_class = "battery"
+    mock_down.device_class = "battery"
+    mock_up = MagicMock()
+    mock_up.entity_id = "sensor.bat_up"
+    mock_up.original_device_class = "battery"
+    mock_up.device_class = "battery"
+    mock_reg_entry = MagicMock()
+    mock_reg_entry.device_id = "dev_a"
+
+    coord = _source_coord(mock_hass, mock_config_data, "bs_skip", {})
+    with (
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_get"
+        ) as mock_er,
+        patch(
+            "custom_components.entity_availability.coordinator.er.async_entries_for_device"
+        ) as mock_entries,
+    ):
+        mock_ent_reg = MagicMock()
+        mock_ent_reg.async_get.return_value = mock_reg_entry
+        mock_er.return_value = mock_ent_reg
+        mock_entries.return_value = [mock_self, mock_down, mock_up]
+        # Usable-gated: skips the unavailable first sibling, returns the live one.
+        assert (
+            coord._battery_sibling_of(
+                "binary_sensor.device_a", require_usable_state=True
+            )
+            == "sensor.bat_up"
+        )
+        # Value path resolves the level from that usable sibling.
+        assert coord._get_battery_from_device_registry("binary_sensor.device_a") == 77
+        # Provenance (blind) names the FIRST sibling, usable or not — sticky.
+        assert coord._battery_sibling_of("binary_sensor.device_a") == "sensor.bat_down"
+
+
+async def test_battery_source_none_when_threshold_zero(mock_hass, mock_config_data):
+    """battery_threshold==0 -> the build loop leaves battery_source None."""
+    from custom_components.entity_availability.const import (
+        CONF_BATTERY_ENTITY_MAP,
+        CONF_BATTERY_THRESHOLD,
+    )
+
+    mock_hass.states.async_set("sensor.own_bat2", "55", {"device_class": "battery"})
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "bs_thresh0",
+        {
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_ENTITIES: ["sensor.own_bat2"],
+            CONF_BATTERY_ENTITY_MAP: {"sensor.own_bat2": "sensor.mapped_bat"},
+        },
+    )
+    coord._last_update = None
+    await coord._async_update_data()
+    # Even though _get_battery_source WOULD return a source, threshold 0 forces None.
+    assert coord.device_states["sensor.own_bat2"].battery_source is None
+
+
+def test_get_signal_source_disabled_is_none(mock_hass, mock_config_data):
+    """Signal disabled -> None."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "ss_disabled",
+        {
+            CONF_SIGNAL_ENABLED: False,
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.device_a": {"sensor": "sensor.rssi"}
+            },
+        },
+    )
+    assert coord._get_signal_source("binary_sensor.device_a") is None
+
+
+def test_get_signal_source_no_mapping_is_none(mock_hass, mock_config_data):
+    """Signal enabled but entity has no mapping -> None."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "ss_nomap",
+        {CONF_SIGNAL_ENABLED: True, CONF_SIGNAL_ENTITY_MAP: {}},
+    )
+    assert coord._get_signal_source("binary_sensor.device_a") is None
+
+
+def test_get_signal_source_empty_sensor_is_none(mock_hass, mock_config_data):
+    """Mapping present but sensor field empty -> None."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "ss_emptysensor",
+        {
+            CONF_SIGNAL_ENABLED: True,
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.device_a": {"sensor": "", "network_type": "wifi"}
+            },
+        },
+    )
+    assert coord._get_signal_source("binary_sensor.device_a") is None
+
+
+def test_get_signal_source_mapped(mock_hass, mock_config_data):
+    """Mapped sensor -> its id."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "ss_mapped",
+        {
+            CONF_SIGNAL_ENABLED: True,
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.device_a": {
+                    "sensor": "sensor.a_rssi",
+                    "network_type": "wifi",
+                }
+            },
+        },
+    )
+    assert coord._get_signal_source("binary_sensor.device_a") == "sensor.a_rssi"
+
+
+def test_signal_unit_disabled_is_none(mock_hass, mock_config_data):
+    """_signal_unit_of returns None when signal disabled."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "su_disabled",
+        {
+            CONF_SIGNAL_ENABLED: False,
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.device_a": {"sensor": "sensor.rssi"}
+            },
+        },
+    )
+    assert coord._signal_unit_of("binary_sensor.device_a") is None
+
+
+def test_signal_unit_no_mapping_is_none(mock_hass, mock_config_data):
+    """_signal_unit_of returns None when entity has no mapping."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "su_nomap",
+        {CONF_SIGNAL_ENABLED: True, CONF_SIGNAL_ENTITY_MAP: {}},
+    )
+    assert coord._signal_unit_of("binary_sensor.device_a") is None
+
+
+def test_signal_unit_mapped_network_type(mock_hass, mock_config_data):
+    """_signal_unit_of returns the network type's unit (dBm for wifi)."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "su_wifi",
+        {
+            CONF_SIGNAL_ENABLED: True,
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.device_a": {
+                    "sensor": "sensor.a_rssi",
+                    "network_type": "wifi",
+                }
+            },
+        },
+    )
+    assert coord._signal_unit_of("binary_sensor.device_a") == "dBm"
+
+
+def test_signal_unit_generic_fallback(mock_hass, mock_config_data):
+    """Mapping without network_type -> generic fallback unit (dBm)."""
+    from custom_components.entity_availability.const import (
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+    )
+
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "su_generic",
+        {
+            CONF_SIGNAL_ENABLED: True,
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.device_a": {"sensor": "sensor.a_rssi"}
+            },
+        },
+    )
+    # No network_type key -> "generic" -> dBm.
+    assert coord._signal_unit_of("binary_sensor.device_a") == "dBm"
+
+
+async def test_build_loop_suppressed_sibling_carries_source_and_merges(mock_hass):
+    """Build loop computes battery_source/signal_source for a SUPPRESSED same-device
+    sibling too (sources set ABOVE the suppressed continue), so it still merges with
+    its unsuppressed twin under source-based collapse."""
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+
+    from custom_components.entity_availability.const import (
+        CONF_BAD_STATES,
+        CONF_BATTERY_ENTITY_MAP,
+        CONF_COLLAPSE_DEVICES,
+        CONF_GROUP_NAME,
+        CONF_SIGNAL_ENABLED,
+        CONF_SIGNAL_ENTITY_MAP,
+        CONF_USE_DEVICE_NAMES,
+    )
+
+    hass = mock_hass
+    # Register two entities on ONE physical device.
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    reg_entry = MockConfigEntry(domain=DOMAIN, entry_id="bl_reg", title="BL")
+    reg_entry.add_to_hass(hass)
+    device = dev_reg.async_get_or_create(
+        config_entry_id="bl_reg",
+        identifiers={(DOMAIN, "bl_dev")},
+        name="BL Device",
+    )
+    for obj in ("bl_up", "bl_sup"):
+        e = ent_reg.async_get_or_create(
+            "binary_sensor", "test", obj, suggested_object_id=obj
+        )
+        ent_reg.async_update_entity(e.entity_id, device_id=device.id)
+
+    hass.states.async_set("binary_sensor.bl_up", STATE_ON, {"friendly_name": "Up"})
+    hass.states.async_set("binary_sensor.bl_sup", STATE_ON, {"friendly_name": "Sup"})
+    hass.states.async_set("sensor.bl_rssi", "-70", {"unit_of_measurement": "dBm"})
+    hass.states.async_set("sensor.bl_bat", "80", {"device_class": "battery"})
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="BL Group",
+        entry_id="bl_group",
+        data={
+            CONF_GROUP_NAME: "BL Group",
+            CONF_ENTITIES: ["binary_sensor.bl_up", "binary_sensor.bl_sup"],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
+            CONF_COLLAPSE_DEVICES: True,
+            CONF_USE_DEVICE_NAMES: True,
+            CONF_BATTERY_ENTITY_MAP: {
+                "binary_sensor.bl_up": "sensor.bl_bat",
+                "binary_sensor.bl_sup": "sensor.bl_bat",
+            },
+            CONF_SIGNAL_ENABLED: True,
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.bl_up": {
+                    "sensor": "sensor.bl_rssi",
+                    "network_type": "wifi",
+                },
+                "binary_sensor.bl_sup": {
+                    "sensor": "sensor.bl_rssi",
+                    "network_type": "wifi",
+                },
+            },
+        },
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+        coord._last_update = None
+        # Suppress the sibling BEFORE the refresh so the build loop hits the
+        # suppressed continue for it.
+        coord.suppress_entity("binary_sensor.bl_sup")
+        await coord._async_update_data()
+
+    sup = coord.device_states["binary_sensor.bl_sup"]
+    up = coord.device_states["binary_sensor.bl_up"]
+    # Suppressed sibling still carries its computed sources (set above the continue).
+    assert sup.is_suppressed is True
+    assert sup.battery_source == "sensor.bl_bat"
+    assert sup.signal_source == "sensor.bl_rssi"
+    assert sup.signal_unit == "dBm"
+    assert up.battery_source == "sensor.bl_bat"
+    assert up.signal_source == "sensor.bl_rssi"
+    # Same sources -> the pair collapses to ONE device row.
+    from custom_components.entity_availability.helpers import (
+        collapse_representatives,
+    )
+
+    rep = collapse_representatives(hass, coord.device_states)
+    assert len(set(rep.values())) == 1

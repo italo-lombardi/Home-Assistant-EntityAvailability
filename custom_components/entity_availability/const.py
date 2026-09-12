@@ -40,6 +40,14 @@ DEFAULT_AVAILABILITY_WINDOWS = ["today", "7d"]
 DEFAULT_USE_DEVICE_NAMES = False
 DEFAULT_COLLAPSE_DEVICES = False
 
+# De-jitter dead-bands: a flag flips ON at its threshold but only flips back OFF
+# once the reading clears the threshold by this margin. Stops a reading sitting on
+# a boundary (battery at the %, staleness age at the minute, signal at the dBm)
+# from oscillating the flag — and its recorded count attr — every poll.
+BATTERY_HYSTERESIS = 3  # percent above threshold to clear a low-battery flag
+STALENESS_HYSTERESIS = 1  # minutes below threshold to clear a stale flag
+SIGNAL_HYSTERESIS = 3  # units toward "ok" to clear a poor-signal flag
+
 # Signal strength thresholds per network type.
 # Each entry: {"label": str, "unit": str, "good": int, "ok": int, "higher_is_better": bool}
 # higher_is_better=False (dBm): level >= good → green; level >= ok → yellow; below ok → red

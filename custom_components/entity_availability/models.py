@@ -30,6 +30,11 @@ class DeviceState:
     signal_level: int | None = None  # raw value from bound signal sensor
     signal_quality: SignalQuality | None = None  # "good" | "ok" | "poor" | None
     signal_unit: str | None = None  # unit for signal_level (e.g. "dBm", "%")
+    # Collapse provenance: WHICH sensor supplied battery/signal (static config, not a
+    # live value). Drives the device-collapse key so a wobbling reading can't reshuffle
+    # rows. Written live each refresh, never persisted (recomputed on load).
+    battery_source: str | None = None
+    signal_source: str | None = None
     # transition tracker for EVENT_POOR_SIGNAL / EVENT_SIGNAL_OK
     prev_signal_poor: bool = False
     recently_offline_at: datetime | None = None

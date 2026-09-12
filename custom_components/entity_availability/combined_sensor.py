@@ -35,7 +35,6 @@ from .const import (
 )
 from .coordinator import EntityAvailabilityCoordinator
 from .helpers import (
-    collapse_key,
     collapse_representatives,
     resolve_area_name,
     resolve_display_name,
@@ -374,14 +373,24 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         """
         seen: set[str] = set()
         result: list[tuple[EntityAvailabilityCoordinator, Any]] = []
+        ent_reg = er.async_get(self.hass)
         for coord in self._active_coordinators():
             collapse = coord.collapse_active
             for d in coord.device_states.values():
                 if not predicate(coord, d):
                     continue
-                token = (
-                    collapse_key(self.hass, d) if collapse else None
-                ) or d.entity_id
+                # Dedup by physical device (device_id) so the same device seen through
+                # two coordinators appears once — not by collapse_key, which differs
+                # per coordinator for one device and produced the doubled "Name, Name".
+                # collapse-off groups / device-less entities fall back to entity_id so
+                # each stays its own row.
+                token = None
+                if collapse:
+                    entry = ent_reg.async_get(d.entity_id)
+                    token = (
+                        f"dev::{entry.device_id}" if entry and entry.device_id else None
+                    )
+                token = token or d.entity_id
                 if token in seen or d.entity_id in seen:
                     continue
                 seen.add(token)
