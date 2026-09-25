@@ -130,7 +130,29 @@ class AvailabilityStorage:
             return None
 
         total_online = sum(b.online_seconds for b in relevant_buckets)
-        total_time = sum(b.total_seconds for b in relevant_buckets)
+        # The current (in-progress) bucket has only accrued `elapsed` seconds of
+        # real time, but total_seconds is fixed at the full BUCKET_INTERVAL the
+        # moment it's created. Counting the full 300s as denominator while
+        # online_seconds climbs 30s/poll makes the ratio drift upward every poll
+        # for a steady device — the rounded % crosses a 0.1 boundary several
+        # times per bucket and the recorder writes a new row each poll (pure
+        # rounding jitter, no real change). Use ELAPSED time for the newest
+        # bucket's denominator so a steadily-online device reads a flat ratio and
+        # doesn't republish. Computed at read time (not stored) so a restart
+        # mid-bucket can't resurface the drift.
+        total_time = 0.0
+        newest_start = self._buckets[entity_id][-1].interval_start
+        for b in relevant_buckets:
+            if b.interval_start == newest_start:
+                elapsed = (now - b.interval_start).total_seconds()
+                # Floor at online_seconds so the denominator can never be below
+                # what's already accrued (avoids >100% and avoids a 0 denominator
+                # when now sits exactly on the interval boundary — elapsed=0 but
+                # a full poll's online may already be recorded).
+                eff = max(b.online_seconds, min(float(BUCKET_INTERVAL), elapsed))
+                total_time += eff
+            else:
+                total_time += b.total_seconds
 
         if total_time == 0:
             return None

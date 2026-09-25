@@ -164,6 +164,30 @@ class TestWindowCalculation:
         result = storage.get_availability("sensor.test", "today", now)
         assert result == 100.0
 
+    def test_get_availability_stable_across_polls_no_write_amp(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """A steadily-online device must report a FLAT availability % across
+        polls within a bucket — no per-poll rounding jitter that would make the
+        recorder write a new row every poll. The current (in-progress) bucket's
+        denominator uses ELAPSED time, not the full BUCKET_INTERVAL, so a device
+        online the whole time reads ~100% throughout the fill instead of the
+        ratio climbing 0→100% and crossing rounding boundaries each poll.
+        """
+        # A completed prior bucket, fully online.
+        prior = now - timedelta(minutes=5)
+        storage.record_online("sensor.test", float(BUCKET_INTERVAL), prior)
+        # Poll every 30s WITHIN the current bucket (9 polls stay before the next
+        # 5-min boundary); online accrues in lockstep with wall-clock.
+        values = []
+        for i in range(1, 10):
+            t = now + timedelta(seconds=30 * i)
+            storage.record_online("sensor.test", 30.0, t)
+            values.append(storage.get_availability("sensor.test", "today", t))
+        assert all(v is not None and v <= 100.0 for v in values), values
+        # The rounded value must not change poll-to-poll (would be a recorder write).
+        assert len(set(values)) == 1, f"availability jittered across polls: {values}"
+
     def test_get_availability_0_percent(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
@@ -251,6 +275,20 @@ class TestSerialization:
         bucket_data = result["sensor.test"][0]
         assert "s" in bucket_data
         assert bucket_data["o"] == 100.0
+
+    def test_total_seconds_never_serialized(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """total_seconds must NOT be persisted — the availability denominator for
+        the in-progress bucket is recomputed from elapsed time at read time. If a
+        stored total leaked back in, a restart mid-bucket would resurface the
+        per-poll write-amplification the elapsed-denominator fix removes.
+        """
+        storage.record_online("sensor.test", 100.0, now)
+        serialized = storage.to_dict()
+        for bucket_data in serialized["sensor.test"]:
+            assert "total_seconds" not in bucket_data
+            assert set(bucket_data) == {"s", "o"}
 
     def test_from_dict_empty(self) -> None:
         """Test deserialization of empty dict."""

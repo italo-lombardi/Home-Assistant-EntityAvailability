@@ -23,6 +23,18 @@ from .coordinator import EntityAvailabilityCoordinator
 from .write_dedup import DedupCoordinatorBinarySensor
 
 
+def _stale_pred(d) -> bool:
+    """Essential, non-suppressed, ONLINE, stale device — the shared predicate the
+    any_stale binary and the stale count/list sensors agree on (offline+stale
+    surfaces as OFFLINE per #34, so is_offline is excluded here too)."""
+    return (
+        not d.is_non_essential
+        and d.is_stale
+        and not d.is_suppressed
+        and not d.is_offline
+    )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -237,19 +249,24 @@ class AnyStaleBinarySensor(DedupCoordinatorBinarySensor):
 
     @property
     def is_on(self) -> bool:
-        """Return True if any essential entity is stale."""
-        return any(
-            d.is_stale and not d.is_suppressed and not d.is_non_essential
-            for d in self.coordinator.device_states.values()
-        )
+        """Return True if any essential, ONLINE entity is stale.
+
+        Must agree with StaleCountSensor / StaleEntitiesSensor: those exclude
+        offline devices (an offline+stale device surfaces as OFFLINE, not STALE —
+        the #34 design) and iterate the collapsed representative set. This sensor
+        previously used the raw device_states with no offline filter, so an
+        offline device that aged past the staleness threshold flipped this ON
+        while stale_count stayed 0 / stale_entities "None". Route through the
+        same helper + predicate so the three can no longer diverge.
+        """
+        return bool(self.coordinator.representative_states_matching(_stale_pred))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return stale entity details."""
+        """Return stale entity details, consistent with is_on and the sensors."""
         entities = [
             d.entity_id
-            for d in self.coordinator.device_states.values()
-            if d.is_stale and not d.is_suppressed and not d.is_non_essential
+            for d in self.coordinator.representative_states_matching(_stale_pred)
         ]
         return {"stale_entities": entities, "stale_count": len(entities)}
 
