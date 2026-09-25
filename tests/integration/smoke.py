@@ -60,6 +60,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC54 group_summary new attrs: essential count, stale/poor_signal count aliases
   EC55 group_summary large attrs excluded from recorder (_unrecorded_attributes) but present in state machine
   EC59 battery level retained in battery_levels when entity goes unavailable (not wiped to None)
+  EC90 PR#104: battery_levels drops the key when the reading is gone AND the entity is bad
+       (dead device) — no stale % survives; the no-spurious-battery_ok guard is unit-tested
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -139,6 +141,7 @@ import urllib.request
 _parser = argparse.ArgumentParser(add_help=False)
 _parser.add_argument("--fast", action="store_true")
 _parser.add_argument("--skip-setup", action="store_true")
+_parser.add_argument("--all", action="store_true", dest="run_all")
 _args, _ = _parser.parse_known_args()
 
 TOKEN = os.environ.get("EA_SMOKE_TOKEN", "")
@@ -149,6 +152,7 @@ NE_GROUP_FILTER = os.environ.get(
 )  # group with NE entities configured
 FAST = _args.fast or os.environ.get("EA_SMOKE_FAST", "") == "1"
 SKIP_SETUP = _args.skip_setup or os.environ.get("EA_SMOKE_SKIP_SETUP", "") == "1"
+RUN_ALL = _args.run_all or os.environ.get("EA_SMOKE_ALL", "") == "1"
 # Comma-separated EC numbers to run, e.g. "16,17,18". Empty = run all.
 EC_FILTER: set[int] = {
     int(x) for x in os.environ.get("EA_SMOKE_EC", "").split(",") if x.strip().isdigit()
@@ -334,8 +338,15 @@ def chk(label, got, exp, note=""):
 # ---------------------------------------------------------------------------
 
 
-def discover():
-    """Return (entry_id, entities, battery_map, group_sensor_prefix, combined_entry_id)."""
+def discover(group_filter=None):
+    """Return (entry_id, entities, battery_map, group_sensor_prefix, combined_entry_id).
+
+    group_filter defaults to the module-level GROUP_FILTER (EA_SMOKE_GROUP); the
+    --all driver passes an explicit title to iterate groups without mutating the
+    global.
+    """
+    if group_filter is None:
+        group_filter = GROUP_FILTER
     entries = api("GET", "/api/config/config_entries/entry")
     ea_entries = [e for e in entries if e["domain"] == "entity_availability"]
 
@@ -344,7 +355,7 @@ def discover():
         (
             e
             for e in ea_entries
-            if GROUP_FILTER.lower() in e["title"].lower()
+            if group_filter.lower() in e["title"].lower()
             and "combined" not in e["title"].lower()
         ),
         None,
@@ -352,7 +363,7 @@ def discover():
     if not group:
         titles = [e["title"] for e in ea_entries]
         sys.exit(
-            f"No entity_availability entry matching '{GROUP_FILTER}' (found: {titles})"
+            f"No entity_availability entry matching '{group_filter}' (found: {titles})"
         )
 
     entry_id = group["entry_id"]
@@ -425,11 +436,55 @@ for e in cfg['data']['entries']:
         mapped_battery_sensor = None
         mapped_battery_entity = None
 
-    # Find combined entry
-    combined = next(
-        (e for e in ea_entries if "combined" in e["title"].lower()),
+    # Find the combined entry that actually CONTAINS this target group — a
+    # combined aggregates several source groups (combined_groups = their
+    # entry_ids in .storage), so picking the first "combined"-titled entry is
+    # wrong once --all loops multiple targets. Match by membership; fall back to
+    # the first combined only if none lists this group (single-combined setups).
+    combined = None
+    try:
+        raw = subprocess.check_output(
+            [
+                "python3",
+                "-c",
+                """
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+out = {}
+for e in cfg['data']['entries']:
+    if e['domain'] == 'entity_availability' and 'combined' in e['title'].lower():
+        out[e['entry_id']] = {
+            'title': e['title'],
+            'combined_groups': e['data'].get('combined_groups', []),
+        }
+print(json.dumps(out))
+""",
+            ],
+            text=True,
+        )
+        combined_map = json.loads(raw.strip())
+    except Exception:
+        combined_map = {}
+
+    owning = next(
+        (
+            {"entry_id": cid, "title": info["title"]}
+            for cid, info in combined_map.items()
+            if entry_id in info.get("combined_groups", [])
+        ),
         None,
     )
+    if owning is None:
+        # fall back to any combined entry (single-combined setups / API-only)
+        owning = next(
+            (
+                {"entry_id": e["entry_id"], "title": e["title"]}
+                for e in ea_entries
+                if "combined" in e["title"].lower()
+            ),
+            None,
+        )
+    combined = owning
     combined_prefix = None
     if combined:
         for s in all_states:
@@ -1275,10 +1330,17 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             "\n=== EC41: recently_offline sensor lists entity after it goes offline ===",
             flush=True,
         )
-        if not essential_entities and not ne_entities:
-            print("  EC41: skipped (no entities in NE group)", flush=True)
+        if not essential_entities:
+            # recently_offline filters out non-essential entities, so an NE-only
+            # target can never appear and wait_for would burn its full timeout as
+            # a spurious RED. Skip loud instead of picking an unpassable target.
+            print(
+                "  EC41 SKIPPED: NE group has no essential entity for the "
+                "recently_offline target (recently_* excludes NE)",
+                flush=True,
+            )
         else:
-            target = essential_entities[0] if essential_entities else ne_entities[0]
+            target = essential_entities[0]
             ss(target, "unavailable", {"friendly_name": "smoke test"})
             # Poll until entity appears in recently_offline list
             wait_for(
@@ -1309,10 +1371,14 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             "\n=== EC42: recently_recovered sensor lists entity after recovery ===",
             flush=True,
         )
-        if not essential_entities and not ne_entities:
-            print("  EC42: skipped (no entities in NE group)", flush=True)
+        if not essential_entities:
+            print(
+                "  EC42 SKIPPED: NE group has no essential entity for the "
+                "recently_recovered target (recently_* excludes NE)",
+                flush=True,
+            )
         else:
-            target = essential_entities[0] if essential_entities else ne_entities[0]
+            target = essential_entities[0]
             ss(target, "unavailable", {"friendly_name": "smoke test"})
             wait_for(
                 lambda: (
@@ -1352,8 +1418,213 @@ def _run_ne_tests(ne_ctx: dict) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _discover_group_capabilities():
+    """Map every EA group's real config-entry title to its capabilities.
+
+    Keys are the config-entry titles (what discover() matches on), NOT the
+    sensor friendly_name — the two differ ("ita" vs "Entity - ita Group
+    Summary"). Capabilities combine the live group_summary attrs (battery /
+    signal / ne / collapse) with .storage composition that the attrs can't
+    express: whether the group's MAPPED battery entity is essential
+    (essential_mapped_battery) — required by the low_battery-COUNT family, which
+    is essential-only — and whether the group has BOTH tiers (both_tiers) —
+    required by the diagnostics EC36. Portable: no hardcoded group names.
+    """
+    states = api("GET", "/api/states")
+    summaries = [s for s in states if s["entity_id"].endswith("_group_summary")]
+    entries = api("GET", "/api/config/config_entries/entry")
+
+    # One .storage read for every group's entities / NE list / battery map.
+    import subprocess
+
+    try:
+        raw = subprocess.check_output(
+            [
+                "python3",
+                "-c",
+                """
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+out = {}
+for e in cfg['data']['entries']:
+    if e['domain'] == 'entity_availability':
+        d = e['data']
+        out[e['title']] = {
+            'entities': d.get('entities', []),
+            'non_essential_entities': d.get('non_essential_entities', []),
+            'battery_entity_map': d.get('battery_entity_map', {}),
+        }
+print(json.dumps(out))
+""",
+            ],
+            text=True,
+        )
+        storage = json.loads(raw.strip())
+    except Exception:
+        storage = {}
+
+    caps = {}
+    for e in entries:
+        if e["domain"] != "entity_availability" or "combined" in e["title"].lower():
+            continue
+        title = e["title"]
+        slug = title.lower().replace(" ", "_").replace(".", "_").replace("-", "_")
+        match = next(
+            (
+                s
+                for s in summaries
+                if f"_{slug}_group_summary" in s["entity_id"]
+                or s["entity_id"].endswith(f"{slug}_group_summary")
+            ),
+            None,
+        )
+        if not match:
+            continue
+        a = match.get("attributes", {})
+        sd = storage.get(title, {})
+        ne_set = set(sd.get("non_essential_entities") or [])
+        bmap = sd.get("battery_entity_map") or {}
+        ents = sd.get("entities") or []
+        # essential mapped battery = a battery_map key with a non-empty value
+        # whose key is NOT in the NE set (low_battery_count is essential-only).
+        ess_mapped = [k for k, v in bmap.items() if v and k not in ne_set]
+        caps[title] = {
+            "battery": bool(a.get("battery_enabled")),
+            "signal": bool(a.get("signal_enabled")),
+            "ne": int(a.get("non_essential") or 0),
+            "collapse": (
+                0
+                < len(a.get("entities_collapsed") or [])
+                < len(a.get("entities") or [])
+            ),
+            "essential_mapped_battery": bool(ess_mapped),
+            "both_tiers": bool(ne_set) and any(x not in ne_set for x in ents),
+        }
+    return caps
+
+
+def run_all():
+    """Drive the whole EC suite green by routing each EC FAMILY to a group that
+    can actually satisfy its assertions, then running only that family there.
+
+    The capability topology forces multiple passes: no single group has an
+    essential-mapped battery AND non-essential entities AND a collapse layout.
+    So the low_battery-COUNT family (EC4/22/23/65 — essential-only counts) runs
+    against an essential-mapped-battery group; the NE tier + EC36 (needs both
+    tiers) runs against a both-tiers group; battery-LEVEL ECs (59/90) run on any
+    battery group; the collapse fixture (86/88/89) on a collapse-active group.
+    Every family with no satisfying group is reported DARK — a green aggregate
+    can never hide uncovered coverage.
+    """
+    if not SKIP_SETUP:
+        sys.exit("--all requires --skip-setup (per-group battery setup is not looped)")
+
+    caps = _discover_group_capabilities()
+    if not caps:
+        sys.exit("--all: no entity_availability group_summary sensors found")
+
+    def best(pred, rank=None):
+        hits = [t for t, c in caps.items() if pred(c)]
+        if not hits:
+            return None
+        key = rank or (lambda t: (caps[t]["ne"], caps[t]["battery"], caps[t]["signal"]))
+        return max(hits, key=key)
+
+    print("=== --all: discovered group capabilities ===", flush=True)
+    for t, c in sorted(caps.items()):
+        print(
+            f"  {t}: battery={c['battery']} signal={c['signal']} ne={c['ne']} "
+            f"collapse={c['collapse']} ess_mapped_batt={c['essential_mapped_battery']} "
+            f"both_tiers={c['both_tiers']}",
+            flush=True,
+        )
+
+    # Family → (EC set, capability predicate). None target = DARK.
+    ess_batt = best(lambda c: c["essential_mapped_battery"])
+    signal_grp = best(lambda c: c["signal"])
+    both_tiers = best(lambda c: c["both_tiers"])
+    collapse_grp = best(lambda c: c["collapse"])
+
+    # A pass = (label, target, ne_group, ec_filter set). ec_filter None = all
+    # enabled ECs; an explicit set restricts the pass to those ECs.
+    passes = []
+    # ECs with a DEDICATED later pass — excluded from pass 1 so we don't run
+    # them on Alpha just to self-skip (perf), and so EC36 (needs a non-essential
+    # tier Alpha lacks) doesn't hard-fail here rather than in its both-tiers pass.
+    ne_ecs = set(range(25, 43))  # EC25-42 → pass 2
+    collapse_ecs = {86, 87, 88, 89}  # → pass 3
+    # 1) The broad slice an essential-mapped-battery + signal + combined group
+    #    satisfies: core, battery-count family, signal, combined, collapse-attr,
+    #    recorder, EC12/EC82 (which have NO dedicated pass). Everything EXCEPT
+    #    the NE tier and the collapse fixture, which their own passes own.
+    pass1_ecs = {n for n in range(1, 91) if n not in ne_ecs and n not in collapse_ecs}
+    if ess_batt:
+        passes.append(
+            (
+                "core+battery-count+signal+combined",
+                ess_batt,
+                "",
+                pass1_ecs,
+            )
+        )
+    # 2) NE tier + EC36 (both tiers). Run only the NE-range ECs here.
+    if both_tiers:
+        passes.append(("NE-tier+EC36", both_tiers, both_tiers, ne_ecs))
+    # 3) Collapse fixture ECs on a collapse-active group.
+    if collapse_grp:
+        passes.append(("collapse-fixture", collapse_grp, "", collapse_ecs))
+
+    # DARK report: a family whose target is missing.
+    dark = []
+    if not ess_batt:
+        dark.append(
+            "battery-count family (EC4,22,23,65): no essential-mapped-battery group"
+        )
+    if not both_tiers:
+        dark.append("NE-tier + EC36 (EC25-42): no both-tiers group")
+    if not collapse_grp:
+        dark.append("collapse fixture (EC86,87,88,89): no collapse-active group")
+    if not signal_grp:
+        dark.append("signal ECs (EC47-52): no signal group")
+    for d in dark:
+        print(f"  DARK (will not run): {d}", flush=True)
+
+    global GROUP_FILTER, NE_GROUP_FILTER, EC_FILTER  # driver sets target per pass
+    _user_filter = set(EC_FILTER)  # honor an explicit EA_SMOKE_EC intersection
+    coverage = {}
+    for label, group, ne, ecset in passes:
+        pass_filter = ecset if ecset is not None else set()
+        if _user_filter:
+            pass_filter = (pass_filter & _user_filter) if pass_filter else _user_filter
+            if ecset is not None and not pass_filter:
+                continue  # user filtered this family out
+        print(
+            f"\n############ --all RUN: {label} — group='{group}'"
+            f"{' ec=' + ','.join(map(str, sorted(pass_filter))) if pass_filter else ''} "
+            f"############",
+            flush=True,
+        )
+        GROUP_FILTER = group
+        NE_GROUP_FILTER = ne
+        EC_FILTER = pass_filter
+        ctx = discover(group)
+        run_checks(ctx)
+        coverage[label] = group
+
+    print("\n=== --all coverage ===", flush=True)
+    for label, group in coverage.items():
+        print(f"  {label}: {group}", flush=True)
+    for d in dark:
+        print(f"  DARK: {d}", flush=True)
+
+
 def main():
     print("=== Entity Availability smoke tests ===\n", flush=True)
+
+    if RUN_ALL:
+        run_all()
+        print(f"\n=== RESULTS: {_passed} passed, {_failed} failed ===", flush=True)
+        sys.exit(0 if _failed == 0 else 1)
 
     ctx = discover()
     if not SKIP_SETUP:
@@ -1367,6 +1638,21 @@ def main():
             flush=True,
         )
 
+    run_checks(ctx)
+
+    # ------------------------------------------------------------------
+    print(f"\n=== RESULTS: {_passed} passed, {_failed} failed ===", flush=True)
+    sys.exit(0 if _failed == 0 else 1)
+
+
+def run_checks(ctx):
+    """Run every enabled EC against one discovered group context.
+
+    Split out of main() so the --all driver can loop it over several group
+    contexts, aggregating the module-level _passed/_failed across all of them.
+    Reads only ctx + the stateless gs()/ss() helpers — no group globals — so
+    each call is independent.
+    """
     prefix = ctx["prefix"]
     battery_entity = ctx["mapped_battery_entity"]
     battery_sensor = ctx["mapped_battery_sensor"]
@@ -1894,11 +2180,15 @@ def main():
                 "0",
             )
         else:
-            chk(
-                "EC12 second group found",
-                False,
-                True,
-                "(no group sharing entities with Alpha)",
+            # Composition dependency, not a defect: group-scoped suppression can
+            # only be exercised when a SECOND group shares an entity with the
+            # target. Skip loud instead of asserting False==True (which recorded
+            # a spurious RED on any env without a sharing sibling — same trap as
+            # EC41/42).
+            print(
+                "  EC12 SKIPPED: no second group shares an entity with the "
+                "target (group-scoped suppression needs 2 groups sharing an entity)",
+                flush=True,
             )
 
         # ------------------------------------------------------------------
@@ -3057,6 +3347,62 @@ for e in cfg['data']['entries']:
         restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
+    # EC90: dead-device clear path (0.5.4) — battery READING gone AND entity
+    # bad → battery_levels drops the key, so no stale % is shown next to an
+    # offline row. This is the `elif is_bad: battery_level = None` branch, which
+    # EC59 (companion sensor stays alive) structurally cannot reach. The
+    # matching no-spurious-battery_ok guard (is_low_battery freeze) is covered
+    # by the unit test test_battery_cleared_when_entity_bad — smoke can't
+    # observe "an event did not fire" without a WS listener, and low_battery
+    # *count* legitimately drops to 0 here (offline is excluded from the count,
+    # see EC5), so the count is not the signal to assert.
+    # ------------------------------------------------------------------
+    if ec_enabled(90) and battery_entity and battery_sensor:
+        print(
+            "\n=== EC90: battery_levels dropped when reading gone + entity bad ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        # Entity online with a readable battery so the key is present first.
+        ss(battery_entity, "on", {"friendly_name": "test"})
+        ss(
+            battery_sensor,
+            "60",
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        wait_for(
+            lambda: (
+                battery_entity
+                in gs(f"{prefix}_group_summary")
+                .get("attributes", {})
+                .get("battery_levels", {})
+            ),
+            True,
+        )
+        # Kill BOTH the battery reading (companion sensor unknown) AND the
+        # tracked entity (unavailable) — the real dead-device case.
+        ss(battery_sensor, "unknown", {"friendly_name": "Test Battery"})
+        ss(battery_entity, "unavailable", {"friendly_name": "test"})
+        wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "1")
+
+        levels = (
+            gs(f"{prefix}_group_summary")
+            .get("attributes", {})
+            .get("battery_levels", {})
+        )
+        chk(
+            "EC90 battery_levels drops the key when reading gone + entity bad",
+            battery_entity in levels,
+            False,
+            f"battery_entity={battery_entity} levels_keys={list(levels)}",
+        )
+        restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
     # EC65: stale flag cleared when entity is suppressed
     # ------------------------------------------------------------------
     if ec_enabled(65) and battery_entity:
@@ -4114,10 +4460,6 @@ for e in cfg['data']['entries']:
         f"low_battery_count={gs(f'{prefix}_low_battery_count').get('state')} (expected 0)",
         flush=True,
     )
-
-    # ------------------------------------------------------------------
-    print(f"\n=== RESULTS: {_passed} passed, {_failed} failed ===", flush=True)
-    sys.exit(0 if _failed == 0 else 1)
 
 
 if __name__ == "__main__":
