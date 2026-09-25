@@ -134,11 +134,13 @@ class AvailabilityStorage:
         # time also grows, so mixing it with the completed history makes the
         # whole-window rounded % cross a 0.1 boundary every poll — a recorder write
         # each poll with no real change (~7000 rows/day observed). Averaging only
-        # COMPLETED buckets makes the value change ONLY when a bucket closes
-        # (every 5 min = a legitimate data point) and stay rock-stable between
-        # polls. Trade-off: the % lags reality by up to one bucket (≤5 min) —
-        # fine for a rolling KPI; offline_count / the binary sensors give instant
-        # status.
+        # COMPLETED buckets makes the value STABLE between polls within a fixed
+        # window membership: it can then change only when the membership changes —
+        # a bucket closing, or (once the window is full) the trailing bucket being
+        # evicted as the cutoff advances. Both are real ~per-5-min data points, not
+        # a per-poll sawtooth. Trade-off: the % lags reality by up to one bucket
+        # (≤5 min) — fine for a rolling KPI; offline_count / the binary sensors
+        # give instant status.
         #
         # EXCEPTION: before any bucket has completed (the first ≤5 min after
         # setup) the in-progress bucket is all we have — use it so the sensor

@@ -62,6 +62,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC59 battery level retained in battery_levels when entity goes unavailable (not wiped to None)
   EC90 PR#104: battery_levels drops the key when the reading is gone AND the entity is bad
        (dead device) — no stale % survives; the no-spurious-battery_ok guard is unit-tested
+  EC91 PR#106: availability_today recorded value is stable across polls (no write-amp sawtooth)
+  EC92 PR#106: availability_today shows a value immediately (not unknown) — startup fallback
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -126,6 +128,7 @@ Pass --skip-setup or set EA_SMOKE_SKIP_SETUP=1 to skip battery mapping setup and
 """
 
 import argparse
+import itertools
 import json
 import os
 import sys
@@ -1557,7 +1560,7 @@ def run_all():
     #    satisfies: core, battery-count family, signal, combined, collapse-attr,
     #    recorder, EC12/EC82 (which have NO dedicated pass). Everything EXCEPT
     #    the NE tier and the collapse fixture, which their own passes own.
-    pass1_ecs = {n for n in range(1, 91) if n not in ne_ecs and n not in collapse_ecs}
+    pass1_ecs = {n for n in range(1, 93) if n not in ne_ecs and n not in collapse_ecs}
     if ess_batt:
         passes.append(
             (
@@ -3401,6 +3404,63 @@ for e in cfg['data']['entries']:
             f"battery_entity={battery_entity} levels_keys={list(levels)}",
         )
         restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC91: availability_% does NOT write-amplify — with no real state change,
+    # the recorded availability_today value must stay constant across coordinator
+    # polls (it may only change when a 5-min bucket completes). Regression guard
+    # for the in-progress-bucket sawtooth (#106): pre-fix the value flipped
+    # ±0.1 every ~30 s poll (~7000 writes/day).
+    # ------------------------------------------------------------------
+    if ec_enabled(91):
+        print(
+            "\n=== EC91: availability_today stable across polls (no write-amp) ===",
+            flush=True,
+        )
+        avail_eid_91 = f"{prefix}_availability_today"
+        first = gs(avail_eid_91).get("state")
+        if first in (None, "unknown", "unavailable"):
+            print(
+                f"  EC91 SKIPPED: {avail_eid_91} has no numeric value yet "
+                f"(state={first!r})",
+                flush=True,
+            )
+        else:
+            # Sample across several coordinator cycles (~30 s each) with NO state
+            # mutation. The write-amp regression is a SAWTOOTH — the value flips
+            # back and forth every poll (A,B,A,B → many transitions). A single
+            # 5-min bucket completing during the window is a legitimate one-way
+            # STEP (A,A,B,B → one transition). So assert the number of adjacent
+            # transitions is ≤ 1: no oscillation, at most one legit bucket-close.
+            samples = [first]
+            for _ in range(5):
+                wait(35)
+                samples.append(gs(avail_eid_91).get("state"))
+            transitions = sum(1 for a, b in itertools.pairwise(samples) if a != b)
+            chk(
+                "EC91 availability_today has no per-poll jitter (≤1 transition)",
+                transitions <= 1,
+                True,
+                f"samples={samples} transitions={transitions}",
+            )
+
+    # ------------------------------------------------------------------
+    # EC92: availability_% shows a value immediately — the sensor must not read
+    # "unknown"/"unavailable" once the group has run (the completed-only fix
+    # falls back to the in-progress bucket at startup so no 5-min blank window).
+    # ------------------------------------------------------------------
+    if ec_enabled(92):
+        print(
+            "\n=== EC92: availability_today shows a value (not unknown) ===",
+            flush=True,
+        )
+        state_92 = gs(f"{prefix}_availability_today").get("state")
+        chk(
+            "EC92 availability_today is a numeric value, not unknown",
+            state_92 not in (None, "unknown", "unavailable"),
+            True,
+            f"state={state_92!r}",
+        )
 
     # ------------------------------------------------------------------
     # EC65: stale flag cleared when entity is suppressed

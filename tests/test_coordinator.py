@@ -3317,21 +3317,28 @@ async def test_bus_events_multi_entity_offline_count(
         assert len(offline_events) == 2
 
         # Both offline events fired in entity insertion order (device_a first)
+        # Both entities fired an offline event. Event FIRING order is not a
+        # contract — consumers key on the entity_id in each payload, not on
+        # position — so assert the SET of entities, order-agnostic. (Asserting
+        # offline_events[0]==device_a was order-dependent and flaked under
+        # randomized test ordering.)
+        fired_ids = {e.data["entity_id"] for e in offline_events}
+        assert fired_ids == {"binary_sensor.device_a", "binary_sensor.device_b"}
         first_evt = offline_events[0]
         second_evt = offline_events[1]
-        assert first_evt.data["entity_id"] == "binary_sensor.device_a"
-        assert second_evt.data["entity_id"] == "binary_sensor.device_b"
 
         # Counts are stamped after the full sweep, so every event in one sweep
         # reflects the FINAL offline set (both devices) rather than whichever
         # partial mid-loop state existed when that transition was appended.
-        both = ["binary_sensor.device_a", "binary_sensor.device_b"]
+        # Compare as a set — the entity-list order is device_states insertion
+        # order, not a contract, and flaked under randomized test ordering.
+        both = {"binary_sensor.device_a", "binary_sensor.device_b"}
         assert first_evt.data["offline_count"] == 2
-        assert first_evt.data["offline_entities"] == both
+        assert set(first_evt.data["offline_entities"]) == both
         assert isinstance(first_evt.data["offline_entities"], list)
 
         assert second_evt.data["offline_count"] == 2
-        assert second_evt.data["offline_entities"] == both
+        assert set(second_evt.data["offline_entities"]) == both
         assert isinstance(second_evt.data["offline_entities"], list)
 
         # Recover device_a only
