@@ -111,7 +111,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC33 any_stale binary sensor turns ON when essential entity is stale
        (skipped when staleness_threshold=0)
   EC34 suppressed NE entity: suppressed banner counts NE tier separately
-  EC35 NE entity recovery: offline_count_non_essential drops back to 0
+  EC35 NE entity recovery: the recovered entity leaves offline_entities_non_essential
   EC36 diagnostics endpoint returns correct shape and counts for group entry
   EC37 stale_count sensor increments for stale essential entity (skip if threshold=0)
   EC38 stale_entities sensor lists stale essential entity (skip if threshold=0)
@@ -1084,21 +1084,41 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         )
         wait(8)
 
-    # EC35: NE entity recovery → offline_count_non_essential drops
+    # EC35: NE entity recovery → the recovered entity leaves the NE offline set.
+    # Assert on the DRIVEN entity, not the group count: a real group may have
+    # OTHER non-essential entities independently offline (e.g. a second NE device
+    # that's genuinely down), so offline_count_non_essential need not be 0 after
+    # this one recovers. Scoping to ne_target keeps the check correct on any
+    # multi-NE group.
     if ec_enabled(35):
         print(
-            "\n=== EC35: NE recovery → offline_count_non_essential drops to 0 ===",
+            "\n=== EC35: NE recovery → recovered entity leaves NE offline set ===",
             flush=True,
         )
         ss(ne_target, "unavailable", {"friendly_name": "ne test"})
-        wait_for(lambda: gs(f"{prefix}_offline_count_non_essential").get("state"), "1")
+        wait_for(
+            lambda: (
+                ne_target
+                in gs(f"{prefix}_group_summary")
+                .get("attributes", {})
+                .get("offline_entities_non_essential", [])
+            ),
+            True,
+        )
         ss(ne_target, "on", {"friendly_name": ne_target.split(".")[-1]})
         chk(
-            "EC35 offline_count_non_essential=0",
+            "EC35 recovered NE entity no longer in offline_entities_non_essential",
             wait_for(
-                lambda: gs(f"{prefix}_offline_count_non_essential").get("state"), "0"
+                lambda: (
+                    ne_target
+                    in gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("offline_entities_non_essential", [])
+                ),
+                False,
             ),
-            "0",
+            False,
+            f"ne_target={ne_target}",
         )
 
     ne_restore()
