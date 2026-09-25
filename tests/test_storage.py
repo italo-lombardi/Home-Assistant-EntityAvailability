@@ -136,8 +136,15 @@ class TestWindowCalculation:
     def test_get_availability_today_one_bucket_sufficient(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
-        """Test that 'today' only requires 1 bucket."""
-        storage.record_online("sensor.test", float(BUCKET_INTERVAL), now)
+        """Test that 'today' needs only one COMPLETED bucket.
+
+        The current in-progress bucket is excluded from the ratio (it would jitter
+        the value every poll), so a single completed bucket 5 min ago is the
+        minimum data — recorded here at now-5min, then read at now (a new interval,
+        so that bucket is complete)."""
+        storage.record_online(
+            "sensor.test", float(BUCKET_INTERVAL), now - timedelta(minutes=5)
+        )
         result = storage.get_availability("sensor.test", "today", now)
         assert result == 100.0
 
@@ -167,26 +174,63 @@ class TestWindowCalculation:
     def test_get_availability_stable_across_polls_no_write_amp(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
-        """A steadily-online device must report a FLAT availability % across
-        polls within a bucket — no per-poll rounding jitter that would make the
-        recorder write a new row every poll. The current (in-progress) bucket's
-        denominator uses ELAPSED time, not the full BUCKET_INTERVAL, so a device
-        online the whole time reads ~100% throughout the fill instead of the
-        ratio climbing 0→100% and crossing rounding boundaries each poll.
+        """Availability % must NOT jitter poll-to-poll when nothing real changes.
+
+        Realistic fixture (the one that reproduced the live regression): a history
+        whose ratio sits near a rounding boundary, plus a current in-progress
+        bucket whose online_seconds accrues in discrete ~30 s chunks while real
+        time grows continuously. Reading at varying elapsed offsets within each
+        poll gap must yield a SINGLE rounded value per window — otherwise every
+        read crosses a 0.1 boundary and writes a recorder row (~7000/day observed).
+        The in-progress bucket is excluded from the ratio, so the value changes
+        only when a bucket completes. Checks today AND 3d AND 5d (they share the
+        newest in-progress bucket and previously flipped in lockstep).
         """
-        # A completed prior bucket, fully online.
-        prior = now - timedelta(minutes=5)
-        storage.record_online("sensor.test", float(BUCKET_INTERVAL), prior)
-        # Poll every 30s WITHIN the current bucket (9 polls stay before the next
-        # 5-min boundary); online accrues in lockstep with wall-clock.
-        values = []
-        for i in range(1, 10):
-            t = now + timedelta(seconds=30 * i)
-            storage.record_online("sensor.test", 30.0, t)
-            values.append(storage.get_availability("sensor.test", "today", t))
-        assert all(v is not None and v <= 100.0 for v in values), values
-        # The rounded value must not change poll-to-poll (would be a recorder write).
-        assert len(set(values)) == 1, f"availability jittered across polls: {values}"
+        eid = "sensor.test"
+        # ~96.05% history across enough completed buckets to weight every window.
+        # 5d window = 120h = 1440 buckets; fill that many so 3d/5d aren't None.
+        for i in range(1, 1441):
+            t = now - timedelta(minutes=5 * i)
+            storage.record_online(eid, 0.9605 * float(BUCKET_INTERVAL), t)
+
+        for window in ("today", "3d", "5d"):
+            values = []
+            for poll in range(9):
+                # 9 polls x 30 s = 270 s — stays WITHIN the current 5-min bucket
+                # (no legitimate bucket-close transition), so the ONLY way the
+                # value can change is per-poll rounding jitter, which must not
+                # happen. (A bucket close is a legitimate ≤1 change, tested by the
+                # existing window tests; here we isolate the jitter contract.)
+                pt = now + timedelta(seconds=30 * poll)
+                if poll > 0:
+                    storage.record_online(eid, 30.0, pt)
+                # Read at several elapsed offsets within the poll gap — the skew
+                # that turned the old elapsed-denominator into an oscillator.
+                for off in (5, 15, 25):
+                    values.append(
+                        storage.get_availability(
+                            eid, window, pt + timedelta(seconds=off)
+                        )
+                    )
+            distinct = {v for v in values if v is not None}
+            assert len(distinct) == 1, (
+                f"{window} availability jittered across polls: {sorted(distinct)}"
+            )
+
+    def test_get_availability_only_in_progress_bucket_shows_value(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """A brand-new entity with only the current in-progress bucket (no
+        completed bucket yet) shows a value IMMEDIATELY, not None — the sensor
+        must not read "unknown" for the first 5 minutes after setup. The
+        in-progress bucket is the fallback source only until the first bucket
+        completes, after which the stable completed-only path takes over."""
+        storage.record_online("sensor.new", 120.0, now)
+        result = storage.get_availability("sensor.new", "today", now)
+        assert result is not None
+        # 120 s online / 300 s bucket denominator = 40.0 (fills toward 100 as the
+        # bucket completes; a one-time startup ramp, not steady-state jitter).
+        assert result == 40.0
 
     def test_get_availability_0_percent(
         self, storage: AvailabilityStorage, now: datetime
