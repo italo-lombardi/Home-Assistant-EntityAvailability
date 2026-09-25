@@ -424,6 +424,22 @@ class TestAnyStaleBinarySensor:
         assert attrs["stale_count"] == 1
         assert "binary_sensor.device_a" in attrs["stale_entities"]
 
+    def test_offline_stale_device_excluded(self, mock_coordinator, mock_hass):
+        """A device that is BOTH offline and stale must NOT flip any_stale ON —
+        it surfaces as OFFLINE, matching StaleCount/StaleEntities which exclude
+        offline. Previously the binary used the raw, offline-unfiltered set and
+        read ON while stale_count/stale_entities showed 0/None (self-contradiction)."""
+        d = mock_coordinator.device_states["binary_sensor.device_a"]
+        d.is_stale = True
+        d.is_offline = True
+        sensor = AnyStaleBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.is_on is False
+        attrs = sensor.extra_state_attributes
+        assert attrs["stale_count"] == 0
+        assert attrs["stale_entities"] == []
+
 
 # ---------------------------------------------------------------------------
 # AnyPoorSignalBinarySensor tests

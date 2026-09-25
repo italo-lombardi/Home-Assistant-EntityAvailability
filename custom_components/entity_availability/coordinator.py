@@ -208,29 +208,52 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
     def reliability_stats(self, entity_id: str, now: datetime) -> dict[str, Any]:
         """Return MTBF/MTTR reliability stats for an entity.
 
-        MTBF (hours) = observed uptime / number of offline events.
-        MTTR (minutes) = total offline time / number of offline events.
+        MTBF (hours) = observed uptime / number of COMPLETED offline events.
+        MTTR (minutes) = total offline time / number of COMPLETED offline events.
         Both None until at least one full offline→recovery event exists.
+
+        offline_event_count increments when an outage OPENS (see the offline
+        transition) but total_offline_seconds only books at RECOVERY, so a
+        currently-open outage would otherwise inflate the denominator with no
+        matching numerator — dragging MTTR low and (because its ongoing downtime
+        is still counted as uptime) MTBF high. We therefore divide by the
+        COMPLETED-outage count and fold the in-progress outage's elapsed downtime
+        into both the offline total and the uptime subtraction, keeping numerator
+        and denominator consistent. A device that has only ever had open outages
+        (no completed one) reports None, honoring the docstring.
         """
         device = self._device_states.get(entity_id)
-        if device is None or device.offline_event_count == 0:
+        if device is None:
+            return {"mtbf_hours": None, "mttr_minutes": None, "offline_events": 0}
+        # An open outage bumped the count at OPEN but has booked no seconds yet.
+        completed = device.offline_event_count - (1 if device.is_offline else 0)
+        in_progress = (
+            (now - device.offline_since).total_seconds()
+            if device.is_offline and device.offline_since
+            else 0.0
+        )
+        if completed <= 0:
             return {
                 "mtbf_hours": None,
                 "mttr_minutes": None,
-                "offline_events": device.offline_event_count if device else 0,
+                "offline_events": device.offline_event_count,
             }
         uptime = 0.0
         if device.monitored_since:
+            # Uptime subtracts ALL downtime including the in-progress outage, so
+            # ongoing downtime is never miscounted as uptime (MTBF not inflated).
             uptime = (
-                now - device.monitored_since
-            ).total_seconds() - device.total_offline_seconds
+                (now - device.monitored_since).total_seconds()
+                - device.total_offline_seconds
+                - in_progress
+            )
         return {
-            "mtbf_hours": round(
-                max(uptime, 0.0) / device.offline_event_count / 3600, 1
-            ),
-            "mttr_minutes": round(
-                device.total_offline_seconds / device.offline_event_count / 60, 1
-            ),
+            "mtbf_hours": round(max(uptime, 0.0) / completed / 3600, 1),
+            # MTTR = mean time to REPAIR = mean of COMPLETED repairs only. The
+            # open outage isn't repaired yet, so its elapsed time is NOT in the
+            # numerator (that would bias MTTR); only total_offline_seconds
+            # (recovery-booked) counts, divided by the completed count.
+            "mttr_minutes": round(device.total_offline_seconds / completed / 60, 1),
             "offline_events": device.offline_event_count,
         }
 

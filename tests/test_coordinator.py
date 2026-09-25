@@ -3897,6 +3897,70 @@ def test_reliability_stats_no_monitored_since(
     assert stats["mtbf_hours"] == 0.0
 
 
+def test_reliability_stats_open_outage_excluded(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """An in-progress (never-recovered-yet) outage must not skew MTTR/MTBF.
+
+    offline_event_count bumps at outage OPEN but total_offline_seconds only
+    books at RECOVERY, so a currently-open outage would inflate the denominator
+    with no matching numerator. reliability_stats must divide by COMPLETED
+    outages and fold the open outage's elapsed downtime consistently.
+    """
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    now = datetime.now(timezone.utc)
+    from custom_components.entity_availability.models import DeviceState
+
+    # One completed 12-min outage (720s) + one outage open for 8 min now.
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        offline_event_count=2,
+        total_offline_seconds=720.0,
+        is_offline=True,
+        offline_since=now - timedelta(minutes=8),
+        monitored_since=now - timedelta(hours=10),
+    )
+    stats = coord.reliability_stats("binary_sensor.device_a", now)
+    # completed=1 (the open one excluded from the divisor); MTTR reflects the
+    # completed outage, NOT halved by the open one.
+    assert stats["mttr_minutes"] == 12.0
+    assert stats["offline_events"] == 2
+    # uptime subtracts BOTH the completed 720s and the open 480s so ongoing
+    # downtime isn't counted as uptime: (36000 - 1200) / 1 / 3600 = 9.67h.
+    assert stats["mtbf_hours"] == 9.7
+
+
+def test_reliability_stats_never_recovered_is_none(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """A device with only an OPEN outage (no completed one) reports None, not
+    MTTR=0.0 — honoring the 'None until a full offline→recovery' contract. The
+    old guard keyed on offline_event_count (already ≥1 mid-outage) and leaked 0.0.
+    """
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    now = datetime.now(timezone.utc)
+    from custom_components.entity_availability.models import DeviceState
+
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        offline_event_count=1,
+        total_offline_seconds=0.0,
+        is_offline=True,
+        offline_since=now - timedelta(hours=10),
+        monitored_since=now - timedelta(hours=20),
+    )
+    stats = coord.reliability_stats("binary_sensor.device_a", now)
+    assert stats["mtbf_hours"] is None
+    assert stats["mttr_minutes"] is None
+    assert stats["offline_events"] == 1
+
+
 def test_reset_statistics(mock_hass: HomeAssistant, mock_config_entry) -> None:
     """reset_statistics clears buckets and counters, marks dirty."""
     with patch.object(
