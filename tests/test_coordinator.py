@@ -22,6 +22,7 @@ from custom_components.entity_availability.const import (
     DEFAULT_COOLDOWN,
     DEFAULT_STALENESS_THRESHOLD,
     DOMAIN,
+    EVENT_BATTERY_OK,
     SCAN_INTERVAL,
     STARTUP_GRACE_PERIOD,
 )
@@ -253,6 +254,74 @@ async def test_battery_detection_from_companion_entity(
     device_a = coord.device_states["binary_sensor.device_a"]
     assert device_a.battery_level == 10
     assert device_a.is_degraded is True
+
+
+async def test_battery_cleared_when_entity_bad(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Battery retains last-known across sensor flaps while the entity is
+    healthy, but drops to None once the tracked entity itself goes bad — so a
+    dead-battery device (whose battery sensor reads "unknown") never shows a
+    stale "100%" next to an offline row. Also guards against a spurious
+    "battery recovered" event when a genuinely-low battery dies."""
+    hass = mock_hass
+    hass.states.async_set(
+        "binary_sensor.device_a", STATE_ON, {"friendly_name": "Device A"}
+    )
+    hass.states.async_set("sensor.device_a_battery", "100")
+
+    battery_ok_events: list = []
+    hass.bus.async_listen(EVENT_BATTERY_OK, lambda e: battery_ok_events.append(e))
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+
+        # (1) baseline: healthy entity + 100% battery -> level recorded
+        await coord._async_update_data()
+        device_a = coord.device_states["binary_sensor.device_a"]
+        assert device_a.battery_level == 100
+
+        # (2) battery sensor flaps to "unknown" while the ENTITY stays online
+        #     -> last-known 100 retained (protects flapping RTL-SDR/MQTT sensors)
+        hass.states.async_set("sensor.device_a_battery", STATE_UNKNOWN)
+        coord._last_update = None
+        await coord._async_update_data()
+        assert device_a.battery_level == 100
+
+        # (3) tracked entity goes bad AND its battery reads "unknown" (dead
+        #     device) -> stale level cleared to None
+        hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+        coord._last_update = None
+        await coord._async_update_data()
+        assert device_a.battery_level is None
+
+    # (4) a genuinely-low battery that then dies must NOT fire a spurious
+    #     "battery recovered": is_low_battery stays True, no EVENT_BATTERY_OK.
+    hass.states.async_set(
+        "binary_sensor.device_b", STATE_ON, {"friendly_name": "Device B"}
+    )
+    hass.states.async_set("sensor.device_b_battery", "5")
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord2 = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord2._last_update = None
+        await coord2._async_update_data()
+        device_b = coord2.device_states["binary_sensor.device_b"]
+        assert device_b.is_low_battery is True
+
+        battery_ok_events.clear()
+        hass.states.async_set("binary_sensor.device_b", STATE_UNAVAILABLE)
+        hass.states.async_set("sensor.device_b_battery", STATE_UNKNOWN)
+        coord2._last_update = None
+        await coord2._async_update_data()
+        await hass.async_block_till_done()
+        assert device_b.battery_level is None
+        assert device_b.is_low_battery is True
+        assert battery_ok_events == []
 
 
 async def test_suppression_skips_availability_tracking(
@@ -4214,9 +4283,14 @@ async def test_low_battery_flag_persists_when_device_goes_offline(
 async def test_last_known_battery_level_retained_when_unavailable(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """#33: battery_level is not overwritten when entity becomes unavailable.
+    """#33 (re-scoped in 0.5.4): last-known battery is retained across a
+    battery-*sensor* flap while the tracked entity stays online — NOT when the
+    entity itself goes unavailable. A dead device reads its own battery sensor
+    as "unknown"; retaining a stale level there showed a misleading "100%" next
+    to a 23h-offline row (see test_battery_cleared_when_entity_bad for the
+    clear-on-bad contract).
 
-    Covers: fresh_level is None branch — device.battery_level left unchanged.
+    Covers: fresh_level is None while is_bad is False — battery_level unchanged.
     """
     hass = mock_hass
 
@@ -4226,17 +4300,18 @@ async def test_last_known_battery_level_retained_when_unavailable(
         coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord._last_update = None
 
-        # Cycle 1: device online, battery readable
+        # Cycle 1: entity online, companion battery readable
         hass.states.async_set(
-            "binary_sensor.device_a",
-            STATE_ON,
-            {"friendly_name": "Device A", "battery_level": 12},
+            "binary_sensor.device_a", STATE_ON, {"friendly_name": "Device A"}
         )
+        hass.states.async_set("sensor.device_a_battery", "12")
         await coord._async_update_data()
         assert coord.device_states["binary_sensor.device_a"].battery_level == 12
 
-        # Cycle 2: entity unavailable — last-known level retained
-        hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+        # Cycle 2: battery sensor flaps to "unknown" while the ENTITY stays
+        # online — last-known level retained (bridges single-poll sensor flaps).
+        hass.states.async_set("sensor.device_a_battery", STATE_UNKNOWN)
+        coord._last_update = None
         await coord._async_update_data()
         assert coord.device_states["binary_sensor.device_a"].battery_level == 12
 

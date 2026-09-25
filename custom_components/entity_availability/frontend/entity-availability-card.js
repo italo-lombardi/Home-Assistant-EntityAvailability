@@ -669,6 +669,7 @@ class EntityAvailabilityCard extends LitElement {
       hass: { attribute: false },
       _config: { state: true },
       _entitiesExpanded: { state: true },
+      _groupsExpanded: { state: true },
     };
   }
 
@@ -705,6 +706,7 @@ class EntityAvailabilityCard extends LitElement {
     super();
     this._config = {};
     this._entitiesExpanded = false;
+    this._groupsExpanded = false;
     this._lastSeen = {};
   }
 
@@ -734,6 +736,7 @@ class EntityAvailabilityCard extends LitElement {
       this._config.entity_detail = "tooltip";
     }
     this._entitiesExpanded = this._config.entities_expanded;
+    this._groupsExpanded = this._config.entities_expanded;
   }
 
   getCardSize() {
@@ -741,7 +744,7 @@ class EntityAvailabilityCard extends LitElement {
   }
 
   shouldUpdate(changedProps) {
-    if (changedProps.has("_config") || changedProps.has("_entitiesExpanded")) return true;
+    if (changedProps.has("_config") || changedProps.has("_entitiesExpanded") || changedProps.has("_groupsExpanded")) return true;
     if (!this.hass) return false;
 
     const oldHass = changedProps.get("hass");
@@ -1134,7 +1137,7 @@ class EntityAvailabilityCard extends LitElement {
       return nameA.localeCompare(nameB);
     });
 
-    const expanded = this._entitiesExpanded;
+    const expanded = this._groupsExpanded;
     const showNEStats = this._config.show_non_essential_stats === true;
     const showTotal = this._config.show_group_total !== false;
     const showHealth = this._config.show_group_health !== false;
@@ -1152,7 +1155,7 @@ class EntityAvailabilityCard extends LitElement {
     const gridStyle = `grid-template-columns: minmax(60px, 1fr) repeat(${extraCols}, minmax(36px, 56px))`;
 
     return html`
-      <div class="entity-section-header" @click=${this._toggleEntities}>
+      <div class="entity-section-header" @click=${this._toggleGroups}>
         <span class="entity-section-title">Groups (${entries.length})</span>
         <ha-icon class="chevron ${expanded ? "expanded" : ""}" icon="mdi:chevron-down"></ha-icon>
       </div>
@@ -1654,6 +1657,10 @@ class EntityAvailabilityCard extends LitElement {
 
   _toggleEntities() {
     this._entitiesExpanded = !this._entitiesExpanded;
+  }
+
+  _toggleGroups() {
+    this._groupsExpanded = !this._groupsExpanded;
   }
 
   _positionTooltip(e, item, suppressedUntilMap) {

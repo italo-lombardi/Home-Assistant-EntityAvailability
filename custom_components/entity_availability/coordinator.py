@@ -663,7 +663,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             # Determine if device is in a bad state
             is_bad = state is None or state.state in self._bad_states
 
-            # Battery check — retain last-known level when entity is unavailable
+            # Battery check — retain last-known level across single-poll sensor
+            # flaps while the entity is healthy (RTL-SDR/MQTT/Zigbee batteries
+            # report "unknown" for a poll while online), but drop it once the
+            # entity itself is bad: a dead-battery device reads its own battery
+            # sensor as "unknown", and a stale "100%" shown next to a 23h-offline
+            # row is misleading. (is_bad computed above.)
             fresh_level = (
                 self._get_battery_level(entity_id)
                 if self._battery_threshold > 0
@@ -671,6 +676,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             )
             if fresh_level is not None:
                 device.battery_level = fresh_level
+            elif is_bad:
+                device.battery_level = None
             battery_low = (
                 self._battery_threshold > 0
                 and device.battery_level is not None
@@ -687,7 +694,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             ):
                 battery_low = True
 
-            # Signal check — clear level when sensor unavailable (same as battery: no stale value)
+            # Signal check — always clear level when sensor unavailable. Unlike
+            # battery (which retains last-known while the entity is healthy),
+            # signal has no retain-branch: no stale value is ever shown.
             if self._signal_enabled:
                 fresh_signal = self._get_signal_level(entity_id)
                 device.signal_level = fresh_signal
@@ -900,7 +909,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         "low_battery",
                     )
                 )
-            elif not battery_low and device.is_low_battery:
+            elif (
+                not battery_low
+                and device.is_low_battery
+                and device.battery_level is not None
+            ):
                 device.is_low_battery = False
                 pending_events.append(
                     (
@@ -915,7 +928,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     )
                 )
             else:
-                device.is_low_battery = battery_low
+                # Freeze the flag when battery_level is None (unknown/dead): only a
+                # fresh numeric reading >= threshold clears low via the elif above.
+                # Without the `is not None` guard, clearing a dead low battery to
+                # None makes battery_low False and fires a spurious "battery
+                # recovered" event.
+                device.is_low_battery = battery_low or device.is_low_battery
             device.is_degraded = (not device.is_offline) and (battery_low or is_stale)
 
             # Signal quality transition events
