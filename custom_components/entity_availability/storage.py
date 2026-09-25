@@ -129,30 +129,28 @@ class AvailabilityStorage:
         if len(relevant_buckets) < min_required:
             return None
 
-        total_online = sum(b.online_seconds for b in relevant_buckets)
-        # The current (in-progress) bucket has only accrued `elapsed` seconds of
-        # real time, but total_seconds is fixed at the full BUCKET_INTERVAL the
-        # moment it's created. Counting the full 300s as denominator while
-        # online_seconds climbs 30s/poll makes the ratio drift upward every poll
-        # for a steady device — the rounded % crosses a 0.1 boundary several
-        # times per bucket and the recorder writes a new row each poll (pure
-        # rounding jitter, no real change). Use ELAPSED time for the newest
-        # bucket's denominator so a steadily-online device reads a flat ratio and
-        # doesn't republish. Computed at read time (not stored) so a restart
-        # mid-bucket can't resurface the drift.
-        total_time = 0.0
-        newest_start = self._buckets[entity_id][-1].interval_start
-        for b in relevant_buckets:
-            if b.interval_start == newest_start:
-                elapsed = (now - b.interval_start).total_seconds()
-                # Floor at online_seconds so the denominator can never be below
-                # what's already accrued (avoids >100% and avoids a 0 denominator
-                # when now sits exactly on the interval boundary — elapsed=0 but
-                # a full poll's online may already be recorded).
-                eff = max(b.online_seconds, min(float(BUCKET_INTERVAL), elapsed))
-                total_time += eff
-            else:
-                total_time += b.total_seconds
+        # Exclude the CURRENT in-progress bucket from the ratio ONCE at least one
+        # bucket has completed. Its online_seconds climbs ~30 s per poll while real
+        # time also grows, so mixing it with the completed history makes the
+        # whole-window rounded % cross a 0.1 boundary every poll — a recorder write
+        # each poll with no real change (~7000 rows/day observed). Averaging only
+        # COMPLETED buckets makes the value change ONLY when a bucket closes
+        # (every 5 min = a legitimate data point) and stay rock-stable between
+        # polls. Trade-off: the % lags reality by up to one bucket (≤5 min) —
+        # fine for a rolling KPI; offline_count / the binary sensors give instant
+        # status.
+        #
+        # EXCEPTION: before any bucket has completed (the first ≤5 min after
+        # setup) the in-progress bucket is all we have — use it so the sensor
+        # shows a value immediately instead of "unknown". Its ratio drifts as the
+        # bucket fills, but only this once and only until the first bucket closes,
+        # after which the completed-only path takes over and the value is stable.
+        newest_start = self._get_interval_start(now)
+        completed = [b for b in relevant_buckets if b.interval_start != newest_start]
+        source = completed if completed else relevant_buckets
+
+        total_online = sum(b.online_seconds for b in source)
+        total_time = sum(b.total_seconds for b in source)
 
         if total_time == 0:
             return None
