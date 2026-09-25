@@ -24,6 +24,47 @@ EA_SMOKE_TOKEN=<access_token> python3 tests/integration/smoke.py --fast
 EA_SMOKE_TOKEN=<access_token> EA_SMOKE_EC=24 python3 tests/integration/smoke.py --skip-setup
 ```
 
+## Run the whole suite (`--all`)
+
+`--all` runs every EC green in one command by routing each EC family to a group
+that can actually satisfy its assertions — no single group has an
+essential-mapped battery **and** non-essential entities **and** a collapse
+layout, so the suite is split into capability-matched passes. Targets are
+auto-discovered from the live state machine + config (`.storage`), so no group
+names are hardcoded — it works in any environment that has the needed group
+shapes.
+
+```bash
+# Requires --skip-setup (per-group battery setup is not looped).
+EA_SMOKE_TOKEN=<access_token> python3 tests/integration/smoke.py --all --skip-setup
+```
+
+Passes (each restricted to its family via an internal EC filter):
+
+| Pass | Target group capability | ECs |
+|------|-------------------------|-----|
+| core+battery-count+signal+combined | essential mapped battery + signal + combined | 1–24, 43–85, 90 |
+| NE-tier + EC36 | both tiers (essential **and** non-essential) | 25–42 |
+| collapse-fixture | collapse-active (device-collapse merging rows) | 86–89 |
+
+Capability predicates (auto-detected per group):
+- **essential_mapped_battery** — a `battery_entity_map` key with a non-empty
+  value whose key is **not** non-essential. Required by the low-battery *count*
+  family (the count is essential-only); a group whose only mapped battery is
+  non-essential will spuriously fail EC4/22/23/65 and must not be its target.
+- **both_tiers** — has ≥1 non-essential **and** ≥1 essential entity. Required by
+  EC36 (diagnostics asserts both counts ≥ 1) and by the recently_* ECs (EC41/42
+  need an essential target; they skip loud otherwise).
+- **collapse** — device-collapse produces fewer collapsed rows than raw entities.
+
+**Fail-loud:** any family with no satisfying group prints a `DARK` line before
+and after the run, so a green aggregate can never hide uncovered coverage. ECs
+that need a precondition the environment can't provide (a second group sharing
+an entity for EC12, an identical-fingerprint entity across groups for EC82, a
+`websocket-client` install for the EC20/21/24/31 WS assertions) skip loud rather
+than fail.
+
+
 ## Get a token
 
 ```bash
