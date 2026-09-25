@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-09-25
+
+### Fixed
+- **Combined card: group and entity sections collapsed together** — on a combined card showing both a Groups table and an Entities list, the two collapsible sections shared a single expand/collapse state, so toggling one chevron also toggled the other. They now track independent state (`_groupsExpanded` vs `_entitiesExpanded`), each with its own toggle handler; both still seed from the `entities_expanded` config default so default open/closed behaviour is unchanged. (#103)
+- **Stale battery level shown for a dead device** — when a device's battery died, its battery sensor read `unknown`, and the coordinator's "retain last-known level" branch kept the last good reading indefinitely — so the card displayed a stale `100%` next to a row that had been offline for 23h. The last-known level is now retained only while the *tracked entity* is healthy (which still bridges single-poll `unknown` flaps from RTL-SDR/MQTT/Zigbee battery sensors that report while online); once the entity itself is in a bad state the battery level is cleared to unknown, so no misleading percentage is shown. (#103)
+- **Spurious "battery recovered" event when a low battery dies** — clearing a dead device's battery level to unknown made the low-battery check evaluate false, which would have fired a `entity_availability_battery_ok` ("battery recovered") event for a device whose battery had actually just died. The low-battery flag is now frozen while the level is unknown: only a fresh numeric reading at or above the threshold clears it and emits the recovery event. (#103)
+
 ## [0.5.3] - 2026-09-14
 
 ### Fixed
