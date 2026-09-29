@@ -62,6 +62,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC59 battery level retained in battery_levels when entity goes unavailable (not wiped to None)
   EC90 PR#104: battery_levels drops the key when the reading is gone AND the entity is bad
        (dead device) — no stale % survives; the no-spurious-battery_ok guard is unit-tested
+  EC94 #111: battery level survives a reload (restored device_states + transiently-unavailable
+       entity in the startup grace window is not wiped; clear is gated on confirmed-offline)
   EC91 PR#106: availability_today recorded value is stable across polls (no write-amp sawtooth)
   EC92 PR#106: availability_today shows a value immediately (not unknown) — startup fallback
   EC93 PR#109: mtbf per_device present in live state but excluded from recorder — per-device
@@ -632,6 +634,23 @@ def restore_and_wait(ctx):
         "0",
         timeout=WAIT_FOR_TIMEOUT,
     )
+
+
+def reload_entry(ctx):
+    """Reload the config entry via the HA REST reload endpoint.
+
+    Reloading unloads and re-sets-up the entry: the coordinator's
+    async_shutdown runs (final dirty-save of device_states), then a fresh
+    coordinator re-reads them via _async_load_storage — the closest in-process
+    analog to an HA restart, which smoke has no direct lever for. This endpoint
+    reloads unconditionally (unlike an options-flow submit, which only reloads
+    when the config actually changes), so it works with the group's config left
+    untouched.
+    """
+    api("POST", f"/api/config/config_entries/entry/{ctx['entry_id']}/reload")
+    # Coordinator needs a full tick to re-init after the reload (same settle the
+    # options-flow reload uses elsewhere, L1658).
+    wait(15)
 
 
 def _discover_ne_group(filter_str: str) -> dict | None:
@@ -3414,16 +3433,92 @@ for e in cfg['data']['entries']:
         ss(battery_entity, "unavailable", {"friendly_name": "test"})
         wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "1")
 
-        levels = (
+        # The clear is gated on the device being CONFIRMED offline (is_offline),
+        # and the battery block runs one iteration before the offline transition
+        # (issue #111 fix), so the key drops one coordinator poll AFTER
+        # offline_count flips to 1. Poll the clear itself rather than reading a
+        # single post-offline snapshot (which races the lag and reads the key
+        # still present).
+        chk(
+            "EC90 battery_levels drops the key when reading gone + entity bad",
+            wait_for(
+                lambda: (
+                    battery_entity
+                    not in gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("battery_levels", {})
+                ),
+                True,
+            ),
+            True,
+            f"battery_entity={battery_entity}",
+        )
+        restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC94: battery level survives a reload (issue #111). After an HA restart
+    # the coordinator re-reads persisted device_states, but tracked entities are
+    # transiently unavailable before their integrations re-poll. The 0.5.4 dead-
+    # device clear (#103) wiped the restored battery_level on that first bad poll
+    # until the group was reloaded. The stale-battery clear now runs only at the
+    # offline-transition edge (and only when there is no fresh reading), and a
+    # just-restarted device is not yet offline (the offline transition is
+    # suppressed during the startup grace window), so it keeps its last-known
+    # level. We simulate the restart with a config-entry REST reload (smoke has
+    # no restart lever) and assert the level is retained through the
+    # transient-unavailable window.
+    # ------------------------------------------------------------------
+    if ec_enabled(94) and battery_entity and battery_sensor:
+        print(
+            "\n=== EC94: battery level survives reload (#111) ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        # Establish a known level and let it persist (async_shutdown saves dirty
+        # device_states on unload, so the reload restores this exact value).
+        ss(battery_entity, "on", {"friendly_name": "test"})
+        ss(
+            battery_sensor,
+            "71",
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        wait_for(
+            lambda: str(
+                gs(f"{prefix}_group_summary")
+                .get("attributes", {})
+                .get("battery_levels", {})
+                .get(battery_entity)
+            ),
+            "71",
+        )
+        # Make BOTH the tracked entity and its battery sensor unavailable/unknown
+        # before reloading — this mimics the real restart window, where neither
+        # has re-polled yet. Killing the battery reading is essential: if the
+        # companion sensor were still readable, the first post-reload poll would
+        # source a fresh 71 and the test would pass even with the bug. With the
+        # reading gone, only the RESTORED (storage) level can satisfy the assert.
+        # On that first poll the entity is bad (is_bad=True, fresh_level=None)
+        # but is_offline is restored False and can't flip during startup grace,
+        # so the pre-fix `elif is_bad` wiped the level while the fixed
+        # `elif device.is_offline` retains it (regression signal for #111).
+        ss(battery_sensor, "unknown", {"friendly_name": "Test Battery"})
+        ss(battery_entity, "unavailable", {"friendly_name": "test"})
+        reload_entry(ctx)
+        retained = (
             gs(f"{prefix}_group_summary")
             .get("attributes", {})
             .get("battery_levels", {})
+            .get(battery_entity)
         )
         chk(
-            "EC90 battery_levels drops the key when reading gone + entity bad",
-            battery_entity in levels,
-            False,
-            f"battery_entity={battery_entity} levels_keys={list(levels)}",
+            "EC94 battery level retained across reload while entity transiently bad",
+            retained,
+            71,
+            f"battery_entity={battery_entity} retained={retained}",
         )
         restore_and_wait(ctx)
 
