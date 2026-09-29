@@ -824,6 +824,10 @@ class MTBFSensor(DedupCoordinatorSensor):
     # No state_class: MTBF changes only on offline/recovery events, not on a
     # fixed cadence — see GroupSummarySensor.
     _attr_has_entity_name = True
+    # per_device mtbf_hours grows with elapsed uptime, so the map differs on
+    # nearly every tick; recording it stores a new large attributes row each
+    # write (#108).
+    _unrecorded_attributes = frozenset({"per_device"})
 
     def __init__(
         self,
