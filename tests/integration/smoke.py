@@ -64,6 +64,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
        (dead device) — no stale % survives; the no-spurious-battery_ok guard is unit-tested
   EC91 PR#106: availability_today recorded value is stable across polls (no write-amp sawtooth)
   EC92 PR#106: availability_today shows a value immediately (not unknown) — startup fallback
+  EC93 PR#109: mtbf per_device present in live state but excluded from recorder — per-device
+       mtbf_hours drift alone does not rewrite the sensor (no last_updated sawtooth)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -3481,6 +3483,57 @@ for e in cfg['data']['entries']:
             True,
             f"state={state_92!r}",
         )
+
+    # ------------------------------------------------------------------
+    # EC93: MTBF per_device excluded from recorder but present in live state (PR#109).
+    # per_device.mtbf_hours = uptime/completed, and uptime grows with elapsed
+    # wall-clock every coordinator tick, so the per-device map drifts on nearly
+    # every poll. Recording it stored a fresh ~5 KB attributes row per tick that
+    # the recorder could not deduplicate (181 MB on one install, issue #108).
+    # PR#109 adds per_device to MTBFSensor._unrecorded_attributes. Two live-
+    # observable invariants:
+    #   (a) per_device MUST still be on the live state (cards/templates read it).
+    #   (b) per_device drift alone MUST NOT rewrite the sensor — same SAWTOOTH
+    #       logic as EC91: sample last_updated across several no-mutation polls;
+    #       the recorded surface (double-rounded native_value + event-cadence
+    #       total_offline_events) is stable, so ≤1 adjacent transition is allowed
+    #       (one legit native_value 0.1h step during the window is fine; the
+    #       pre-fix per-tick rewrite produced many).
+    # ------------------------------------------------------------------
+    if ec_enabled(93):
+        print(
+            "\n=== EC93: mtbf per_device unrecorded but live; no write-amp (PR#109) ===",
+            flush=True,
+        )
+        mtbf_eid = f"{prefix}_mtbf"
+        mtbf = gs(mtbf_eid)
+        if mtbf.get("state") in (None, "unknown", "unavailable"):
+            print(
+                f"  EC93 SKIPPED: {mtbf_eid} has no value yet "
+                f"(state={mtbf.get('state')!r} — needs a completed offline event)",
+                flush=True,
+            )
+        else:
+            chk(
+                "EC93 per_device present in live state (not dropped by the fix)",
+                isinstance(mtbf.get("attributes", {}).get("per_device"), dict),
+                True,
+                f"attr keys={list(mtbf.get('attributes', {}).keys())}",
+            )
+            # Sample last_updated across coordinator cycles with NO mutation.
+            # Pre-fix: per_device drifts each tick → a write each tick → many
+            # transitions. Post-fix: dedup holds → ≤1 (a lone native_value step).
+            stamps = [gs(mtbf_eid).get("last_updated")]
+            for _ in range(5):
+                wait(35)
+                stamps.append(gs(mtbf_eid).get("last_updated"))
+            transitions = sum(1 for a, b in itertools.pairwise(stamps) if a != b)
+            chk(
+                "EC93 mtbf last_updated has no per-poll sawtooth (≤1 transition)",
+                transitions <= 1,
+                True,
+                f"stamps={stamps} transitions={transitions}",
+            )
 
     # ------------------------------------------------------------------
     # EC65: stale flag cleared when entity is suppressed

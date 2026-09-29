@@ -4,8 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-09-29
+
 ### Fixed
 - **MTBF sensor bloated the recorder database** — `per_device.mtbf_hours` grows with elapsed uptime, so the map differed on nearly every coordinator tick and each write stored a new large attributes row (181 MB on one install). `per_device` is now in `_unrecorded_attributes`; it stays available on the live state. As with the summary sensors, a change to `per_device` alone no longer triggers a write. (#108)
+
+### Tests
+- **MTBF recorder-bloat regression coverage** — added a behavioral unit test (`per_device` drift alone must not rewrite the sensor; a `total_offline_events` change must) and a live smoke check (EC93: `per_device` present on the live state but no `last_updated` write-amp sawtooth) for the #108 fix. Also documented the dual role (recorder size + write-dedup comparison) of MTBF's `_unrecorded_attributes` to match the sibling summary sensors. (#108)
 
 ## [0.5.4] - 2026-09-25
 
