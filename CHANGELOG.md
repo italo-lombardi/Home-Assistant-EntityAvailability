@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Battery levels missing from the card after an HA restart** — every battery-powered device (zigbee, RTL-SDR, MQTT) showed no battery level after a Home Assistant restart until the group was manually reloaded. On the first coordinator poll after startup, tracked entities are still `unavailable`/`unknown` before their integrations re-poll, so the "clear stale battery on a dead device" branch added in 0.5.4 (#103) treated every restored device as bad and wiped its persisted `battery_level`. The battery block now only *retains* a fresh reading; the stale-battery clear moved to the offline-transition edge and fires **only when there is no fresh reading** (a genuinely dead device), so a device that just restarted keeps its last-known level until its sensor reports again. The clear runs on the same coordinator write as the offline count so the (unrecorded) `battery_levels` attribute is not swallowed by write-dedup. Storage restore also drops a stale battery level for any device already persisted offline, sanitizing state written by <= 0.5.5 on the first boot after upgrade. Known ceiling: if a *mapped/companion* battery sensor outlives its tracked entity and only dies later, the already-offline device keeps its last percentage until it recovers-then-goes-offline again or HA restarts (a dedup-safe clear on a quiet poll would reintroduce the write amplification this change avoids). (#111)
+
+### Tests
+- **Restart battery-retention regression coverage** — added unit tests (`test_battery_survives_restart`: a restored, not-offline device keeps its `battery_level` through a transient-unavailable first poll in the startup grace window; `test_battery_retained_when_offline_but_reading_alive`: an offline device whose sensor still reports keeps its level; `test_load_storage_clears_battery_for_restored_offline_device`: the upgrade-path restore guard) and a live smoke check (EC94: battery survives a config-entry reload). Re-scoped `test_battery_cleared_when_entity_bad` to drive the device genuinely offline before asserting the dead-device clear, and fixed the EC90 smoke assertion to poll for the key drop (it now lands on the offline-transition write, not a snapshot). (#111)
+
 ## [0.5.5] - 2026-09-29
 
 ### Fixed

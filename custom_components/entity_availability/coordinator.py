@@ -422,7 +422,19 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         device.last_changed = None
                     device.offline_event_count = ds.get("offline_event_count", 0)
                     device.total_offline_seconds = ds.get("total_offline_seconds", 0.0)
-                    device.battery_level = ds.get("battery_level")
+                    # Enforce the "offline ⇒ no battery %" invariant on restore.
+                    # A device persisted offline can carry a stale battery_level
+                    # in storage written by <=0.5.5 (which cleared on is_bad, not
+                    # at the offline edge). On the first boot after upgrade such a
+                    # device never re-hits the offline transition (already offline
+                    # ⇒ no edge), so the edge-clear can't fire and a dead battery
+                    # would show a stale % forever. Dropping it here sanitizes old
+                    # storage; for new storage the edge already persists None, so
+                    # this is a no-op. A restored-online device keeps its level
+                    # (the #111 retention path is untouched).
+                    device.battery_level = (
+                        None if device.is_offline else ds.get("battery_level")
+                    )
                     device.is_low_battery = ds.get("is_low_battery", False)
                     if entity_id in self._entities:
                         self._device_states[entity_id] = device
@@ -688,10 +700,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
             # Battery check — retain last-known level across single-poll sensor
             # flaps while the entity is healthy (RTL-SDR/MQTT/Zigbee batteries
-            # report "unknown" for a poll while online), but drop it once the
-            # entity itself is bad: a dead-battery device reads its own battery
-            # sensor as "unknown", and a stale "100%" shown next to a 23h-offline
-            # row is misleading. (is_bad computed above.)
+            # report "unknown" for a poll while online). The stale level is
+            # cleared at the offline TRANSITION below (not here): the clear must
+            # ride the same coordinator write as the offline_count change, or the
+            # write-dedup drops it (battery_levels is unrecorded and stripped from
+            # the dedup comparison, so a poll that changes only battery_levels is
+            # skipped and the card shows a stale % indefinitely).
+            # NOT gated on is_bad here: after an HA restart, tracked entities are
+            # transiently unavailable/unknown before their first poll while the
+            # device is not yet offline (is_offline restored False, offline
+            # suppressed during startup grace) — clearing on is_bad wiped the
+            # restored battery_level on every restart until a manual reload (#111).
             fresh_level = (
                 self._get_battery_level(entity_id)
                 if self._battery_threshold > 0
@@ -699,8 +718,6 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             )
             if fresh_level is not None:
                 device.battery_level = fresh_level
-            elif is_bad:
-                device.battery_level = None
             battery_low = (
                 self._battery_threshold > 0
                 and device.battery_level is not None
@@ -811,6 +828,29 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                         device.offline_since = device.cooldown_start
                         device.recently_offline_at = now
                         device.offline_event_count += 1
+                        # Clear a stale battery % on the same pass as the offline
+                        # transition, but ONLY when there is no fresh reading:
+                        # a dead-battery device reads its own sensor as "unknown"
+                        # (fresh_level None) and a "100%" next to a 23h-offline
+                        # row is misleading (#103). A device whose battery sensor
+                        # is still reporting while the tracked entity is offline
+                        # keeps its last-known level (the retain contract, EC59).
+                        # Doing it here (not in the battery block above) means the
+                        # clear rides the same coordinator write as
+                        # offline_event_count — battery_levels is unrecorded and
+                        # stripped from the write-dedup compare, so a clear on a
+                        # later quiet poll would be skipped and the stale % would
+                        # linger indefinitely (#111 follow-up).
+                        # ponytail: if a MAPPED/companion battery sensor outlives
+                        # the tracked entity and dies only after this edge, the
+                        # already-offline device never re-edges, so its last % is
+                        # kept until recovery→offline re-edges the clear or a
+                        # restart re-runs the restore guard. Cosmetic (device is
+                        # already offline) and narrow (divergent-sensor setups);
+                        # a dedup-safe clear on a quiet poll would reopen the
+                        # write-amp trap this whole change closes — not worth it.
+                        if fresh_level is None:
+                            device.battery_level = None
                         pending_events.append(
                             (
                                 EVENT_OFFLINE,

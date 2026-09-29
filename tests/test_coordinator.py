@@ -291,11 +291,27 @@ async def test_battery_cleared_when_entity_bad(
         await coord._async_update_data()
         assert device_a.battery_level == 100
 
-        # (3) tracked entity goes bad AND its battery reads "unknown" (dead
-        #     device) -> stale level cleared to None
+        # (3) tracked entity goes bad AND is CONFIRMED offline (cooldown
+        #     elapsed past grace) AND its battery reads "unknown" (dead device)
+        #     -> stale level cleared to None on the offline-transition pass. The
+        #     clear rides the same pass as the offline_count change (not a later
+        #     quiet poll) so the write-dedup can't drop it; a transient bad state
+        #     that never confirms offline keeps the last-known level (see
+        #     test_battery_survives_restart).
+        coord._startup_time = datetime.now(timezone.utc) - timedelta(
+            seconds=STARTUP_GRACE_PERIOD + 10
+        )
         hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
         coord._last_update = None
         await coord._async_update_data()
+        # Backdate cooldown so the next update confirms offline.
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(
+            seconds=DEFAULT_COOLDOWN + 10
+        )
+        coord._last_update = None
+        await coord._async_update_data()
+        assert device_a.is_offline is True
+        # Battery cleared on the same pass the offline transition fired.
         assert device_a.battery_level is None
 
     # (4) a genuinely-low battery that then dies must NOT fire a spurious
@@ -308,6 +324,9 @@ async def test_battery_cleared_when_entity_bad(
         EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
     ):
         coord2 = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord2._startup_time = datetime.now(timezone.utc) - timedelta(
+            seconds=STARTUP_GRACE_PERIOD + 10
+        )
         coord2._last_update = None
         await coord2._async_update_data()
         device_b = coord2.device_states["binary_sensor.device_b"]
@@ -318,10 +337,148 @@ async def test_battery_cleared_when_entity_bad(
         hass.states.async_set("sensor.device_b_battery", STATE_UNKNOWN)
         coord2._last_update = None
         await coord2._async_update_data()
+        # Backdate cooldown so the device is confirmed offline; the battery
+        # clears on the same pass the offline transition fires.
+        device_b.cooldown_start = datetime.now(timezone.utc) - timedelta(
+            seconds=DEFAULT_COOLDOWN + 10
+        )
+        coord2._last_update = None
+        await coord2._async_update_data()
         await hass.async_block_till_done()
+        assert device_b.is_offline is True
         assert device_b.battery_level is None
         assert device_b.is_low_battery is True
         assert battery_ok_events == []
+
+
+async def test_battery_survives_restart(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Regression for #111: after an HA restart the tracked entity is
+    transiently unavailable before its first poll (is_bad=True, battery sensor
+    reads nothing) while device.is_offline is still False (restored from
+    storage). The restored battery_level must survive — not get wiped — until
+    the battery sensor reports again. Battery-clear is gated on is_offline, so
+    a not-offline device keeps its last-known level through the transient."""
+    from custom_components.entity_availability.models import DeviceState
+
+    hass = mock_hass
+    # Entity restored from storage but still unavailable on first update.
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+        # Simulate _async_load_storage: healthy device (not offline) with a
+        # persisted battery_level.
+        restored = DeviceState(entity_id="binary_sensor.device_a")
+        restored.is_offline = False
+        restored.battery_level = 87
+        coord._device_states["binary_sensor.device_a"] = restored
+
+        # Fresh startup — inside the grace window.
+        coord._startup_time = datetime.now(timezone.utc)
+        coord._last_update = None
+        await coord._async_update_data()
+
+        device_a = coord.device_states["binary_sensor.device_a"]
+        # Battery NOT wiped by the transient unavailable state.
+        assert device_a.battery_level == 87
+        assert device_a.is_offline is False
+
+
+async def test_battery_retained_when_offline_but_reading_alive(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """A device whose battery sensor is still reporting while the tracked entity
+    goes offline keeps its last-known level — the offline-edge clear fires only
+    when there is no fresh reading (dead device). This is the retain contract
+    smoke-covered by EC59; here it pins the offline-edge branch that skips the
+    clear when fresh_level is not None."""
+    hass = mock_hass
+    hass.states.async_set(
+        "binary_sensor.device_a", STATE_ON, {"friendly_name": "Device A"}
+    )
+    # Battery reported via the auto-detected companion sensor so it stays
+    # readable even when the tracked entity flips unavailable.
+    hass.states.async_set("sensor.device_a_battery", "82")
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._startup_time = datetime.now(timezone.utc) - timedelta(
+            seconds=STARTUP_GRACE_PERIOD + 10
+        )
+        coord._last_update = None
+        await coord._async_update_data()
+        device_a = coord.device_states["binary_sensor.device_a"]
+        assert device_a.battery_level == 82
+
+        # Entity goes unavailable but the battery sensor keeps reporting 82.
+        hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+        coord._last_update = None
+        await coord._async_update_data()
+        device_a.cooldown_start = datetime.now(timezone.utc) - timedelta(
+            seconds=DEFAULT_COOLDOWN + 10
+        )
+        coord._last_update = None
+        await coord._async_update_data()
+        assert device_a.is_offline is True
+        # Reading still alive (fresh_level=82) -> level retained, not cleared.
+        assert device_a.battery_level == 82
+
+
+async def test_load_storage_clears_battery_for_restored_offline_device(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Upgrade-path guard (#111 follow-up): storage written by <=0.5.5 can hold
+    a device persisted is_offline=True together with a stale numeric
+    battery_level (the old code cleared on is_bad, not at the offline edge). On
+    the first boot after the fix such a device never re-hits the offline
+    transition (already offline => no edge), so the edge-clear can't fire; the
+    restore must drop the stale level so no misleading % lingers. A restored
+    online device keeps its level (the #111 retention path)."""
+    hass = mock_hass
+
+    stored_data = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": True,
+                "offline_since": (
+                    datetime.now(timezone.utc) - timedelta(hours=23)
+                ).isoformat(),
+                "cooldown_start": None,
+                "battery_level": 100,
+                "last_changed": (
+                    datetime.now(timezone.utc) - timedelta(hours=23)
+                ).isoformat(),
+            },
+            "binary_sensor.device_b": {
+                "is_offline": False,
+                "offline_since": None,
+                "cooldown_start": None,
+                "battery_level": 55,
+                "last_changed": datetime.now(timezone.utc).isoformat(),
+            },
+        },
+    }
+
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored_data)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    # Offline device: stale battery dropped on restore.
+    assert coord._device_states["binary_sensor.device_a"].battery_level is None
+    # Online device: battery retained.
+    assert coord._device_states["binary_sensor.device_b"].battery_level == 55
 
 
 async def test_suppression_skips_availability_tracking(
@@ -4390,7 +4547,10 @@ async def test_last_known_battery_level_retained_when_unavailable(
 async def test_battery_state_persisted_and_restored(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """battery_level and is_low_battery survive a storage save+load cycle."""
+    """battery_level and is_low_battery survive a storage save+load cycle for a
+    device that is still online; an offline device's stale battery is dropped on
+    restore (offline ⇒ no battery %, see
+    test_load_storage_clears_battery_for_restored_offline_device)."""
     from custom_components.entity_availability.models import DeviceState
 
     coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
@@ -4399,9 +4559,10 @@ async def test_battery_state_persisted_and_restored(
     coord._store.async_save = AsyncMock()
 
     device = DeviceState(entity_id="binary_sensor.device_a")
-    device.is_offline = True
+    device.is_offline = False
     device.is_low_battery = True
     device.battery_level = 7
+    device.last_changed = datetime.now(timezone.utc)
     coord._device_states["binary_sensor.device_a"] = device
 
     await coord._async_save_storage()
@@ -4410,7 +4571,7 @@ async def test_battery_state_persisted_and_restored(
     assert ds["battery_level"] == 7
     assert ds["is_low_battery"] is True
 
-    # Restore into a fresh coordinator
+    # Restore into a fresh coordinator — online device keeps its battery.
     coord2 = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
     coord2._store = MagicMock()
     coord2._store.async_load = AsyncMock(return_value=saved)
