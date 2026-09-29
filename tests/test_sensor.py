@@ -2830,6 +2830,60 @@ class TestMTBFSensor:
         assert "per_device" in sensor._unrecorded_attributes
         assert "total_offline_events" not in sensor._unrecorded_attributes
 
+    def test_per_device_drift_alone_does_not_rewrite(self, mock_coordinator, mock_hass):
+        """per_device churn with flat native_value must not write; a
+        total_offline_events change must (the exact #108 regression).
+
+        Pre-fix, per_device was in the dedup comparison, so the drifting map
+        rewrote the sensor every tick (181 MB bloat). Post-fix it's excluded,
+        so only native_value / total_offline_events changes trigger a write.
+        Mirrors F-EA-1's test_dedup_catches_sub_percent_drift.
+        """
+        sensor = MTBFSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+
+        tick = {"n": 0, "events": 1}
+
+        def _stats(entity_id, _now):
+            # device_a up, device_c down by the same step → mean is invariant,
+            # so native_value = round(mean, 1) stays flat while the per_device
+            # map differs on every tick. device_b (offline) is skipped by the
+            # sensor's non-essential/offline handling but answer defensively.
+            step = tick["n"] * 0.1
+            base = {
+                "binary_sensor.device_a": 100.0 + step,
+                "binary_sensor.device_c": 100.0 - step,
+            }.get(entity_id, 50.0)
+            return {
+                "mtbf_hours": round(base, 1),
+                "mttr_minutes": 5.0,
+                "offline_events": tick["events"],
+            }
+
+        with (
+            patch.object(mock_coordinator, "reliability_stats", side_effect=_stats),
+            patch.object(sensor, "async_write_ha_state") as write,
+        ):
+            for i in range(20):
+                tick["n"] = i
+                sensor._handle_coordinator_update()
+            drift_writes = write.call_count
+
+            # per_device changed every tick but native_value + total_offline_events
+            # were flat → at most the first publish.
+            assert drift_writes <= 1, (
+                f"per_device drift rewrote the sensor {drift_writes}x (#108 regression)"
+            )
+
+            # A recorded-attr change (total_offline_events via offline_events) must write.
+            tick["events"] = 2
+            sensor._handle_coordinator_update()
+            assert write.call_count == drift_writes + 1, (
+                "total_offline_events change did not trigger a write"
+            )
+
     def test_diagnostic_and_device_class(self, mock_coordinator):
         """MTBF sensor is diagnostic with duration device class, hours."""
         sensor = MTBFSensor(

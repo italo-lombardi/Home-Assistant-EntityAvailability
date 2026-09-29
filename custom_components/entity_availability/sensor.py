@@ -825,8 +825,12 @@ class MTBFSensor(DedupCoordinatorSensor):
     # fixed cadence — see GroupSummarySensor.
     _attr_has_entity_name = True
     # per_device mtbf_hours grows with elapsed uptime, so the map differs on
-    # nearly every tick; recording it stores a new large attributes row each
-    # write (#108).
+    # nearly every tick. Listing it here is load-bearing for two concerns, as on
+    # GroupSummarySensor: (1) recording it would store a new large attributes row
+    # each write (#108), and (2) WriteDedupMixin._ea_dedup_attrs excludes exactly
+    # these keys from the write-dedup comparison — so per_device drift alone no
+    # longer re-arms the per-tick redundant write. Any volatile attr this sensor
+    # emits MUST be listed here or it re-introduces the write-amp.
     _unrecorded_attributes = frozenset({"per_device"})
 
     def __init__(
