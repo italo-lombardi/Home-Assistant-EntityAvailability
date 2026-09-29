@@ -2822,6 +2822,14 @@ class TestMTBFSensor:
         attrs = sensor.extra_state_attributes
         assert attrs["total_offline_events"] == 0
 
+    def test_per_device_unrecorded(self, mock_coordinator):
+        """per_device drifts with elapsed uptime, so it must not be recorded (#108)."""
+        sensor = MTBFSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert "per_device" in sensor._unrecorded_attributes
+        assert "total_offline_events" not in sensor._unrecorded_attributes
+
     def test_diagnostic_and_device_class(self, mock_coordinator):
         """MTBF sensor is diagnostic with duration device class, hours."""
         sensor = MTBFSensor(

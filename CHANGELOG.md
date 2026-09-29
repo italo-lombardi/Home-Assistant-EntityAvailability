@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **MTBF sensor bloated the recorder database** — `per_device.mtbf_hours` grows with elapsed uptime, so the map differed on nearly every coordinator tick and each write stored a new large attributes row (181 MB on one install). `per_device` is now in `_unrecorded_attributes`; it stays available on the live state. As with the summary sensors, a change to `per_device` alone no longer triggers a write. (#108)
+
 ## [0.5.4] - 2026-09-25
 
 ### Fixed
