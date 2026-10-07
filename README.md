@@ -654,6 +654,7 @@ show_groups: true            # show groups breakdown table (combined cards only)
 show_entities: true
 show_non_essential_stats: false
 entities_expanded: false
+groups_expanded: false       # combined cards only
 show_actions: false
 show_suppress_toggle: false
 show_stat_icons: false
@@ -682,7 +683,8 @@ availability_colors:
 | `show_groups` | `true` | Show groups breakdown table (combined groups only). Independent of `show_entities` — both can be toggled separately. |
 | `show_entities` | `true` | Show expandable entity list (regular groups), or flat per-entity table (combined groups). Independent of `show_groups`. |
 | `show_non_essential_stats` | `false` | Show non-essential stats. For **regular groups**: adds a NE sub-stats row (Online / Offline / Stale / Low Battery) below the main stats row and includes NE entities in the entity list sorted to the bottom. For **combined groups**: adds a `↳ Non-Essential` sub-row per group in the breakdown table showing NE Online / Offline and (when feature enabled) Bat. / Stale counts. When `false`, non-essential entities are hidden from the card entirely. |
-| `entities_expanded` | `false` | Start entity list / group breakdown expanded |
+| `entities_expanded` | `false` | Start entity list expanded |
+| `groups_expanded` | `false` | Start groups breakdown table expanded (combined cards only) |
 | `show_actions` | `false` | Show suppress action buttons (regular and combined groups). Shows three buttons: **Suppress All** (offline + stale + poor signal, 60 min), **Suppress Offline** (offline only, 60 min), **Unsuppress All**. When `show_non_essential_stats` is on, NE entities are included. |
 | `show_suppress_toggle` | `false` | Show per-entity suppress/unsuppress icon button on each entity row. Click suppresses indefinitely within this card's group only; click the orange bell to unsuppress. (regular groups only) |
 | `entity_detail` | `"off"` | `"off"` / `"tooltip"` (hover to see details) / `"inline"` (always show details). In compact mode with inline, shows state + last-changed time. Timestamp states are formatted as readable dates. (regular groups only) |
