@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Dowolna encja offline"
       },
+      "all_offline": {
+        "name": "Wszystkie encje offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Wszystkie encje offline (Nieistotne)"
+      },
       "combined_any_offline": {
         "name": "Dowolna encja offline"
       },

@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Noen offline"
       },
+      "all_offline": {
+        "name": "Alle offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Alle offline (ikke-kritiske)"
+      },
       "combined_any_offline": {
         "name": "Noen offline"
       },

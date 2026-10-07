@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Κάποια offline"
       },
+      "all_offline": {
+        "name": "Όλα offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Όλα offline (Μη κρίσιμο)"
+      },
       "combined_any_offline": {
         "name": "Κάποια offline"
       },

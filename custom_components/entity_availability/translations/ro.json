@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Există entitate offline"
       },
+      "all_offline": {
+        "name": "Toate entitățile offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Toate entitățile offline (Neesențial)"
+      },
       "combined_any_offline": {
         "name": "Există entitate offline"
       },

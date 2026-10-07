@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Herhangi Biri Çevrimdışı"
       },
+      "all_offline": {
+        "name": "Tümü Çevrimdışı"
+      },
+      "all_offline_non_essential": {
+        "name": "Tümü Çevrimdışı (Kritik Olmayan)"
+      },
       "combined_any_offline": {
         "name": "Herhangi Biri Çevrimdışı"
       },

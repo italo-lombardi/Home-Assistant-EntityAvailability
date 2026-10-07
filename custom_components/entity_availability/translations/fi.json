@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Jokin offline"
       },
+      "all_offline": {
+        "name": "Kaikki offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Kaikki offline (Ei-kriittinen)"
+      },
       "combined_any_offline": {
         "name": "Jokin offline"
       },

@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Alguna fora de línia"
       },
+      "all_offline": {
+        "name": "Totes fora de línia"
+      },
+      "all_offline_non_essential": {
+        "name": "Totes fora de línia (No essencial)"
+      },
       "combined_any_offline": {
         "name": "Alguna fora de línia"
       },

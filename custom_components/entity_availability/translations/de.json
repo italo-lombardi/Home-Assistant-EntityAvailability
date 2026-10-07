@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Mindestens eine offline"
       },
+      "all_offline": {
+        "name": "Alle offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Alle offline (Nicht-wesentlich)"
+      },
       "combined_any_offline": {
         "name": "Mindestens eine offline"
       },

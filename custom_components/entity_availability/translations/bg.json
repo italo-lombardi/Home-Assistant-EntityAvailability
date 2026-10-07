@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Има офлайн"
       },
+      "all_offline": {
+        "name": "Всички офлайн"
+      },
+      "all_offline_non_essential": {
+        "name": "Всички офлайн (Несъществени)"
+      },
       "combined_any_offline": {
         "name": "Има офлайн"
       },

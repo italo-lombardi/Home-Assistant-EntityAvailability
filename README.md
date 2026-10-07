@@ -227,9 +227,11 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._mtbf` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `offline_events`) |
 | `sensor..._mttr` | Sensor (Diagnostic) | Group mean MTTR in minutes (mean time to recovery / average outage length) | `total_offline_events`, `per_device` (`mttr_minutes`, `offline_events`) |
 | `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one essential entity is offline | `offline_entities`, `offline_count` |
+| `binary_sensor..._all_offline` | Binary Sensor (Problem) | ON when **every** monitored essential entity is offline (OFF on a partial outage; OFF when the group is empty) | `monitored_count`, `offline_count` |
 | `binary_sensor..._any_low_battery` | Binary Sensor (Battery) | ON when at least one essential entity has low battery | `low_battery_entities`, `low_battery_count` |
 | `binary_sensor..._any_stale` | Binary Sensor (Problem) | ON when at least one essential entity is stale (stopped reporting) | `stale_entities`, `stale_count` |
 | `binary_sensor..._any_offline_non_essential` | Binary Sensor (Problem) | ON when at least one non-essential entity is offline and not suppressed | `offline_entities` (list), `offline_count` |
+| `binary_sensor..._all_offline_non_essential` | Binary Sensor (Problem) | ON when **every** monitored non-essential entity is offline (OFF on a partial outage; OFF when there are no non-essential entities) | `monitored_count`, `offline_count` |
 | `binary_sensor..._any_poor_signal` | Binary Sensor (Problem) | ON when at least one essential entity has poor signal (requires signal monitoring enabled) | `poor_signal_entities`, `poor_signal_count` |
 | `sensor..._poor_signal` | Sensor | Comma-separated list of essential entities with poor signal (`"None"` when all OK) — requires signal monitoring enabled | Per-entity signal_level and signal_quality, count |
 | `sensor..._poor_signal_count` | Sensor | Count of essential entities with poor signal | — |

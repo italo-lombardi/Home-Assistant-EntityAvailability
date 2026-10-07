@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Van offline entitás"
       },
+      "all_offline": {
+        "name": "Minden entitás offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Minden entitás offline (Nem kritikus)"
+      },
       "combined_any_offline": {
         "name": "Van offline entitás"
       },

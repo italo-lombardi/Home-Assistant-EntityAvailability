@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "오프라인 있음"
       },
+      "all_offline": {
+        "name": "모두 오프라인"
+      },
+      "all_offline_non_essential": {
+        "name": "모두 오프라인(비필수)"
+      },
       "combined_any_offline": {
         "name": "오프라인 있음"
       },

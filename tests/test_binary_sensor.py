@@ -9,9 +9,11 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.binary_sensor import (
+    AllOfflineBinarySensor,
     AnyLowBatteryBinarySensor,
     AnyOfflineBinarySensor,
     AnyStaleBinarySensor,
+    NonEssentialAllOfflineBinarySensor,
     NonEssentialAnyOfflineBinarySensor,
     async_setup_entry,
 )
@@ -175,12 +177,14 @@ async def test_binary_sensor_setup_entry_group_path(
 
     await async_setup_entry(hass, mock_config_entry, capture)
 
-    assert len(added) == 5
+    assert len(added) == 7
     assert isinstance(added[0], AnyOfflineBinarySensor)
-    assert isinstance(added[1], AnyLowBatteryBinarySensor)
-    assert isinstance(added[2], AnyStaleBinarySensor)
-    assert isinstance(added[3], NonEssentialAnyOfflineBinarySensor)
-    assert added[4].__class__.__name__ == "AnyLowBatteryNonEssentialBinarySensor"
+    assert isinstance(added[1], AllOfflineBinarySensor)
+    assert isinstance(added[2], AnyLowBatteryBinarySensor)
+    assert isinstance(added[3], AnyStaleBinarySensor)
+    assert isinstance(added[4], NonEssentialAnyOfflineBinarySensor)
+    assert isinstance(added[5], NonEssentialAllOfflineBinarySensor)
+    assert added[6].__class__.__name__ == "AnyLowBatteryNonEssentialBinarySensor"
 
 
 async def test_binary_sensor_setup_entry_slug_fallback(
@@ -215,7 +219,7 @@ async def test_binary_sensor_setup_entry_slug_fallback(
 
     await async_setup_entry(hass, entry, capture)
 
-    assert len(added) == 5
+    assert len(added) == 7
     assert "abcdef12" in added[0].entity_id
 
 
@@ -762,3 +766,169 @@ async def test_binary_sensor_setup_includes_ne_low_battery(
 
     types = [type(e).__name__ for e in added]
     assert "AnyLowBatteryNonEssentialBinarySensor" in types
+
+
+class TestAllOfflineBinarySensor:
+    """Tests for AllOfflineBinarySensor (essential membership)."""
+
+    def test_off_when_all_online(self, mock_coordinator, mock_hass):
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is False
+
+    def test_off_when_partial_offline(self, mock_coordinator, mock_hass):
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = True
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is False
+
+    def test_on_when_all_offline(self, mock_coordinator, mock_hass):
+        for d in mock_coordinator._device_states.values():
+            d.is_offline = True
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is True
+        assert sensor.extra_state_attributes["monitored_count"] == 3
+        assert sensor.extra_state_attributes["offline_count"] == 3
+
+    def test_off_when_empty(self, mock_coordinator, mock_hass):
+        """Vacuous-truth guard: 0 of 0 is not 'all offline'."""
+        mock_coordinator._device_states = {}
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is False
+
+    def test_suppressed_excluded_from_denominator(self, mock_coordinator, mock_hass):
+        """ON when all non-suppressed are offline even if a suppressed one is online."""
+        for d in mock_coordinator._device_states.values():
+            d.is_offline = True
+        mock_coordinator._device_states["binary_sensor.device_c"].is_offline = False
+        mock_coordinator._device_states["binary_sensor.device_c"].is_suppressed = True
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is True
+
+    def test_non_essential_excluded(self, mock_coordinator, mock_hass):
+        """Essential sensor ignores non-essential entities in its denominator."""
+        for d in mock_coordinator._device_states.values():
+            d.is_offline = True
+        mock_coordinator._device_states["binary_sensor.device_c"].is_offline = False
+        mock_coordinator._device_states[
+            "binary_sensor.device_c"
+        ].is_non_essential = True
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is True
+
+
+class TestNonEssentialAllOfflineBinarySensor:
+    """Tests for NonEssentialAllOfflineBinarySensor."""
+
+    def test_off_when_empty(self, mock_coordinator, mock_hass):
+        """No non-essential entities -> OFF (vacuous-truth guard)."""
+        sensor = NonEssentialAllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is False
+
+    def test_on_when_all_ne_offline(self, mock_coordinator, mock_hass):
+        for d in mock_coordinator._device_states.values():
+            d.is_non_essential = True
+            d.is_offline = True
+        sensor = NonEssentialAllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is True
+        assert sensor.extra_state_attributes["monitored_count"] == 3
+        assert sensor.extra_state_attributes["offline_count"] == 3
+
+    def test_off_when_partial_ne_offline(self, mock_coordinator, mock_hass):
+        for d in mock_coordinator._device_states.values():
+            d.is_non_essential = True
+        mock_coordinator._device_states["binary_sensor.device_a"].is_offline = True
+        sensor = NonEssentialAllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is False
+
+
+class TestAllOfflineCollapseDivergence:
+    """all() is collapse-sensitive, so all_offline must iterate the COLLAPSED
+    representative set, not raw device_states. #34-class guard: a device whose
+    offline representative collapses one row while an online sibling entity
+    remains in raw device_states must NOT keep all_offline OFF — the collapsed
+    row set (what the card shows) is all offline. These pin the sensor to
+    representative_states_matching; a revert to raw iteration fails them."""
+
+    def test_essential_uses_representative_set(self, mock_coordinator, mock_hass):
+        # Raw device_states: one online sibling present (would make raw all() False).
+        for d in mock_coordinator._device_states.values():
+            d.is_offline = True
+        mock_coordinator._device_states["binary_sensor.device_c"].is_offline = False
+        # Collapsed representative set: only the two offline reps survive collapse
+        # (device_c's online sibling collapses into an offline rep's device-key).
+        reps = [
+            mock_coordinator._device_states["binary_sensor.device_a"],
+            mock_coordinator._device_states["binary_sensor.device_b"],
+        ]
+        mock_coordinator.representative_states_matching = lambda pred: [
+            d for d in reps if pred(d)
+        ]
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        # All representative rows offline -> ON, despite the raw online sibling.
+        assert sensor.is_on is True
+        assert sensor.extra_state_attributes["monitored_count"] == 2
+        assert sensor.extra_state_attributes["offline_count"] == 2
+
+    def test_essential_off_when_a_representative_online(
+        self, mock_coordinator, mock_hass
+    ):
+        # Representative set has an online row -> partial outage -> OFF.
+        reps = list(mock_coordinator._device_states.values())
+        for d in reps:
+            d.is_offline = True
+        reps[0].is_offline = False
+        mock_coordinator.representative_states_matching = lambda pred: [
+            d for d in reps if pred(d)
+        ]
+        sensor = AllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is False
+
+    def test_non_essential_uses_representative_set(self, mock_coordinator, mock_hass):
+        for d in mock_coordinator._device_states.values():
+            d.is_non_essential = True
+            d.is_offline = True
+        mock_coordinator._device_states["binary_sensor.device_c"].is_offline = False
+        reps = [
+            mock_coordinator._device_states["binary_sensor.device_a"],
+            mock_coordinator._device_states["binary_sensor.device_b"],
+        ]
+        mock_coordinator.representative_states_matching = lambda pred: [
+            d for d in reps if pred(d)
+        ]
+        sensor = NonEssentialAllOfflineBinarySensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        assert sensor.is_on is True

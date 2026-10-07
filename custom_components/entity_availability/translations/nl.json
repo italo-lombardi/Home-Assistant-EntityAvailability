@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Een of meer offline"
       },
+      "all_offline": {
+        "name": "Alle offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Alle offline (niet-essentieel)"
+      },
       "combined_any_offline": {
         "name": "Een of meer offline"
       },

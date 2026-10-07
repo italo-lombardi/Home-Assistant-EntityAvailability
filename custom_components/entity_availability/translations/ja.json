@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "オフラインあり"
       },
+      "all_offline": {
+        "name": "すべてオフライン"
+      },
+      "all_offline_non_essential": {
+        "name": "すべてオフライン（非必須）"
+      },
       "combined_any_offline": {
         "name": "オフラインあり"
       },

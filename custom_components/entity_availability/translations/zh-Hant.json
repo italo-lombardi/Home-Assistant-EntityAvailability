@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "存在離線實體"
       },
+      "all_offline": {
+        "name": "全部離線"
+      },
+      "all_offline_non_essential": {
+        "name": "全部離線（非必要）"
+      },
       "combined_any_offline": {
         "name": "存在離線實體"
       },
