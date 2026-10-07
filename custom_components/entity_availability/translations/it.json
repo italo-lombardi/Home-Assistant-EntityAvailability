@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Qualcosa è offline"
       },
+      "all_offline": {
+        "name": "Tutti offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Tutti offline (non essenziali)"
+      },
       "combined_any_offline": {
         "name": "Qualcosa è offline"
       },

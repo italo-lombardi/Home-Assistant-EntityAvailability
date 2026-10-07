@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Alguma Entidade Offline"
       },
+      "all_offline": {
+        "name": "Todas as Entidades Offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Todas as Entidades Offline (Não Essencial)"
+      },
       "combined_any_offline": {
         "name": "Alguma Entidade Offline"
       },

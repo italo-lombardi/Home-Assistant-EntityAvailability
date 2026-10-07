@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Någon offline"
       },
+      "all_offline": {
+        "name": "Alla offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Alla offline (ej väsentliga)"
+      },
       "combined_any_offline": {
         "name": "Någon offline"
       },

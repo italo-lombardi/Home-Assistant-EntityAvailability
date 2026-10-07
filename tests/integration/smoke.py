@@ -1456,6 +1456,61 @@ def _run_ne_tests(ne_ctx: dict) -> None:
             )
             ne_restore()
 
+    # ------------------------------------------------------------------
+    # EC115-EC116: all_offline_non_essential binary sensor
+    #   ON  iff ≥1 non-essential entity AND every NE entity offline
+    #   OFF on partial NE outage
+    # ------------------------------------------------------------------
+    ne_all_bs = f"{ne_bs_prefix}_all_offline_non_essential"
+    if (not EC_FILTER or {115, 116} & EC_FILTER) and len(ne_entities) >= 2:
+        if gs_safe(ne_all_bs) is None:
+            print(
+                "\n  EC115-EC116: skipped (all_offline_non_essential sensor not found — deploy backend first)",
+                flush=True,
+            )
+        else:
+            ne_restore()
+
+            if ec_enabled(115):
+                print(
+                    "\n=== EC115: ALL non-essential entities offline → all_offline_non_essential ON ===",
+                    flush=True,
+                )
+                for eid in ne_entities:
+                    ss(eid, "unavailable", {"friendly_name": eid.split(".")[-1]})
+                chk(
+                    "EC115 all_offline_non_essential=on",
+                    wait_for(lambda: gs(ne_all_bs).get("state"), "on"),
+                    "on",
+                    f"n_ne={len(ne_entities)}",
+                )
+                # essential all_offline must stay OFF — NE outage is not essential
+                chk(
+                    "EC115 essential all_offline=off (NE excluded)",
+                    gs(f"{ne_bs_prefix}_all_offline").get("state"),
+                    "off",
+                )
+
+            if ec_enabled(116):
+                print(
+                    "\n=== EC116: one NE entity back online → all_offline_non_essential OFF ===",
+                    flush=True,
+                )
+                for eid in ne_entities:
+                    ss(eid, "unavailable", {"friendly_name": eid.split(".")[-1]})
+                wait_for(lambda: gs(ne_all_bs).get("state"), "on")
+                ss(
+                    ne_entities[0],
+                    "on",
+                    {"friendly_name": ne_entities[0].split(".")[-1]},
+                )
+                chk(
+                    "EC116 all_offline_non_essential=off on partial outage",
+                    wait_for(lambda: gs(ne_all_bs).get("state"), "off"),
+                    "off",
+                )
+            ne_restore()
+
 
 # ---------------------------------------------------------------------------
 # Main
@@ -1595,13 +1650,17 @@ def run_all():
     # ECs with a DEDICATED later pass — excluded from pass 1 so we don't run
     # them on Alpha just to self-skip (perf), and so EC36 (needs a non-essential
     # tier Alpha lacks) doesn't hard-fail here rather than in its both-tiers pass.
-    ne_ecs = set(range(25, 43))  # EC25-42 → pass 2
-    collapse_ecs = {86, 87, 88, 89}  # → pass 3
+    ne_ecs = set(range(25, 43)) | {115, 116}  # EC25-42 + NE all_offline → pass 2
+    collapse_ecs = {86, 87, 88, 89, 117}  # → pass 3
     # 1) The broad slice an essential-mapped-battery + signal + combined group
     #    satisfies: core, battery-count family, signal, combined, collapse-attr,
     #    recorder, EC12/EC82 (which have NO dedicated pass). Everything EXCEPT
     #    the NE tier and the collapse fixture, which their own passes own.
-    pass1_ecs = {n for n in range(1, 93) if n not in ne_ecs and n not in collapse_ecs}
+    pass1_ecs = {
+        n
+        for n in list(range(1, 93)) + [113, 114]
+        if n not in ne_ecs and n not in collapse_ecs
+    }
     if ess_batt:
         passes.append(
             (
@@ -1627,7 +1686,7 @@ def run_all():
     if not both_tiers:
         dark.append("NE-tier + EC36 (EC25-42): no both-tiers group")
     if not collapse_grp:
-        dark.append("collapse fixture (EC86,87,88,89): no collapse-active group")
+        dark.append("collapse fixture (EC86,87,88,89,117): no collapse-active group")
     if not signal_grp:
         dark.append("signal ECs (EC47-52): no signal group")
     for d in dark:
@@ -2862,7 +2921,7 @@ def run_checks(ctx):
     # EC25-EC35: Non-Essential entity tier
     # Requires EA_SMOKE_NE_GROUP to point at a group with NE entities configured.
     # ------------------------------------------------------------------
-    ne_ecs = set(range(25, 43))
+    ne_ecs = set(range(25, 43)) | {115, 116}
     run_ne = bool(NE_GROUP_FILTER) and (not EC_FILTER or ne_ecs & EC_FILTER)
 
     if run_ne:
@@ -4677,6 +4736,105 @@ for e in cfg['data']['entries']:
                 ss(non_rep_ne_86, state_86, base_86)
 
         restore_all(ctx)
+
+    # ------------------------------------------------------------------
+    # EC117: all_offline agrees with the COLLAPSED row set (Q1 #34-class guard).
+    #   On a collapse-active group, drive every entity offline and assert
+    #   all_offline=ON with monitored_count == offline_count == visible rows.
+    #   all() is collapse-sensitive, so this exercises the representative path
+    #   that raw device_states iteration would get wrong. (unit tests in
+    #   TestAllOfflineCollapseDivergence pin the offline-rep+online-sibling case
+    #   deterministically; this is the live sanity that the collapsed path runs.)
+    # ------------------------------------------------------------------
+    if ec_enabled(117):
+        bs_prefix = prefix.replace(
+            "sensor.entity_availability_", "binary_sensor.entity_availability_"
+        )
+        all_bs = f"{bs_prefix}_all_offline"
+        if gs_safe(all_bs) is None:
+            print(
+                "\n  EC117: skipped (all_offline sensor not found — deploy backend first)",
+                flush=True,
+            )
+        else:
+            print(
+                "\n=== EC117: all_offline agrees with collapsed row set ===",
+                flush=True,
+            )
+            restore_all(ctx)
+            for eid in ctx["entities"]:
+                ss(eid, "unavailable", {"friendly_name": eid.split(".")[-1]})
+            on = wait_for(lambda: gs(all_bs).get("state"), "on")
+            chk("EC117 all_offline=on (collapse group)", on, "on")
+            attrs = gs(all_bs).get("attributes", {})
+            chk(
+                "EC117 monitored_count == offline_count (collapsed denominator)",
+                attrs.get("monitored_count"),
+                attrs.get("offline_count"),
+                f"monitored={attrs.get('monitored_count')} offline={attrs.get('offline_count')}",
+            )
+            restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC113-EC114: all_offline binary sensor (essential membership)
+    #   ON  iff group non-empty AND every monitored essential entity offline
+    #   OFF on partial outage (vacuous-truth / all-vs-any distinction)
+    # ------------------------------------------------------------------
+    all_off_ecs = {113, 114}
+    if (not EC_FILTER or all_off_ecs & EC_FILTER) and len(ctx["entities"]) >= 2:
+        bs_prefix = prefix.replace(
+            "sensor.entity_availability_", "binary_sensor.entity_availability_"
+        )
+        all_bs = f"{bs_prefix}_all_offline"
+        if gs_safe(all_bs) is None:
+            print(
+                "\n  EC113-EC114: skipped (all_offline sensor not found — deploy backend first)",
+                flush=True,
+            )
+        else:
+            restore_and_wait(ctx)
+
+            if ec_enabled(113):
+                print(
+                    "\n=== EC113: ALL essential entities offline → all_offline ON ===",
+                    flush=True,
+                )
+                for eid in ctx["entities"]:
+                    ss(eid, "unavailable", {"friendly_name": eid.split(".")[-1]})
+                chk(
+                    "EC113 all_offline=on",
+                    wait_for(lambda: gs(all_bs).get("state"), "on"),
+                    "on",
+                    f"n_entities={len(ctx['entities'])}",
+                )
+                chk(
+                    "EC113 any_offline=on (sanity)",
+                    gs(f"{bs_prefix}_any_offline").get("state"),
+                    "on",
+                )
+
+            if ec_enabled(114):
+                print(
+                    "\n=== EC114: one essential entity back online → all_offline OFF ===",
+                    flush=True,
+                )
+                # ensure all offline first (independent of EC113)
+                for eid in ctx["entities"]:
+                    ss(eid, "unavailable", {"friendly_name": eid.split(".")[-1]})
+                wait_for(lambda: gs(all_bs).get("state"), "on")
+                # recover exactly one → partial outage, all_offline must drop
+                ss(
+                    ctx["entities"][0],
+                    "on",
+                    {"friendly_name": ctx["entities"][0].split(".")[-1]},
+                )
+                chk(
+                    "EC114 all_offline=off on partial outage",
+                    wait_for(lambda: gs(all_bs).get("state"), "off"),
+                    "off",
+                    "recovered 1 of N, rest still offline",
+                )
+            restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     restore_all(ctx)

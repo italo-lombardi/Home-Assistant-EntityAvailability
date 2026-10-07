@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Yra neprisijungusių"
       },
+      "all_offline": {
+        "name": "Visi neprisijungę"
+      },
+      "all_offline_non_essential": {
+        "name": "Visi neprisijungę (Neesminiai)"
+      },
       "combined_any_offline": {
         "name": "Yra neprisijungusių"
       },

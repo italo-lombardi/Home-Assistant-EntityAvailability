@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Ir bezsaistē esošas"
       },
+      "all_offline": {
+        "name": "Visi bezsaistē"
+      },
+      "all_offline_non_essential": {
+        "name": "Visi bezsaistē (Nebūtiski)"
+      },
       "combined_any_offline": {
         "name": "Ir bezsaistē esošas"
       },

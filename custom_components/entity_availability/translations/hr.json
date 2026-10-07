@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Ima offline"
       },
+      "all_offline": {
+        "name": "Svi offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Svi offline (Nebitni)"
+      },
       "combined_any_offline": {
         "name": "Ima offline"
       },

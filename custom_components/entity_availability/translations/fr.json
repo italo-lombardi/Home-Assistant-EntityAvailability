@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Au moins un hors ligne"
       },
+      "all_offline": {
+        "name": "Tous hors ligne"
+      },
+      "all_offline_non_essential": {
+        "name": "Tous hors ligne (non essentielles)"
+      },
       "combined_any_offline": {
         "name": "Au moins un hors ligne"
       },

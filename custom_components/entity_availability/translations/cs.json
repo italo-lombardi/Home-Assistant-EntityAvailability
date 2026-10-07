@@ -239,6 +239,12 @@
       "any_offline": {
         "name": "Některá entity offline"
       },
+      "all_offline": {
+        "name": "Všechny entity offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Všechny entity offline (Nedůležitý)"
+      },
       "combined_any_offline": {
         "name": "Některá entity offline"
       },
