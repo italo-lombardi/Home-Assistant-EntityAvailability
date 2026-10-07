@@ -696,6 +696,7 @@ class EntityAvailabilityCard extends LitElement {
       show_groups: true,
       show_entities: true,
       entities_expanded: false,
+      groups_expanded: false,
       show_actions: false,
       show_suppress_toggle: false,
       compact: false,
@@ -719,6 +720,7 @@ class EntityAvailabilityCard extends LitElement {
       show_groups: true,
       show_entities: true,
       entities_expanded: false,
+      groups_expanded: false,
       show_actions: false,
       show_suppress_toggle: false,
       compact: false,
@@ -736,7 +738,7 @@ class EntityAvailabilityCard extends LitElement {
       this._config.entity_detail = "tooltip";
     }
     this._entitiesExpanded = this._config.entities_expanded;
-    this._groupsExpanded = this._config.entities_expanded;
+    this._groupsExpanded = this._config.groups_expanded;
   }
 
   getCardSize() {
@@ -2104,6 +2106,19 @@ class EntityAvailabilityCardEditor extends LitElement {
             <option value="offline">Problems only (offline, stale, low battery)</option>
             <option value="online">Healthy only (online)</option>
           </select>
+        </div>
+        ` : nothing}
+        ${this._isSelectedGroupCombined() ? html`
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.groups_expanded === true}
+              @change=${(e) => this._updateConfig("groups_expanded", e.target.checked)}
+              ?disabled=${this._config.show_groups === false}
+            />
+            Group List Expanded by Default
+          </label>
         </div>
         ` : nothing}
         <div class="editor-row checkbox">
