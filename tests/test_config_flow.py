@@ -3166,3 +3166,63 @@ async def test_step_combined_group_titled_combined_name(hass: HomeAssistant) -> 
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert entry_a.entry_id in result["data"][CONF_COMBINED_GROUPS]
+
+
+async def test_combined_options_flow_updates_unique_id_on_rename(
+    hass: HomeAssistant,
+) -> None:
+    """Renaming a combined group updates its unique_id so the old name can be reused."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Old Name",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Old Name",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+        entry_id="combined_rename_uid",
+        unique_id=f"{DOMAIN}_combined_old_name",
+    )
+    combined.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "combined_name": "New Name",
+            "Group A": "keep",
+            "Group B": "keep",
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert combined.unique_id == f"{DOMAIN}_combined_new_name"
+
+    # Old name must now be available for a new combined group
+    result2 = await _init_flow(hass)
+    result2 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result2 = await hass.config_entries.flow.async_configure(
+            result2["flow_id"],
+            {
+                "combined_name": "Old Name",
+                "Group A": "keep",
+                "Group B": "keep",
+            },
+        )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY

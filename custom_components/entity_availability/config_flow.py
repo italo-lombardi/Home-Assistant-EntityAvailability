@@ -919,6 +919,7 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             elif len(combined_groups) < 2:
                 errors["base"] = "not_enough_groups_selected"
             else:
+                new_uid = f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
                 new_data = {
                     **self.config_entry.data,
                     CONF_GROUP_NAME: group_name,
@@ -926,7 +927,10 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                     CONF_COMBINED_GROUPS_OVERRIDES: overrides,
                 }
                 self.hass.config_entries.async_update_entry(
-                    self.config_entry, title=group_name, data=new_data
+                    self.config_entry,
+                    title=group_name,
+                    unique_id=new_uid,
+                    data=new_data,
                 )
                 return self.async_create_entry(title="", data={})
 
