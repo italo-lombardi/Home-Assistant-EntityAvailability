@@ -992,6 +992,9 @@ async def test_combined_options_flow_preserves_unloaded_groups(
         },
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
+    # Loaded groups still present
+    assert entry_a.entry_id in combined.data[CONF_COMBINED_GROUPS]
+    assert entry_b.entry_id in combined.data[CONF_COMBINED_GROUPS]
     # Both unloaded groups preserved
     assert unloaded_eid in combined.data[CONF_COMBINED_GROUPS]
     assert unloaded_no_override_eid in combined.data[CONF_COMBINED_GROUPS]
@@ -1002,6 +1005,128 @@ async def test_combined_options_flow_preserves_unloaded_groups(
     )
     # Unloaded group without stored override is not in overrides
     assert unloaded_no_override_eid not in combined.data[CONF_COMBINED_GROUPS_OVERRIDES]
+
+
+async def test_combined_options_flow_unloaded_groups_count_toward_minimum(
+    hass: HomeAssistant,
+) -> None:
+    """Unloaded groups count toward the <2 minimum in options flow.
+
+    User excludes all loaded groups; 2 unloaded groups satisfy minimum so save succeeds.
+    """
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    unloaded_eid_1 = "unloaded_eid_1"
+    unloaded_eid_2 = "unloaded_eid_2"
+
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Min Test Combined",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Min Test Combined",
+            CONF_COMBINED_GROUPS: [
+                entry_a.entry_id,
+                entry_b.entry_id,
+                unloaded_eid_1,
+                unloaded_eid_2,
+            ],
+            CONF_COMBINED_GROUPS_OVERRIDES: {
+                entry_a.entry_id: NE_OVERRIDE_KEEP,
+                entry_b.entry_id: NE_OVERRIDE_KEEP,
+                unloaded_eid_1: NE_OVERRIDE_KEEP,
+                unloaded_eid_2: NE_OVERRIDE_KEEP,
+            },
+        },
+        entry_id="combined_min_test",
+        unique_id=f"{DOMAIN}_combined_min_test",
+    )
+    combined.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    # User excludes both loaded groups — 2 unloaded groups still satisfy minimum
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "combined_name": "Min Test Combined",
+            "Group A": NE_OVERRIDE_EXCLUDED,
+            "Group B": NE_OVERRIDE_EXCLUDED,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    # Loaded groups excluded, unloaded groups preserved
+    assert entry_a.entry_id not in combined.data[CONF_COMBINED_GROUPS]
+    assert entry_b.entry_id not in combined.data[CONF_COMBINED_GROUPS]
+    assert unloaded_eid_1 in combined.data[CONF_COMBINED_GROUPS]
+    assert unloaded_eid_2 in combined.data[CONF_COMBINED_GROUPS]
+
+
+async def test_combined_options_flow_rename_collision_blocked(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow rename is blocked when new name collides with existing combined entry."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+
+    combined_x = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Combined X",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Combined X",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+        entry_id="combined_x_eid",
+        unique_id=f"{DOMAIN}_combined_combined_x",
+    )
+    combined_y = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Combined Y",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Combined Y",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+        entry_id="combined_y_eid",
+        unique_id=f"{DOMAIN}_combined_combined_y",
+    )
+    combined_x.add_to_hass(hass)
+    combined_y.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        # Only need to set up combined_x (the entry under test); combined_y just
+        # needs to be registered in hass for async_entry_for_domain_unique_id to find it.
+        await hass.config_entries.async_setup(combined_x.entry_id)
+        await hass.async_block_till_done()
+
+    # Try to rename combined_x to "Combined Y" (combined_y's name)
+    result = await hass.config_entries.options.async_init(combined_x.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "combined_name": "Combined Y",
+            "Group A": NE_OVERRIDE_KEEP,
+            "Group B": NE_OVERRIDE_KEEP,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"].get("combined_name") == "already_configured"
+    # combined_x must not have been renamed
+    assert combined_x.title == "Combined X"
+    assert combined_x.unique_id == f"{DOMAIN}_combined_combined_x"
 
 
 async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> None:

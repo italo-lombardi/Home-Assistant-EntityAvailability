@@ -922,6 +922,10 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             }
             # Preserve groups that exist in current_combined but are not currently
             # LOADED (e.g. Zigbee coordinator restart, transient SETUP_ERROR).
+            # Unloaded groups count toward the <2 minimum: if 2+ unloaded groups
+            # exist they satisfy validation even when all loaded groups are excluded.
+            # This is intentional — unloaded groups are a transient state, not a
+            # user removal.
             for eid in current_combined:
                 if eid not in loaded_eids:
                     combined_groups.append(eid)
@@ -934,19 +938,25 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 errors["base"] = "not_enough_groups_selected"
             else:
                 new_uid = f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
-                new_data = {
-                    **self.config_entry.data,
-                    CONF_GROUP_NAME: group_name,
-                    CONF_COMBINED_GROUPS: combined_groups,
-                    CONF_COMBINED_GROUPS_OVERRIDES: overrides,
-                }
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry,
-                    title=group_name,
-                    unique_id=new_uid,
-                    data=new_data,
+                existing = self.hass.config_entries.async_entry_for_domain_unique_id(
+                    DOMAIN, new_uid
                 )
-                return self.async_create_entry(title="", data={})
+                if existing not in (None, self.config_entry):
+                    errors[_COMBINED_NAME_KEY] = "already_configured"
+                else:
+                    new_data = {
+                        **self.config_entry.data,
+                        CONF_GROUP_NAME: group_name,
+                        CONF_COMBINED_GROUPS: combined_groups,
+                        CONF_COMBINED_GROUPS_OVERRIDES: overrides,
+                    }
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry,
+                        title=group_name,
+                        unique_id=new_uid,
+                        data=new_data,
+                    )
+                    return self.async_create_entry(title="", data={})
         group_options = [
             NE_OVERRIDE_EXCLUDED,
             NE_OVERRIDE_KEEP,
