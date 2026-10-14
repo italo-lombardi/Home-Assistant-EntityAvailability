@@ -895,6 +895,47 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
     }
 
 
+async def test_combined_options_flow_same_name_save_allowed(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow save with unchanged name is allowed (uid == self.config_entry uid)."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Same Name",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Same Name",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+        entry_id="combined_same_name_eid",
+        unique_id=f"{DOMAIN}_combined_same_name",
+    )
+    combined.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "combined_name": "Same Name",
+            "Group A": NE_OVERRIDE_KEEP,
+            "Group B": NE_OVERRIDE_KEEP,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert combined.data[CONF_GROUP_NAME] == "Same Name"
+
+
 async def test_combined_options_flow_non_keep_override_prepopulates(
     hass: HomeAssistant,
 ) -> None:
