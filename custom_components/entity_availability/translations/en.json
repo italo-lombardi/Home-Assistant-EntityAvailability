@@ -23,15 +23,10 @@
       },
       "combined": {
         "title": "Create Combined Group",
-        "description": "Combine multiple groups into one view for automations and dashboards.",
+        "description": "Select how each group should be classified: Not included, Included using the group's own settings, or override to Essential or Non-Essential.",
         "data": {
-          "group_name": "Combined Group Name",
-          "combined_groups": "Groups to Include"
+          "group_name": "Combined Group Name"
         }
-      },
-      "combined_overrides": {
-        "title": "Per-Group Classification Override",
-        "description": "Override essential/non-essential classification for each included group. 'Keep configuration' respects each group's own settings."
       },
       "monitoring": {
         "title": "Monitoring Settings",
@@ -126,15 +121,10 @@
       },
       "combined_init": {
         "title": "Edit Combined Group",
-        "description": "Modify the combined group name and included groups.",
+        "description": "Select how each group should be classified: Not included, Included using the group's own settings, or override to Essential or Non-Essential.",
         "data": {
-          "group_name": "Combined Group Name",
-          "combined_groups": "Groups to Include"
+          "group_name": "Combined Group Name"
         }
-      },
-      "combined_init_overrides": {
-        "title": "Per-Group Classification Override",
-        "description": "Override essential/non-essential classification for each included group. 'Keep configuration' respects each group's own settings."
       },
       "battery_mapping": {
         "title": "Battery Entity Mapping",

@@ -492,8 +492,8 @@ async def test_step_combined_shows_form(hass: HomeAssistant) -> None:
 
 async def test_step_combined_empty_name_error(hass: HomeAssistant) -> None:
     """Blank combined group name raises validation error."""
-    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
-    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
 
     result = await _init_flow(hass)
     result = await hass.config_entries.flow.async_configure(
@@ -503,7 +503,8 @@ async def test_step_combined_empty_name_error(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             CONF_GROUP_NAME: "   ",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            "Group A": "keep",
+            "Group B": "keep",
         },
     )
     assert result["type"] == FlowResultType.FORM
@@ -514,7 +515,7 @@ async def test_step_combined_not_enough_groups_selected_error(
     hass: HomeAssistant,
 ) -> None:
     """Selecting < 2 groups raises validation error."""
-    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
     await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
 
     result = await _init_flow(hass)
@@ -523,10 +524,10 @@ async def test_step_combined_not_enough_groups_selected_error(
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {CONF_GROUP_NAME: "My Combined", CONF_COMBINED_GROUPS: [entry_a.entry_id]},
+        {CONF_GROUP_NAME: "My Combined", "Group A": "keep"},
     )
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == {CONF_COMBINED_GROUPS: "not_enough_groups_selected"}
+    assert result["errors"] == {"base": "not_enough_groups_selected"}
 
 
 async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
@@ -538,20 +539,18 @@ async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
     )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_GROUP_NAME: "My Combined",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
-        },
-    )
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "combined_overrides"
     with patch(
         "custom_components.entity_availability.async_setup_entry",
         return_value=True,
     ):
-        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_GROUP_NAME: "My Combined",
+                "Group A": "keep",
+                "Group B": "keep",
+            },
+        )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "My Combined"
     assert result["data"][CONF_ENTRY_TYPE] == ENTRY_TYPE_COMBINED
@@ -574,21 +573,17 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
     )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_GROUP_NAME: "Override Test",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
-        },
-    )
-    assert result["step_id"] == "combined_overrides"
     with patch(
         "custom_components.entity_availability.async_setup_entry",
         return_value=True,
     ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
-            {"override_group_a": NE_OVERRIDE_ALL_NON_ESSENTIAL},
+            {
+                CONF_GROUP_NAME: "Override Test",
+                "Group A": NE_OVERRIDE_ALL_NON_ESSENTIAL,
+                "Group B": "keep",
+            },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     overrides = result["data"][CONF_COMBINED_GROUPS_OVERRIDES]
@@ -604,18 +599,18 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
     )
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_GROUP_NAME: "My Combined",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
-        },
-    )
     with patch(
         "custom_components.entity_availability.async_setup_entry",
         return_value=True,
     ):
-        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_GROUP_NAME: "My Combined",
+                "Group A": "keep",
+                "Group B": "keep",
+            },
+        )
     assert result["type"] == FlowResultType.CREATE_ENTRY
 
     # Second combined entry with the same name
@@ -627,18 +622,18 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
         result2["flow_id"],
         {
             CONF_GROUP_NAME: "My Combined",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            "Group A": "keep",
+            "Group B": "keep",
         },
     )
-    result2 = await hass.config_entries.flow.async_configure(result2["flow_id"], {})
     assert result2["type"] == FlowResultType.ABORT
     assert result2["reason"] == "already_configured"
 
 
 async def test_step_combined_excludes_non_loaded_entries(hass: HomeAssistant) -> None:
     """Group entries not in LOADED state are excluded from the combined selector."""
-    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
-    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
     # Add a third entry in SETUP_ERROR state — must not appear as a valid option
     entry_bad = MockConfigEntry(
         version=1,
@@ -661,14 +656,132 @@ async def test_step_combined_excludes_non_loaded_entries(hass: HomeAssistant) ->
     )
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "combined"
-    # The form schema options must only contain the two LOADED entries
-    option_values = [
-        o["value"]
-        for o in result["data_schema"].schema[CONF_COMBINED_GROUPS].config["options"]
-    ]
-    assert entry_a.entry_id in option_values
-    assert entry_b.entry_id in option_values
-    assert entry_bad.entry_id not in option_values
+    # The form schema must have group_* fields only for LOADED entries
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    # Group A and Group B (LOADED) should be present; Bad Group (SETUP_ERROR) should not
+    assert "Group A" in schema_keys
+    assert "Group B" in schema_keys
+    assert not any("Bad" in k for k in schema_keys)
+
+
+async def test_step_combined_deduplicates_same_title(hass: HomeAssistant) -> None:
+    """When two groups share a title, second gets a (2) suffix so both appear."""
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Duplicate",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Duplicate",
+            CONF_ENTITIES: ["binary_sensor.a"],
+        },
+        entry_id="entry_dup_1",
+        unique_id=f"{DOMAIN}_dup_1",
+    )
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Duplicate",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Duplicate",
+            CONF_ENTITIES: ["binary_sensor.b"],
+        },
+        entry_id="entry_dup_2",
+        unique_id=f"{DOMAIN}_dup_2",
+    )
+    entry_a.add_to_hass(hass)
+    entry_a.mock_state(hass, ConfigEntryState.LOADED)
+    entry_b.add_to_hass(hass)
+    entry_b.mock_state(hass, ConfigEntryState.LOADED)
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "combined"
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    assert "Duplicate" in schema_keys
+    assert "Duplicate (2)" in schema_keys
+
+    result2 = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "Both Dupes",
+            "Duplicate": "keep",
+            "Duplicate (2)": "keep",
+        },
+    )
+    assert result2["type"] == FlowResultType.CREATE_ENTRY
+    combined_groups = result2["data"][CONF_COMBINED_GROUPS]
+    assert entry_a.entry_id in combined_groups
+    assert entry_b.entry_id in combined_groups
+
+
+async def test_combined_options_flow_deduplicates_same_title(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow deduplicates same-titled source groups with (2) suffix."""
+    from custom_components.entity_availability.const import (
+        CONF_COMBINED_GROUPS_OVERRIDES,
+    )
+
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Duplicate",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Duplicate",
+            CONF_ENTITIES: ["binary_sensor.a"],
+        },
+        entry_id="entry_dup_opt_1",
+        unique_id=f"{DOMAIN}_dup_opt_1",
+    )
+    entry_b = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Duplicate",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "Duplicate",
+            CONF_ENTITIES: ["binary_sensor.b"],
+        },
+        entry_id="entry_dup_opt_2",
+        unique_id=f"{DOMAIN}_dup_opt_2",
+    )
+    for e in (entry_a, entry_b):
+        e.add_to_hass(hass)
+        e.mock_state(hass, ConfigEntryState.LOADED)
+
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Combined Dupes",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Combined Dupes",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            CONF_COMBINED_GROUPS_OVERRIDES: {},
+        },
+        entry_id="combined_dup_opt",
+        unique_id=f"{DOMAIN}_combined_dup_opt",
+    )
+    combined.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    assert "Duplicate" in schema_keys
+    assert "Duplicate (2)" in schema_keys
 
 
 async def test_combined_options_flow_shows_form(hass: HomeAssistant) -> None:
@@ -734,12 +847,11 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             CONF_GROUP_NAME: "Renamed Combined",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_c.entry_id],
+            "Group A": "keep",
+            "Group B": "excluded",
+            "Group C": "keep",
         },
     )
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "combined_init_overrides"
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert combined.data[CONF_GROUP_NAME] == "Renamed Combined"
     assert combined.data[CONF_COMBINED_GROUPS] == [entry_a.entry_id, entry_c.entry_id]
@@ -776,7 +888,8 @@ async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> No
         result["flow_id"],
         {
             CONF_GROUP_NAME: "   ",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            "Group A": "keep",
+            "Group B": "keep",
         },
     )
     assert result["type"] == FlowResultType.FORM
@@ -816,11 +929,12 @@ async def test_combined_options_flow_not_enough_groups_error(
         result["flow_id"],
         {
             CONF_GROUP_NAME: "Valid Name",
-            CONF_COMBINED_GROUPS: [entry_a.entry_id],
+            "Group A": "keep",
+            "Group B": "excluded",
         },
     )
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"][CONF_COMBINED_GROUPS] == "not_enough_groups_selected"
+    assert result["errors"]["base"] == "not_enough_groups_selected"
 
 
 async def test_battery_auto_detection_via_device_registry(

@@ -15,6 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from .combined_sensor import _apply_ne_override
 from .const import (
     CONF_COMBINED_GROUPS,
     CONF_COMBINED_GROUPS_OVERRIDES,
@@ -23,7 +24,6 @@ from .const import (
     NE_OVERRIDE_KEEP,
 )
 from .coordinator import EntityAvailabilityCoordinator
-from .combined_sensor import _apply_ne_override
 from .write_dedup import WriteDedupMixin
 
 

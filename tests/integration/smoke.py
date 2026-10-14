@@ -108,7 +108,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC76 offline_count == len(collapsed offline_entities) — count==rows invariant
 
   EC118 combined sensors still valid after ne_override deploy (no overrides = keep, no regression)
-  EC121 combined options flow two-step: step_id progresses combined_init → combined_init_overrides → create_entry
+  EC121 combined options flow single-step: step_id combined_init → create_entry
 
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
@@ -4884,15 +4884,14 @@ for e in cfg['data']['entries']:
                 )
 
     # ------------------------------------------------------------------
-    # EC121: combined options flow is two-step
-    #   Step 1 → step_id == "combined_init"  (group name + selection)
-    #   Step 2 → step_id == "combined_init_overrides"  (per-group dropdowns)
-    #   Step 3 → type == "create_entry"
+    # EC121: combined options flow is single-step
+    #   Step 1 → step_id == "combined_init"  (group name + per-group dropdowns)
+    #   Step 2 → type == "create_entry"
     # ------------------------------------------------------------------
     if (not EC_FILTER or 121 in EC_FILTER) and ctx.get("combined_entry_id"):
         combined_eid_121 = ctx["combined_entry_id"]
         if ec_enabled(121):
-            print("\n=== EC121: combined options flow is two-step ===", flush=True)
+            print("\n=== EC121: combined options flow is single-step ===", flush=True)
             fid_121 = None
             try:
                 r_121 = api(
@@ -4908,43 +4907,36 @@ for e in cfg['data']['entries']:
                     f"got={r_121.get('step_id')}",
                 )
                 if fid_121 and r_121.get("step_id") == "combined_init":
-                    # Read group_name default and current combined_groups from schema
                     schema_121 = r_121.get("data_schema", [])
                     gname_field = next(
                         (f for f in schema_121 if f.get("name") == "group_name"), None
                     )
-                    cgroups_field = next(
-                        (f for f in schema_121 if f.get("name") == "combined_groups"),
-                        None,
-                    )
                     current_gname = (gname_field or {}).get("default", "")
-                    current_cgroups = (cgroups_field or {}).get("default") or []
+                    # Echo all non-group_name field defaults back unchanged (fields are group titles)
+                    _override_values = {
+                        "excluded",
+                        "keep",
+                        "all_essential",
+                        "all_non_essential",
+                    }
+                    payload_121 = {"group_name": current_gname}
+                    for f in schema_121:
+                        fname = f.get("name", "")
+                        fdefault = f.get("default", "excluded")
+                        if fname != "group_name" and fdefault in _override_values:
+                            payload_121[fname] = fdefault
                     r2_121 = api(
                         "POST",
                         f"/api/config/config_entries/options/flow/{fid_121}",
-                        {
-                            "group_name": current_gname,
-                            "combined_groups": current_cgroups,
-                        },
+                        payload_121,
                     )
                     chk(
-                        "EC121 step 2 returns combined_init_overrides",
-                        r2_121.get("step_id"),
-                        "combined_init_overrides",
-                        f"got={r2_121.get('step_id')}",
+                        "EC121 single step completes entry",
+                        r2_121.get("type"),
+                        "create_entry",
+                        f"got={r2_121.get('type')} step={r2_121.get('step_id')}",
                     )
-                    if r2_121.get("step_id") == "combined_init_overrides":
-                        r3_121 = api(
-                            "POST",
-                            f"/api/config/config_entries/options/flow/{fid_121}",
-                            {},
-                        )
-                        chk(
-                            "EC121 step 3 (overrides) completes entry",
-                            r3_121.get("type"),
-                            "create_entry",
-                            f"got={r3_121.get('type')} step={r3_121.get('step_id')}",
-                        )
+                    if r2_121.get("type") == "create_entry":
                         fid_121 = None  # consumed
             except Exception as e:
                 chk("EC121 options flow succeeded", False, True, str(e))
@@ -4983,7 +4975,7 @@ for e in cfg['data']['entries']:
         )
         target = ctx["entities"][0]
 
-        # Helper: set combined_groups_overrides via options flow (two-step).
+        # Helper: set combined_groups_overrides via options flow (single-step).
         # Storage injection doesn't update HA's in-memory entry.data — must use
         # the options flow so entry.data is updated for all live sensors.
         def _patch_ne_override(mode: str) -> None:
@@ -4998,43 +4990,54 @@ for e in cfg['data']['entries']:
                     fid = r["flow_id"]
                     try:
                         schema = r.get("data_schema", [])
-                        gname_field = next(
-                            (f for f in schema if f.get("name") == "group_name"), None
-                        )
-                        cgroups_field = next(
-                            (f for f in schema if f.get("name") == "combined_groups"),
-                            None,
-                        )
-                        gname = (gname_field or {}).get("default", "")
-                        cgroups = (cgroups_field or {}).get("default") or []
-                        r2 = api(
-                            "POST",
-                            f"/api/config/config_entries/options/flow/{fid}",
-                            {"group_name": gname, "combined_groups": cgroups},
-                        )
-                        # Build override payload using slug-based field keys from step 2.
-                        # description_placeholders["eid_slug_map"] = "eid1:slug1,eid2:slug2"
-                        eid_slug_map_str = (
-                            r2.get("description_placeholders", {}).get(
-                                "eid_slug_map", ""
+                        # description_placeholders["eid_title_map"] = "eid1:title1,eid2:title2"
+                        eid_title_map_str = (
+                            r.get("description_placeholders", {}).get(
+                                "eid_title_map", ""
                             )
                             or ""
                         )
-                        eid_to_slug = dict(
+                        eid_to_title = dict(
                             pair.split(":", 1)
-                            for pair in eid_slug_map_str.split(",")
+                            for pair in eid_title_map_str.split(",")
                             if ":" in pair
                         )
-                        override_payload = {}
-                        for eid in cgroups:
-                            slug = eid_to_slug.get(eid, eid)
-                            override_payload[f"override_{slug}"] = (
-                                mode if eid == primary_entry_id else "keep"
+                        gname = next(
+                            (
+                                f.get("default", "")
+                                for f in schema
+                                if f.get("name") == "group_name"
+                            ),
+                            "",
+                        )
+                        _override_values = {
+                            "excluded",
+                            "keep",
+                            "all_essential",
+                            "all_non_essential",
+                        }
+                        payload: dict[str, str] = {"group_name": gname}
+                        for eid, title in eid_to_title.items():
+                            current_default = next(
+                                (
+                                    f.get("default", "excluded")
+                                    for f in schema
+                                    if f.get("name") == title
+                                ),
+                                "excluded",
                             )
+                            if eid == primary_entry_id:
+                                payload[title] = mode
+                            else:
+                                payload[title] = (
+                                    current_default
+                                    if current_default in _override_values
+                                    else "excluded"
+                                )
                         api(
                             "POST",
                             f"/api/config/config_entries/options/flow/{fid}",
-                            override_payload,
+                            payload,
                         )
                         fid = None  # consumed
                     finally:

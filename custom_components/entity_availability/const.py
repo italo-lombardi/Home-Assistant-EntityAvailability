@@ -33,6 +33,7 @@ CONF_COMBINED_GROUPS_OVERRIDES = "combined_groups_overrides"
 NE_OVERRIDE_KEEP = "keep"
 NE_OVERRIDE_ALL_ESSENTIAL = "all_essential"
 NE_OVERRIDE_ALL_NON_ESSENTIAL = "all_non_essential"
+NE_OVERRIDE_EXCLUDED = "excluded"
 
 # Defaults
 DEFAULT_NAME = "Entity Availability"
