@@ -79,7 +79,7 @@
       "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren.",
       "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan.",
       "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Een groep met deze naam bestaat al."
     },
     "abort": {
       "already_configured": "Een groep met deze naam bestaat al.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan.",
       "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Een groep met deze naam bestaat al.",
       "empty_group_name": "Groepsnaam mag niet leeg zijn.",
       "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren."
     },

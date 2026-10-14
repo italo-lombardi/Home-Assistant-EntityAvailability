@@ -79,7 +79,7 @@
       "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
       "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui.",
       "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Grupė tokiu pavadinimu jau egzistuoja."
     },
     "abort": {
       "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
       "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
       "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
       "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui."
     },

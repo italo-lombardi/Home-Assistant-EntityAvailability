@@ -79,7 +79,7 @@
       "duplicate_entities": "Един и същ обект не може да се появява в двата списъка. Премахнете дублиращите се преди запазване.",
       "not_enough_groups_selected": "Изберете поне две групи за комбиниране.",
       "collapse_requires_device_names": "Обединяването на обекти по устройство изисква включване на „Показване на имена на устройства“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Вече съществува група с това име."
     },
     "abort": {
       "already_configured": "Вече съществува група с това име.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "Един и същ обект не може да се появява в двата списъка. Премахнете дублиращите се преди запазване.",
       "collapse_requires_device_names": "Обединяването на обекти по устройство изисква включване на „Показване на имена на устройства“.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Вече съществува група с това име.",
       "empty_group_name": "Името на групата не може да е празно.",
       "not_enough_groups_selected": "Изберете поне две групи за комбиниране."
     },

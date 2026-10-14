@@ -79,7 +79,7 @@
       "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus.",
       "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern.",
       "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Eine Gruppe mit diesem Namen existiert bereits."
     },
     "abort": {
       "already_configured": "Eine Gruppe mit diesem Namen existiert bereits.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern.",
       "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Eine Gruppe mit diesem Namen existiert bereits.",
       "empty_group_name": "Der Gruppenname darf nicht leer sein.",
       "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus."
     },

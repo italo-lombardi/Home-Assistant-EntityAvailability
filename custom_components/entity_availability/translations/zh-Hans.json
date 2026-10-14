@@ -79,7 +79,7 @@
       "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
       "not_enough_groups_selected": "至少选择两个组进行合并。",
       "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "已存在同名组。"
     },
     "abort": {
       "already_configured": "已存在同名组。",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
       "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "已存在同名组。",
       "empty_group_name": "组名不能为空。",
       "not_enough_groups_selected": "至少选择两个组进行合并。"
     },

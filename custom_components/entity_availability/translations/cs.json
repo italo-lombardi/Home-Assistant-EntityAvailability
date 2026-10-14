@@ -79,7 +79,7 @@
       "duplicate_entities": "Stejná entity nemůže být v obou seznamech. Před uložením odstraňte duplicity.",
       "not_enough_groups_selected": "Vyberte alespoň dvě skupiny ke kombinování.",
       "collapse_requires_device_names": "Sloučení entit podle zařízení vyžaduje zapnuté „Zobrazovat názvy zařízení“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Skupina s tímto názvem již existuje."
     },
     "abort": {
       "already_configured": "Skupina s tímto názvem již existuje.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "Stejná entity nemůže být v obou seznamech. Před uložením odstraňte duplicity.",
       "collapse_requires_device_names": "Sloučení entit podle zařízení vyžaduje zapnuté „Zobrazovat názvy zařízení“.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Skupina s tímto názvem již existuje.",
       "empty_group_name": "Název skupiny nesmí být prázdný.",
       "not_enough_groups_selected": "Vyberte alespoň dvě skupiny ke kombinování."
     },

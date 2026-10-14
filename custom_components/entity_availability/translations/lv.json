@@ -79,7 +79,7 @@
       "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
       "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai.",
       "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Grupa ar šādu nosaukumu jau eksistē."
     },
     "abort": {
       "already_configured": "Grupa ar šādu nosaukumu jau eksistē.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
       "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Grupa ar šādu nosaukumu jau eksistē.",
       "empty_group_name": "Grupas nosaukums nedrīkst būt tukšs.",
       "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai."
     },

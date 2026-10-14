@@ -79,7 +79,7 @@
       "duplicate_entities": "Один і той самий об'єкт не може бути присутнім в обох списках. Видаліть дублікати перед збереженням.",
       "not_enough_groups_selected": "Виберіть принаймні дві групи для об'єднання.",
       "collapse_requires_device_names": "Об'єднання об'єктів за пристроєм потребує ввімкнення параметра «Показувати назви пристроїв».",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Група з такою назвою вже існує."
     },
     "abort": {
       "already_configured": "Група з такою назвою вже існує.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "Один і той самий об'єкт не може бути присутнім в обох списках. Видаліть дублікати перед збереженням.",
       "collapse_requires_device_names": "Об'єднання об'єктів за пристроєм потребує ввімкнення параметра «Показувати назви пристроїв».",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Група з такою назвою вже існує.",
       "empty_group_name": "Назва групи не може бути порожньою.",
       "not_enough_groups_selected": "Виберіть принаймні дві групи для об'єднання."
     },

@@ -80,7 +80,7 @@
       "not_enough_groups_selected": "Vælg mindst to grupper at kombinere.",
       "duplicate_entities": "Den samme entitet kan ikke optræde på begge lister. Fjern dubletter, inden du gemmer.",
       "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "En gruppe med dette navn findes allerede."
     },
     "abort": {
       "already_configured": "En gruppe med dette navn findes allerede.",
@@ -140,7 +140,7 @@
     "error": {
       "duplicate_entities": "Den samme entitet kan ikke optræde på begge lister. Fjern dubletter, inden du gemmer.",
       "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "En gruppe med dette navn findes allerede.",
       "empty_group_name": "Gruppenavnet kan ikke være tomt.",
       "not_enough_groups_selected": "Vælg mindst to grupper at kombinere."
     },

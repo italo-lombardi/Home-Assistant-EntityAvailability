@@ -79,7 +79,7 @@
       "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
       "not_enough_groups_selected": "至少選擇兩個組進行合併。",
       "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "已存在同名組。"
     },
     "abort": {
       "already_configured": "已存在同名組。",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
       "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "已存在同名組。",
       "empty_group_name": "組名不得為空。",
       "not_enough_groups_selected": "至少選擇兩個組進行合併。"
     },

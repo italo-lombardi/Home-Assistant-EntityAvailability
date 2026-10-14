@@ -79,7 +79,7 @@
       "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
       "not_enough_groups_selected": "Seleccioneu almenys dos grups per combinar.",
       "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "Ja existeix un grup amb aquest nom."
     },
     "abort": {
       "already_configured": "Ja existeix un grup amb aquest nom.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
       "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "Ja existeix un grup amb aquest nom.",
       "empty_group_name": "El nom del grup no pot estar buit.",
       "not_enough_groups_selected": "Seleccioneu almenys dos grups per combinar."
     },

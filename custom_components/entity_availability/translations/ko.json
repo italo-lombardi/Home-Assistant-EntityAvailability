@@ -79,7 +79,7 @@
       "duplicate_entities": "같은 엔티티를 두 목록에 모두 추가할 수 없습니다. 중복을 제거한 후 저장하세요.",
       "not_enough_groups_selected": "결합하려면 그룹을 두 개 이상 선택하세요.",
       "collapse_requires_device_names": "장치별로 엔티티를 통합하려면 「장치 이름 표시」를 활성화해야 합니다.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "이 이름의 그룹이 이미 존재합니다."
     },
     "abort": {
       "already_configured": "이 이름의 그룹이 이미 존재합니다.",
@@ -139,7 +139,7 @@
     "error": {
       "duplicate_entities": "같은 엔티티를 두 목록에 모두 추가할 수 없습니다. 중복을 제거한 후 저장하세요.",
       "collapse_requires_device_names": "장치별로 엔티티를 통합하려면 「장치 이름 표시」를 활성화해야 합니다.",
-      "already_configured": "A group with this name already exists.",
+      "already_configured": "이 이름의 그룹이 이미 존재합니다.",
       "empty_group_name": "그룹 이름을 입력해 주세요.",
       "not_enough_groups_selected": "결합하려면 그룹을 두 개 이상 선택하세요."
     },
