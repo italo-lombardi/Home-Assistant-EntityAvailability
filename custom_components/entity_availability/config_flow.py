@@ -941,7 +941,10 @@ class CombinedGroupOptionsFlow(OptionsFlow):
         ]
         fields: dict[vol.Marker, Any] = {
             vol.Required(
-                _COMBINED_NAME_KEY, default=current.get(CONF_GROUP_NAME, "")
+                _COMBINED_NAME_KEY,
+                default=(user_input or {}).get(
+                    _COMBINED_NAME_KEY, current.get(CONF_GROUP_NAME, "")
+                ),
             ): str
         }
         for title, eid in title_to_eid.items():

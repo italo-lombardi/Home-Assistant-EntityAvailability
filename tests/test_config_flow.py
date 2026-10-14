@@ -814,6 +814,38 @@ async def test_combined_options_flow_shows_form(hass: HomeAssistant) -> None:
     assert result["step_id"] == "combined_init"
 
 
+async def test_combined_options_flow_aborts_when_not_enough_groups(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow for a combined entry aborts when fewer than 2 source groups are loaded."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="My Combined",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "My Combined",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id],
+        },
+        entry_id="combined_1g_entry_id",
+        unique_id=f"{DOMAIN}_combined_my_combined_1g",
+    )
+    combined.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "not_enough_groups"
+
+
 async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
     """Options flow for combined entry saves new name and groups."""
     entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
