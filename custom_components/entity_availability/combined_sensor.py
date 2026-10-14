@@ -314,7 +314,6 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                     signal_map.get(eid),
                     d.is_non_essential,
                     bad_states,
-                    mode,
                 )
                 if eid not in seen_fingerprint:
                     seen_fingerprint[eid] = fingerprint

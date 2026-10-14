@@ -95,12 +95,20 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC88 combined_summary last_updated advances on a real member-offline settle (positive control)
   EC89 combined_summary last_updated frozen on churn-only ticks (dedup + rowsig)
 
+  Per-group NE override for combined groups (EC122-EC124 — PR#115):
+  EC122 combined any_offline=off when all offline entities forced NE via all_non_essential override
+  EC123 combined groups attr shows non_essential_offline bucket (not essential) with override
+  EC124 combined any_offline=on after override removed (entity still offline — restore check)
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
   EC74 combined_summary entities_collapsed attr present and is a list
   EC75 entities_collapsed never larger than entities, and is a subset (representatives)
   EC76 offline_count == len(collapsed offline_entities) — count==rows invariant
+
+  EC118 combined sensors still valid after ne_override deploy (no overrides = keep, no regression)
+  EC121 combined options flow two-step: step_id progresses combined_init → combined_init_overrides → create_entry
 
   Non-Essential tier (EC25-EC42, require a group with NE entities — set EA_SMOKE_NE_GROUP):
   EC25 NE entity offline → offline_count unchanged (KPI exclusion)
@@ -4874,6 +4882,274 @@ for e in cfg['data']['entries']:
                     True,
                     f"keys={list(attrs.keys())}",
                 )
+
+    # ------------------------------------------------------------------
+    # EC121: combined options flow is two-step
+    #   Step 1 → step_id == "combined_init"  (group name + selection)
+    #   Step 2 → step_id == "combined_init_overrides"  (per-group dropdowns)
+    #   Step 3 → type == "create_entry"
+    # ------------------------------------------------------------------
+    if (not EC_FILTER or 121 in EC_FILTER) and ctx.get("combined_entry_id"):
+        combined_eid_121 = ctx["combined_entry_id"]
+        if ec_enabled(121):
+            print("\n=== EC121: combined options flow is two-step ===", flush=True)
+            fid_121 = None
+            try:
+                r_121 = api(
+                    "POST",
+                    "/api/config/config_entries/options/flow",
+                    {"handler": combined_eid_121},
+                )
+                fid_121 = r_121.get("flow_id")
+                chk(
+                    "EC121 step 1 returns combined_init",
+                    r_121.get("step_id"),
+                    "combined_init",
+                    f"got={r_121.get('step_id')}",
+                )
+                if fid_121 and r_121.get("step_id") == "combined_init":
+                    # Read group_name default and current combined_groups from schema
+                    schema_121 = r_121.get("data_schema", [])
+                    gname_field = next(
+                        (f for f in schema_121 if f.get("name") == "group_name"), None
+                    )
+                    cgroups_field = next(
+                        (f for f in schema_121 if f.get("name") == "combined_groups"),
+                        None,
+                    )
+                    current_gname = (gname_field or {}).get("default", "")
+                    current_cgroups = (cgroups_field or {}).get("default") or []
+                    r2_121 = api(
+                        "POST",
+                        f"/api/config/config_entries/options/flow/{fid_121}",
+                        {
+                            "group_name": current_gname,
+                            "combined_groups": current_cgroups,
+                        },
+                    )
+                    chk(
+                        "EC121 step 2 returns combined_init_overrides",
+                        r2_121.get("step_id"),
+                        "combined_init_overrides",
+                        f"got={r2_121.get('step_id')}",
+                    )
+                    if r2_121.get("step_id") == "combined_init_overrides":
+                        r3_121 = api(
+                            "POST",
+                            f"/api/config/config_entries/options/flow/{fid_121}",
+                            {},
+                        )
+                        chk(
+                            "EC121 step 3 (overrides) completes entry",
+                            r3_121.get("type"),
+                            "create_entry",
+                            f"got={r3_121.get('type')} step={r3_121.get('step_id')}",
+                        )
+                        fid_121 = None  # consumed
+            except Exception as e:
+                chk("EC121 options flow succeeded", False, True, str(e))
+            finally:
+                if fid_121:
+                    try:
+                        api(
+                            "DELETE",
+                            f"/api/config/config_entries/options/flow/{fid_121}",
+                        )
+                    except Exception:
+                        pass
+
+    # ------------------------------------------------------------------
+    # EC122-EC124: per-group NE override — behavioral tests
+    #   Patch combined_groups_overrides on the combined entry so all entities
+    #   in the primary group are treated as NE, then verify the combined
+    #   binary sensor ignores their offline status and the groups attr
+    #   records the offline as NE.  Restored afterwards.
+    # ------------------------------------------------------------------
+    ne_override_ecs = {122, 123, 124}
+    run_ne_override = (
+        (not EC_FILTER or ne_override_ecs & EC_FILTER)
+        and ctx.get("combined_entry_id")
+        and ctx.get("combined_prefix")
+    )
+
+    if run_ne_override:
+        import subprocess
+
+        combined_entry_id = ctx["combined_entry_id"]
+        primary_entry_id = ctx["entry_id"]
+        combined_prefix = ctx["combined_prefix"]
+        combined_bs_prefix = combined_prefix.replace(
+            "sensor.entity_availability_", "binary_sensor.entity_availability_"
+        )
+        target = ctx["entities"][0]
+
+        # Helper: set combined_groups_overrides via options flow (two-step).
+        # Storage injection doesn't update HA's in-memory entry.data — must use
+        # the options flow so entry.data is updated for all live sensors.
+        def _patch_ne_override(mode: str) -> None:
+            # Retry the whole flow on transient HA errors (entry reload window).
+            for _attempt in range(3):
+                try:
+                    r = api(
+                        "POST",
+                        "/api/config/config_entries/options/flow",
+                        {"handler": combined_entry_id},
+                    )
+                    fid = r["flow_id"]
+                    try:
+                        schema = r.get("data_schema", [])
+                        gname_field = next(
+                            (f for f in schema if f.get("name") == "group_name"), None
+                        )
+                        cgroups_field = next(
+                            (f for f in schema if f.get("name") == "combined_groups"),
+                            None,
+                        )
+                        gname = (gname_field or {}).get("default", "")
+                        cgroups = (cgroups_field or {}).get("default") or []
+                        r2 = api(
+                            "POST",
+                            f"/api/config/config_entries/options/flow/{fid}",
+                            {"group_name": gname, "combined_groups": cgroups},
+                        )
+                        # Build override payload using slug-based field keys from step 2.
+                        # description_placeholders["eid_slug_map"] = "eid1:slug1,eid2:slug2"
+                        eid_slug_map_str = (
+                            r2.get("description_placeholders", {}).get(
+                                "eid_slug_map", ""
+                            )
+                            or ""
+                        )
+                        eid_to_slug = dict(
+                            pair.split(":", 1)
+                            for pair in eid_slug_map_str.split(",")
+                            if ":" in pair
+                        )
+                        override_payload = {}
+                        for eid in cgroups:
+                            slug = eid_to_slug.get(eid, eid)
+                            override_payload[f"override_{slug}"] = (
+                                mode if eid == primary_entry_id else "keep"
+                            )
+                        api(
+                            "POST",
+                            f"/api/config/config_entries/options/flow/{fid}",
+                            override_payload,
+                        )
+                        fid = None  # consumed
+                    finally:
+                        if fid:
+                            try:
+                                api(
+                                    "DELETE",
+                                    f"/api/config/config_entries/options/flow/{fid}",
+                                )
+                            except Exception:
+                                pass
+                    wait(10)
+                    return
+                except Exception:
+                    wait(8)
+                    continue
+            raise RuntimeError(f"_patch_ne_override({mode!r}) failed after 3 attempts")
+
+        def _clear_ne_override() -> None:
+            _patch_ne_override("keep")
+
+        try:
+            # EC121 may have triggered a config entry reload; wait until HA is back.
+            wait_for(
+                lambda: gs_safe(f"{combined_prefix}_combined_summary") is not None,
+                True,
+                timeout=30,
+            )
+
+            if ec_enabled(122):
+                print(
+                    "\n=== EC122: combined binary off when all offline entities forced NE ===",
+                    flush=True,
+                )
+                _patch_ne_override("all_non_essential")
+                # Put the target entity offline
+                ss(target, "unavailable", {"friendly_name": "ne override test"})
+                wait_for(
+                    lambda: gs(f"{combined_prefix}_offline_count").get("state"),
+                    "0",
+                    timeout=30,
+                )
+                binary_state = gs_safe(f"{combined_bs_prefix}_any_offline")
+                chk(
+                    "EC122 combined any_offline=off when all offline entities forced NE",
+                    (binary_state or {}).get("state"),
+                    "off",
+                    f"binary={binary_state}",
+                )
+
+            if ec_enabled(123):
+                print(
+                    "\n=== EC123: combined groups attr shows NE offline bucket with override ===",
+                    flush=True,
+                )
+                # Ensure override is active (in case EC122 was skipped).
+                if not ec_enabled(122):
+                    _patch_ne_override("all_non_essential")
+                # ensure target still offline
+                ss(target, "unavailable", {"friendly_name": "ne override test"})
+
+                def _grp_ne_offline():
+                    s = gs_safe(f"{combined_prefix}_combined_summary")
+                    g = (
+                        (s or {})
+                        .get("attributes", {})
+                        .get("groups", {})
+                        .get(ctx["entry_id"], {})
+                    )
+                    return g.get("non_essential_offline", -1)
+
+                wait_for(_grp_ne_offline, 1, timeout=60)
+                summary = gs_safe(f"{combined_prefix}_combined_summary")
+                attrs = (summary or {}).get("attributes", {})
+                groups = attrs.get("groups", {})
+                grp = groups.get(ctx["entry_id"], {})
+                ne_offline = grp.get("non_essential_offline", -1)
+                chk(
+                    "EC123 groups[primary].non_essential_offline >= 1 with all_non_essential override",
+                    ne_offline >= 1,
+                    True,
+                    f"non_essential_offline={ne_offline} grp_keys={list(grp.keys())}",
+                )
+                essential_offline = grp.get("offline", -1)
+                chk(
+                    "EC123 groups[primary].offline == 0 with all_non_essential override",
+                    essential_offline,
+                    0,
+                    f"offline={essential_offline}",
+                )
+
+            if ec_enabled(124):
+                print(
+                    "\n=== EC124: combined binary restores after override removed ===",
+                    flush=True,
+                )
+                # target still offline from EC122/EC123; restore override
+                _clear_ne_override()
+                binary_restored = wait_for(
+                    lambda: (gs_safe(f"{combined_bs_prefix}_any_offline") or {}).get(
+                        "state"
+                    ),
+                    "on",
+                    timeout=30,
+                )
+                chk(
+                    "EC124 combined any_offline=on after override removed (entity still offline)",
+                    binary_restored,
+                    "on",
+                    f"binary={binary_restored}",
+                )
+        finally:
+            # Always restore entity + remove override
+            ss(target, "on", {"friendly_name": "smoke test"})
+            _clear_ne_override()
 
     # ------------------------------------------------------------------
     restore_all(ctx)

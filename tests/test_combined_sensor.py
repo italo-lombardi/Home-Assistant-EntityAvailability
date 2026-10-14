@@ -4104,8 +4104,12 @@ class TestApplyNeOverride:
     """Unit tests for _apply_ne_override helper."""
 
     def test_all_essential_overrides_ne_flag(self):
-        from custom_components.entity_availability.combined_sensor import _apply_ne_override
-        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_ESSENTIAL
+        from custom_components.entity_availability.combined_sensor import (
+            _apply_ne_override,
+        )
+        from custom_components.entity_availability.const import (
+            NE_OVERRIDE_ALL_ESSENTIAL,
+        )
         from custom_components.entity_availability.models import DeviceState
 
         d = DeviceState(entity_id="sensor.x", is_non_essential=True)
@@ -4114,8 +4118,12 @@ class TestApplyNeOverride:
         assert result is not d
 
     def test_all_non_essential_overrides_essential_flag(self):
-        from custom_components.entity_availability.combined_sensor import _apply_ne_override
-        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_NON_ESSENTIAL
+        from custom_components.entity_availability.combined_sensor import (
+            _apply_ne_override,
+        )
+        from custom_components.entity_availability.const import (
+            NE_OVERRIDE_ALL_NON_ESSENTIAL,
+        )
         from custom_components.entity_availability.models import DeviceState
 
         d = DeviceState(entity_id="sensor.x", is_non_essential=False)
@@ -4124,7 +4132,9 @@ class TestApplyNeOverride:
         assert result is not d
 
     def test_keep_returns_same_object(self):
-        from custom_components.entity_availability.combined_sensor import _apply_ne_override
+        from custom_components.entity_availability.combined_sensor import (
+            _apply_ne_override,
+        )
         from custom_components.entity_availability.const import NE_OVERRIDE_KEEP
         from custom_components.entity_availability.models import DeviceState
 
@@ -4132,17 +4142,82 @@ class TestApplyNeOverride:
         assert _apply_ne_override(d, NE_OVERRIDE_KEEP) is d
 
     def test_all_essential_no_op_when_already_essential(self):
-        from custom_components.entity_availability.combined_sensor import _apply_ne_override
-        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_ESSENTIAL
+        from custom_components.entity_availability.combined_sensor import (
+            _apply_ne_override,
+        )
+        from custom_components.entity_availability.const import (
+            NE_OVERRIDE_ALL_ESSENTIAL,
+        )
         from custom_components.entity_availability.models import DeviceState
 
         d = DeviceState(entity_id="sensor.x", is_non_essential=False)
         assert _apply_ne_override(d, NE_OVERRIDE_ALL_ESSENTIAL) is d
 
     def test_all_non_essential_no_op_when_already_ne(self):
-        from custom_components.entity_availability.combined_sensor import _apply_ne_override
-        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_NON_ESSENTIAL
+        from custom_components.entity_availability.combined_sensor import (
+            _apply_ne_override,
+        )
+        from custom_components.entity_availability.const import (
+            NE_OVERRIDE_ALL_NON_ESSENTIAL,
+        )
         from custom_components.entity_availability.models import DeviceState
 
         d = DeviceState(entity_id="sensor.x", is_non_essential=True)
         assert _apply_ne_override(d, NE_OVERRIDE_ALL_NON_ESSENTIAL) is d
+
+    def test_device_map_merges_when_effective_ne_same_across_groups(
+        self, mock_hass, group_entry_a, group_entry_b, combined_entry
+    ):
+        """Shared entity with same effective NE value merges to one row (no spurious split)."""
+        from unittest.mock import AsyncMock, patch
+
+        from custom_components.entity_availability.combined_sensor import (
+            CombinedGroupSensor,
+        )
+        from custom_components.entity_availability.const import (
+            NE_OVERRIDE_ALL_ESSENTIAL,
+            NE_OVERRIDE_KEEP,
+        )
+        from custom_components.entity_availability.coordinator import (
+            EntityAvailabilityCoordinator,
+        )
+        from custom_components.entity_availability.models import DeviceState
+
+        # entity shared_e appears in both group A (is_ne=True, ALL_ESSENTIAL → False)
+        # and group B (is_ne=False, KEEP → False). Effective NE = False both ways.
+        # Without the fix (mode in fingerprint), these would be two rows.
+        entry_a = _make_group_entry("ea", "A", ["sensor.shared_e"])
+        entry_b = _make_group_entry("eb", "B", ["sensor.shared_e"])
+        combined = _make_combined_entry("ec", "C", ["ea", "eb"])
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "sensor.shared_e": DeviceState(
+                    entity_id="sensor.shared_e", is_non_essential=True
+                )
+            }
+            coord_b = EntityAvailabilityCoordinator(mock_hass, entry_b)
+            coord_b._device_states = {
+                "sensor.shared_e": DeviceState(
+                    entity_id="sensor.shared_e", is_non_essential=False
+                )
+            }
+
+        ne_overrides = {"ea": NE_OVERRIDE_ALL_ESSENTIAL, "eb": NE_OVERRIDE_KEEP}
+        sensor = CombinedGroupSensor(
+            mock_hass,
+            combined,
+            "C",
+            "c",
+            ["ea", "eb"],
+            ne_overrides,
+        )
+        sensor._coordinators = [coord_a, coord_b]
+
+        merged, _, _ = sensor._device_map_cached([coord_a, coord_b])
+        assert len(merged) == 1, (
+            f"Expected 1 merged row, got {len(merged)}: {list(merged)}"
+        )

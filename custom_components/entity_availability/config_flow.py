@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -139,6 +140,17 @@ def _build_signal_map_from_input(
                 "network_type": nt,
             }
     return signal_map
+
+
+def _make_override_slug(title: str, existing: dict[str, str]) -> str:
+    """Return a unique slug for a group title, deduplicating against existing."""
+    base = re.sub(r"[^a-z0-9]", "_", title.lower())[:40].strip("_") or "group"
+    slug = base
+    counter = 2
+    while slug in existing:
+        slug = f"{base}_{counter}"
+        counter += 1
+    return slug
 
 
 class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -300,9 +312,13 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         """Step 2 for creating a combined group: per-group NE override."""
         if user_input is not None:
             overrides = {
-                eid: user_input.get(f"override_{eid}", NE_OVERRIDE_KEEP)
-                for eid in self._combined_group_ids
+                self._combined_slug_to_eid[slug[len("override_") :]]: val
+                for slug, val in user_input.items()
+                if slug.startswith("override_")
             }
+            # Fill in keep for any missing groups
+            for eid in self._combined_group_ids:
+                overrides.setdefault(eid, NE_OVERRIDE_KEEP)
             group_name = self._combined_group_name
 
             await self.async_set_unique_id(
@@ -331,9 +347,13 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 value=NE_OVERRIDE_ALL_NON_ESSENTIAL, label="All non-essential"
             ),
         ]
+        slug_to_eid: dict[str, str] = {}
         fields: dict[vol.Marker, Any] = {}
         for eid in self._combined_group_ids:
-            fields[vol.Optional(f"override_{eid}", default=NE_OVERRIDE_KEEP)] = (
+            title = self._combined_entry_map.get(eid, eid)
+            slug = _make_override_slug(title, slug_to_eid)
+            slug_to_eid[slug] = eid
+            fields[vol.Optional(f"override_{slug}", default=NE_OVERRIDE_KEEP)] = (
                 selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=override_options,
@@ -341,10 +361,16 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                 )
             )
+        self._combined_slug_to_eid = slug_to_eid
 
         return self.async_show_form(
             step_id="combined_overrides",
             data_schema=vol.Schema(fields),
+            description_placeholders={
+                "eid_slug_map": ",".join(
+                    f"{eid}:{slug}" for slug, eid in slug_to_eid.items()
+                )
+            },
         )
 
     async def async_step_monitoring(
@@ -949,9 +975,12 @@ class CombinedGroupOptionsFlow(OptionsFlow):
         """Step 2: per-group NE override."""
         if user_input is not None:
             overrides = {
-                eid: user_input.get(f"override_{eid}", NE_OVERRIDE_KEEP)
-                for eid in self._combined_group_ids
+                self._combined_slug_to_eid[slug[len("override_") :]]: val
+                for slug, val in user_input.items()
+                if slug.startswith("override_")
             }
+            for eid in self._combined_group_ids:
+                overrides.setdefault(eid, NE_OVERRIDE_KEEP)
             group_name = self._combined_group_name
             new_data = {
                 **self.config_entry.data,
@@ -978,10 +1007,14 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 value=NE_OVERRIDE_ALL_NON_ESSENTIAL, label="All non-essential"
             ),
         ]
+        slug_to_eid: dict[str, str] = {}
         fields: dict[vol.Marker, Any] = {}
         for eid in self._combined_group_ids:
+            title = self._combined_entry_map.get(eid, eid)
+            slug = _make_override_slug(title, slug_to_eid)
+            slug_to_eid[slug] = eid
             current_val = current_overrides.get(eid, NE_OVERRIDE_KEEP)
-            fields[vol.Optional(f"override_{eid}", default=current_val)] = (
+            fields[vol.Optional(f"override_{slug}", default=current_val)] = (
                 selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=override_options,
@@ -989,8 +1022,14 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                     )
                 )
             )
+        self._combined_slug_to_eid = slug_to_eid
 
         return self.async_show_form(
             step_id="combined_init_overrides",
             data_schema=vol.Schema(fields),
+            description_placeholders={
+                "eid_slug_map": ",".join(
+                    f"{eid}:{slug}" for slug, eid in slug_to_eid.items()
+                )
+            },
         )

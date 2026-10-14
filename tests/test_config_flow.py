@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.entity_availability.config_flow import _make_override_slug
 from custom_components.entity_availability.const import (
     CONF_AVAILABILITY_WINDOWS,
     CONF_BAD_STATES,
@@ -550,16 +551,50 @@ async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
         "custom_components.entity_availability.async_setup_entry",
         return_value=True,
     ):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {}
-        )
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "My Combined"
     assert result["data"][CONF_ENTRY_TYPE] == ENTRY_TYPE_COMBINED
     assert result["data"][CONF_COMBINED_GROUPS] == [entry_a.entry_id, entry_b.entry_id]
+    overrides = result["data"]["combined_groups_overrides"]
+    assert all(v == "keep" for v in overrides.values())
 
 
-async def test_step_combined_duplicate_prevention(hass: HomeAssistant) -> None:
+async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
+    """Non-default override values are stored in combined_groups_overrides."""
+    from custom_components.entity_availability.const import (
+        CONF_COMBINED_GROUPS_OVERRIDES,
+        NE_OVERRIDE_ALL_NON_ESSENTIAL,
+    )
+
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "Override Test",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+    )
+    assert result["step_id"] == "combined_overrides"
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {"override_group_a": NE_OVERRIDE_ALL_NON_ESSENTIAL},
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    overrides = result["data"][CONF_COMBINED_GROUPS_OVERRIDES]
+    assert overrides[entry_a.entry_id] == NE_OVERRIDE_ALL_NON_ESSENTIAL
+    assert overrides.get(entry_b.entry_id, "keep") == "keep"
+
     """Creating a combined group with the same name is aborted."""
     entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
     entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
@@ -580,9 +615,7 @@ async def test_step_combined_duplicate_prevention(hass: HomeAssistant) -> None:
         "custom_components.entity_availability.async_setup_entry",
         return_value=True,
     ):
-        result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], {}
-        )
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] == FlowResultType.CREATE_ENTRY
 
     # Second combined entry with the same name
@@ -597,9 +630,7 @@ async def test_step_combined_duplicate_prevention(hass: HomeAssistant) -> None:
             CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
         },
     )
-    result2 = await hass.config_entries.flow.async_configure(
-        result2["flow_id"], {}
-    )
+    result2 = await hass.config_entries.flow.async_configure(result2["flow_id"], {})
     assert result2["type"] == FlowResultType.ABORT
     assert result2["reason"] == "already_configured"
 
@@ -708,9 +739,7 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
     )
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "combined_init_overrides"
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {}
-    )
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert combined.data[CONF_GROUP_NAME] == "Renamed Combined"
     assert combined.data[CONF_COMBINED_GROUPS] == [entry_a.entry_id, entry_c.entry_id]
@@ -2817,3 +2846,12 @@ async def test_detect_signal_entity_non_signal_sibling_then_naming(
         )
 
     assert result["step_id"] == "signal_mapping"
+
+
+def test_make_override_slug_deduplicates() -> None:
+    existing: dict[str, str] = {"my_group": "eid1"}
+    slug = _make_override_slug("My Group", existing)
+    assert slug == "my_group_2"
+    existing[slug] = "eid2"
+    slug2 = _make_override_slug("My Group", existing)
+    assert slug2 == "my_group_3"
