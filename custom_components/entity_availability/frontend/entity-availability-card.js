@@ -2113,6 +2113,17 @@ class EntityAvailabilityCardEditor extends LitElement {
           <label>
             <input
               type="checkbox"
+              .checked=${this._config.show_entity_health !== false}
+              @change=${(e) => this._updateConfig("show_entity_health", e.target.checked)}
+              ?disabled=${this._config.show_entities === false}
+            />
+            Show Health Columns in Entity List (Bat. &amp; Signal, when active)
+          </label>
+        </div>
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
               .checked=${this._config.groups_expanded === true}
               @change=${(e) => this._updateConfig("groups_expanded", e.target.checked)}
               ?disabled=${this._config.show_groups === false}

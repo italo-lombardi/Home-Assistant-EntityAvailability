@@ -26,6 +26,7 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
+    CONF_COMBINED_GROUPS_OVERRIDES,
     CONF_COOLDOWN,
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
@@ -50,6 +51,9 @@ from .const import (
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
+    NE_OVERRIDE_ALL_ESSENTIAL,
+    NE_OVERRIDE_ALL_NON_ESSENTIAL,
+    NE_OVERRIDE_KEEP,
     SIGNAL_NETWORK_TYPES,
 )
 
@@ -234,15 +238,18 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_combined(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step for creating a combined group."""
+        """Step 1 for creating a combined group: name and group selection."""
         errors: dict[str, str] = {}
 
-        existing_groups = [
-            e
-            for e in self.hass.config_entries.async_entries(DOMAIN)
-            if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
-            and e.state == ConfigEntryState.LOADED
-        ]
+        existing_groups = sorted(
+            [
+                e
+                for e in self.hass.config_entries.async_entries(DOMAIN)
+                if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
+                and e.state == ConfigEntryState.LOADED
+            ],
+            key=lambda e: e.title,
+        )
 
         if len(existing_groups) < 2:
             return self.async_abort(reason="not_enough_groups")
@@ -256,19 +263,12 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
             else:
-                await self.async_set_unique_id(
-                    f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
-                )
-                self._abort_if_unique_id_configured()
-
-                return self.async_create_entry(
-                    title=group_name,
-                    data={
-                        CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
-                        CONF_GROUP_NAME: group_name,
-                        CONF_COMBINED_GROUPS: combined_groups,
-                    },
-                )
+                self._combined_group_name = group_name
+                self._combined_group_ids = combined_groups
+                self._combined_entry_map = {
+                    e.entry_id: e.title for e in existing_groups
+                }
+                return await self.async_step_combined_overrides()
 
         group_options = [
             selector.SelectOptionDict(value=e.entry_id, label=e.title)
@@ -292,6 +292,59 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    async def async_step_combined_overrides(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Step 2 for creating a combined group: per-group NE override."""
+        if user_input is not None:
+            overrides = {
+                eid: user_input.get(f"override_{eid}", NE_OVERRIDE_KEEP)
+                for eid in self._combined_group_ids
+            }
+            group_name = self._combined_group_name
+
+            await self.async_set_unique_id(
+                f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
+            )
+            self._abort_if_unique_id_configured()
+
+            return self.async_create_entry(
+                title=group_name,
+                data={
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+                    CONF_GROUP_NAME: group_name,
+                    CONF_COMBINED_GROUPS: self._combined_group_ids,
+                    CONF_COMBINED_GROUPS_OVERRIDES: overrides,
+                },
+            )
+
+        override_options = [
+            selector.SelectOptionDict(
+                value=NE_OVERRIDE_KEEP, label="Keep configuration"
+            ),
+            selector.SelectOptionDict(
+                value=NE_OVERRIDE_ALL_ESSENTIAL, label="All essential"
+            ),
+            selector.SelectOptionDict(
+                value=NE_OVERRIDE_ALL_NON_ESSENTIAL, label="All non-essential"
+            ),
+        ]
+        fields: dict[vol.Marker, Any] = {}
+        for eid in self._combined_group_ids:
+            fields[vol.Optional(f"override_{eid}", default=NE_OVERRIDE_KEEP)] = (
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=override_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            )
+
+        return self.async_show_form(
+            step_id="combined_overrides",
+            data_schema=vol.Schema(fields),
         )
 
     async def async_step_monitoring(
@@ -829,15 +882,18 @@ class CombinedGroupOptionsFlow(OptionsFlow):
     async def async_step_combined_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Edit combined group name and included groups."""
+        """Step 1: edit combined group name and included groups."""
         errors: dict[str, str] = {}
 
-        existing_groups = [
-            e
-            for e in self.hass.config_entries.async_entries(DOMAIN)
-            if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
-            and e.state == ConfigEntryState.LOADED
-        ]
+        existing_groups = sorted(
+            [
+                e
+                for e in self.hass.config_entries.async_entries(DOMAIN)
+                if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
+                and e.state == ConfigEntryState.LOADED
+            ],
+            key=lambda e: e.title,
+        )
 
         if user_input is not None:
             group_name = user_input[CONF_GROUP_NAME].strip()
@@ -848,15 +904,12 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             elif len(combined_groups) < 2:
                 errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
             else:
-                new_data = {
-                    **self.config_entry.data,
-                    CONF_GROUP_NAME: group_name,
-                    CONF_COMBINED_GROUPS: combined_groups,
+                self._combined_group_name = group_name
+                self._combined_group_ids = combined_groups
+                self._combined_entry_map = {
+                    e.entry_id: e.title for e in existing_groups
                 }
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, title=group_name, data=new_data
-                )
-                return self.async_create_entry(title="", data={})
+                return await self.async_step_combined_init_overrides()
 
         current = self.config_entry.data
         valid_ids = {e.entry_id for e in existing_groups}
@@ -888,4 +941,56 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 }
             ),
             errors=errors,
+        )
+
+    async def async_step_combined_init_overrides(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Step 2: per-group NE override."""
+        if user_input is not None:
+            overrides = {
+                eid: user_input.get(f"override_{eid}", NE_OVERRIDE_KEEP)
+                for eid in self._combined_group_ids
+            }
+            group_name = self._combined_group_name
+            new_data = {
+                **self.config_entry.data,
+                CONF_GROUP_NAME: group_name,
+                CONF_COMBINED_GROUPS: self._combined_group_ids,
+                CONF_COMBINED_GROUPS_OVERRIDES: overrides,
+            }
+            self.hass.config_entries.async_update_entry(
+                self.config_entry, title=group_name, data=new_data
+            )
+            return self.async_create_entry(title="", data={})
+
+        current_overrides: dict[str, str] = self.config_entry.data.get(
+            CONF_COMBINED_GROUPS_OVERRIDES, {}
+        )
+        override_options = [
+            selector.SelectOptionDict(
+                value=NE_OVERRIDE_KEEP, label="Keep configuration"
+            ),
+            selector.SelectOptionDict(
+                value=NE_OVERRIDE_ALL_ESSENTIAL, label="All essential"
+            ),
+            selector.SelectOptionDict(
+                value=NE_OVERRIDE_ALL_NON_ESSENTIAL, label="All non-essential"
+            ),
+        ]
+        fields: dict[vol.Marker, Any] = {}
+        for eid in self._combined_group_ids:
+            current_val = current_overrides.get(eid, NE_OVERRIDE_KEEP)
+            fields[vol.Optional(f"override_{eid}", default=current_val)] = (
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=override_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                )
+            )
+
+        return self.async_show_form(
+            step_id="combined_init_overrides",
+            data_schema=vol.Schema(fields),
         )

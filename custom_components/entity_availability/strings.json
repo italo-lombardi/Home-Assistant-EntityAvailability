@@ -29,6 +29,10 @@
           "combined_groups": "Groups to Include"
         }
       },
+      "combined_overrides": {
+        "title": "Per-Group Classification Override",
+        "description": "Override essential/non-essential classification for each included group. 'Keep configuration' respects each group's own settings."
+      },
       "monitoring": {
         "title": "Monitoring Settings",
         "description": "Configure how entities are monitored.",
@@ -127,6 +131,10 @@
           "group_name": "Combined Group Name",
           "combined_groups": "Groups to Include"
         }
+      },
+      "combined_init_overrides": {
+        "title": "Per-Group Classification Override",
+        "description": "Override essential/non-essential classification for each included group. 'Keep configuration' respects each group's own settings."
       },
       "battery_mapping": {
         "title": "Battery Entity Mapping",

@@ -4098,3 +4098,51 @@ class TestCombinedRecentlyCollapse:
         # Two rows (collapse OFF), rendered once with a {2} marker — not doubled.
         assert attrs["count"] == 2
         assert value == "Balcony Luminance Motion Sensor {2}"
+
+
+class TestApplyNeOverride:
+    """Unit tests for _apply_ne_override helper."""
+
+    def test_all_essential_overrides_ne_flag(self):
+        from custom_components.entity_availability.combined_sensor import _apply_ne_override
+        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_ESSENTIAL
+        from custom_components.entity_availability.models import DeviceState
+
+        d = DeviceState(entity_id="sensor.x", is_non_essential=True)
+        result = _apply_ne_override(d, NE_OVERRIDE_ALL_ESSENTIAL)
+        assert result.is_non_essential is False
+        assert result is not d
+
+    def test_all_non_essential_overrides_essential_flag(self):
+        from custom_components.entity_availability.combined_sensor import _apply_ne_override
+        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_NON_ESSENTIAL
+        from custom_components.entity_availability.models import DeviceState
+
+        d = DeviceState(entity_id="sensor.x", is_non_essential=False)
+        result = _apply_ne_override(d, NE_OVERRIDE_ALL_NON_ESSENTIAL)
+        assert result.is_non_essential is True
+        assert result is not d
+
+    def test_keep_returns_same_object(self):
+        from custom_components.entity_availability.combined_sensor import _apply_ne_override
+        from custom_components.entity_availability.const import NE_OVERRIDE_KEEP
+        from custom_components.entity_availability.models import DeviceState
+
+        d = DeviceState(entity_id="sensor.x", is_non_essential=True)
+        assert _apply_ne_override(d, NE_OVERRIDE_KEEP) is d
+
+    def test_all_essential_no_op_when_already_essential(self):
+        from custom_components.entity_availability.combined_sensor import _apply_ne_override
+        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_ESSENTIAL
+        from custom_components.entity_availability.models import DeviceState
+
+        d = DeviceState(entity_id="sensor.x", is_non_essential=False)
+        assert _apply_ne_override(d, NE_OVERRIDE_ALL_ESSENTIAL) is d
+
+    def test_all_non_essential_no_op_when_already_ne(self):
+        from custom_components.entity_availability.combined_sensor import _apply_ne_override
+        from custom_components.entity_availability.const import NE_OVERRIDE_ALL_NON_ESSENTIAL
+        from custom_components.entity_availability.models import DeviceState
+
+        d = DeviceState(entity_id="sensor.x", is_non_essential=True)
+        assert _apply_ne_override(d, NE_OVERRIDE_ALL_NON_ESSENTIAL) is d

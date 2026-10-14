@@ -27,6 +27,12 @@ CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_GROUP = "group"
 ENTRY_TYPE_COMBINED = "combined_group"
 CONF_COMBINED_GROUPS = "combined_groups"
+CONF_COMBINED_GROUPS_OVERRIDES = "combined_groups_overrides"
+
+# Per-group NE override modes for combined groups
+NE_OVERRIDE_KEEP = "keep"
+NE_OVERRIDE_ALL_ESSENTIAL = "all_essential"
+NE_OVERRIDE_ALL_NON_ESSENTIAL = "all_non_essential"
 
 # Defaults
 DEFAULT_NAME = "Entity Availability"

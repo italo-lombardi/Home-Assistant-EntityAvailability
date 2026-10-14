@@ -4837,6 +4837,45 @@ for e in cfg['data']['entries']:
             restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
+    # EC118: combined group works after ne_override deploy
+    #   Verifies that an existing combined group (no overrides configured)
+    #   still produces valid state after deploying the ne_override feature.
+    #   combined_groups_overrides defaults to {} → keep behaviour unchanged.
+    # ------------------------------------------------------------------
+    if (not EC_FILTER or 118 in EC_FILTER) and ctx.get("combined_prefix"):
+        combined_prefix = ctx["combined_prefix"]
+        if ec_enabled(118):
+            print(
+                "\n=== EC118: combined sensors valid after ne_override deploy ===",
+                flush=True,
+            )
+            summary_state = gs_safe(f"{combined_prefix}_combined_summary")
+            chk(
+                "EC118 combined_summary reachable after ne_override deploy",
+                summary_state is not None,
+                True,
+                f"combined_prefix={combined_prefix}",
+            )
+            if summary_state is not None:
+                offline_state = gs_safe(f"{combined_prefix}_offline_count")
+                chk(
+                    "EC118 combined offline_count is numeric",
+                    isinstance(
+                        offline_state.get("state") if offline_state else None,
+                        str,
+                    ),
+                    True,
+                    f"state={offline_state.get('state') if offline_state else None}",
+                )
+                attrs = summary_state.get("attributes", {})
+                chk(
+                    "EC118 combined_summary groups attr present",
+                    "groups" in attrs,
+                    True,
+                    f"keys={list(attrs.keys())}",
+                )
+
+    # ------------------------------------------------------------------
     restore_all(ctx)
     print(
         f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",

@@ -537,16 +537,21 @@ async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
     )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "My Combined",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "combined_overrides"
     with patch(
         "custom_components.entity_availability.async_setup_entry",
         return_value=True,
     ):
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {
-                CONF_GROUP_NAME: "My Combined",
-                CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
-            },
+            result["flow_id"], {}
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "My Combined"
@@ -564,16 +569,19 @@ async def test_step_combined_duplicate_prevention(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
     )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "My Combined",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+        },
+    )
     with patch(
         "custom_components.entity_availability.async_setup_entry",
         return_value=True,
     ):
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"],
-            {
-                CONF_GROUP_NAME: "My Combined",
-                CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
-            },
+            result["flow_id"], {}
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
 
@@ -588,6 +596,9 @@ async def test_step_combined_duplicate_prevention(hass: HomeAssistant) -> None:
             CONF_GROUP_NAME: "My Combined",
             CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
         },
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"], {}
     )
     assert result2["type"] == FlowResultType.ABORT
     assert result2["reason"] == "already_configured"
@@ -694,6 +705,11 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
             CONF_GROUP_NAME: "Renamed Combined",
             CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_c.entry_id],
         },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "combined_init_overrides"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {}
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert combined.data[CONF_GROUP_NAME] == "Renamed Combined"

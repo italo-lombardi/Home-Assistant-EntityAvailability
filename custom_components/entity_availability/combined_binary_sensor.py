@@ -15,8 +15,15 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import CONF_COMBINED_GROUPS, CONF_GROUP_NAME, DOMAIN
+from .const import (
+    CONF_COMBINED_GROUPS,
+    CONF_COMBINED_GROUPS_OVERRIDES,
+    CONF_GROUP_NAME,
+    DOMAIN,
+    NE_OVERRIDE_KEEP,
+)
 from .coordinator import EntityAvailabilityCoordinator
+from .combined_sensor import _apply_ne_override
 from .write_dedup import WriteDedupMixin
 
 
@@ -31,11 +38,12 @@ async def async_setup_entry(
     if not group_slug:
         group_slug = entry.entry_id[:8].lower()
     combined_entry_ids: list[str] = entry.data.get(CONF_COMBINED_GROUPS, [])
+    ne_overrides: dict[str, str] = entry.data.get(CONF_COMBINED_GROUPS_OVERRIDES, {})
 
     async_add_entities(
         [
             CombinedGroupAnyOfflineBinarySensor(
-                hass, entry, group_name, group_slug, combined_entry_ids
+                hass, entry, group_name, group_slug, combined_entry_ids, ne_overrides
             )
         ]
     )
@@ -60,10 +68,12 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
         group_name: str,
         group_slug: str,
         combined_entry_ids: list[str],
+        ne_overrides: dict[str, str] | None = None,
     ) -> None:
         self.hass = hass
         self._entry = entry
         self._combined_entry_ids = combined_entry_ids
+        self._ne_overrides: dict[str, str] = ne_overrides or {}
         self._attr_unique_id = f"{entry.entry_id}_combined_any_offline"
         self.entity_id = (
             f"binary_sensor.entity_availability_combined_{group_slug}_any_offline"
@@ -139,7 +149,9 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
     def is_on(self) -> bool:
         """Return True if any non-suppressed, non-essential entity across all groups is offline."""
         for coord in self._active_coordinators():
-            for device in coord.device_states.values():
+            ne_mode = self._ne_overrides.get(coord.entry.entry_id, NE_OVERRIDE_KEEP)
+            for device_raw in coord.device_states.values():
+                device = _apply_ne_override(device_raw, ne_mode)
                 if (
                     not device.is_suppressed
                     and not device.is_non_essential
@@ -154,7 +166,13 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
         offline_entities = [
             d.entity_id
             for coord in self._active_coordinators()
-            for d in coord.device_states.values()
+            for d_raw in coord.device_states.values()
+            for d in (
+                _apply_ne_override(
+                    d_raw,
+                    self._ne_overrides.get(coord.entry.entry_id, NE_OVERRIDE_KEEP),
+                ),
+            )
             if d.is_offline and not d.is_suppressed and not d.is_non_essential
         ]
         return {
