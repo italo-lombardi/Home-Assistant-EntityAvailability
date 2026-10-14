@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Dahil edilmez",
-                "keep": "Dahil edilir - grup ayarlarını kullan",
-                "all_essential": "Dahil edilir - geçersiz kılma: Temel",
-                "all_non_essential": "Dahil edilir - geçersiz kılma: Temel Olmayan"
+                "excluded": "🚫 Dahil edilmez",
+                "keep": "✅ Dahil edilir - grup ayarlarını kullan",
+                "all_essential": "🔴 Dahil edilir - geçersiz kılma: Temel",
+                "all_non_essential": "🟡 Dahil edilir - geçersiz kılma: Temel Olmayan"
             }
         }
     }

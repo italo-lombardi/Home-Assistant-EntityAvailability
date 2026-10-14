@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "No incluido",
-                "keep": "Incluido - usar configuración del grupo",
-                "all_essential": "Incluido - forzar: Esencial",
-                "all_non_essential": "Incluido - forzar: No esencial"
+                "excluded": "🚫 No incluido",
+                "keep": "✅ Incluido - usar configuración del grupo",
+                "all_essential": "🔴 Incluido - forzar: Esencial",
+                "all_non_essential": "🟡 Incluido - forzar: No esencial"
             }
         }
     }

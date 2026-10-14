@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Neinclus",
-                "keep": "Inclus - utilizați setările grupului",
-                "all_essential": "Inclus - suprascriere: Esențial",
-                "all_non_essential": "Inclus - suprascriere: Neesențial"
+                "excluded": "🚫 Neinclus",
+                "keep": "✅ Inclus - utilizați setările grupului",
+                "all_essential": "🔴 Inclus - suprascriere: Esențial",
+                "all_non_essential": "🟡 Inclus - suprascriere: Neesențial"
             }
         }
     }

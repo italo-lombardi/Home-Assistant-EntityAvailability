@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Nezahrnuto",
-                "keep": "Zahrnuto - použít nastavení skupiny",
-                "all_essential": "Zahrnuto - přepsat: Základní",
-                "all_non_essential": "Zahrnuto - přepsat: Nedůležité"
+                "excluded": "🚫 Nezahrnuto",
+                "keep": "✅ Zahrnuto - použít nastavení skupiny",
+                "all_essential": "🔴 Zahrnuto - přepsat: Základní",
+                "all_non_essential": "🟡 Zahrnuto - přepsat: Nedůležité"
             }
         }
     }

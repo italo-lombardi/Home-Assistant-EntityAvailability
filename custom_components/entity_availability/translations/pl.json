@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Nie uwzględniona",
-                "keep": "Uwzględniona – użyj ustawień grupy",
-                "all_essential": "Uwzględniona – nadpisanie: Istotna",
-                "all_non_essential": "Uwzględniona – nadpisanie: Nieistotna"
+                "excluded": "🚫 Nie uwzględniona",
+                "keep": "✅ Uwzględniona – użyj ustawień grupy",
+                "all_essential": "🔴 Uwzględniona – nadpisanie: Istotna",
+                "all_non_essential": "🟡 Uwzględniona – nadpisanie: Nieistotna"
             }
         }
     }

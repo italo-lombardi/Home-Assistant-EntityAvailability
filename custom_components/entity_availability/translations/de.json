@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Nicht enthalten",
-                "keep": "Enthalten - Gruppeneinstellungen verwenden",
-                "all_essential": "Enthalten - Überschreiben: Wesentlich",
-                "all_non_essential": "Enthalten - Überschreiben: Nicht-Wesentlich"
+                "excluded": "🚫 Nicht enthalten",
+                "keep": "✅ Enthalten - Gruppeneinstellungen verwenden",
+                "all_essential": "🔴 Enthalten - Überschreiben: Wesentlich",
+                "all_non_essential": "🟡 Enthalten - Überschreiben: Nicht-Wesentlich"
             }
         }
     }

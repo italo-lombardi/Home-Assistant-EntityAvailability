@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Nav iekļauta",
-                "keep": "Iekļauta - izmantot grupas iestatījumus",
-                "all_essential": "Iekļauta - pārdefinēt: Būtiska",
-                "all_non_essential": "Iekļauta - pārdefinēt: Nebūtiska"
+                "excluded": "🚫 Nav iekļauta",
+                "keep": "✅ Iekļauta - izmantot grupas iestatījumus",
+                "all_essential": "🔴 Iekļauta - pārdefinēt: Būtiska",
+                "all_non_essential": "🟡 Iekļauta - pārdefinēt: Nebūtiska"
             }
         }
     }

@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "포함하지 않음",
-                "keep": "포함 - 그룹 설정 사용",
-                "all_essential": "포함 - 재지정: 필수",
-                "all_non_essential": "포함 - 재지정: 비필수"
+                "excluded": "🚫 포함하지 않음",
+                "keep": "✅ 포함 - 그룹 설정 사용",
+                "all_essential": "🔴 포함 - 재지정: 필수",
+                "all_non_essential": "🟡 포함 - 재지정: 비필수"
             }
         }
     }

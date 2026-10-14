@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Niet opgenomen",
-                "keep": "Opgenomen – gebruik groepsinstellingen",
-                "all_essential": "Opgenomen – overschrijving: Essentieel",
-                "all_non_essential": "Opgenomen – overschrijving: Niet-essentieel"
+                "excluded": "🚫 Niet opgenomen",
+                "keep": "✅ Opgenomen – gebruik groepsinstellingen",
+                "all_essential": "🔴 Opgenomen – overschrijving: Essentieel",
+                "all_non_essential": "🟡 Opgenomen – overschrijving: Niet-essentieel"
             }
         }
     }

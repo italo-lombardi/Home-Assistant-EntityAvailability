@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Ej inkluderad",
-                "keep": "Inkluderad — använd gruppinställningar",
-                "all_essential": "Inkluderad — åsidosätt: Väsentlig",
-                "all_non_essential": "Inkluderad — åsidosätt: Icke-väsentlig"
+                "excluded": "🚫 Ej inkluderad",
+                "keep": "✅ Inkluderad — använd gruppinställningar",
+                "all_essential": "🔴 Inkluderad — åsidosätt: Väsentlig",
+                "all_non_essential": "🟡 Inkluderad — åsidosätt: Icke-väsentlig"
             }
         }
     }

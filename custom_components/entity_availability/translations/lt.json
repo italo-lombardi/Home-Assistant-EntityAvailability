@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Neįtraukta",
-                "keep": "Įtraukta - naudoti grupės nustatymus",
-                "all_essential": "Įtraukta - perrašyti: Esminė",
-                "all_non_essential": "Įtraukta - perrašyti: Neesminė"
+                "excluded": "🚫 Neįtraukta",
+                "keep": "✅ Įtraukta - naudoti grupės nustatymus",
+                "all_essential": "🔴 Įtraukta - perrašyti: Esminė",
+                "all_non_essential": "🟡 Įtraukta - perrašyti: Neesminė"
             }
         }
     }

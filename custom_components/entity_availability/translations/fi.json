@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Ei sisällytetty",
-                "keep": "Sisällytetty - käytä ryhmän asetuksia",
-                "all_essential": "Sisällytetty - pakota: Oleellinen",
-                "all_non_essential": "Sisällytetty - pakota: Ei-oleellinen"
+                "excluded": "🚫 Ei sisällytetty",
+                "keep": "✅ Sisällytetty - käytä ryhmän asetuksia",
+                "all_essential": "🔴 Sisällytetty - pakota: Oleellinen",
+                "all_non_essential": "🟡 Sisällytetty - pakota: Ei-oleellinen"
             }
         }
     }

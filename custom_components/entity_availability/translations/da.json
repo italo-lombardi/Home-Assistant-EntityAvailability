@@ -279,10 +279,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Ikke inkluderet",
-                "keep": "Inkluderet - brug gruppeindstillinger",
-                "all_essential": "Inkluderet - tilsidesæt: Essentiel",
-                "all_non_essential": "Inkluderet - tilsidesæt: Ikke-essentiel"
+                "excluded": "🚫 Ikke inkluderet",
+                "keep": "✅ Inkluderet - brug gruppeindstillinger",
+                "all_essential": "🔴 Inkluderet - tilsidesæt: Essentiel",
+                "all_non_essential": "🟡 Inkluderet - tilsidesæt: Ikke-essentiel"
             }
         }
     }

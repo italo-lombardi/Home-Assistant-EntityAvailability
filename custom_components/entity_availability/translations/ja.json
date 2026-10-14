@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "含めない",
-                "keep": "含める - グループ設定を使用",
-                "all_essential": "含める - 上書き：必須",
-                "all_non_essential": "含める - 上書き：非必須"
+                "excluded": "🚫 含めない",
+                "keep": "✅ 含める - グループ設定を使用",
+                "all_essential": "🔴 含める - 上書き：必須",
+                "all_non_essential": "🟡 含める - 上書き：非必須"
             }
         }
     }

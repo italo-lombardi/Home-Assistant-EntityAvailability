@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Nije uključena",
-                "keep": "Uključena - koristi postavke grupe",
-                "all_essential": "Uključena - prisilno: Bitno",
-                "all_non_essential": "Uključena - prisilno: Nebitno"
+                "excluded": "🚫 Nije uključena",
+                "keep": "✅ Uključena - koristi postavke grupe",
+                "all_essential": "🔴 Uključena - prisilno: Bitno",
+                "all_non_essential": "🟡 Uključena - prisilno: Nebitno"
             }
         }
     }

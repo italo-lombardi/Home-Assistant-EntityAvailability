@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "Nincs belefoglalva",
-                "keep": "Belefoglalva - csoport beállításainak használata",
-                "all_essential": "Belefoglalva - felülbírálat: Kritikus",
-                "all_non_essential": "Belefoglalva - felülbírálat: Nem kritikus"
+                "excluded": "🚫 Nincs belefoglalva",
+                "keep": "✅ Belefoglalva - csoport beállításainak használata",
+                "all_essential": "🔴 Belefoglalva - felülbírálat: Kritikus",
+                "all_non_essential": "🟡 Belefoglalva - felülbírálat: Nem kritikus"
             }
         }
     }

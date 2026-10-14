@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "No inclòs",
-                "keep": "Inclòs - usa la configuració del grup",
-                "all_essential": "Inclòs - substitueix: Essencial",
-                "all_non_essential": "Inclòs - substitueix: No essencial"
+                "excluded": "🚫 No inclòs",
+                "keep": "✅ Inclòs - usa la configuració del grup",
+                "all_essential": "🔴 Inclòs - substitueix: Essencial",
+                "all_non_essential": "🟡 Inclòs - substitueix: No essencial"
             }
         }
     }

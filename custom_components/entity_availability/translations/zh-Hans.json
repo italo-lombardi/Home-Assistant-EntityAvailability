@@ -278,10 +278,10 @@
         },
         "combined_group_override": {
             "options": {
-                "excluded": "不包含",
-                "keep": "包含 - 使用组设置",
-                "all_essential": "包含 - 覆盖：必要",
-                "all_non_essential": "包含 - 覆盖：非必要"
+                "excluded": "🚫 不包含",
+                "keep": "✅ 包含 - 使用组设置",
+                "all_essential": "🔴 包含 - 覆盖：必要",
+                "all_non_essential": "🟡 包含 - 覆盖：非必要"
             }
         }
     }
