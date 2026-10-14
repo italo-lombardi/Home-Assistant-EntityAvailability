@@ -1,288 +1,288 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "title": "Utwórz wpis",
-        "description": "Monitoruj grupę encji lub łącz istniejące grupy.",
-        "data": {
-          "entry_type": "Typ"
-        }
-      },
-      "group": {
-        "title": "Utwórz grupę encji",
-        "description": "Utwórz grupę encji do monitorowania dostępności.",
-        "data": {
-          "group_name": "Nazwa grupy",
-          "entities": "Encje do monitorowania",
-          "non_essential_entities": "Nieistotne encje"
+    "config": {
+        "step": {
+            "user": {
+                "title": "Utwórz wpis",
+                "description": "Monitoruj grupę encji lub łącz istniejące grupy.",
+                "data": {
+                    "entry_type": "Typ"
+                }
+            },
+            "group": {
+                "title": "Utwórz grupę encji",
+                "description": "Utwórz grupę encji do monitorowania dostępności.",
+                "data": {
+                    "group_name": "Nazwa grupy",
+                    "entities": "Encje do monitorowania",
+                    "non_essential_entities": "Nieistotne encje"
+                },
+                "data_description": {
+                    "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach.",
+                    "non_essential_entities": "Encje, które nie wpływają na kondycję grupy. Widoczne na karcie i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i nigdy nie wyzwalają alertów. Używaj dla urządzeń, gdzie przestoje są akceptowalne — telewizor, drukarka, urządzenie sezonowe."
+                }
+            },
+            "combined": {
+                "title": "Utwórz grupę zbiorczą",
+                "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
+                "data": {
+                    "combined_name": "Nazwa grupy zbiorczej"
+                }
+            },
+            "monitoring": {
+                "title": "Ustawienia monitorowania",
+                "description": "Skonfiguruj sposób monitorowania encji.",
+                "data": {
+                    "bad_states": "Stany uznawane za offline",
+                    "cooldown": "Czas oczekiwania przed oznaczeniem jako offline",
+                    "staleness_threshold": "Próg nieaktywności",
+                    "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność"
+                },
+                "data_description": {
+                    "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
+                    "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom wywołanym krótkimi rozłączeniami.",
+                    "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, oznacz ją jako zdegradowaną. Wykrywa encje, które zgłaszają 'dostępność', ale przestały wysyłać dane. Ustaw na 0, aby wyłączyć.",
+                    "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
+                }
+            },
+            "advanced": {
+                "title": "Ustawienia zaawansowane",
+                "description": "Opcjonalne zaawansowane funkcje monitorowania.",
+                "data": {
+                    "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
+                    "availability_windows": "Okna śledzenia dostępności",
+                    "recovery_window": "Okno odzyskiwania",
+                    "use_device_names": "Pokaż nazwy urządzeń",
+                    "collapse_devices": "Scal encje według urządzenia",
+                    "signal_enabled": "Włącz monitorowanie siły sygnału"
+                },
+                "data_description": {
+                    "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane. Używaj encji raportujących poziom baterii w procentach lub obsługujących stan 'low'.",
+                    "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
+                    "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
+                    "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
+                    "collapse_devices": "Działa tylko, gdy włączona jest opcja „Pokaż nazwy urządzeń”. Po włączeniu wiele encji należących do tego samego urządzenia fizycznego liczonych jest jako jedna w każdej wartości czujnika, liście i zdarzeniu (offline, niski poziom baterii, nieaktywna, słaby sygnał). Encje są scalane tylko wtedy, gdy mają to samo urządzenie, poziom baterii i sygnał — encje niepowiązane z urządzeniem nigdy nie są scalane, a encje na tym samym urządzeniu z różnymi odczytami baterii lub sygnału pozostają osobne. Dostępność %, MTBF i MTTR pozostają na encję. Uwaga: jeśli ta grupa jest uwzględniona w grupie zbiorczej, jej ustawienie scalania jest automatycznie stosowane w widoku zbiorczym — nie jest wymagana żadna dodatkowa konfiguracja.",
+                    "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
+                }
+            },
+            "battery_mapping": {
+                "title": "Mapowanie czujnika baterii",
+                "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low')."
+            },
+            "signal_mapping": {
+                "title": "Mapowanie siły sygnału",
+                "description": "Dla każdej encji opcjonalnie wybierz czujnik sygnału i wybierz typ sieci. Pozostaw czujnik pusty, aby pominąć.\\n\\nProgi (dobry / ok / słaby):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (im wyżej, tym lepiej)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+            }
         },
-        "data_description": {
-          "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach.",
-          "non_essential_entities": "Encje, które nie wpływają na kondycję grupy. Widoczne na karcie i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i nigdy nie wyzwalają alertów. Używaj dla urządzeń, gdzie przestoje są akceptowalne — telewizor, drukarka, urządzenie sezonowe."
-        }
-      },
-      "combined": {
-        "title": "Utwórz grupę zbiorczą",
-        "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
-        "data": {
-          "group_name": "Nazwa grupy zbiorczej"
-        }
-      },
-      "monitoring": {
-        "title": "Ustawienia monitorowania",
-        "description": "Skonfiguruj sposób monitorowania encji.",
-        "data": {
-          "bad_states": "Stany uznawane za offline",
-          "cooldown": "Czas oczekiwania przed oznaczeniem jako offline",
-          "staleness_threshold": "Próg nieaktywności",
-          "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność"
+        "error": {
+            "empty_group_name": "Nazwa grupy nie może być pusta.",
+            "no_entities": "Musisz wybrać co najmniej jedną encję.",
+            "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia.",
+            "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem.",
+            "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“."
         },
-        "data_description": {
-          "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
-          "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom wywołanym krótkimi rozłączeniami.",
-          "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, oznacz ją jako zdegradowaną. Wykrywa encje, które zgłaszają 'dostępność', ale przestały wysyłać dane. Ustaw na 0, aby wyłączyć.",
-          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna)."
+        "abort": {
+            "already_configured": "Grupa o tej nazwie już istnieje.",
+            "not_enough_groups": "Potrzebujesz co najmniej dwóch grup, zanim utworzysz grupę zbiorczą."
         }
-      },
-      "advanced": {
-        "title": "Ustawienia zaawansowane",
-        "description": "Opcjonalne zaawansowane funkcje monitorowania.",
-        "data": {
-          "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
-          "availability_windows": "Okna śledzenia dostępności",
-          "recovery_window": "Okno odzyskiwania",
-          "use_device_names": "Pokaż nazwy urządzeń",
-          "collapse_devices": "Scal encje według urządzenia",
-          "signal_enabled": "Włącz monitorowanie siły sygnału"
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Edytuj grupę encji",
+                "description": "Zmień ustawienia monitorowania dla tej grupy.",
+                "data": {
+                    "entities": "Encje do monitorowania",
+                    "non_essential_entities": "Nieistotne encje",
+                    "bad_states": "Stany uznawane za offline",
+                    "cooldown": "Czas oczekiwania (sekundy)",
+                    "staleness_threshold": "Próg nieaktywności (minuty, 0 = wyłączony)",
+                    "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
+                    "availability_windows": "Okna śledzenia dostępności",
+                    "recovery_window": "Okno odzyskiwania (minuty)",
+                    "use_device_names": "Pokaż nazwy urządzeń",
+                    "collapse_devices": "Scal encje według urządzenia",
+                    "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność",
+                    "signal_enabled": "Włącz monitorowanie siły sygnału"
+                },
+                "data_description": {
+                    "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI (liczba offline, dostępność %, MTBF, MTTR) i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami).",
+                    "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
+                    "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom przy krótkich rozłączeniach.",
+                    "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, jest oznaczana jako zdegradowana. Ustaw 0, aby wyłączyć.",
+                    "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane.",
+                    "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
+                    "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
+                    "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
+                    "collapse_devices": "Działa tylko, gdy włączona jest opcja „Pokaż nazwy urządzeń”. Po włączeniu wiele encji należących do tego samego urządzenia fizycznego liczonych jest jako jedna w każdej wartości czujnika, liście i zdarzeniu (offline, niski poziom baterii, nieaktywna, słaby sygnał). Encje są scalane tylko wtedy, gdy mają to samo urządzenie, poziom baterii i sygnał — encje niepowiązane z urządzeniem nigdy nie są scalane, a encje na tym samym urządzeniu z różnymi odczytami baterii lub sygnału pozostają osobne. Dostępność %, MTBF i MTTR pozostają na encję. Uwaga: jeśli ta grupa jest uwzględniona w grupie zbiorczej, jej ustawienie scalania jest automatycznie stosowane w widoku zbiorczym — nie jest wymagana żadna dodatkowa konfiguracja.",
+                    "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna).",
+                    "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach.",
+                    "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
+                }
+            },
+            "combined_init": {
+                "title": "Edytuj grupę zbiorczą",
+                "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
+                "data": {
+                    "combined_name": "Nazwa grupy zbiorczej"
+                }
+            },
+            "battery_mapping": {
+                "title": "Mapowanie czujnika baterii",
+                "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low')."
+            },
+            "signal_mapping": {
+                "title": "Mapowanie siły sygnału",
+                "description": "Dla każdej encji opcjonalnie wybierz czujnik sygnału i wybierz typ sieci. Pozostaw czujnik pusty, aby pominąć.\\n\\nProgi (dobry / ok / słaby):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (im wyżej, tym lepiej)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+            }
         },
-        "data_description": {
-          "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane. Używaj encji raportujących poziom baterii w procentach lub obsługujących stan 'low'.",
-          "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
-          "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
-          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
-          "collapse_devices": "Działa tylko, gdy włączona jest opcja „Pokaż nazwy urządzeń”. Po włączeniu wiele encji należących do tego samego urządzenia fizycznego liczonych jest jako jedna w każdej wartości czujnika, liście i zdarzeniu (offline, niski poziom baterii, nieaktywna, słaby sygnał). Encje są scalane tylko wtedy, gdy mają to samo urządzenie, poziom baterii i sygnał — encje niepowiązane z urządzeniem nigdy nie są scalane, a encje na tym samym urządzeniu z różnymi odczytami baterii lub sygnału pozostają osobne. Dostępność %, MTBF i MTTR pozostają na encję. Uwaga: jeśli ta grupa jest uwzględniona w grupie zbiorczej, jej ustawienie scalania jest automatycznie stosowane w widoku zbiorczym — nie jest wymagana żadna dodatkowa konfiguracja.",
-          "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
-        }
-      },
-      "battery_mapping": {
-        "title": "Mapowanie czujnika baterii",
-        "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low')."
-      },
-      "signal_mapping": {
-        "title": "Mapowanie siły sygnału",
-        "description": "Dla każdej encji opcjonalnie wybierz czujnik sygnału i wybierz typ sieci. Pozostaw czujnik pusty, aby pominąć.\\n\\nProgi (dobry / ok / słaby):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (im wyżej, tym lepiej)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-      }
-    },
-    "error": {
-      "empty_group_name": "Nazwa grupy nie może być pusta.",
-      "no_entities": "Musisz wybrać co najmniej jedną encję.",
-      "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia.",
-      "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem.",
-      "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“."
-    },
-    "abort": {
-      "already_configured": "Grupa o tej nazwie już istnieje.",
-      "not_enough_groups": "Potrzebujesz co najmniej dwóch grup, zanim utworzysz grupę zbiorczą."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Edytuj grupę encji",
-        "description": "Zmień ustawienia monitorowania dla tej grupy.",
-        "data": {
-          "entities": "Encje do monitorowania",
-          "non_essential_entities": "Nieistotne encje",
-          "bad_states": "Stany uznawane za offline",
-          "cooldown": "Czas oczekiwania (sekundy)",
-          "staleness_threshold": "Próg nieaktywności (minuty, 0 = wyłączony)",
-          "battery_threshold": "Próg niskiego poziomu baterii (%, 0 = wyłączony)",
-          "availability_windows": "Okna śledzenia dostępności",
-          "recovery_window": "Okno odzyskiwania (minuty)",
-          "use_device_names": "Pokaż nazwy urządzeń",
-          "collapse_devices": "Scal encje według urządzenia",
-          "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność",
-          "signal_enabled": "Włącz monitorowanie siły sygnału"
+        "error": {
+            "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem.",
+            "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“."
         },
-        "data_description": {
-          "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI (liczba offline, dostępność %, MTBF, MTTR) i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami).",
-          "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
-          "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom przy krótkich rozłączeniach.",
-          "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, jest oznaczana jako zdegradowana. Ustaw 0, aby wyłączyć.",
-          "battery_threshold": "Oznacza encje, których bateria spada poniżej tego procentu. Stan 'low' jest również wykrywany automatycznie. Encje oparte na woltach nie są obsługiwane.",
-          "availability_windows": "Okna czasowe do śledzenia historii dostępności grupy (np. dzisiaj, 3d, 7d).",
-          "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
-          "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
-          "collapse_devices": "Działa tylko, gdy włączona jest opcja „Pokaż nazwy urządzeń”. Po włączeniu wiele encji należących do tego samego urządzenia fizycznego liczonych jest jako jedna w każdej wartości czujnika, liście i zdarzeniu (offline, niski poziom baterii, nieaktywna, słaby sygnał). Encje są scalane tylko wtedy, gdy mają to samo urządzenie, poziom baterii i sygnał — encje niepowiązane z urządzeniem nigdy nie są scalane, a encje na tym samym urządzeniu z różnymi odczytami baterii lub sygnału pozostają osobne. Dostępność %, MTBF i MTTR pozostają na encję. Uwaga: jeśli ta grupa jest uwzględniona w grupie zbiorczej, jej ustawienie scalania jest automatycznie stosowane w widoku zbiorczym — nie jest wymagana żadna dodatkowa konfiguracja.",
-          "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna).",
-          "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach.",
-          "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
+        "abort": {
+            "not_enough_groups": "Ta grupa zbiorcza nie ma już wystarczającej liczby załadowanych grup źródłowych. Najpierw dodaj więcej grup."
         }
-      },
-      "combined_init": {
-        "title": "Edytuj grupę zbiorczą",
-        "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
-        "data": {
-          "group_name": "Nazwa grupy zbiorczej"
+    },
+    "entity": {
+        "sensor": {
+            "offline_count": {
+                "name": "Liczba offline"
+            },
+            "offline_entities": {
+                "name": "Encje offline"
+            },
+            "low_battery": {
+                "name": "Niski poziom baterii"
+            },
+            "low_battery_count": {
+                "name": "Liczba niskich baterii"
+            },
+            "group_summary": {
+                "name": "Podsumowanie grupy"
+            },
+            "recently_offline": {
+                "name": "Niedawno offline"
+            },
+            "recently_recovered": {
+                "name": "Niedawno odzyskana"
+            },
+            "combined_summary": {
+                "name": "Podsumowanie zbiorcze"
+            },
+            "availability_today": {
+                "name": "Dostępność (dzisiaj)"
+            },
+            "availability_3d": {
+                "name": "Dostępność (3 dni)"
+            },
+            "availability_5d": {
+                "name": "Dostępność (5 dni)"
+            },
+            "availability_7d": {
+                "name": "Dostępność (7 dni)"
+            },
+            "affected_areas_count": {
+                "name": "Liczba Dotkniętych Obszarów"
+            },
+            "affected_areas": {
+                "name": "Dotknięte Obszary"
+            },
+            "affected_areas_recently_offline": {
+                "name": "Obszary Niedawno Offline"
+            },
+            "affected_areas_recently_recovered": {
+                "name": "Obszary Niedawno Odzyskane"
+            },
+            "mtbf": {
+                "name": "Średni czas między awariami"
+            },
+            "mttr": {
+                "name": "Średni czas przywracania"
+            },
+            "stale_entities": {
+                "name": "Nieaktywne encje"
+            },
+            "stale_count": {
+                "name": "Liczba nieaktywnych"
+            },
+            "offline_entities_non_essential": {
+                "name": "Encje offline (Nieistotne)"
+            },
+            "offline_count_non_essential": {
+                "name": "Liczba offline (Nieistotne)"
+            },
+            "low_battery_non_essential": {
+                "name": "Niski poziom baterii (Nieistotne)"
+            },
+            "low_battery_count_non_essential": {
+                "name": "Liczba niskich baterii (Nieistotne)"
+            },
+            "stale_entities_non_essential": {
+                "name": "Nieaktywne encje (Nieistotne)"
+            },
+            "stale_count_non_essential": {
+                "name": "Liczba nieaktywnych (Nieistotne)"
+            },
+            "poor_signal": {
+                "name": "Słaby sygnał"
+            },
+            "poor_signal_count": {
+                "name": "Liczba słabych sygnałów"
+            },
+            "poor_signal_non_essential": {
+                "name": "Słaby sygnał (niekrytyczne)"
+            },
+            "poor_signal_count_non_essential": {
+                "name": "Liczba słabych sygnałów (niekrytyczne)"
+            }
+        },
+        "binary_sensor": {
+            "any_offline": {
+                "name": "Dowolna encja offline"
+            },
+            "all_offline": {
+                "name": "Wszystkie encje offline"
+            },
+            "all_offline_non_essential": {
+                "name": "Wszystkie encje offline (Nieistotne)"
+            },
+            "combined_any_offline": {
+                "name": "Dowolna encja offline"
+            },
+            "any_offline_non_essential": {
+                "name": "Jakakolwiek encja offline (Nieistotne)"
+            },
+            "any_low_battery": {
+                "name": "Niski poziom baterii wykryty"
+            },
+            "any_stale": {
+                "name": "Nieaktywna encja wykryta"
+            },
+            "any_poor_signal": {
+                "name": "Jakikolwiek słaby sygnał"
+            },
+            "any_low_battery_non_essential": {
+                "name": "Słaba Bateria (Nieistotne)"
+            },
+            "any_poor_signal_non_essential": {
+                "name": "Słaby Sygnał (Nieistotne)"
+            }
         }
-      },
-      "battery_mapping": {
-        "title": "Mapowanie czujnika baterii",
-        "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low')."
-      },
-      "signal_mapping": {
-        "title": "Mapowanie siły sygnału",
-        "description": "Dla każdej encji opcjonalnie wybierz czujnik sygnału i wybierz typ sieci. Pozostaw czujnik pusty, aby pominąć.\\n\\nProgi (dobry / ok / słaby):\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (im wyżej, tym lepiej)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-      }
     },
-    "error": {
-      "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem.",
-      "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“."
-    },
-    "abort": {
-      "not_enough_groups": "Ta grupa zbiorcza nie ma już wystarczającej liczby załadowanych grup źródłowych. Najpierw dodaj więcej grup."
+    "selector": {
+        "entry_type": {
+            "options": {
+                "group": "Monitoruj encje",
+                "combined_group": "Połącz grupy"
+            }
+        },
+        "combined_group_override": {
+            "options": {
+                "excluded": "Nie uwzględniona",
+                "keep": "Uwzględniona – użyj ustawień grupy",
+                "all_essential": "Uwzględniona – nadpisanie: Istotna",
+                "all_non_essential": "Uwzględniona – nadpisanie: Nieistotna"
+            }
+        }
     }
-  },
-  "entity": {
-    "sensor": {
-      "offline_count": {
-        "name": "Liczba offline"
-      },
-      "offline_entities": {
-        "name": "Encje offline"
-      },
-      "low_battery": {
-        "name": "Niski poziom baterii"
-      },
-      "low_battery_count": {
-        "name": "Liczba niskich baterii"
-      },
-      "group_summary": {
-        "name": "Podsumowanie grupy"
-      },
-      "recently_offline": {
-        "name": "Niedawno offline"
-      },
-      "recently_recovered": {
-        "name": "Niedawno odzyskana"
-      },
-      "combined_summary": {
-        "name": "Podsumowanie zbiorcze"
-      },
-      "availability_today": {
-        "name": "Dostępność (dzisiaj)"
-      },
-      "availability_3d": {
-        "name": "Dostępność (3 dni)"
-      },
-      "availability_5d": {
-        "name": "Dostępność (5 dni)"
-      },
-      "availability_7d": {
-        "name": "Dostępność (7 dni)"
-      },
-      "affected_areas_count": {
-        "name": "Liczba Dotkniętych Obszarów"
-      },
-      "affected_areas": {
-        "name": "Dotknięte Obszary"
-      },
-      "affected_areas_recently_offline": {
-        "name": "Obszary Niedawno Offline"
-      },
-      "affected_areas_recently_recovered": {
-        "name": "Obszary Niedawno Odzyskane"
-      },
-      "mtbf": {
-        "name": "Średni czas między awariami"
-      },
-      "mttr": {
-        "name": "Średni czas przywracania"
-      },
-      "stale_entities": {
-        "name": "Nieaktywne encje"
-      },
-      "stale_count": {
-        "name": "Liczba nieaktywnych"
-      },
-      "offline_entities_non_essential": {
-        "name": "Encje offline (Nieistotne)"
-      },
-      "offline_count_non_essential": {
-        "name": "Liczba offline (Nieistotne)"
-      },
-      "low_battery_non_essential": {
-        "name": "Niski poziom baterii (Nieistotne)"
-      },
-      "low_battery_count_non_essential": {
-        "name": "Liczba niskich baterii (Nieistotne)"
-      },
-      "stale_entities_non_essential": {
-        "name": "Nieaktywne encje (Nieistotne)"
-      },
-      "stale_count_non_essential": {
-        "name": "Liczba nieaktywnych (Nieistotne)"
-      },
-      "poor_signal": {
-        "name": "Słaby sygnał"
-      },
-      "poor_signal_count": {
-        "name": "Liczba słabych sygnałów"
-      },
-      "poor_signal_non_essential": {
-        "name": "Słaby sygnał (niekrytyczne)"
-      },
-      "poor_signal_count_non_essential": {
-        "name": "Liczba słabych sygnałów (niekrytyczne)"
-      }
-    },
-    "binary_sensor": {
-      "any_offline": {
-        "name": "Dowolna encja offline"
-      },
-      "all_offline": {
-        "name": "Wszystkie encje offline"
-      },
-      "all_offline_non_essential": {
-        "name": "Wszystkie encje offline (Nieistotne)"
-      },
-      "combined_any_offline": {
-        "name": "Dowolna encja offline"
-      },
-      "any_offline_non_essential": {
-        "name": "Jakakolwiek encja offline (Nieistotne)"
-      },
-      "any_low_battery": {
-        "name": "Niski poziom baterii wykryty"
-      },
-      "any_stale": {
-        "name": "Nieaktywna encja wykryta"
-      },
-      "any_poor_signal": {
-        "name": "Jakikolwiek słaby sygnał"
-      },
-      "any_low_battery_non_essential": {
-        "name": "Słaba Bateria (Nieistotne)"
-      },
-      "any_poor_signal_non_essential": {
-        "name": "Słaby Sygnał (Nieistotne)"
-      }
-    }
-  },
-  "selector": {
-    "entry_type": {
-      "options": {
-        "group": "Monitoruj encje",
-        "combined_group": "Połącz grupy"
-      }
-    },
-    "combined_group_override": {
-      "options": {
-        "excluded": "Nie uwzględniona",
-        "keep": "Uwzględniona – użyj ustawień grupy",
-        "all_essential": "Uwzględniona – nadpisanie: Istotna",
-        "all_non_essential": "Uwzględniona – nadpisanie: Nieistotna"
-      }
-    }
-  }
 }

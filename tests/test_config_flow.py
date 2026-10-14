@@ -501,13 +501,13 @@ async def test_step_combined_empty_name_error(hass: HomeAssistant) -> None:
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_GROUP_NAME: "   ",
-            "g:Group A": "keep",
-            "g:Group B": "keep",
+            "combined_name": "   ",
+            "Group A": "keep",
+            "Group B": "keep",
         },
     )
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"] == {CONF_GROUP_NAME: "empty_group_name"}
+    assert result["errors"] == {"combined_name": "empty_group_name"}
 
 
 async def test_step_combined_not_enough_groups_selected_error(
@@ -523,7 +523,7 @@ async def test_step_combined_not_enough_groups_selected_error(
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {CONF_GROUP_NAME: "My Combined", "g:Group A": "keep"},
+        {"combined_name": "My Combined", "Group A": "keep"},
     )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "not_enough_groups_selected"}
@@ -545,9 +545,9 @@ async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                CONF_GROUP_NAME: "My Combined",
-                "g:Group A": "keep",
-                "g:Group B": "keep",
+                "combined_name": "My Combined",
+                "Group A": "keep",
+                "Group B": "keep",
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -579,9 +579,9 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                CONF_GROUP_NAME: "Override Test",
-                "g:Group A": NE_OVERRIDE_ALL_NON_ESSENTIAL,
-                "g:Group B": "keep",
+                "combined_name": "Override Test",
+                "Group A": NE_OVERRIDE_ALL_NON_ESSENTIAL,
+                "Group B": "keep",
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -605,9 +605,9 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
-                CONF_GROUP_NAME: "My Combined",
-                "g:Group A": "keep",
-                "g:Group B": "keep",
+                "combined_name": "My Combined",
+                "Group A": "keep",
+                "Group B": "keep",
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -620,9 +620,9 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
     result2 = await hass.config_entries.flow.async_configure(
         result2["flow_id"],
         {
-            CONF_GROUP_NAME: "My Combined",
-            "g:Group A": "keep",
-            "g:Group B": "keep",
+            "combined_name": "My Combined",
+            "Group A": "keep",
+            "Group B": "keep",
         },
     )
     assert result2["type"] == FlowResultType.ABORT
@@ -658,8 +658,8 @@ async def test_step_combined_excludes_non_loaded_entries(hass: HomeAssistant) ->
     # The form schema must have group_* fields only for LOADED entries
     schema_keys = [str(k) for k in result["data_schema"].schema]
     # Group A and Group B (LOADED) should be present; Bad Group (SETUP_ERROR) should not
-    assert "g:Group A" in schema_keys
-    assert "g:Group B" in schema_keys
+    assert "Group A" in schema_keys
+    assert "Group B" in schema_keys
     assert not any("Bad" in k for k in schema_keys)
 
 
@@ -701,15 +701,15 @@ async def test_step_combined_deduplicates_same_title(hass: HomeAssistant) -> Non
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "combined"
     schema_keys = [str(k) for k in result["data_schema"].schema]
-    assert "g:Duplicate" in schema_keys
-    assert "g:Duplicate (2)" in schema_keys
+    assert "Duplicate" in schema_keys
+    assert "Duplicate (2)" in schema_keys
 
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
-            CONF_GROUP_NAME: "Both Dupes",
-            "g:Duplicate": "keep",
-            "g:Duplicate (2)": "keep",
+            "combined_name": "Both Dupes",
+            "Duplicate": "keep",
+            "Duplicate (2)": "keep",
         },
     )
     assert result2["type"] == FlowResultType.CREATE_ENTRY
@@ -779,8 +779,8 @@ async def test_combined_options_flow_deduplicates_same_title(
     result = await hass.config_entries.options.async_init(combined.entry_id)
     assert result["type"] == FlowResultType.FORM
     schema_keys = [str(k) for k in result["data_schema"].schema]
-    assert "g:Duplicate" in schema_keys
-    assert "g:Duplicate (2)" in schema_keys
+    assert "Duplicate" in schema_keys
+    assert "Duplicate (2)" in schema_keys
 
 
 async def test_combined_options_flow_shows_form(hass: HomeAssistant) -> None:
@@ -845,10 +845,10 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            CONF_GROUP_NAME: "Renamed Combined",
-            "g:Group A": "keep",
-            "g:Group B": "excluded",
-            "g:Group C": "keep",
+            "combined_name": "Renamed Combined",
+            "Group A": "keep",
+            "Group B": "excluded",
+            "Group C": "keep",
         },
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -886,13 +886,13 @@ async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> No
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            CONF_GROUP_NAME: "   ",
-            "g:Group A": "keep",
-            "g:Group B": "keep",
+            "combined_name": "   ",
+            "Group A": "keep",
+            "Group B": "keep",
         },
     )
     assert result["type"] == FlowResultType.FORM
-    assert result["errors"][CONF_GROUP_NAME] == "empty_group_name"
+    assert result["errors"]["combined_name"] == "empty_group_name"
 
 
 async def test_combined_options_flow_not_enough_groups_error(
@@ -927,9 +927,9 @@ async def test_combined_options_flow_not_enough_groups_error(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            CONF_GROUP_NAME: "Valid Name",
-            "g:Group A": "keep",
-            "g:Group B": "excluded",
+            "combined_name": "Valid Name",
+            "Group A": "keep",
+            "Group B": "excluded",
         },
     )
     assert result["type"] == FlowResultType.FORM

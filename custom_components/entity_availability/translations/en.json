@@ -25,7 +25,7 @@
                 "title": "Create Combined Group",
                 "description": "Select how each group should be classified: Not included, Included using the group's own settings, or override to Essential or Non-Essential.",
                 "data": {
-                    "group_name": "Combined Group Name"
+                    "combined_name": "Combined Group Name"
                 }
             },
             "monitoring": {
@@ -123,7 +123,7 @@
                 "title": "Edit Combined Group",
                 "description": "Select how each group should be classified: Not included, Included using the group's own settings, or override to Essential or Non-Essential.",
                 "data": {
-                    "group_name": "Combined Group Name"
+                    "combined_name": "Combined Group Name"
                 }
             },
             "battery_mapping": {

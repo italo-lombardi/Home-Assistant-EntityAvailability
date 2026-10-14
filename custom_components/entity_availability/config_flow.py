@@ -257,32 +257,31 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="not_enough_groups")
 
         # title_to_eid: field key = group title so HA frontend shows a readable label
+        _COMBINED_NAME_KEY = "combined_name"
         title_to_eid: dict[str, str] = {}
         for e in existing_groups:
             title = e.title
             suffix = 2
-            while title in title_to_eid:
+            while title in title_to_eid or title == _COMBINED_NAME_KEY:
                 title = f"{e.title} ({suffix})"
                 suffix += 1
             title_to_eid[title] = e.entry_id
 
         if user_input is not None:
-            group_name = user_input[CONF_GROUP_NAME].strip()
+            group_name = user_input[_COMBINED_NAME_KEY].strip()
             combined_groups = [
                 eid
                 for title, eid in title_to_eid.items()
-                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
-                != NE_OVERRIDE_EXCLUDED
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
             ]
             overrides = {
-                eid: user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
+                eid: user_input.get(title, NE_OVERRIDE_EXCLUDED)
                 for title, eid in title_to_eid.items()
-                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
-                != NE_OVERRIDE_EXCLUDED
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
             }
 
             if not group_name:
-                errors[CONF_GROUP_NAME] = "empty_group_name"
+                errors[_COMBINED_NAME_KEY] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors["base"] = "not_enough_groups_selected"
             else:
@@ -309,15 +308,15 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         ]
         fields: dict[vol.Marker, Any] = {
             vol.Required(
-                CONF_GROUP_NAME,
-                default=(user_input or {}).get(CONF_GROUP_NAME, ""),
+                _COMBINED_NAME_KEY,
+                default=(user_input or {}).get(_COMBINED_NAME_KEY, ""),
             ): str
         }
         for title in title_to_eid:
             fields[
                 vol.Optional(
-                    f"g:{title}",
-                    default=(user_input or {}).get(f"g:{title}", NE_OVERRIDE_EXCLUDED),
+                    title,
+                    default=(user_input or {}).get(title, NE_OVERRIDE_EXCLUDED),
                 )
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(
@@ -890,32 +889,31 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             return self.async_abort(reason="not_enough_groups")
 
         # title_to_eid: field key = group title so HA frontend shows a readable label
+        _COMBINED_NAME_KEY = "combined_name"
         title_to_eid: dict[str, str] = {}
         for e in existing_groups:
             title = e.title
             suffix = 2
-            while title in title_to_eid:
+            while title in title_to_eid or title == _COMBINED_NAME_KEY:
                 title = f"{e.title} ({suffix})"
                 suffix += 1
             title_to_eid[title] = e.entry_id
 
         if user_input is not None:
-            group_name = user_input[CONF_GROUP_NAME].strip()
+            group_name = user_input[_COMBINED_NAME_KEY].strip()
             combined_groups = [
                 eid
                 for title, eid in title_to_eid.items()
-                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
-                != NE_OVERRIDE_EXCLUDED
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
             ]
             overrides = {
-                eid: user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
+                eid: user_input.get(title, NE_OVERRIDE_EXCLUDED)
                 for title, eid in title_to_eid.items()
-                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
-                != NE_OVERRIDE_EXCLUDED
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
             }
 
             if not group_name:
-                errors[CONF_GROUP_NAME] = "empty_group_name"
+                errors[_COMBINED_NAME_KEY] = "empty_group_name"
             elif len(combined_groups) < 2:
                 errors["base"] = "not_enough_groups_selected"
             else:
@@ -942,22 +940,22 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             NE_OVERRIDE_ALL_NON_ESSENTIAL,
         ]
         fields: dict[vol.Marker, Any] = {
-            vol.Required(CONF_GROUP_NAME, default=current.get(CONF_GROUP_NAME, "")): str
+            vol.Required(
+                _COMBINED_NAME_KEY, default=current.get(CONF_GROUP_NAME, "")
+            ): str
         }
         for title, eid in title_to_eid.items():
             if user_input is not None:
-                default_val = user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
+                default_val = user_input.get(title, NE_OVERRIDE_EXCLUDED)
             elif eid in current_combined:
                 default_val = current_overrides.get(eid, NE_OVERRIDE_KEEP)
             else:
                 default_val = NE_OVERRIDE_EXCLUDED
-            fields[vol.Optional(f"g:{title}", default=default_val)] = (
-                selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=group_options,
-                        translation_key="combined_group_override",
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
+            fields[vol.Optional(title, default=default_val)] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=group_options,
+                    translation_key="combined_group_override",
+                    mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             )
 

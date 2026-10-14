@@ -1,288 +1,288 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "title": "Bejegyzés létrehozása",
-        "description": "Entitáscsoport figyelése, vagy meglévő csoportok összesítése.",
-        "data": {
-          "entry_type": "Típus"
-        }
-      },
-      "group": {
-        "title": "Entitáscsoport létrehozása",
-        "description": "Hozzon létre egy entitáscsoportot az elérhetőség figyeléséhez.",
-        "data": {
-          "group_name": "Csoport neve",
-          "entities": "Figyelendő entitások",
-          "non_essential_entities": "Nem kritikus entitások"
+    "config": {
+        "step": {
+            "user": {
+                "title": "Bejegyzés létrehozása",
+                "description": "Entitáscsoport figyelése, vagy meglévő csoportok összesítése.",
+                "data": {
+                    "entry_type": "Típus"
+                }
+            },
+            "group": {
+                "title": "Entitáscsoport létrehozása",
+                "description": "Hozzon létre egy entitáscsoportot az elérhetőség figyeléséhez.",
+                "data": {
+                    "group_name": "Csoport neve",
+                    "entities": "Figyelendő entitások",
+                    "non_essential_entities": "Nem kritikus entitások"
+                },
+                "data_description": {
+                    "entities": "Az elérhetőség szempontjából nyomon követendő entitások. Ezek teljes körűen figyeltek, és minden KPI-ba és riasztásba beleszámítanak.",
+                    "non_essential_entities": "Olyan entitások, amelyek nem befolyásolják a csoport egészségi állapotát. Megjelennek a kártyán és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR), és soha nem váltanak ki riasztást. Olyan eszközökhöz használható, ahol az állásidő elfogadható — például TV, nyomtató, szezonális eszköz."
+                }
+            },
+            "combined": {
+                "title": "Összesített csoport létrehozása",
+                "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
+                "data": {
+                    "combined_name": "Összesített csoport neve"
+                }
+            },
+            "monitoring": {
+                "title": "Figyelési beállítások",
+                "description": "Az entitások figyelési módjának beállítása.",
+                "data": {
+                    "bad_states": "Offline állapotnak számító státuszok",
+                    "cooldown": "Várakozási idő offline jelölés előtt",
+                    "staleness_threshold": "Elavultsági küszöb",
+                    "staleness_use_last_updated": "Attribútumfrissítések számítanak aktivitásnak"
+                },
+                "data_description": {
+                    "bad_states": "Azok az entitásállapotok, amelyek offline állapotot jeleznek (pl. unavailable, unknown).",
+                    "cooldown": "Mennyi ideig (másodpercben) kell egy entitásnak rossz állapotban maradnia, mielőtt offline-nak jelölik. Megakadályozza a hamis riasztásokat rövid kapcsolódási problémák esetén.",
+                    "staleness_threshold": "Ha egy entitás ennyi percig nem változtatott állapotot, elavultként jelöljük meg. Ez kiszűri azokat az entitásokat, amelyek 'elérhető' állapotot jeleznek, de valójában leálltak az adatküldéssel. 0 értékre állítva letiltható.",
+                    "staleness_use_last_updated": "Bekapcsolt állapotban az entitás bármilyen frissítése — beleértve az attribútum-módosításokat vagy az ismételt azonos értékű jelentéseket — visszaállítja az elavultsági időzítőt. Kikapcsolt állapotban (alapértelmezett) csak a fő állapot változása számít. Kapcsolja be olyan eszközökhöz, amelyek sűrűn jelentenek, de ritkán változtatnak értéket (pl. stabil hőmérséklet vagy teljesítmény)."
+                }
+            },
+            "advanced": {
+                "title": "Speciális beállítások",
+                "description": "Opcionális speciális figyelési funkciók.",
+                "data": {
+                    "battery_threshold": "Alacsony akkumulátorszint küszöb (%, 0 = letiltva)",
+                    "availability_windows": "Elérhetőség-követési időablakok",
+                    "recovery_window": "Visszaállási időablak",
+                    "use_device_names": "Eszköznevek megjelenítése",
+                    "collapse_devices": "Entitások összevonása eszközönként",
+                    "signal_enabled": "Jelerősség-figyelés engedélyezése"
+                },
+                "data_description": {
+                    "battery_threshold": "Jelölje meg azokat az entitásokat, amelyek akkumulátora e százalék alá csökken. Az 'alacsony' állapot automatikusan is észlelhető. A feszültségalapú entitások nem támogatottak. Olyan entitásokat használjon, amelyek az akkumulátort százalékban vagy 'low' állapotként jelzik.",
+                    "availability_windows": "Időablakok a csoport elérhetőségi előzményeinek nyomon követéséhez (pl. ma, 3n, 7n).",
+                    "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
+                    "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
+                    "collapse_devices": "Csak akkor működik, ha az „Eszköznevek megjelenítése” engedélyezve van. Bekapcsolt állapotban az ugyanahhoz a fizikai eszközhöz tartozó több entitás egynek számít minden szenzorértékben, listában és eseményben (offline, alacsony akkumulátor, elavult, gyenge jel). Az entitások csak akkor vonódnak össze, ha ugyanaz az eszköz, akkumulátorszint és jel — az eszközhöz nem kapcsolt entitások soha nem vonódnak össze, és az ugyanazon az eszközön lévő, eltérő akkumulátor- vagy jelleolvasással rendelkező entitások külön maradnak. Az elérhetőség %, az MTBF és az MTTR entitásonként marad. Megjegyzés: ha ez a csoport egy összesített csoportban szerepel, az összevonási beállítása automatikusan érvényesül az összesített nézetben — nincs szükség további konfigurációra.",
+                    "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
+                }
+            },
+            "battery_mapping": {
+                "title": "Akkumulátor-entitás hozzárendelés",
+                "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat."
+            },
+            "signal_mapping": {
+                "title": "Jelerősség-leképezés",
+                "description": "Minden entitáshoz opcionálisan válasszon jelerősség-szenzort, és adja meg a hálózat típusát. Hagyja üresen a szenzort a kihagyáshoz.\n\nKüszöbértékek (jó / megfelelő / gyenge):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (nagyobb = jobb)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+            }
         },
-        "data_description": {
-          "entities": "Az elérhetőség szempontjából nyomon követendő entitások. Ezek teljes körűen figyeltek, és minden KPI-ba és riasztásba beleszámítanak.",
-          "non_essential_entities": "Olyan entitások, amelyek nem befolyásolják a csoport egészségi állapotát. Megjelennek a kártyán és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR), és soha nem váltanak ki riasztást. Olyan eszközökhöz használható, ahol az állásidő elfogadható — például TV, nyomtató, szezonális eszköz."
-        }
-      },
-      "combined": {
-        "title": "Összesített csoport létrehozása",
-        "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
-        "data": {
-          "group_name": "Összesített csoport neve"
-        }
-      },
-      "monitoring": {
-        "title": "Figyelési beállítások",
-        "description": "Az entitások figyelési módjának beállítása.",
-        "data": {
-          "bad_states": "Offline állapotnak számító státuszok",
-          "cooldown": "Várakozási idő offline jelölés előtt",
-          "staleness_threshold": "Elavultsági küszöb",
-          "staleness_use_last_updated": "Attribútumfrissítések számítanak aktivitásnak"
+        "error": {
+            "empty_group_name": "A csoport neve nem lehet üres.",
+            "no_entities": "Legalább egy entitást ki kell választani.",
+            "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
+            "not_enough_groups_selected": "Legalább két csoportot válasszon ki az összesítéshez.",
+            "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást."
         },
-        "data_description": {
-          "bad_states": "Azok az entitásállapotok, amelyek offline állapotot jeleznek (pl. unavailable, unknown).",
-          "cooldown": "Mennyi ideig (másodpercben) kell egy entitásnak rossz állapotban maradnia, mielőtt offline-nak jelölik. Megakadályozza a hamis riasztásokat rövid kapcsolódási problémák esetén.",
-          "staleness_threshold": "Ha egy entitás ennyi percig nem változtatott állapotot, elavultként jelöljük meg. Ez kiszűri azokat az entitásokat, amelyek 'elérhető' állapotot jeleznek, de valójában leálltak az adatküldéssel. 0 értékre állítva letiltható.",
-          "staleness_use_last_updated": "Bekapcsolt állapotban az entitás bármilyen frissítése — beleértve az attribútum-módosításokat vagy az ismételt azonos értékű jelentéseket — visszaállítja az elavultsági időzítőt. Kikapcsolt állapotban (alapértelmezett) csak a fő állapot változása számít. Kapcsolja be olyan eszközökhöz, amelyek sűrűn jelentenek, de ritkán változtatnak értéket (pl. stabil hőmérséklet vagy teljesítmény)."
+        "abort": {
+            "already_configured": "Már létezik ilyen nevű csoport.",
+            "not_enough_groups": "Összesített csoport létrehozásához legalább két csoport szükséges."
         }
-      },
-      "advanced": {
-        "title": "Speciális beállítások",
-        "description": "Opcionális speciális figyelési funkciók.",
-        "data": {
-          "battery_threshold": "Alacsony akkumulátorszint küszöb (%, 0 = letiltva)",
-          "availability_windows": "Elérhetőség-követési időablakok",
-          "recovery_window": "Visszaállási időablak",
-          "use_device_names": "Eszköznevek megjelenítése",
-          "collapse_devices": "Entitások összevonása eszközönként",
-          "signal_enabled": "Jelerősség-figyelés engedélyezése"
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Entitáscsoport szerkesztése",
+                "description": "A csoport figyelési beállításainak módosítása.",
+                "data": {
+                    "entities": "Figyelendő entitások",
+                    "non_essential_entities": "Nem kritikus entitások",
+                    "bad_states": "Offline állapotnak számító státuszok",
+                    "cooldown": "Várakozási idő (másodperc)",
+                    "staleness_threshold": "Elavultsági küszöb (perc, 0 = letiltva)",
+                    "battery_threshold": "Alacsony akkumulátorszint küszöb (%, 0 = letiltva)",
+                    "availability_windows": "Elérhetőség-követési időablakok",
+                    "recovery_window": "Visszaállási időablak (perc)",
+                    "use_device_names": "Eszköznevek megjelenítése",
+                    "collapse_devices": "Entitások összevonása eszközönként",
+                    "staleness_use_last_updated": "Attribútumfrissítések számítanak aktivitásnak",
+                    "signal_enabled": "Jelerősség-figyelés engedélyezése"
+                },
+                "data_description": {
+                    "entities": "Az elérhetőség szempontjából nyomon követendő entitások. Ezek teljes körűen figyeltek, és minden KPI-ba és riasztásba beleszámítanak.",
+                    "non_essential_entities": "Olyan entitások, amelyek nem befolyásolják a csoport egészségi állapotát. Megjelennek a kártyán és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR), és soha nem váltanak ki riasztást. Olyan eszközökhöz használható, ahol az állásidő elfogadható — például TV, nyomtató, szezonális eszköz.",
+                    "bad_states": "Azok az entitásállapotok, amelyek offline állapotot jeleznek (pl. unavailable, unknown).",
+                    "cooldown": "Mennyi ideig (másodpercben) kell egy entitásnak rossz állapotban maradnia, mielőtt offline-nak jelölik. Megakadályozza a hamis riasztásokat rövid kapcsolódási problémák esetén.",
+                    "staleness_threshold": "Ha egy entitás ennyi percig nem változtatott állapotot, elavultként jelöljük meg. 0 értékre állítva letiltható.",
+                    "battery_threshold": "Jelölje meg azokat az entitásokat, amelyek akkumulátora e százalék alá csökken. Az 'alacsony' állapot automatikusan is észlelhető. A feszültségalapú entitások nem támogatottak.",
+                    "availability_windows": "Időablakok a csoport elérhetőségi előzményeinek nyomon követéséhez (pl. ma, 3n, 7n).",
+                    "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
+                    "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
+                    "collapse_devices": "Csak akkor működik, ha az „Eszköznevek megjelenítése” engedélyezve van. Bekapcsolt állapotban az ugyanahhoz a fizikai eszközhöz tartozó több entitás egynek számít minden szenzorértékben, listában és eseményben (offline, alacsony akkumulátor, elavult, gyenge jel). Az entitások csak akkor vonódnak össze, ha ugyanaz az eszköz, akkumulátorszint és jel — az eszközhöz nem kapcsolt entitások soha nem vonódnak össze, és az ugyanazon az eszközön lévő, eltérő akkumulátor- vagy jelleolvasással rendelkező entitások külön maradnak. Az elérhetőség %, az MTBF és az MTTR entitásonként marad. Megjegyzés: ha ez a csoport egy összesített csoportban szerepel, az összevonási beállítása automatikusan érvényesül az összesített nézetben — nincs szükség további konfigurációra.",
+                    "staleness_use_last_updated": "Bekapcsolt állapotban az entitás bármilyen frissítése — beleértve az attribútum-módosításokat vagy az ismételt azonos értékű jelentéseket — visszaállítja az elavultsági időzítőt. Kikapcsolt állapotban (alapértelmezett) csak a fő állapot változása számít. Kapcsolja be olyan eszközökhöz, amelyek sűrűn jelentenek, de ritkán változtatnak értéket (pl. stabil hőmérséklet vagy teljesítmény).",
+                    "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
+                }
+            },
+            "combined_init": {
+                "title": "Összesített csoport szerkesztése",
+                "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
+                "data": {
+                    "combined_name": "Összesített csoport neve"
+                }
+            },
+            "battery_mapping": {
+                "title": "Akkumulátor-entitás hozzárendelés",
+                "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat."
+            },
+            "signal_mapping": {
+                "title": "Jelerősség-leképezés",
+                "description": "Minden entitáshoz opcionálisan válasszon jelerősség-szenzort, és adja meg a hálózat típusát. Hagyja üresen a szenzort a kihagyáshoz.\n\nKüszöbértékek (jó / megfelelő / gyenge):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (nagyobb = jobb)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+            }
         },
-        "data_description": {
-          "battery_threshold": "Jelölje meg azokat az entitásokat, amelyek akkumulátora e százalék alá csökken. Az 'alacsony' állapot automatikusan is észlelhető. A feszültségalapú entitások nem támogatottak. Olyan entitásokat használjon, amelyek az akkumulátort százalékban vagy 'low' állapotként jelzik.",
-          "availability_windows": "Időablakok a csoport elérhetőségi előzményeinek nyomon követéséhez (pl. ma, 3n, 7n).",
-          "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
-          "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
-          "collapse_devices": "Csak akkor működik, ha az „Eszköznevek megjelenítése” engedélyezve van. Bekapcsolt állapotban az ugyanahhoz a fizikai eszközhöz tartozó több entitás egynek számít minden szenzorértékben, listában és eseményben (offline, alacsony akkumulátor, elavult, gyenge jel). Az entitások csak akkor vonódnak össze, ha ugyanaz az eszköz, akkumulátorszint és jel — az eszközhöz nem kapcsolt entitások soha nem vonódnak össze, és az ugyanazon az eszközön lévő, eltérő akkumulátor- vagy jelleolvasással rendelkező entitások külön maradnak. Az elérhetőség %, az MTBF és az MTTR entitásonként marad. Megjegyzés: ha ez a csoport egy összesített csoportban szerepel, az összevonási beállítása automatikusan érvényesül az összesített nézetben — nincs szükség további konfigurációra.",
-          "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
-        }
-      },
-      "battery_mapping": {
-        "title": "Akkumulátor-entitás hozzárendelés",
-        "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat."
-      },
-      "signal_mapping": {
-        "title": "Jelerősség-leképezés",
-        "description": "Minden entitáshoz opcionálisan válasszon jelerősség-szenzort, és adja meg a hálózat típusát. Hagyja üresen a szenzort a kihagyáshoz.\n\nKüszöbértékek (jó / megfelelő / gyenge):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (nagyobb = jobb)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-      }
-    },
-    "error": {
-      "empty_group_name": "A csoport neve nem lehet üres.",
-      "no_entities": "Legalább egy entitást ki kell választani.",
-      "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
-      "not_enough_groups_selected": "Legalább két csoportot válasszon ki az összesítéshez.",
-      "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást."
-    },
-    "abort": {
-      "already_configured": "Már létezik ilyen nevű csoport.",
-      "not_enough_groups": "Összesített csoport létrehozásához legalább két csoport szükséges."
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Entitáscsoport szerkesztése",
-        "description": "A csoport figyelési beállításainak módosítása.",
-        "data": {
-          "entities": "Figyelendő entitások",
-          "non_essential_entities": "Nem kritikus entitások",
-          "bad_states": "Offline állapotnak számító státuszok",
-          "cooldown": "Várakozási idő (másodperc)",
-          "staleness_threshold": "Elavultsági küszöb (perc, 0 = letiltva)",
-          "battery_threshold": "Alacsony akkumulátorszint küszöb (%, 0 = letiltva)",
-          "availability_windows": "Elérhetőség-követési időablakok",
-          "recovery_window": "Visszaállási időablak (perc)",
-          "use_device_names": "Eszköznevek megjelenítése",
-          "collapse_devices": "Entitások összevonása eszközönként",
-          "staleness_use_last_updated": "Attribútumfrissítések számítanak aktivitásnak",
-          "signal_enabled": "Jelerősség-figyelés engedélyezése"
+        "error": {
+            "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
+            "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást."
         },
-        "data_description": {
-          "entities": "Az elérhetőség szempontjából nyomon követendő entitások. Ezek teljes körűen figyeltek, és minden KPI-ba és riasztásba beleszámítanak.",
-          "non_essential_entities": "Olyan entitások, amelyek nem befolyásolják a csoport egészségi állapotát. Megjelennek a kártyán és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR), és soha nem váltanak ki riasztást. Olyan eszközökhöz használható, ahol az állásidő elfogadható — például TV, nyomtató, szezonális eszköz.",
-          "bad_states": "Azok az entitásállapotok, amelyek offline állapotot jeleznek (pl. unavailable, unknown).",
-          "cooldown": "Mennyi ideig (másodpercben) kell egy entitásnak rossz állapotban maradnia, mielőtt offline-nak jelölik. Megakadályozza a hamis riasztásokat rövid kapcsolódási problémák esetén.",
-          "staleness_threshold": "Ha egy entitás ennyi percig nem változtatott állapotot, elavultként jelöljük meg. 0 értékre állítva letiltható.",
-          "battery_threshold": "Jelölje meg azokat az entitásokat, amelyek akkumulátora e százalék alá csökken. Az 'alacsony' állapot automatikusan is észlelhető. A feszültségalapú entitások nem támogatottak.",
-          "availability_windows": "Időablakok a csoport elérhetőségi előzményeinek nyomon követéséhez (pl. ma, 3n, 7n).",
-          "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
-          "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
-          "collapse_devices": "Csak akkor működik, ha az „Eszköznevek megjelenítése” engedélyezve van. Bekapcsolt állapotban az ugyanahhoz a fizikai eszközhöz tartozó több entitás egynek számít minden szenzorértékben, listában és eseményben (offline, alacsony akkumulátor, elavult, gyenge jel). Az entitások csak akkor vonódnak össze, ha ugyanaz az eszköz, akkumulátorszint és jel — az eszközhöz nem kapcsolt entitások soha nem vonódnak össze, és az ugyanazon az eszközön lévő, eltérő akkumulátor- vagy jelleolvasással rendelkező entitások külön maradnak. Az elérhetőség %, az MTBF és az MTTR entitásonként marad. Megjegyzés: ha ez a csoport egy összesített csoportban szerepel, az összevonási beállítása automatikusan érvényesül az összesített nézetben — nincs szükség további konfigurációra.",
-          "staleness_use_last_updated": "Bekapcsolt állapotban az entitás bármilyen frissítése — beleértve az attribútum-módosításokat vagy az ismételt azonos értékű jelentéseket — visszaállítja az elavultsági időzítőt. Kikapcsolt állapotban (alapértelmezett) csak a fő állapot változása számít. Kapcsolja be olyan eszközökhöz, amelyek sűrűn jelentenek, de ritkán változtatnak értéket (pl. stabil hőmérséklet vagy teljesítmény).",
-          "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
+        "abort": {
+            "not_enough_groups": "Ennek az összesített csoportnak már nincs elegendő betöltött forráscsoport. Először adjon hozzá több csoportot."
         }
-      },
-      "combined_init": {
-        "title": "Összesített csoport szerkesztése",
-        "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
-        "data": {
-          "group_name": "Összesített csoport neve"
+    },
+    "entity": {
+        "sensor": {
+            "offline_count": {
+                "name": "Offline darabszám"
+            },
+            "offline_entities": {
+                "name": "Offline entitások"
+            },
+            "low_battery": {
+                "name": "Alacsony akkumulátor"
+            },
+            "low_battery_count": {
+                "name": "Alacsony akkumulátor darabszáma"
+            },
+            "group_summary": {
+                "name": "Csoport összefoglalója"
+            },
+            "recently_offline": {
+                "name": "Nemrég offline"
+            },
+            "recently_recovered": {
+                "name": "Nemrég visszaállt"
+            },
+            "combined_summary": {
+                "name": "Összesített összefoglalő"
+            },
+            "availability_today": {
+                "name": "Elérhetőség (ma)"
+            },
+            "availability_3d": {
+                "name": "Elérhetőség (3 nap)"
+            },
+            "availability_5d": {
+                "name": "Elérhetőség (5 nap)"
+            },
+            "availability_7d": {
+                "name": "Elérhetőség (7 nap)"
+            },
+            "affected_areas_count": {
+                "name": "Érintett területek száma"
+            },
+            "affected_areas": {
+                "name": "Érintett területek"
+            },
+            "affected_areas_recently_offline": {
+                "name": "Nemrég offline területek"
+            },
+            "affected_areas_recently_recovered": {
+                "name": "Nemrég visszaállt területek"
+            },
+            "mtbf": {
+                "name": "Átlagos meghibásodások közötti idő (MTBF)"
+            },
+            "mttr": {
+                "name": "Átlagos helyreállítási idő (MTTR)"
+            },
+            "stale_entities": {
+                "name": "Elavult entitások"
+            },
+            "stale_count": {
+                "name": "Elavult entitások száma"
+            },
+            "offline_entities_non_essential": {
+                "name": "Offline entitások (Nem kritikus)"
+            },
+            "offline_count_non_essential": {
+                "name": "Offline darabszám (Nem kritikus)"
+            },
+            "low_battery_non_essential": {
+                "name": "Alacsony akkumulátor (Nem kritikus)"
+            },
+            "low_battery_count_non_essential": {
+                "name": "Alacsony akkumulátor darabszáma (Nem kritikus)"
+            },
+            "stale_entities_non_essential": {
+                "name": "Elavult entitások (Nem kritikus)"
+            },
+            "stale_count_non_essential": {
+                "name": "Elavult entitások száma (Nem kritikus)"
+            },
+            "poor_signal": {
+                "name": "Gyenge jel"
+            },
+            "poor_signal_count": {
+                "name": "Gyenge jelek száma"
+            },
+            "poor_signal_non_essential": {
+                "name": "Gyenge jel (nem elsődleges)"
+            },
+            "poor_signal_count_non_essential": {
+                "name": "Gyenge jelek száma (nem elsődleges)"
+            }
+        },
+        "binary_sensor": {
+            "any_offline": {
+                "name": "Van offline entitás"
+            },
+            "all_offline": {
+                "name": "Minden entitás offline"
+            },
+            "all_offline_non_essential": {
+                "name": "Minden entitás offline (Nem kritikus)"
+            },
+            "combined_any_offline": {
+                "name": "Van offline entitás"
+            },
+            "any_offline_non_essential": {
+                "name": "Van offline entitás (Nem kritikus)"
+            },
+            "any_low_battery": {
+                "name": "Van alacsony akkumulátor"
+            },
+            "any_stale": {
+                "name": "Van elavult entitás"
+            },
+            "any_poor_signal": {
+                "name": "Bármely gyenge jel"
+            },
+            "any_low_battery_non_essential": {
+                "name": "Alacsony Akkumulátor (Nem Lényeges)"
+            },
+            "any_poor_signal_non_essential": {
+                "name": "Gyenge Jel (Nem Lényeges)"
+            }
         }
-      },
-      "battery_mapping": {
-        "title": "Akkumulátor-entitás hozzárendelés",
-        "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat."
-      },
-      "signal_mapping": {
-        "title": "Jelerősség-leképezés",
-        "description": "Minden entitáshoz opcionálisan válasszon jelerősség-szenzort, és adja meg a hálózat típusát. Hagyja üresen a szenzort a kihagyáshoz.\n\nKüszöbértékek (jó / megfelelő / gyenge):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (nagyobb = jobb)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-      }
     },
-    "error": {
-      "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
-      "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást."
-    },
-    "abort": {
-      "not_enough_groups": "Ennek az összesített csoportnak már nincs elegendő betöltött forráscsoport. Először adjon hozzá több csoportot."
+    "selector": {
+        "entry_type": {
+            "options": {
+                "group": "Entitások figyelése",
+                "combined_group": "Csoportok összesítése"
+            }
+        },
+        "combined_group_override": {
+            "options": {
+                "excluded": "Nincs belefoglalva",
+                "keep": "Belefoglalva - csoport beállításainak használata",
+                "all_essential": "Belefoglalva - felülbírálat: Kritikus",
+                "all_non_essential": "Belefoglalva - felülbírálat: Nem kritikus"
+            }
+        }
     }
-  },
-  "entity": {
-    "sensor": {
-      "offline_count": {
-        "name": "Offline darabszám"
-      },
-      "offline_entities": {
-        "name": "Offline entitások"
-      },
-      "low_battery": {
-        "name": "Alacsony akkumulátor"
-      },
-      "low_battery_count": {
-        "name": "Alacsony akkumulátor darabszáma"
-      },
-      "group_summary": {
-        "name": "Csoport összefoglalója"
-      },
-      "recently_offline": {
-        "name": "Nemrég offline"
-      },
-      "recently_recovered": {
-        "name": "Nemrég visszaállt"
-      },
-      "combined_summary": {
-        "name": "Összesített összefoglalő"
-      },
-      "availability_today": {
-        "name": "Elérhetőség (ma)"
-      },
-      "availability_3d": {
-        "name": "Elérhetőség (3 nap)"
-      },
-      "availability_5d": {
-        "name": "Elérhetőség (5 nap)"
-      },
-      "availability_7d": {
-        "name": "Elérhetőség (7 nap)"
-      },
-      "affected_areas_count": {
-        "name": "Érintett területek száma"
-      },
-      "affected_areas": {
-        "name": "Érintett területek"
-      },
-      "affected_areas_recently_offline": {
-        "name": "Nemrég offline területek"
-      },
-      "affected_areas_recently_recovered": {
-        "name": "Nemrég visszaállt területek"
-      },
-      "mtbf": {
-        "name": "Átlagos meghibásodások közötti idő (MTBF)"
-      },
-      "mttr": {
-        "name": "Átlagos helyreállítási idő (MTTR)"
-      },
-      "stale_entities": {
-        "name": "Elavult entitások"
-      },
-      "stale_count": {
-        "name": "Elavult entitások száma"
-      },
-      "offline_entities_non_essential": {
-        "name": "Offline entitások (Nem kritikus)"
-      },
-      "offline_count_non_essential": {
-        "name": "Offline darabszám (Nem kritikus)"
-      },
-      "low_battery_non_essential": {
-        "name": "Alacsony akkumulátor (Nem kritikus)"
-      },
-      "low_battery_count_non_essential": {
-        "name": "Alacsony akkumulátor darabszáma (Nem kritikus)"
-      },
-      "stale_entities_non_essential": {
-        "name": "Elavult entitások (Nem kritikus)"
-      },
-      "stale_count_non_essential": {
-        "name": "Elavult entitások száma (Nem kritikus)"
-      },
-      "poor_signal": {
-        "name": "Gyenge jel"
-      },
-      "poor_signal_count": {
-        "name": "Gyenge jelek száma"
-      },
-      "poor_signal_non_essential": {
-        "name": "Gyenge jel (nem elsődleges)"
-      },
-      "poor_signal_count_non_essential": {
-        "name": "Gyenge jelek száma (nem elsődleges)"
-      }
-    },
-    "binary_sensor": {
-      "any_offline": {
-        "name": "Van offline entitás"
-      },
-      "all_offline": {
-        "name": "Minden entitás offline"
-      },
-      "all_offline_non_essential": {
-        "name": "Minden entitás offline (Nem kritikus)"
-      },
-      "combined_any_offline": {
-        "name": "Van offline entitás"
-      },
-      "any_offline_non_essential": {
-        "name": "Van offline entitás (Nem kritikus)"
-      },
-      "any_low_battery": {
-        "name": "Van alacsony akkumulátor"
-      },
-      "any_stale": {
-        "name": "Van elavult entitás"
-      },
-      "any_poor_signal": {
-        "name": "Bármely gyenge jel"
-      },
-      "any_low_battery_non_essential": {
-        "name": "Alacsony Akkumulátor (Nem Lényeges)"
-      },
-      "any_poor_signal_non_essential": {
-        "name": "Gyenge Jel (Nem Lényeges)"
-      }
-    }
-  },
-  "selector": {
-    "entry_type": {
-      "options": {
-        "group": "Entitások figyelése",
-        "combined_group": "Csoportok összesítése"
-      }
-    },
-    "combined_group_override": {
-      "options": {
-        "excluded": "Nincs belefoglalva",
-        "keep": "Belefoglalva - csoport beállításainak használata",
-        "all_essential": "Belefoglalva - felülbírálat: Kritikus",
-        "all_non_essential": "Belefoglalva - felülbírálat: Nem kritikus"
-      }
-    }
-  }
 }

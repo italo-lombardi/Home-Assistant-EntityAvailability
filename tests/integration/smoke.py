@@ -5004,7 +5004,7 @@ for e in cfg['data']['entries']:
                             (
                                 f.get("default", "")
                                 for f in schema
-                                if f.get("name") == "group_name"
+                                if f.get("name") == "combined_name"
                             ),
                             "",
                         )
@@ -5014,9 +5014,9 @@ for e in cfg['data']['entries']:
                             "all_essential",
                             "all_non_essential",
                         }
-                        payload: dict[str, str] = {"group_name": gname}
+                        payload: dict[str, str] = {"combined_name": gname}
                         for eid, title in eid_to_title.items():
-                            field_key = f"g:{title}"
+                            field_key = title
                             current_default = next(
                                 (
                                     f.get("default", "excluded")
