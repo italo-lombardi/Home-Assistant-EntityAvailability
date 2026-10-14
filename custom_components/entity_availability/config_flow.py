@@ -901,8 +901,15 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 suffix += 1
             title_to_eid[title] = e.entry_id
 
+        current = self.config_entry.data
+        current_combined: list[str] = current.get(CONF_COMBINED_GROUPS, [])
+        current_overrides: dict[str, str] = current.get(
+            CONF_COMBINED_GROUPS_OVERRIDES, {}
+        )
+
         if user_input is not None:
             group_name = user_input[_COMBINED_NAME_KEY].strip()
+            loaded_eids = set(title_to_eid.values())
             combined_groups = [
                 eid
                 for title, eid in title_to_eid.items()
@@ -913,6 +920,13 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 for title, eid in title_to_eid.items()
                 if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
             }
+            # Preserve groups that exist in current_combined but are not currently
+            # LOADED (e.g. Zigbee coordinator restart, transient SETUP_ERROR).
+            for eid in current_combined:
+                if eid not in loaded_eids:
+                    combined_groups.append(eid)
+                    if eid in current_overrides:
+                        overrides[eid] = current_overrides[eid]
 
             if not group_name:
                 errors[_COMBINED_NAME_KEY] = "empty_group_name"
@@ -933,12 +947,6 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                     data=new_data,
                 )
                 return self.async_create_entry(title="", data={})
-
-        current = self.config_entry.data
-        current_combined: list[str] = current.get(CONF_COMBINED_GROUPS, [])
-        current_overrides: dict[str, str] = current.get(
-            CONF_COMBINED_GROUPS_OVERRIDES, {}
-        )
         group_options = [
             NE_OVERRIDE_EXCLUDED,
             NE_OVERRIDE_KEEP,

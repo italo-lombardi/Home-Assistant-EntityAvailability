@@ -35,6 +35,7 @@ from custom_components.entity_availability.const import (
     NE_OVERRIDE_ALL_ESSENTIAL,
     NE_OVERRIDE_ALL_NON_ESSENTIAL,
     NE_OVERRIDE_EXCLUDED,
+    NE_OVERRIDE_KEEP,
 )
 
 # ---------------------------------------------------------------------------
@@ -892,6 +893,112 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
         entry_a.entry_id: "keep",
         entry_c.entry_id: "keep",
     }
+
+
+async def test_combined_options_flow_non_keep_override_prepopulates(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow schema defaults reflect stored non-keep overrides."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Override Combined",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Override Combined",
+            CONF_COMBINED_GROUPS: [entry_a.entry_id, entry_b.entry_id],
+            CONF_COMBINED_GROUPS_OVERRIDES: {
+                entry_a.entry_id: NE_OVERRIDE_ALL_ESSENTIAL
+            },
+        },
+        entry_id="combined_m1_test",
+        unique_id=f"{DOMAIN}_combined_m1_test",
+    )
+    combined.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    assert result["type"] == FlowResultType.FORM
+    schema_defaults = {str(k): k.default() for k in result["data_schema"].schema}
+    assert schema_defaults.get("Group A") == NE_OVERRIDE_ALL_ESSENTIAL
+    assert schema_defaults.get("Group B") == NE_OVERRIDE_KEEP
+
+
+async def test_combined_options_flow_preserves_unloaded_groups(
+    hass: HomeAssistant,
+) -> None:
+    """Options flow save preserves groups not currently LOADED (e.g. transient error).
+
+    Covers both branches: unloaded eid WITH stored override and WITHOUT.
+    """
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    unloaded_eid = "unloaded_group_eid"
+    unloaded_no_override_eid = "unloaded_no_override_eid"
+
+    combined = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Preserve Combined",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+            CONF_GROUP_NAME: "Preserve Combined",
+            CONF_COMBINED_GROUPS: [
+                entry_a.entry_id,
+                entry_b.entry_id,
+                unloaded_eid,
+                unloaded_no_override_eid,
+            ],
+            CONF_COMBINED_GROUPS_OVERRIDES: {
+                entry_a.entry_id: NE_OVERRIDE_KEEP,
+                entry_b.entry_id: NE_OVERRIDE_KEEP,
+                unloaded_eid: NE_OVERRIDE_ALL_ESSENTIAL,
+                # unloaded_no_override_eid intentionally absent
+            },
+        },
+        entry_id="combined_preserve_test",
+        unique_id=f"{DOMAIN}_combined_preserve_test",
+    )
+    combined.add_to_hass(hass)
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(combined.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(combined.entry_id)
+    # unloaded eids are NOT in the schema (not LOADED group entries)
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    assert "Group A" in schema_keys
+    assert "Group B" in schema_keys
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "combined_name": "Preserve Combined",
+            "Group A": NE_OVERRIDE_KEEP,
+            "Group B": NE_OVERRIDE_KEEP,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    # Both unloaded groups preserved
+    assert unloaded_eid in combined.data[CONF_COMBINED_GROUPS]
+    assert unloaded_no_override_eid in combined.data[CONF_COMBINED_GROUPS]
+    # Unloaded group with stored override carries it forward
+    assert combined.data[CONF_COMBINED_GROUPS_OVERRIDES][unloaded_eid] == NE_OVERRIDE_ALL_ESSENTIAL
+    # Unloaded group without stored override is not in overrides
+    assert unloaded_no_override_eid not in combined.data[CONF_COMBINED_GROUPS_OVERRIDES]
 
 
 async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> None:
