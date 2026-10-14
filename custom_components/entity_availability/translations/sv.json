@@ -1,288 +1,290 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Skapa post",
-                "description": "Övervaka en grupp entiteter eller kombinera befintliga grupper.",
-                "data": {
-                    "entry_type": "Typ"
-                }
-            },
-            "group": {
-                "title": "Skapa entitetsgrupp",
-                "description": "Skapa en grupp av entiteter att övervaka tillgänglighet för.",
-                "data": {
-                    "group_name": "Gruppnamn",
-                    "entities": "Entiteter att övervaka",
-                    "non_essential_entities": "Icke-väsentliga enheter"
-                },
-                "data_description": {
-                    "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar.",
-                    "non_essential_entities": "Enheter som inte påverkar gruppens hälsostatus. Synliga på kortet och räknade i totaler, men uteslutna från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och utlöser aldrig aviseringar. Använd för enheter där driftstopp är acceptabelt — en TV, en skrivare, en säsongsenhet."
-                }
-            },
-            "combined": {
-                "title": "Skapa kombinerad grupp",
-                "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
-                "data": {
-                    "combined_name": "Namn på kombinerad grupp"
-                }
-            },
-            "monitoring": {
-                "title": "Övervakningsinställningar",
-                "description": "Konfigurera hur entiteter övervakas.",
-                "data": {
-                    "bad_states": "Tillstånd som anses offline",
-                    "cooldown": "Väntetid innan markering som offline",
-                    "staleness_threshold": "Inaktivitetsgräns",
-                    "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet"
-                },
-                "data_description": {
-                    "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
-                    "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
-                    "staleness_threshold": "Om en entitet inte har ändrat tillstånd under detta antal minuter, markera den som degraderad. Detta fångar entiteter som rapporterar 'tillgänglig' men som faktiskt har slutat skicka data. Ställ in på 0 för att inaktivera.",
-                    "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil)."
-                }
-            },
-            "advanced": {
-                "title": "Avancerade inställningar",
-                "description": "Valfria avancerade övervakningsfunktioner.",
-                "data": {
-                    "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
-                    "availability_windows": "Tillgänglighetsspårningsfönster",
-                    "recovery_window": "Återhämtningsfönster",
-                    "use_device_names": "Visa enhetsnamn",
-                    "collapse_devices": "Slå ihop entiteter per enhet",
-                    "signal_enabled": "Aktivera övervakning av signalstyrka"
-                },
-                "data_description": {
-                    "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte. Använd entiteter som rapporterar batteri som procent eller stöder tillståndet 'low'.",
-                    "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
-                    "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
-                    "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
-                    "collapse_devices": "Fungerar endast när 'Visa enhetsnamn' är aktiverat. När aktiverad räknas flera entiteter som tillhör samma fysiska enhet som en i varje sensorvärde, lista och händelse (offline, lågt batteri, inaktuell, dålig signal). Entiteter slås endast ihop när de delar samma enhet, batterinivå och signal — entiteter som inte är kopplade till en enhet slås aldrig ihop, och entiteter på samma enhet med olika batteri- eller signalvärden förblir separata. Tillgänglighet %, MTBF och MTTR förblir per entitet. Obs: om denna grupp ingår i en kombinerad grupp tillämpas dess sammanslagningsinställning automatiskt i den kombinerade vyn — ingen extra konfiguration krävs.",
-                    "signal_enabled": "Spåra signalstyrka (dBm) för övervakade enheter och larma när signalkvaliteten sjunker till \"dålig\". Efter aktivering ombeds du att binda en signalsensor och välja nätverkstyp för varje enhet."
-                }
-            },
-            "battery_mapping": {
-                "title": "Batterientitetsmappning",
-                "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low')."
-            },
-            "signal_mapping": {
-                "title": "Mappning av signalstyrka",
-                "description": "För varje entitet, välj valfritt en signalsensor och välj nätverkstyp. Lämna sensorn tom för att hoppa över.\n\nTröskelvärden (bra / ok / dålig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (högre är bättre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-            }
-        },
-        "error": {
-            "empty_group_name": "Gruppnamnet kan inte vara tomt.",
-            "no_entities": "Du måste välja minst en entitet.",
-            "not_enough_groups_selected": "Välj minst två grupper att kombinera.",
-            "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
-            "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget."
-        },
-        "abort": {
-            "already_configured": "En grupp med detta namn finns redan.",
-            "not_enough_groups": "Du behöver minst två grupper innan du skapar en kombinerad grupp."
+  "config": {
+    "step": {
+      "user": {
+        "title": "Skapa post",
+        "description": "Övervaka en grupp entiteter eller kombinera befintliga grupper.",
+        "data": {
+          "entry_type": "Typ"
         }
+      },
+      "group": {
+        "title": "Skapa entitetsgrupp",
+        "description": "Skapa en grupp av entiteter att övervaka tillgänglighet för.",
+        "data": {
+          "group_name": "Gruppnamn",
+          "entities": "Entiteter att övervaka",
+          "non_essential_entities": "Icke-väsentliga enheter"
+        },
+        "data_description": {
+          "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar.",
+          "non_essential_entities": "Enheter som inte påverkar gruppens hälsostatus. Synliga på kortet och räknade i totaler, men uteslutna från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och utlöser aldrig aviseringar. Använd för enheter där driftstopp är acceptabelt — en TV, en skrivare, en säsongsenhet."
+        }
+      },
+      "combined": {
+        "title": "Skapa kombinerad grupp",
+        "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
+        "data": {
+          "combined_name": "Namn på kombinerad grupp"
+        }
+      },
+      "monitoring": {
+        "title": "Övervakningsinställningar",
+        "description": "Konfigurera hur entiteter övervakas.",
+        "data": {
+          "bad_states": "Tillstånd som anses offline",
+          "cooldown": "Väntetid innan markering som offline",
+          "staleness_threshold": "Inaktivitetsgräns",
+          "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet"
+        },
+        "data_description": {
+          "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
+          "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
+          "staleness_threshold": "Om en entitet inte har ändrat tillstånd under detta antal minuter, markera den som degraderad. Detta fångar entiteter som rapporterar 'tillgänglig' men som faktiskt har slutat skicka data. Ställ in på 0 för att inaktivera.",
+          "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil)."
+        }
+      },
+      "advanced": {
+        "title": "Avancerade inställningar",
+        "description": "Valfria avancerade övervakningsfunktioner.",
+        "data": {
+          "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
+          "availability_windows": "Tillgänglighetsspårningsfönster",
+          "recovery_window": "Återhämtningsfönster",
+          "use_device_names": "Visa enhetsnamn",
+          "collapse_devices": "Slå ihop entiteter per enhet",
+          "signal_enabled": "Aktivera övervakning av signalstyrka"
+        },
+        "data_description": {
+          "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte. Använd entiteter som rapporterar batteri som procent eller stöder tillståndet 'low'.",
+          "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
+          "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
+          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
+          "collapse_devices": "Fungerar endast när 'Visa enhetsnamn' är aktiverat. När aktiverad räknas flera entiteter som tillhör samma fysiska enhet som en i varje sensorvärde, lista och händelse (offline, lågt batteri, inaktuell, dålig signal). Entiteter slås endast ihop när de delar samma enhet, batterinivå och signal — entiteter som inte är kopplade till en enhet slås aldrig ihop, och entiteter på samma enhet med olika batteri- eller signalvärden förblir separata. Tillgänglighet %, MTBF och MTTR förblir per entitet. Obs: om denna grupp ingår i en kombinerad grupp tillämpas dess sammanslagningsinställning automatiskt i den kombinerade vyn — ingen extra konfiguration krävs.",
+          "signal_enabled": "Spåra signalstyrka (dBm) för övervakade enheter och larma när signalkvaliteten sjunker till \"dålig\". Efter aktivering ombeds du att binda en signalsensor och välja nätverkstyp för varje enhet."
+        }
+      },
+      "battery_mapping": {
+        "title": "Batterientitetsmappning",
+        "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mappning av signalstyrka",
+        "description": "För varje entitet, välj valfritt en signalsensor och välj nätverkstyp. Lämna sensorn tom för att hoppa över.\n\nTröskelvärden (bra / ok / dålig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (högre är bättre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Redigera entitetsgrupp",
-                "description": "Ändra övervakningsinställningar för denna grupp.",
-                "data": {
-                    "entities": "Entiteter att övervaka",
-                    "non_essential_entities": "Icke-väsentliga enheter",
-                    "bad_states": "Tillstånd som anses offline",
-                    "cooldown": "Väntetid (sekunder)",
-                    "staleness_threshold": "Inaktivitetsgräns (minuter, 0 = inaktiverad)",
-                    "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
-                    "availability_windows": "Tillgänglighetsspårningsfönster",
-                    "recovery_window": "Återhämtningsfönster (minuter)",
-                    "use_device_names": "Visa enhetsnamn",
-                    "collapse_devices": "Slå ihop entiteter per enhet",
-                    "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet",
-                    "signal_enabled": "Aktivera övervakning av signalstyrka"
-                },
-                "data_description": {
-                    "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och aviseringar. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb).",
-                    "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
-                    "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
-                    "staleness_threshold": "Om en entitet inte har ändrat tillstånd på detta antal minuter markeras den som försämrad. Ställ in 0 för att inaktivera.",
-                    "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte.",
-                    "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
-                    "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
-                    "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
-                    "collapse_devices": "Fungerar endast när 'Visa enhetsnamn' är aktiverat. När aktiverad räknas flera entiteter som tillhör samma fysiska enhet som en i varje sensorvärde, lista och händelse (offline, lågt batteri, inaktuell, dålig signal). Entiteter slås endast ihop när de delar samma enhet, batterinivå och signal — entiteter som inte är kopplade till en enhet slås aldrig ihop, och entiteter på samma enhet med olika batteri- eller signalvärden förblir separata. Tillgänglighet %, MTBF och MTTR förblir per entitet. Obs: om denna grupp ingår i en kombinerad grupp tillämpas dess sammanslagningsinställning automatiskt i den kombinerade vyn — ingen extra konfiguration krävs.",
-                    "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil).",
-                    "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar.",
-                    "signal_enabled": "Spåra signalstyrka (dBm) för övervakade enheter och larma när signalkvaliteten sjunker till \"dålig\". Efter aktivering ombeds du att binda en signalsensor och välja nätverkstyp för varje enhet."
-                }
-            },
-            "combined_init": {
-                "title": "Redigera kombinerad grupp",
-                "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
-                "data": {
-                    "combined_name": "Namn på kombinerad grupp"
-                }
-            },
-            "battery_mapping": {
-                "title": "Batterientitetsmappning",
-                "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low')."
-            },
-            "signal_mapping": {
-                "title": "Mappning av signalstyrka",
-                "description": "För varje entitet, välj valfritt en signalsensor och välj nätverkstyp. Lämna sensorn tom för att hoppa över.\n\nTröskelvärden (bra / ok / dålig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (högre är bättre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-            }
-        },
-        "error": {
-            "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
-            "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget."
-        },
-        "abort": {
-            "not_enough_groups": "Den här kombinerade gruppen har inte längre tillräckligt många källgrupper inlästa. Lägg till fler grupper först."
-        }
+    "error": {
+      "empty_group_name": "Gruppnamnet kan inte vara tomt.",
+      "no_entities": "Du måste välja minst en entitet.",
+      "not_enough_groups_selected": "Välj minst två grupper att kombinera.",
+      "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
+      "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget.",
+      "already_configured": "A group with this name already exists."
     },
-    "entity": {
-        "sensor": {
-            "offline_count": {
-                "name": "Antal offline"
-            },
-            "offline_entities": {
-                "name": "Offline-entiteter"
-            },
-            "low_battery": {
-                "name": "Lågt batteri"
-            },
-            "low_battery_count": {
-                "name": "Antal lågt batteri"
-            },
-            "group_summary": {
-                "name": "Gruppsammanfattning"
-            },
-            "recently_offline": {
-                "name": "Nyligen offline"
-            },
-            "recently_recovered": {
-                "name": "Nyligen återhämtad"
-            },
-            "combined_summary": {
-                "name": "Kombinerad sammanfattning"
-            },
-            "availability_today": {
-                "name": "Tillgänglighet (idag)"
-            },
-            "availability_3d": {
-                "name": "Tillgänglighet (3 dagar)"
-            },
-            "availability_5d": {
-                "name": "Tillgänglighet (5 dagar)"
-            },
-            "availability_7d": {
-                "name": "Tillgänglighet (7 dagar)"
-            },
-            "affected_areas_count": {
-                "name": "Antal påverkade områden"
-            },
-            "affected_areas": {
-                "name": "Påverkade områden"
-            },
-            "affected_areas_recently_offline": {
-                "name": "Nyligen offline områden"
-            },
-            "affected_areas_recently_recovered": {
-                "name": "Nyligen återställda områden"
-            },
-            "mtbf": {
-                "name": "Genomsnittlig tid mellan fel"
-            },
-            "mttr": {
-                "name": "Genomsnittlig återställningstid"
-            },
-            "stale_entities": {
-                "name": "Inaktuella entiteter"
-            },
-            "stale_count": {
-                "name": "Antal inaktuella"
-            },
-            "offline_entities_non_essential": {
-                "name": "Offline-entiteter (ej väsentliga)"
-            },
-            "offline_count_non_essential": {
-                "name": "Antal offline (ej väsentliga)"
-            },
-            "low_battery_non_essential": {
-                "name": "Lågt batteri (ej väsentliga)"
-            },
-            "low_battery_count_non_essential": {
-                "name": "Antal lågt batteri (ej väsentliga)"
-            },
-            "stale_entities_non_essential": {
-                "name": "Inaktuella entiteter (ej väsentliga)"
-            },
-            "stale_count_non_essential": {
-                "name": "Antal inaktuella (ej väsentliga)"
-            },
-            "poor_signal": {
-                "name": "Dålig signal"
-            },
-            "poor_signal_count": {
-                "name": "Antal dåliga signaler"
-            },
-            "poor_signal_non_essential": {
-                "name": "Dålig signal (icke-kritisk)"
-            },
-            "poor_signal_count_non_essential": {
-                "name": "Antal dåliga signaler (icke-kritisk)"
-            }
-        },
-        "binary_sensor": {
-            "any_offline": {
-                "name": "Någon offline"
-            },
-            "all_offline": {
-                "name": "Alla offline"
-            },
-            "all_offline_non_essential": {
-                "name": "Alla offline (ej väsentliga)"
-            },
-            "combined_any_offline": {
-                "name": "Någon offline"
-            },
-            "any_offline_non_essential": {
-                "name": "Någon offline (ej väsentliga)"
-            },
-            "any_low_battery": {
-                "name": "Lågt batteri förekommande"
-            },
-            "any_stale": {
-                "name": "Inaktuell entitet förekommande"
-            },
-            "any_poor_signal": {
-                "name": "Någon dålig signal"
-            },
-            "any_low_battery_non_essential": {
-                "name": "Lågt Batteri (Icke-Väsentligt)"
-            },
-            "any_poor_signal_non_essential": {
-                "name": "Svagt Signal (Icke-Väsentligt)"
-            }
-        }
-    },
-    "selector": {
-        "entry_type": {
-            "options": {
-                "group": "Övervaka entiteter",
-                "combined_group": "Kombinera grupper"
-            }
-        },
-        "combined_group_override": {
-            "options": {
-                "excluded": "🚫 Ej inkluderad",
-                "keep": "✅ Inkluderad — använd gruppinställningar",
-                "all_essential": "🔴 Inkluderad — åsidosätt: Väsentlig",
-                "all_non_essential": "🟡 Inkluderad — åsidosätt: Icke-väsentlig"
-            }
-        }
+    "abort": {
+      "already_configured": "En grupp med detta namn finns redan.",
+      "not_enough_groups": "Du behöver minst två grupper innan du skapar en kombinerad grupp."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Redigera entitetsgrupp",
+        "description": "Ändra övervakningsinställningar för denna grupp.",
+        "data": {
+          "entities": "Entiteter att övervaka",
+          "non_essential_entities": "Icke-väsentliga enheter",
+          "bad_states": "Tillstånd som anses offline",
+          "cooldown": "Väntetid (sekunder)",
+          "staleness_threshold": "Inaktivitetsgräns (minuter, 0 = inaktiverad)",
+          "battery_threshold": "Gräns för lågt batteri (%, 0 = inaktiverad)",
+          "availability_windows": "Tillgänglighetsspårningsfönster",
+          "recovery_window": "Återhämtningsfönster (minuter)",
+          "use_device_names": "Visa enhetsnamn",
+          "collapse_devices": "Slå ihop entiteter per enhet",
+          "staleness_use_last_updated": "Räkna attributuppdateringar som aktivitet",
+          "signal_enabled": "Aktivera övervakning av signalstyrka"
+        },
+        "data_description": {
+          "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och aviseringar. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb).",
+          "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
+          "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
+          "staleness_threshold": "Om en entitet inte har ändrat tillstånd på detta antal minuter markeras den som försämrad. Ställ in 0 för att inaktivera.",
+          "battery_threshold": "Flaggar entiteter vars batteri sjunker under denna procentsats. Tillståndet 'low' identifieras också automatiskt. Volt-baserade entiteter stöds inte.",
+          "availability_windows": "Tidsfönster för spårning av gruppens tillgänglighetshistorik (t.ex. idag, 3d, 7d).",
+          "recovery_window": "Hur länge (i minuter) en entitet stannar kvar i sensorerna Nyligen offline eller Nyligen återhämtad efter en tillståndsövergång.",
+          "use_device_names": "Visa HA:s enhetsnamn i stället för entitetens visningsnamn i sensorerna för offline/återhämtade entiteter. Faller tillbaka på visningsnamnet för entiteter som inte är kopplade till en enhet.",
+          "collapse_devices": "Fungerar endast när 'Visa enhetsnamn' är aktiverat. När aktiverad räknas flera entiteter som tillhör samma fysiska enhet som en i varje sensorvärde, lista och händelse (offline, lågt batteri, inaktuell, dålig signal). Entiteter slås endast ihop när de delar samma enhet, batterinivå och signal — entiteter som inte är kopplade till en enhet slås aldrig ihop, och entiteter på samma enhet med olika batteri- eller signalvärden förblir separata. Tillgänglighet %, MTBF och MTTR förblir per entitet. Obs: om denna grupp ingår i en kombinerad grupp tillämpas dess sammanslagningsinställning automatiskt i den kombinerade vyn — ingen extra konfiguration krävs.",
+          "staleness_use_last_updated": "När aktiverad återställer varje uppdatering från entiteten — inklusive ändringar av enbart attribut eller upprepade rapporter med samma värde — inaktivitetstimern. När inaktiverad (standard) räknas endast en ändring i huvudtillståndet. Aktivera för enheter som rapporterar ofta men sällan ändrar värde (t.ex. temperatur eller effekt som håller sig stabil).",
+          "entities": "Enheter som övervakas för tillgänglighet. Dessa är helt övervakade och ingår i alla KPI:er och aviseringar.",
+          "signal_enabled": "Spåra signalstyrka (dBm) för övervakade enheter och larma när signalkvaliteten sjunker till \"dålig\". Efter aktivering ombeds du att binda en signalsensor och välja nätverkstyp för varje enhet."
+        }
+      },
+      "combined_init": {
+        "title": "Redigera kombinerad grupp",
+        "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
+        "data": {
+          "combined_name": "Namn på kombinerad grupp"
+        }
+      },
+      "battery_mapping": {
+        "title": "Batterientitetsmappning",
+        "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low')."
+      },
+      "signal_mapping": {
+        "title": "Mappning av signalstyrka",
+        "description": "För varje entitet, välj valfritt en signalsensor och välj nätverkstyp. Lämna sensorn tom för att hoppa över.\n\nTröskelvärden (bra / ok / dålig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (högre är bättre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+      }
+    },
+    "error": {
+      "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
+      "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget.",
+      "already_configured": "A group with this name already exists."
+    },
+    "abort": {
+      "not_enough_groups": "Den här kombinerade gruppen har inte längre tillräckligt många källgrupper inlästa. Lägg till fler grupper först."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Antal offline"
+      },
+      "offline_entities": {
+        "name": "Offline-entiteter"
+      },
+      "low_battery": {
+        "name": "Lågt batteri"
+      },
+      "low_battery_count": {
+        "name": "Antal lågt batteri"
+      },
+      "group_summary": {
+        "name": "Gruppsammanfattning"
+      },
+      "recently_offline": {
+        "name": "Nyligen offline"
+      },
+      "recently_recovered": {
+        "name": "Nyligen återhämtad"
+      },
+      "combined_summary": {
+        "name": "Kombinerad sammanfattning"
+      },
+      "availability_today": {
+        "name": "Tillgänglighet (idag)"
+      },
+      "availability_3d": {
+        "name": "Tillgänglighet (3 dagar)"
+      },
+      "availability_5d": {
+        "name": "Tillgänglighet (5 dagar)"
+      },
+      "availability_7d": {
+        "name": "Tillgänglighet (7 dagar)"
+      },
+      "affected_areas_count": {
+        "name": "Antal påverkade områden"
+      },
+      "affected_areas": {
+        "name": "Påverkade områden"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Nyligen offline områden"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Nyligen återställda områden"
+      },
+      "mtbf": {
+        "name": "Genomsnittlig tid mellan fel"
+      },
+      "mttr": {
+        "name": "Genomsnittlig återställningstid"
+      },
+      "stale_entities": {
+        "name": "Inaktuella entiteter"
+      },
+      "stale_count": {
+        "name": "Antal inaktuella"
+      },
+      "offline_entities_non_essential": {
+        "name": "Offline-entiteter (ej väsentliga)"
+      },
+      "offline_count_non_essential": {
+        "name": "Antal offline (ej väsentliga)"
+      },
+      "low_battery_non_essential": {
+        "name": "Lågt batteri (ej väsentliga)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Antal lågt batteri (ej väsentliga)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Inaktuella entiteter (ej väsentliga)"
+      },
+      "stale_count_non_essential": {
+        "name": "Antal inaktuella (ej väsentliga)"
+      },
+      "poor_signal": {
+        "name": "Dålig signal"
+      },
+      "poor_signal_count": {
+        "name": "Antal dåliga signaler"
+      },
+      "poor_signal_non_essential": {
+        "name": "Dålig signal (icke-kritisk)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Antal dåliga signaler (icke-kritisk)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Någon offline"
+      },
+      "all_offline": {
+        "name": "Alla offline"
+      },
+      "all_offline_non_essential": {
+        "name": "Alla offline (ej väsentliga)"
+      },
+      "combined_any_offline": {
+        "name": "Någon offline"
+      },
+      "any_offline_non_essential": {
+        "name": "Någon offline (ej väsentliga)"
+      },
+      "any_low_battery": {
+        "name": "Lågt batteri förekommande"
+      },
+      "any_stale": {
+        "name": "Inaktuell entitet förekommande"
+      },
+      "any_poor_signal": {
+        "name": "Någon dålig signal"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Lågt Batteri (Icke-Väsentligt)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Svagt Signal (Icke-Väsentligt)"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Övervaka entiteter",
+        "combined_group": "Kombinera grupper"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Ej inkluderad",
+        "keep": "✅ Inkluderad — använd gruppinställningar",
+        "all_essential": "🔴 Inkluderad — åsidosätt: Väsentlig",
+        "all_non_essential": "🟡 Inkluderad — åsidosätt: Icke-väsentlig"
+      }
+    }
+  }
 }

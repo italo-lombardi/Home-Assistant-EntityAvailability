@@ -1,288 +1,290 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "title": "Crear entrada",
-                "description": "Supervisar un grupo de entidades o combinar grupos existentes.",
-                "data": {
-                    "entry_type": "Tipo"
-                }
-            },
-            "group": {
-                "title": "Crear grupo de entidades",
-                "description": "Cree un grupo de entidades para supervisar su disponibilidad.",
-                "data": {
-                    "group_name": "Nombre del grupo",
-                    "entities": "Entidades a supervisar",
-                    "non_essential_entities": "Entidades no esenciales"
-                },
-                "data_description": {
-                    "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
-                    "non_essential_entities": "Entidades que no afectan la puntuación de salud del grupo. Visibles en la tarjeta y contadas en los totales, pero excluidas de todos los KPIs (disponibilidad %, recuento sin conexión, MTBF, MTTR) y nunca activan alertas. Úsalo para dispositivos donde el tiempo de inactividad es aceptable — un TV, una impresora, un dispositivo de temporada."
-                }
-            },
-            "combined": {
-                "title": "Crear grupo combinado",
-                "description": "Seleccione cómo debe clasificarse cada grupo: No incluido, Incluido con la configuración propia del grupo, o establecer como Esencial o No esencial.",
-                "data": {
-                    "combined_name": "Nombre del grupo combinado"
-                }
-            },
-            "monitoring": {
-                "title": "Ajustes de supervisión",
-                "description": "Configure cómo se supervisan las entidades.",
-                "data": {
-                    "bad_states": "Estados considerados sin conexión",
-                    "cooldown": "Tiempo de espera antes de marcar sin conexión",
-                    "staleness_threshold": "Umbral de obsolescencia",
-                    "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad"
-                },
-                "data_description": {
-                    "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
-                    "cooldown": "Cuánto tiempo (en segundos) debe permanecer una entidad en un estado malo antes de marcarla sin conexión. Previene falsas alarmas por desconexiones breves.",
-                    "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, marcarla como degradada. Esto detecta entidades que informan 'disponible' pero que en realidad han dejado de enviar datos. Establecer en 0 para desactivar.",
-                    "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable)."
-                }
-            },
-            "advanced": {
-                "title": "Ajustes avanzados",
-                "description": "Funciones opcionales de supervisión avanzada.",
-                "data": {
-                    "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
-                    "availability_windows": "Ventanas de seguimiento de disponibilidad",
-                    "recovery_window": "Ventana de recuperación",
-                    "use_device_names": "Mostrar nombres de dispositivo",
-                    "collapse_devices": "Agrupar entidades por dispositivo",
-                    "signal_enabled": "Habilitar monitoreo de intensidad de señal"
-                },
-                "data_description": {
-                    "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles. Utilice entidades que reporten la batería como porcentaje o admitan el estado 'low'.",
-                    "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
-                    "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
-                    "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
-                    "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan, y las entidades del mismo dispositivo con distintos niveles de batería o señal permanecen separadas. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad. Nota: si este grupo está incluido en un grupo combinado, su configuración de agrupación se aplica automáticamente en la vista combinada — no se necesita configuración adicional.",
-                    "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
-                }
-            },
-            "battery_mapping": {
-                "title": "Asignación de entidades de batería",
-                "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo')."
-            },
-            "signal_mapping": {
-                "title": "Mapeo de Intensidad de Señal",
-                "description": "Para cada entidad, selecciona opcionalmente un sensor de señal y elige el tipo de red. Deja el sensor vacío para omitir.\n\nUmbrales (bueno / regular / deficiente):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mayor es mejor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-            }
-        },
-        "error": {
-            "empty_group_name": "El nombre del grupo no puede estar vacío.",
-            "no_entities": "Debe seleccionar al menos una entidad.",
-            "not_enough_groups_selected": "Seleccione al menos dos grupos para combinar.",
-            "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar.",
-            "collapse_requires_device_names": "Agrupar entidades por dispositivo requiere que «Mostrar nombres de dispositivo» esté activado."
-        },
-        "abort": {
-            "already_configured": "Ya existe un grupo con este nombre.",
-            "not_enough_groups": "Necesita al menos dos grupos antes de crear un grupo combinado."
+  "config": {
+    "step": {
+      "user": {
+        "title": "Crear entrada",
+        "description": "Supervisar un grupo de entidades o combinar grupos existentes.",
+        "data": {
+          "entry_type": "Tipo"
         }
+      },
+      "group": {
+        "title": "Crear grupo de entidades",
+        "description": "Cree un grupo de entidades para supervisar su disponibilidad.",
+        "data": {
+          "group_name": "Nombre del grupo",
+          "entities": "Entidades a supervisar",
+          "non_essential_entities": "Entidades no esenciales"
+        },
+        "data_description": {
+          "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
+          "non_essential_entities": "Entidades que no afectan la puntuación de salud del grupo. Visibles en la tarjeta y contadas en los totales, pero excluidas de todos los KPIs (disponibilidad %, recuento sin conexión, MTBF, MTTR) y nunca activan alertas. Úsalo para dispositivos donde el tiempo de inactividad es aceptable — un TV, una impresora, un dispositivo de temporada."
+        }
+      },
+      "combined": {
+        "title": "Crear grupo combinado",
+        "description": "Seleccione cómo debe clasificarse cada grupo: No incluido, Incluido con la configuración propia del grupo, o establecer como Esencial o No esencial.",
+        "data": {
+          "combined_name": "Nombre del grupo combinado"
+        }
+      },
+      "monitoring": {
+        "title": "Ajustes de supervisión",
+        "description": "Configure cómo se supervisan las entidades.",
+        "data": {
+          "bad_states": "Estados considerados sin conexión",
+          "cooldown": "Tiempo de espera antes de marcar sin conexión",
+          "staleness_threshold": "Umbral de obsolescencia",
+          "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad"
+        },
+        "data_description": {
+          "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
+          "cooldown": "Cuánto tiempo (en segundos) debe permanecer una entidad en un estado malo antes de marcarla sin conexión. Previene falsas alarmas por desconexiones breves.",
+          "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, marcarla como degradada. Esto detecta entidades que informan 'disponible' pero que en realidad han dejado de enviar datos. Establecer en 0 para desactivar.",
+          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable)."
+        }
+      },
+      "advanced": {
+        "title": "Ajustes avanzados",
+        "description": "Funciones opcionales de supervisión avanzada.",
+        "data": {
+          "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
+          "availability_windows": "Ventanas de seguimiento de disponibilidad",
+          "recovery_window": "Ventana de recuperación",
+          "use_device_names": "Mostrar nombres de dispositivo",
+          "collapse_devices": "Agrupar entidades por dispositivo",
+          "signal_enabled": "Habilitar monitoreo de intensidad de señal"
+        },
+        "data_description": {
+          "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles. Utilice entidades que reporten la batería como porcentaje o admitan el estado 'low'.",
+          "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
+          "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
+          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
+          "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan, y las entidades del mismo dispositivo con distintos niveles de batería o señal permanecen separadas. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad. Nota: si este grupo está incluido en un grupo combinado, su configuración de agrupación se aplica automáticamente en la vista combinada — no se necesita configuración adicional.",
+          "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
+        }
+      },
+      "battery_mapping": {
+        "title": "Asignación de entidades de batería",
+        "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo')."
+      },
+      "signal_mapping": {
+        "title": "Mapeo de Intensidad de Señal",
+        "description": "Para cada entidad, selecciona opcionalmente un sensor de señal y elige el tipo de red. Deja el sensor vacío para omitir.\n\nUmbrales (bueno / regular / deficiente):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mayor es mejor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "title": "Editar grupo de entidades",
-                "description": "Modificar los ajustes de supervisión para este grupo.",
-                "data": {
-                    "entities": "Entidades a supervisar",
-                    "non_essential_entities": "Entidades no esenciales",
-                    "bad_states": "Estados considerados sin conexión",
-                    "cooldown": "Tiempo de espera (segundos)",
-                    "staleness_threshold": "Umbral de obsolescencia (minutos, 0 = desactivado)",
-                    "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
-                    "availability_windows": "Ventanas de seguimiento de disponibilidad",
-                    "recovery_window": "Ventana de recuperación (minutos)",
-                    "use_device_names": "Mostrar nombres de dispositivo",
-                    "collapse_devices": "Agrupar entidades por dispositivo",
-                    "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad",
-                    "signal_enabled": "Habilitar monitoreo de intensidad de señal"
-                },
-                "data_description": {
-                    "non_essential_entities": "Entidades que se muestran y cuentan en la tarjeta pero se excluyen de todos los KPIs (recuento sin conexión, disponibilidad %, MTBF, MTTR) y alertas. Útil para dispositivos que se espera que estén offline (TV en standby, impresora apagada entre trabajos).",
-                    "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
-                    "cooldown": "Tiempo (en segundos) que una entidad debe permanecer en un estado incorrecto antes de marcarse como sin conexión. Evita falsas alarmas por desconexiones breves.",
-                    "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, se marca como degradada. Establezca 0 para deshabilitar.",
-                    "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles.",
-                    "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
-                    "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
-                    "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
-                    "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan, y las entidades del mismo dispositivo con distintos niveles de batería o señal permanecen separadas. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad. Nota: si este grupo está incluido en un grupo combinado, su configuración de agrupación se aplica automáticamente en la vista combinada — no se necesita configuración adicional.",
-                    "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable).",
-                    "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
-                    "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
-                }
-            },
-            "combined_init": {
-                "title": "Editar grupo combinado",
-                "description": "Seleccione cómo debe clasificarse cada grupo: No incluido, Incluido con la configuración propia del grupo, o establecer como Esencial o No esencial.",
-                "data": {
-                    "combined_name": "Nombre del grupo combinado"
-                }
-            },
-            "battery_mapping": {
-                "title": "Asignación de entidades de batería",
-                "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo')."
-            },
-            "signal_mapping": {
-                "title": "Mapeo de Intensidad de Señal",
-                "description": "Para cada entidad, selecciona opcionalmente un sensor de señal y elige el tipo de red. Deja el sensor vacío para omitir.\n\nUmbrales (bueno / regular / deficiente):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mayor es mejor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
-            }
-        },
-        "error": {
-            "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar.",
-            "collapse_requires_device_names": "Agrupar entidades por dispositivo requiere que «Mostrar nombres de dispositivo» esté activado."
-        },
-        "abort": {
-            "not_enough_groups": "Este grupo combinado ya no tiene suficientes grupos de origen cargados. Añada más grupos primero."
-        }
+    "error": {
+      "empty_group_name": "El nombre del grupo no puede estar vacío.",
+      "no_entities": "Debe seleccionar al menos una entidad.",
+      "not_enough_groups_selected": "Seleccione al menos dos grupos para combinar.",
+      "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar.",
+      "collapse_requires_device_names": "Agrupar entidades por dispositivo requiere que «Mostrar nombres de dispositivo» esté activado.",
+      "already_configured": "A group with this name already exists."
     },
-    "entity": {
-        "sensor": {
-            "offline_count": {
-                "name": "Cantidad sin conexión"
-            },
-            "offline_entities": {
-                "name": "Entidades sin conexión"
-            },
-            "low_battery": {
-                "name": "Batería baja"
-            },
-            "low_battery_count": {
-                "name": "Recuento de batería baja"
-            },
-            "group_summary": {
-                "name": "Resumen del grupo"
-            },
-            "recently_offline": {
-                "name": "Sin conexión recientemente"
-            },
-            "recently_recovered": {
-                "name": "Recuperada recientemente"
-            },
-            "combined_summary": {
-                "name": "Resumen combinado"
-            },
-            "availability_today": {
-                "name": "Disponibilidad (Hoy)"
-            },
-            "availability_3d": {
-                "name": "Disponibilidad (3 días)"
-            },
-            "availability_5d": {
-                "name": "Disponibilidad (5 días)"
-            },
-            "availability_7d": {
-                "name": "Disponibilidad (7 días)"
-            },
-            "affected_areas_count": {
-                "name": "Cantidad de Áreas Afectadas"
-            },
-            "affected_areas": {
-                "name": "Áreas Afectadas"
-            },
-            "affected_areas_recently_offline": {
-                "name": "Áreas Recientemente Desconectadas"
-            },
-            "affected_areas_recently_recovered": {
-                "name": "Áreas Recientemente Recuperadas"
-            },
-            "mtbf": {
-                "name": "Tiempo medio entre fallos"
-            },
-            "mttr": {
-                "name": "Tiempo medio de recuperación"
-            },
-            "stale_entities": {
-                "name": "Entidades obsoletas"
-            },
-            "stale_count": {
-                "name": "Recuento de entidades obsoletas"
-            },
-            "offline_entities_non_essential": {
-                "name": "Entidades sin conexión (no esenciales)"
-            },
-            "offline_count_non_essential": {
-                "name": "Cantidad sin conexión (no esenciales)"
-            },
-            "low_battery_non_essential": {
-                "name": "Batería baja (no esenciales)"
-            },
-            "low_battery_count_non_essential": {
-                "name": "Recuento de batería baja (no esenciales)"
-            },
-            "stale_entities_non_essential": {
-                "name": "Entidades obsoletas (no esenciales)"
-            },
-            "stale_count_non_essential": {
-                "name": "Recuento de entidades obsoletas (no esenciales)"
-            },
-            "poor_signal": {
-                "name": "Señal Deficiente"
-            },
-            "poor_signal_count": {
-                "name": "Recuento de Señal Deficiente"
-            },
-            "poor_signal_non_essential": {
-                "name": "Señal Deficiente (No Esencial)"
-            },
-            "poor_signal_count_non_essential": {
-                "name": "Recuento de Señal Deficiente (No Esencial)"
-            }
-        },
-        "binary_sensor": {
-            "any_offline": {
-                "name": "Alguno sin conexión"
-            },
-            "all_offline": {
-                "name": "Todos sin conexión"
-            },
-            "all_offline_non_essential": {
-                "name": "Todos sin conexión (no esenciales)"
-            },
-            "combined_any_offline": {
-                "name": "Alguno sin conexión"
-            },
-            "any_offline_non_essential": {
-                "name": "Alguno sin conexión (no esenciales)"
-            },
-            "any_low_battery": {
-                "name": "Alguno con batería baja"
-            },
-            "any_stale": {
-                "name": "Alguno obsoleto"
-            },
-            "any_poor_signal": {
-                "name": "Cualquier Señal Deficiente"
-            },
-            "any_low_battery_non_essential": {
-                "name": "Batería Baja (No Esencial)"
-            },
-            "any_poor_signal_non_essential": {
-                "name": "Señal Débil (No Esencial)"
-            }
-        }
-    },
-    "selector": {
-        "entry_type": {
-            "options": {
-                "group": "Supervisar entidades",
-                "combined_group": "Combinar grupos"
-            }
-        },
-        "combined_group_override": {
-            "options": {
-                "excluded": "🚫 No incluido",
-                "keep": "✅ Incluido - usar configuración del grupo",
-                "all_essential": "🔴 Incluido - forzar: Esencial",
-                "all_non_essential": "🟡 Incluido - forzar: No esencial"
-            }
-        }
+    "abort": {
+      "already_configured": "Ya existe un grupo con este nombre.",
+      "not_enough_groups": "Necesita al menos dos grupos antes de crear un grupo combinado."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Editar grupo de entidades",
+        "description": "Modificar los ajustes de supervisión para este grupo.",
+        "data": {
+          "entities": "Entidades a supervisar",
+          "non_essential_entities": "Entidades no esenciales",
+          "bad_states": "Estados considerados sin conexión",
+          "cooldown": "Tiempo de espera (segundos)",
+          "staleness_threshold": "Umbral de obsolescencia (minutos, 0 = desactivado)",
+          "battery_threshold": "Umbral de batería baja (%, 0 = desactivado)",
+          "availability_windows": "Ventanas de seguimiento de disponibilidad",
+          "recovery_window": "Ventana de recuperación (minutos)",
+          "use_device_names": "Mostrar nombres de dispositivo",
+          "collapse_devices": "Agrupar entidades por dispositivo",
+          "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad",
+          "signal_enabled": "Habilitar monitoreo de intensidad de señal"
+        },
+        "data_description": {
+          "non_essential_entities": "Entidades que se muestran y cuentan en la tarjeta pero se excluyen de todos los KPIs (recuento sin conexión, disponibilidad %, MTBF, MTTR) y alertas. Útil para dispositivos que se espera que estén offline (TV en standby, impresora apagada entre trabajos).",
+          "bad_states": "Estados de entidad que indican que una entidad está sin conexión (p. ej. unavailable, unknown).",
+          "cooldown": "Tiempo (en segundos) que una entidad debe permanecer en un estado incorrecto antes de marcarse como sin conexión. Evita falsas alarmas por desconexiones breves.",
+          "staleness_threshold": "Si una entidad no ha cambiado de estado durante este número de minutos, se marca como degradada. Establezca 0 para deshabilitar.",
+          "battery_threshold": "Marca entidades cuya batería cae por debajo de este porcentaje. El estado 'low' también se detecta automáticamente. Las entidades basadas en voltios no son compatibles.",
+          "availability_windows": "Ventanas de tiempo para el seguimiento del historial de disponibilidad del grupo (p. ej. hoy, 3d, 7d).",
+          "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
+          "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
+          "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan, y las entidades del mismo dispositivo con distintos niveles de batería o señal permanecen separadas. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad. Nota: si este grupo está incluido en un grupo combinado, su configuración de agrupación se aplica automáticamente en la vista combinada — no se necesita configuración adicional.",
+          "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable).",
+          "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
+          "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
+        }
+      },
+      "combined_init": {
+        "title": "Editar grupo combinado",
+        "description": "Seleccione cómo debe clasificarse cada grupo: No incluido, Incluido con la configuración propia del grupo, o establecer como Esencial o No esencial.",
+        "data": {
+          "combined_name": "Nombre del grupo combinado"
+        }
+      },
+      "battery_mapping": {
+        "title": "Asignación de entidades de batería",
+        "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo')."
+      },
+      "signal_mapping": {
+        "title": "Mapeo de Intensidad de Señal",
+        "description": "Para cada entidad, selecciona opcionalmente un sensor de señal y elige el tipo de red. Deja el sensor vacío para omitir.\n\nUmbrales (bueno / regular / deficiente):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (mayor es mejor)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+      }
+    },
+    "error": {
+      "duplicate_entities": "La misma entidad no puede aparecer en las dos listas. Elimina los duplicados antes de guardar.",
+      "collapse_requires_device_names": "Agrupar entidades por dispositivo requiere que «Mostrar nombres de dispositivo» esté activado.",
+      "already_configured": "A group with this name already exists."
+    },
+    "abort": {
+      "not_enough_groups": "Este grupo combinado ya no tiene suficientes grupos de origen cargados. Añada más grupos primero."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "offline_count": {
+        "name": "Cantidad sin conexión"
+      },
+      "offline_entities": {
+        "name": "Entidades sin conexión"
+      },
+      "low_battery": {
+        "name": "Batería baja"
+      },
+      "low_battery_count": {
+        "name": "Recuento de batería baja"
+      },
+      "group_summary": {
+        "name": "Resumen del grupo"
+      },
+      "recently_offline": {
+        "name": "Sin conexión recientemente"
+      },
+      "recently_recovered": {
+        "name": "Recuperada recientemente"
+      },
+      "combined_summary": {
+        "name": "Resumen combinado"
+      },
+      "availability_today": {
+        "name": "Disponibilidad (Hoy)"
+      },
+      "availability_3d": {
+        "name": "Disponibilidad (3 días)"
+      },
+      "availability_5d": {
+        "name": "Disponibilidad (5 días)"
+      },
+      "availability_7d": {
+        "name": "Disponibilidad (7 días)"
+      },
+      "affected_areas_count": {
+        "name": "Cantidad de Áreas Afectadas"
+      },
+      "affected_areas": {
+        "name": "Áreas Afectadas"
+      },
+      "affected_areas_recently_offline": {
+        "name": "Áreas Recientemente Desconectadas"
+      },
+      "affected_areas_recently_recovered": {
+        "name": "Áreas Recientemente Recuperadas"
+      },
+      "mtbf": {
+        "name": "Tiempo medio entre fallos"
+      },
+      "mttr": {
+        "name": "Tiempo medio de recuperación"
+      },
+      "stale_entities": {
+        "name": "Entidades obsoletas"
+      },
+      "stale_count": {
+        "name": "Recuento de entidades obsoletas"
+      },
+      "offline_entities_non_essential": {
+        "name": "Entidades sin conexión (no esenciales)"
+      },
+      "offline_count_non_essential": {
+        "name": "Cantidad sin conexión (no esenciales)"
+      },
+      "low_battery_non_essential": {
+        "name": "Batería baja (no esenciales)"
+      },
+      "low_battery_count_non_essential": {
+        "name": "Recuento de batería baja (no esenciales)"
+      },
+      "stale_entities_non_essential": {
+        "name": "Entidades obsoletas (no esenciales)"
+      },
+      "stale_count_non_essential": {
+        "name": "Recuento de entidades obsoletas (no esenciales)"
+      },
+      "poor_signal": {
+        "name": "Señal Deficiente"
+      },
+      "poor_signal_count": {
+        "name": "Recuento de Señal Deficiente"
+      },
+      "poor_signal_non_essential": {
+        "name": "Señal Deficiente (No Esencial)"
+      },
+      "poor_signal_count_non_essential": {
+        "name": "Recuento de Señal Deficiente (No Esencial)"
+      }
+    },
+    "binary_sensor": {
+      "any_offline": {
+        "name": "Alguno sin conexión"
+      },
+      "all_offline": {
+        "name": "Todos sin conexión"
+      },
+      "all_offline_non_essential": {
+        "name": "Todos sin conexión (no esenciales)"
+      },
+      "combined_any_offline": {
+        "name": "Alguno sin conexión"
+      },
+      "any_offline_non_essential": {
+        "name": "Alguno sin conexión (no esenciales)"
+      },
+      "any_low_battery": {
+        "name": "Alguno con batería baja"
+      },
+      "any_stale": {
+        "name": "Alguno obsoleto"
+      },
+      "any_poor_signal": {
+        "name": "Cualquier Señal Deficiente"
+      },
+      "any_low_battery_non_essential": {
+        "name": "Batería Baja (No Esencial)"
+      },
+      "any_poor_signal_non_essential": {
+        "name": "Señal Débil (No Esencial)"
+      }
+    }
+  },
+  "selector": {
+    "entry_type": {
+      "options": {
+        "group": "Supervisar entidades",
+        "combined_group": "Combinar grupos"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 No incluido",
+        "keep": "✅ Incluido - usar configuración del grupo",
+        "all_essential": "🔴 Incluido - forzar: Esencial",
+        "all_non_essential": "🟡 Incluido - forzar: No esencial"
+      }
+    }
+  }
 }
