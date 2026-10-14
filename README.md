@@ -193,9 +193,9 @@ Supported network types and thresholds:
 | Field | Description |
 |-------|-------------|
 | Combined Group Name | A descriptive name (e.g., "All Devices") |
-| Groups to Include | Select two or more existing Entity Availability groups |
+| *Per-group dropdowns* | One dropdown per existing group. Choose how each group is classified in this combined view: **Not included** (excluded), **Included — use group settings** (default, respects each group's own essential/non-essential config), **Included — override: Essential** (treat all entities from this group as essential), or **Included — override: Non-Essential** (treat all as non-essential). At least two groups must be included. |
 
-No further steps — combined groups read live from their source groups and require no additional configuration.
+The override affects display, counting, and alerts in the combined view only — the source group's own sensors are unchanged.
 
 ![Step 2b: Create Combined Group](assets/01b_create_combined_group.png)
 
