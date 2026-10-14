@@ -996,7 +996,10 @@ async def test_combined_options_flow_preserves_unloaded_groups(
     assert unloaded_eid in combined.data[CONF_COMBINED_GROUPS]
     assert unloaded_no_override_eid in combined.data[CONF_COMBINED_GROUPS]
     # Unloaded group with stored override carries it forward
-    assert combined.data[CONF_COMBINED_GROUPS_OVERRIDES][unloaded_eid] == NE_OVERRIDE_ALL_ESSENTIAL
+    assert (
+        combined.data[CONF_COMBINED_GROUPS_OVERRIDES][unloaded_eid]
+        == NE_OVERRIDE_ALL_ESSENTIAL
+    )
     # Unloaded group without stored override is not in overrides
     assert unloaded_no_override_eid not in combined.data[CONF_COMBINED_GROUPS_OVERRIDES]
 
