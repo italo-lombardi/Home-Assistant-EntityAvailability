@@ -928,6 +928,9 @@ async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> No
     )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"]["combined_name"] == "empty_group_name"
+    schema_defaults = {str(k): k.default() for k in result["data_schema"].schema}
+    assert schema_defaults.get("Group A") == "keep"
+    assert schema_defaults.get("Group B") == "keep"
 
 
 async def test_combined_options_flow_not_enough_groups_error(
