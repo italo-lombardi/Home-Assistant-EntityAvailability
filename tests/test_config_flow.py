@@ -17,6 +17,7 @@ from custom_components.entity_availability.const import (
     CONF_BATTERY_THRESHOLD,
     CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
+    CONF_COMBINED_GROUPS_OVERRIDES,
     CONF_COOLDOWN,
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
@@ -31,6 +32,9 @@ from custom_components.entity_availability.const import (
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
+    NE_OVERRIDE_ALL_ESSENTIAL,
+    NE_OVERRIDE_ALL_NON_ESSENTIAL,
+    NE_OVERRIDE_EXCLUDED,
 )
 
 # ---------------------------------------------------------------------------
@@ -560,11 +564,6 @@ async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
 
 async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
     """Non-default override values are stored in combined_groups_overrides."""
-    from custom_components.entity_availability.const import (
-        CONF_COMBINED_GROUPS_OVERRIDES,
-        NE_OVERRIDE_ALL_NON_ESSENTIAL,
-    )
-
     entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
     entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
 
@@ -886,6 +885,10 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert combined.data[CONF_GROUP_NAME] == "Renamed Combined"
     assert combined.data[CONF_COMBINED_GROUPS] == [entry_a.entry_id, entry_c.entry_id]
+    assert combined.data[CONF_COMBINED_GROUPS_OVERRIDES] == {
+        entry_a.entry_id: "keep",
+        entry_c.entry_id: "keep",
+    }
 
 
 async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> None:
@@ -966,6 +969,11 @@ async def test_combined_options_flow_not_enough_groups_error(
     )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"]["base"] == "not_enough_groups_selected"
+    # Re-shown form must preserve the submitted values as defaults
+    schema_defaults = {str(k): k.default() for k in result["data_schema"].schema}
+    assert schema_defaults.get("combined_name") == "Valid Name"
+    assert schema_defaults.get("Group A") == "keep"
+    assert schema_defaults.get("Group B") == "excluded"
 
 
 async def test_battery_auto_detection_via_device_registry(
@@ -2991,3 +2999,164 @@ async def test_detect_signal_entity_non_signal_sibling_then_naming(
         )
 
     assert result["step_id"] == "signal_mapping"
+
+
+async def test_step_combined_all_essential_override_stored(
+    hass: HomeAssistant,
+) -> None:
+    """NE_OVERRIDE_ALL_ESSENTIAL round-trips correctly into combined_groups_overrides."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "combined_name": "Essential Override Test",
+                "Group A": NE_OVERRIDE_ALL_ESSENTIAL,
+                "Group B": "keep",
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    overrides = result["data"][CONF_COMBINED_GROUPS_OVERRIDES]
+    assert overrides[entry_a.entry_id] == NE_OVERRIDE_ALL_ESSENTIAL
+    assert overrides[entry_b.entry_id] == "keep"
+
+
+async def test_step_combined_excluded_group_absent_from_data(
+    hass: HomeAssistant,
+) -> None:
+    """A group submitted as 'excluded' must be absent from CONF_COMBINED_GROUPS and overrides."""
+    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
+    entry_c = await _create_group_entry(hass, "Group C", ["binary_sensor.c"])
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "combined_name": "Exclude Test",
+                "Group A": "keep",
+                "Group B": NE_OVERRIDE_EXCLUDED,
+                "Group C": "keep",
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    groups = result["data"][CONF_COMBINED_GROUPS]
+    overrides = result["data"][CONF_COMBINED_GROUPS_OVERRIDES]
+    assert entry_a.entry_id in groups
+    assert entry_c.entry_id in groups
+    assert entry_b.entry_id not in groups
+    assert entry_b.entry_id not in overrides
+
+
+async def test_step_combined_triple_duplicate_title(hass: HomeAssistant) -> None:
+    """Three groups with the same title get (2) and (3) suffixes; all round-trip."""
+
+    def make_entry(suffix: str, eid: str) -> MockConfigEntry:
+        return MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Duplicate",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Duplicate",
+                CONF_ENTITIES: [f"binary_sensor.{suffix}"],
+            },
+            entry_id=eid,
+            unique_id=f"{DOMAIN}_{eid}",
+        )
+
+    entry_a = make_entry("a", "dup3_1")
+    entry_b = make_entry("b", "dup3_2")
+    entry_c = make_entry("c", "dup3_3")
+    for e in (entry_a, entry_b, entry_c):
+        e.add_to_hass(hass)
+        e.mock_state(hass, ConfigEntryState.LOADED)
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    assert result["type"] == FlowResultType.FORM
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    assert "Duplicate" in schema_keys
+    assert "Duplicate (2)" in schema_keys
+    assert "Duplicate (3)" in schema_keys
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "combined_name": "Triple Dupe",
+                "Duplicate": "keep",
+                "Duplicate (2)": "keep",
+                "Duplicate (3)": "keep",
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    groups = result["data"][CONF_COMBINED_GROUPS]
+    assert entry_a.entry_id in groups
+    assert entry_b.entry_id in groups
+    assert entry_c.entry_id in groups
+
+
+async def test_step_combined_group_titled_combined_name(hass: HomeAssistant) -> None:
+    """A group literally titled 'combined_name' gets a (2) suffix; maps correctly."""
+    entry_a = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="combined_name",
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+            CONF_GROUP_NAME: "combined_name",
+            CONF_ENTITIES: ["binary_sensor.a"],
+        },
+        entry_id="entry_cn_collision",
+        unique_id=f"{DOMAIN}_cn_collision",
+    )
+    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])  # noqa: F841
+    entry_a.add_to_hass(hass)
+    entry_a.mock_state(hass, ConfigEntryState.LOADED)
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
+    )
+    assert result["type"] == FlowResultType.FORM
+    schema_keys = [str(k) for k in result["data_schema"].schema]
+    # "combined_name" appears exactly once — as the name field, not a group field
+    assert schema_keys.count("combined_name") == 1
+    assert "combined_name (2)" in schema_keys
+
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "combined_name": "CN Collision Test",
+                "combined_name (2)": "keep",
+                "Group B": "keep",
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert entry_a.entry_id in result["data"][CONF_COMBINED_GROUPS]

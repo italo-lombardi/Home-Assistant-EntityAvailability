@@ -330,6 +330,8 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="combined",
             data_schema=vol.Schema(fields),
             errors=errors,
+            # eid_title_map is not consumed by translations; smoke.py reads it
+            # directly from description_placeholders as a side-channel mapping.
             description_placeholders={
                 "eid_title_map": json.dumps(
                     {eid: title for title, eid in title_to_eid.items()}
@@ -966,6 +968,8 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             step_id="combined_init",
             data_schema=vol.Schema(fields),
             errors=errors,
+            # eid_title_map is not consumed by translations; smoke.py reads it
+            # directly from description_placeholders as a side-channel mapping.
             description_placeholders={
                 "eid_title_map": json.dumps(
                     {eid: title for title, eid in title_to_eid.items()}

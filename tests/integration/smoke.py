@@ -5034,11 +5034,15 @@ for e in cfg['data']['entries']:
                                     if current_default in _override_values
                                     else "excluded"
                                 )
-                        api(
+                        resp = api(
                             "POST",
                             f"/api/config/config_entries/options/flow/{fid}",
                             payload,
                         )
+                        if resp.get("type") != "create_entry":
+                            raise RuntimeError(
+                                f"_patch_ne_override POST failed: {resp}"
+                            )
                         fid = None  # consumed
                     finally:
                         if fid:
