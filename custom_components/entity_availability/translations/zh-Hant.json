@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
       "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。"
+    },
+    "abort": {
+      "not_enough_groups": "此合併組的來源組數量不足。請先新增更多組。"
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "監控實體",
         "combined_group": "合併組"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "不包含",
+        "keep": "包含 - 使用組設定",
+        "all_essential": "包含 - 覆寫：必要",
+        "all_non_essential": "包含 - 覆寫：非必要"
       }
     }
   }

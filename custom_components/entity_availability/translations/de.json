@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern.",
       "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist."
+    },
+    "abort": {
+      "not_enough_groups": "Diese kombinierte Gruppe hat nicht mehr genügend geladene Quellgruppen. Fügen Sie zuerst weitere Gruppen hinzu."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Entitäten überwachen",
         "combined_group": "Gruppen kombinieren"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Nicht enthalten",
+        "keep": "Enthalten - Gruppeneinstellungen verwenden",
+        "all_essential": "Enthalten - Überschreiben: Wesentlich",
+        "all_non_essential": "Enthalten - Überschreiben: Nicht-Wesentlich"
       }
     }
   }

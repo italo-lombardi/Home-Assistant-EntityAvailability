@@ -4,7 +4,9 @@
             "user": {
                 "title": "Create Entry",
                 "description": "Monitor a group of entities, or combine existing groups.",
-                "data": {"entry_type": "Type"},
+                "data": {
+                    "entry_type": "Type"
+                }
             },
             "group": {
                 "title": "Create Entity Group",
@@ -12,17 +14,19 @@
                 "data": {
                     "group_name": "Group Name",
                     "entities": "Entities to Monitor",
-                    "non_essential_entities": "Non-Essential entities",
+                    "non_essential_entities": "Non-Essential entities"
                 },
                 "data_description": {
                     "entities": "Entities to track for availability. These are fully monitored and included in all KPIs and alerts.",
-                    "non_essential_entities": "Entities that don't affect your group's health score. Visible on the card and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Use for devices where downtime is acceptable — a TV, a printer, a seasonal device.",
-                },
+                    "non_essential_entities": "Entities that don't affect your group's health score. Visible on the card and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Use for devices where downtime is acceptable — a TV, a printer, a seasonal device."
+                }
             },
             "combined": {
                 "title": "Create Combined Group",
                 "description": "Select how each group should be classified: Not included, Included using the group's own settings, or override to Essential or Non-Essential.",
-                "data": {"group_name": "Combined Group Name"},
+                "data": {
+                    "group_name": "Combined Group Name"
+                }
             },
             "monitoring": {
                 "title": "Monitoring Settings",
@@ -31,14 +35,14 @@
                     "bad_states": "States considered offline",
                     "cooldown": "Cooldown before marking offline",
                     "staleness_threshold": "Staleness threshold",
-                    "staleness_use_last_updated": "Count attribute updates as activity",
+                    "staleness_use_last_updated": "Count attribute updates as activity"
                 },
                 "data_description": {
                     "bad_states": "Entity states that indicate an entity is offline (e.g., unavailable, unknown).",
                     "cooldown": "How long (in seconds) an entity must stay in a bad state before it is marked offline. Prevents false alarms from brief disconnections.",
                     "staleness_threshold": "If an entity hasn't changed state for this many minutes, mark it as degraded. This catches entities that report 'available' but have actually stopped sending data. Set to 0 to disable.",
-                    "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady).",
-                },
+                    "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
+                }
             },
             "advanced": {
                 "title": "Advanced Settings",
@@ -49,7 +53,7 @@
                     "availability_windows": "Availability tracking windows",
                     "recovery_window": "Recovery window",
                     "use_device_names": "Show device names",
-                    "collapse_devices": "Collapse entities by device",
+                    "collapse_devices": "Collapse entities by device"
                 },
                 "data_description": {
                     "battery_threshold": "Flag entities whose battery falls below this percentage. The 'low' state is also automatically detected. Volt-based entities are not supported. Use entities that report battery as a percentage or support the 'low' state.",
@@ -57,29 +61,29 @@
                     "availability_windows": "Time windows for tracking group availability history (e.g. today, 3d, 7d).",
                     "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
                     "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
-                    "collapse_devices": "Only works when 'Show device names' is enabled. When on, multiple entities that belong to the same physical device are counted as one across every sensor value, list and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, battery level and signal — entities not linked to a device are never merged, and entities on the same device with different battery or signal readings stay separate. Availability %, MTBF and MTTR stay per-entity. Note: if this group is included in a combined group, its collapse setting is applied automatically in the combined view — no extra configuration needed.",
-                },
+                    "collapse_devices": "Only works when 'Show device names' is enabled. When on, multiple entities that belong to the same physical device are counted as one across every sensor value, list and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, battery level and signal — entities not linked to a device are never merged, and entities on the same device with different battery or signal readings stay separate. Availability %, MTBF and MTTR stay per-entity. Note: if this group is included in a combined group, its collapse setting is applied automatically in the combined view — no extra configuration needed."
+                }
             },
             "battery_mapping": {
                 "title": "Battery Entity Mapping",
-                "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low').",
+                "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low')."
             },
             "signal_mapping": {
                 "title": "Signal Strength Mapping",
-                "description": "For each entity, optionally select a signal sensor and choose the network type. Leave the sensor empty to skip.\n\nThresholds (good / ok / poor):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / < −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (higher is better)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm",
-            },
+                "description": "For each entity, optionally select a signal sensor and choose the network type. Leave the sensor empty to skip.\n\nThresholds (good / ok / poor):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / < −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (higher is better)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+            }
         },
         "error": {
             "empty_group_name": "Group name cannot be empty.",
             "no_entities": "You must select at least one entity.",
             "duplicate_entities": "The same entity cannot appear in both lists. Remove duplicates before saving.",
             "not_enough_groups_selected": "Select at least two groups to combine.",
-            "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled.",
+            "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled."
         },
         "abort": {
             "already_configured": "A group with this name already exists.",
-            "not_enough_groups": "You need at least two groups before creating a combined group.",
-        },
+            "not_enough_groups": "You need at least two groups before creating a combined group."
+        }
     },
     "options": {
         "step": {
@@ -98,7 +102,7 @@
                     "recovery_window": "Recovery window (minutes)",
                     "use_device_names": "Show device names",
                     "collapse_devices": "Collapse entities by device",
-                    "staleness_use_last_updated": "Count attribute updates as activity",
+                    "staleness_use_last_updated": "Count attribute updates as activity"
                 },
                 "data_description": {
                     "entities": "Entities to track for availability. These are fully monitored and included in all KPIs and alerts.",
@@ -112,89 +116,175 @@
                     "recovery_window": "How long (in minutes) an entity stays in the Recently Offline or Recently Recovered sensors after a state transition.",
                     "use_device_names": "Show the HA device name instead of the entity friendly name in offline/recovered sensor states. Falls back to friendly name for entities not linked to a device.",
                     "collapse_devices": "Only works when 'Show device names' is enabled. When on, multiple entities that belong to the same physical device are counted as one across every sensor value, list and event (offline, low battery, stale, poor signal). Entities only merge when they share the same device, battery level and signal — entities not linked to a device are never merged, and entities on the same device with different battery or signal readings stay separate. Availability %, MTBF and MTTR stay per-entity. Note: if this group is included in a combined group, its collapse setting is applied automatically in the combined view — no extra configuration needed.",
-                    "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady).",
-                },
+                    "staleness_use_last_updated": "When on, any update from the entity — including attribute-only changes or repeated same-value reports — resets the staleness timer. When off (default), only a change in the main state counts. Turn on for devices that report often but rarely change value (e.g. temperature or power that holds steady)."
+                }
             },
             "combined_init": {
                 "title": "Edit Combined Group",
                 "description": "Select how each group should be classified: Not included, Included using the group's own settings, or override to Essential or Non-Essential.",
-                "data": {"group_name": "Combined Group Name"},
+                "data": {
+                    "group_name": "Combined Group Name"
+                }
             },
             "battery_mapping": {
                 "title": "Battery Entity Mapping",
-                "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low').",
+                "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low')."
             },
             "signal_mapping": {
                 "title": "Signal Strength Mapping",
-                "description": "For each monitored entity, optionally select a signal sensor and choose the network type. Leave the sensor empty to skip signal monitoring for that entity.\n\nThresholds (good / ok / poor):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / < −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (higher is better)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm",
-            },
+                "description": "For each monitored entity, optionally select a signal sensor and choose the network type. Leave the sensor empty to skip signal monitoring for that entity.\n\nThresholds (good / ok / poor):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −70 dBm / < −70 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (higher is better)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+            }
         },
         "error": {
             "duplicate_entities": "The same entity cannot appear in both lists. Remove duplicates before saving.",
             "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled.",
             "empty_group_name": "Group name cannot be empty.",
-            "not_enough_groups_selected": "Select at least two groups to combine.",
+            "not_enough_groups_selected": "Select at least two groups to combine."
         },
+        "abort": {
+            "not_enough_groups": "This combined group no longer has enough source groups loaded. Add more groups first."
+        }
     },
     "entity": {
         "sensor": {
-            "offline_count": {"name": "Offline Count"},
-            "offline_entities": {"name": "Offline Entities"},
-            "low_battery": {"name": "Low Battery"},
-            "low_battery_count": {"name": "Low Battery Count"},
-            "group_summary": {"name": "Group Summary"},
-            "recently_offline": {"name": "Recently Offline"},
-            "recently_recovered": {"name": "Recently Recovered"},
-            "combined_summary": {"name": "Combined Summary"},
-            "availability_today": {"name": "Availability (Today)"},
-            "availability_3d": {"name": "Availability (3 Days)"},
-            "availability_5d": {"name": "Availability (5 Days)"},
-            "availability_7d": {"name": "Availability (7 Days)"},
-            "affected_areas_count": {"name": "Affected Areas Count"},
-            "affected_areas": {"name": "Affected Areas"},
-            "affected_areas_recently_offline": {"name": "Areas Recently Offline"},
-            "affected_areas_recently_recovered": {"name": "Areas Recently Recovered"},
-            "mtbf": {"name": "Mean Time Between Failures"},
-            "mttr": {"name": "Mean Time To Recovery"},
-            "stale_entities": {"name": "Stale Entities"},
-            "stale_count": {"name": "Stale Count"},
+            "offline_count": {
+                "name": "Offline Count"
+            },
+            "offline_entities": {
+                "name": "Offline Entities"
+            },
+            "low_battery": {
+                "name": "Low Battery"
+            },
+            "low_battery_count": {
+                "name": "Low Battery Count"
+            },
+            "group_summary": {
+                "name": "Group Summary"
+            },
+            "recently_offline": {
+                "name": "Recently Offline"
+            },
+            "recently_recovered": {
+                "name": "Recently Recovered"
+            },
+            "combined_summary": {
+                "name": "Combined Summary"
+            },
+            "availability_today": {
+                "name": "Availability (Today)"
+            },
+            "availability_3d": {
+                "name": "Availability (3 Days)"
+            },
+            "availability_5d": {
+                "name": "Availability (5 Days)"
+            },
+            "availability_7d": {
+                "name": "Availability (7 Days)"
+            },
+            "affected_areas_count": {
+                "name": "Affected Areas Count"
+            },
+            "affected_areas": {
+                "name": "Affected Areas"
+            },
+            "affected_areas_recently_offline": {
+                "name": "Areas Recently Offline"
+            },
+            "affected_areas_recently_recovered": {
+                "name": "Areas Recently Recovered"
+            },
+            "mtbf": {
+                "name": "Mean Time Between Failures"
+            },
+            "mttr": {
+                "name": "Mean Time To Recovery"
+            },
+            "stale_entities": {
+                "name": "Stale Entities"
+            },
+            "stale_count": {
+                "name": "Stale Count"
+            },
             "offline_entities_non_essential": {
                 "name": "Offline Entities (Non-Essential)"
             },
-            "offline_count_non_essential": {"name": "Offline Count (Non-Essential)"},
-            "low_battery_non_essential": {"name": "Low Battery (Non-Essential)"},
+            "offline_count_non_essential": {
+                "name": "Offline Count (Non-Essential)"
+            },
+            "low_battery_non_essential": {
+                "name": "Low Battery (Non-Essential)"
+            },
             "low_battery_count_non_essential": {
                 "name": "Low Battery Count (Non-Essential)"
             },
-            "stale_entities_non_essential": {"name": "Stale Entities (Non-Essential)"},
-            "stale_count_non_essential": {"name": "Stale Count (Non-Essential)"},
-            "poor_signal": {"name": "Poor Signal"},
-            "poor_signal_count": {"name": "Poor Signal Count"},
-            "poor_signal_non_essential": {"name": "Poor Signal (Non-Essential)"},
+            "stale_entities_non_essential": {
+                "name": "Stale Entities (Non-Essential)"
+            },
+            "stale_count_non_essential": {
+                "name": "Stale Count (Non-Essential)"
+            },
+            "poor_signal": {
+                "name": "Poor Signal"
+            },
+            "poor_signal_count": {
+                "name": "Poor Signal Count"
+            },
+            "poor_signal_non_essential": {
+                "name": "Poor Signal (Non-Essential)"
+            },
             "poor_signal_count_non_essential": {
                 "name": "Poor Signal Count (Non-Essential)"
-            },
+            }
         },
         "binary_sensor": {
-            "any_offline": {"name": "Any Offline"},
-            "all_offline": {"name": "All Offline"},
-            "all_offline_non_essential": {"name": "All Offline (Non-Essential)"},
-            "combined_any_offline": {"name": "Any Offline"},
-            "any_offline_non_essential": {"name": "Any Offline (Non-Essential)"},
-            "any_low_battery": {"name": "Any Low Battery"},
-            "any_stale": {"name": "Any Stale"},
-            "any_poor_signal": {"name": "Any Poor Signal"},
+            "any_offline": {
+                "name": "Any Offline"
+            },
+            "all_offline": {
+                "name": "All Offline"
+            },
+            "all_offline_non_essential": {
+                "name": "All Offline (Non-Essential)"
+            },
+            "combined_any_offline": {
+                "name": "Any Offline"
+            },
+            "any_offline_non_essential": {
+                "name": "Any Offline (Non-Essential)"
+            },
+            "any_low_battery": {
+                "name": "Any Low Battery"
+            },
+            "any_stale": {
+                "name": "Any Stale"
+            },
+            "any_poor_signal": {
+                "name": "Any Poor Signal"
+            },
             "any_poor_signal_non_essential": {
                 "name": "Any Poor Signal (Non-Essential)"
             },
             "any_low_battery_non_essential": {
                 "name": "Any Low Battery (Non-Essential)"
-            },
-        },
+            }
+        }
     },
     "selector": {
         "entry_type": {
-            "options": {"group": "Monitor entities", "combined_group": "Combine groups"}
+            "options": {
+                "group": "Monitor entities",
+                "combined_group": "Combine groups"
+            }
+        },
+        "combined_group_override": {
+            "options": {
+                "excluded": "Not included",
+                "keep": "Included - use group settings",
+                "all_essential": "Included - override: Essential",
+                "all_non_essential": "Included - override: Non-Essential"
+            }
         }
-    },
+    }
 }

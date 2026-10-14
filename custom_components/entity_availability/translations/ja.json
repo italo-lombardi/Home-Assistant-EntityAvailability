@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "同じエンティティを両方のリストに含めることはできません。重複を削除してから保存してください。",
       "collapse_requires_device_names": "デバイスごとにエンティティをまとめるには「デバイス名を表示」を有効にする必要があります。"
+    },
+    "abort": {
+      "not_enough_groups": "この結合グループには、ロードされているソースグループが不足しています。先にグループを追加してください。"
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "エンティティを監視",
         "combined_group": "グループを結合"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "含めない",
+        "keep": "含める - グループ設定を使用",
+        "all_essential": "含める - 上書き：必須",
+        "all_non_essential": "含める - 上書き：非必須"
       }
     }
   }

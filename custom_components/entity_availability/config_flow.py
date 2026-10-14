@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
@@ -301,26 +302,28 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
 
         group_options = [
-            selector.SelectOptionDict(value=NE_OVERRIDE_EXCLUDED, label="Not included"),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_KEEP, label="Included - use group settings"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_ESSENTIAL, label="Included - override: Essential"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_NON_ESSENTIAL,
-                label="Included - override: Non-Essential",
-            ),
+            NE_OVERRIDE_EXCLUDED,
+            NE_OVERRIDE_KEEP,
+            NE_OVERRIDE_ALL_ESSENTIAL,
+            NE_OVERRIDE_ALL_NON_ESSENTIAL,
         ]
-        fields: dict[vol.Marker, Any] = {vol.Required(CONF_GROUP_NAME): str}
+        fields: dict[vol.Marker, Any] = {
+            vol.Required(
+                CONF_GROUP_NAME,
+                default=(user_input or {}).get(CONF_GROUP_NAME, ""),
+            ): str
+        }
         for title in title_to_eid:
-            fields[vol.Optional(f"g:{title}", default=NE_OVERRIDE_EXCLUDED)] = (
-                selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=group_options,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
+            fields[
+                vol.Optional(
+                    f"g:{title}",
+                    default=(user_input or {}).get(f"g:{title}", NE_OVERRIDE_EXCLUDED),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=group_options,
+                    translation_key="combined_group_override",
+                    mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             )
 
@@ -329,8 +332,8 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={
-                "eid_title_map": "|".join(
-                    f"{eid}:{title}" for title, eid in title_to_eid.items()
+                "eid_title_map": json.dumps(
+                    {eid: title for title, eid in title_to_eid.items()}
                 )
             },
         )
@@ -933,23 +936,18 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             CONF_COMBINED_GROUPS_OVERRIDES, {}
         )
         group_options = [
-            selector.SelectOptionDict(value=NE_OVERRIDE_EXCLUDED, label="Not included"),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_KEEP, label="Included - use group settings"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_ESSENTIAL, label="Included - override: Essential"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_NON_ESSENTIAL,
-                label="Included - override: Non-Essential",
-            ),
+            NE_OVERRIDE_EXCLUDED,
+            NE_OVERRIDE_KEEP,
+            NE_OVERRIDE_ALL_ESSENTIAL,
+            NE_OVERRIDE_ALL_NON_ESSENTIAL,
         ]
         fields: dict[vol.Marker, Any] = {
             vol.Required(CONF_GROUP_NAME, default=current.get(CONF_GROUP_NAME, "")): str
         }
         for title, eid in title_to_eid.items():
-            if eid in current_combined:
+            if user_input is not None:
+                default_val = user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
+            elif eid in current_combined:
                 default_val = current_overrides.get(eid, NE_OVERRIDE_KEEP)
             else:
                 default_val = NE_OVERRIDE_EXCLUDED
@@ -957,6 +955,7 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=group_options,
+                        translation_key="combined_group_override",
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 )
@@ -967,8 +966,8 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={
-                "eid_title_map": "|".join(
-                    f"{eid}:{title}" for title, eid in title_to_eid.items()
+                "eid_title_map": json.dumps(
+                    {eid: title for title, eid in title_to_eid.items()}
                 )
             },
         )

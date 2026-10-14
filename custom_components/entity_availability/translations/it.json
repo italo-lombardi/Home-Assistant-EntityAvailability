@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare.",
       "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato."
+    },
+    "abort": {
+      "not_enough_groups": "Questo gruppo combinato non ha più abbastanza gruppi sorgente caricati. Aggiungi prima altri gruppi."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Monitora entità",
         "combined_group": "Combina gruppi"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Non incluso",
+        "keep": "Incluso - usa impostazioni del gruppo",
+        "all_essential": "Incluso - sovrascrittura: Essenziale",
+        "all_non_essential": "Incluso - sovrascrittura: Non essenziale"
       }
     }
   }

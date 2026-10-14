@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Aynı varlık her iki listede de görünemez. Kaydetmeden önce tekrar edilenleri kaldırın.",
       "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir."
+    },
+    "abort": {
+      "not_enough_groups": "Bu birleşik grup artık yeterli sayıda kaynak gruba sahip değil. Önce daha fazla grup ekleyin."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Varlıkları izle",
         "combined_group": "Grupları birleştir"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Dahil edilmez",
+        "keep": "Dahil edilir - grup ayarlarını kullan",
+        "all_essential": "Dahil edilir - geçersiz kılma: Temel",
+        "all_non_essential": "Dahil edilir - geçersiz kılma: Temel Olmayan"
       }
     }
   }

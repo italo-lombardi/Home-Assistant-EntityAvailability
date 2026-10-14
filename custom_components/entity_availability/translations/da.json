@@ -139,6 +139,9 @@
     "error": {
       "duplicate_entities": "Den samme entitet kan ikke optræde på begge lister. Fjern dubletter, inden du gemmer.",
       "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til."
+    },
+    "abort": {
+      "not_enough_groups": "Denne kombinerede gruppe har ikke længere nok kildegrupper indlæst. Tilføj flere grupper først."
     }
   },
   "entity": {
@@ -272,6 +275,14 @@
       "options": {
         "group": "Overvåg entiteter",
         "combined_group": "Kombiner grupper"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Ikke inkluderet",
+        "keep": "Inkluderet - brug gruppeindstillinger",
+        "all_essential": "Inkluderet - tilsidesæt: Essentiel",
+        "all_non_essential": "Inkluderet - tilsidesæt: Ikke-essentiel"
       }
     }
   }

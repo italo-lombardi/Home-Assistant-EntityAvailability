@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
       "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat."
+    },
+    "abort": {
+      "not_enough_groups": "Aquest grup combinat ja no té prou grups d'origen carregats. Afegiu-hi més grups primer."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Supervisar entitats",
         "combined_group": "Combinar grups"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "No inclòs",
+        "keep": "Inclòs - usa la configuració del grup",
+        "all_essential": "Inclòs - substitueix: Essencial",
+        "all_non_essential": "Inclòs - substitueix: No essencial"
       }
     }
   }

@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Isti entitet ne može se pojaviti na oba popisa. Uklonite duplikate prije spremanja.",
       "collapse_requires_device_names": "Grupiranje entiteta po uređaju zahtijeva da je uključeno „Prikaži nazive uređaja“."
+    },
+    "abort": {
+      "not_enough_groups": "Ovaj kombinirani grupa više nema dovoljno izvornih grupa učitanih. Najprije dodajte više grupa."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Pratite entitete",
         "combined_group": "Kombinirajte grupe"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Nije uključena",
+        "keep": "Uključena - koristi postavke grupe",
+        "all_essential": "Uključena - prisilno: Bitno",
+        "all_non_essential": "Uključena - prisilno: Nebitno"
       }
     }
   }

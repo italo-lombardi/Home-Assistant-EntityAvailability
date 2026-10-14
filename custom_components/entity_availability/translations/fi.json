@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
       "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä."
+    },
+    "abort": {
+      "not_enough_groups": "Tässä yhdistetyssä ryhmässä ei ole enää tarpeeksi lähderyhmäjä ladattuna. Lisää ensin lisää ryhmiä."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Seuraa entiteettejä",
         "combined_group": "Yhdistä ryhmiä"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Ei sisällytetty",
+        "keep": "Sisällytetty - käytä ryhmän asetuksia",
+        "all_essential": "Sisällytetty - pakota: Oleellinen",
+        "all_non_essential": "Sisällytetty - pakota: Ei-oleellinen"
       }
     }
   }

@@ -4990,17 +4990,15 @@ for e in cfg['data']['entries']:
                     fid = r["flow_id"]
                     try:
                         schema = r.get("data_schema", [])
-                        # description_placeholders["eid_title_map"] = "eid1:title1|eid2:title2"
+                        # description_placeholders["eid_title_map"] = '{"eid1": "title1", ...}'
                         eid_title_map_str = (
                             r.get("description_placeholders", {}).get(
                                 "eid_title_map", ""
                             )
                             or ""
                         )
-                        eid_to_title = dict(
-                            pair.split(":", 1)
-                            for pair in eid_title_map_str.split("|")
-                            if ":" in pair
+                        eid_to_title = (
+                            json.loads(eid_title_map_str) if eid_title_map_str else {}
                         )
                         gname = next(
                             (

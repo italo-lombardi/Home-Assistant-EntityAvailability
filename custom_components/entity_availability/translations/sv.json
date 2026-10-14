@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
       "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget."
+    },
+    "abort": {
+      "not_enough_groups": "Den här kombinerade gruppen har inte längre tillräckligt många källgrupper inlästa. Lägg till fler grupper först."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Övervaka entiteter",
         "combined_group": "Kombinera grupper"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Ej inkluderad",
+        "keep": "Inkluderad — använd gruppinställningar",
+        "all_essential": "Inkluderad — åsidosätt: Väsentlig",
+        "all_non_essential": "Inkluderad — åsidosätt: Icke-väsentlig"
       }
     }
   }

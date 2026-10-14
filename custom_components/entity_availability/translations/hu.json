@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
       "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást."
+    },
+    "abort": {
+      "not_enough_groups": "Ennek az összesített csoportnak már nincs elegendő betöltött forráscsoport. Először adjon hozzá több csoportot."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Entitások figyelése",
         "combined_group": "Csoportok összesítése"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Nincs belefoglalva",
+        "keep": "Belefoglalva - csoport beállításainak használata",
+        "all_essential": "Belefoglalva - felülbírálat: Kritikus",
+        "all_non_essential": "Belefoglalva - felülbírálat: Nem kritikus"
       }
     }
   }

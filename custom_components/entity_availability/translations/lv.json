@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
       "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“."
+    },
+    "abort": {
+      "not_enough_groups": "Šajā apvienotajā grupā vairs nav pietiekami daudz avota grupu. Vispirms pievienojiet vairāk grupu."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Uzraudzīt entitātes",
         "combined_group": "Apvienot grupas"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Nav iekļauta",
+        "keep": "Iekļauta - izmantot grupas iestatījumus",
+        "all_essential": "Iekļauta - pārdefinēt: Būtiska",
+        "all_non_essential": "Iekļauta - pārdefinēt: Nebūtiska"
       }
     }
   }

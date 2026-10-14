@@ -138,6 +138,9 @@
     "error": {
       "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
       "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“."
+    },
+    "abort": {
+      "not_enough_groups": "Táto kombinovaná skupina už nemá dostatok načítaných zdrojových skupín. Najprv pridajte ďalšie skupiny."
     }
   },
   "entity": {
@@ -271,6 +274,14 @@
       "options": {
         "group": "Monitorovať entity",
         "combined_group": "Kombinovať skupiny"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "Nezahrnutá",
+        "keep": "Zahrnutá — použiť nastavenia skupiny",
+        "all_essential": "Zahrnutá — prepísať: Dôležitá",
+        "all_non_essential": "Zahrnutá — prepísať: Nedôležitá"
       }
     }
   }
