@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "同じエンティティを両方のリストに含めることはできません。重複を削除してから保存してください。",
       "collapse_requires_device_names": "デバイスごとにエンティティをまとめるには「デバイス名を表示」を有効にする必要があります。",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "グループ名を入力してください。",
+      "not_enough_groups_selected": "結合するには少なくとも2つのグループを選択してください。"
     },
     "abort": {
       "not_enough_groups": "この結合グループには、ロードされているソースグループが不足しています。先にグループを追加してください。"

@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
       "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "A csoport neve nem lehet üres.",
+      "not_enough_groups_selected": "Legalább két csoportot válasszon ki az összesítéshez."
     },
     "abort": {
       "not_enough_groups": "Ennek az összesített csoportnak már nincs elegendő betöltött forráscsoport. Először adjon hozzá több csoportot."

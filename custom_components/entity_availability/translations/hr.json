@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Isti entitet ne može se pojaviti na oba popisa. Uklonite duplikate prije spremanja.",
       "collapse_requires_device_names": "Grupiranje entiteta po uređaju zahtijeva da je uključeno „Prikaži nazive uređaja“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Naziv grupe ne smije biti prazan.",
+      "not_enough_groups_selected": "Odaberite najmanje dvije grupe za kombiniranje."
     },
     "abort": {
       "not_enough_groups": "Ovaj kombinirani grupa više nema dovoljno izvornih grupa učitanih. Najprije dodajte više grupa."

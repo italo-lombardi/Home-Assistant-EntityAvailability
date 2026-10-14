@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare.",
       "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Il nome del gruppo non può essere vuoto.",
+      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare."
     },
     "abort": {
       "not_enough_groups": "Questo gruppo combinato non ha più abbastanza gruppi sorgente caricati. Aggiungi prima altri gruppi."

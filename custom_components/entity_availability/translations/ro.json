@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Aceeași entitate nu poate apărea în ambele liste. Eliminați duplicatele înainte de salvare.",
       "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Numele grupului nu poate fi gol.",
+      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare."
     },
     "abort": {
       "not_enough_groups": "Acest grup combinat nu mai are suficiente grupuri sursă încărcate. Adăugați mai întâi mai multe grupuri."

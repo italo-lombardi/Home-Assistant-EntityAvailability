@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Aynı varlık her iki listede de görünemez. Kaydetmeden önce tekrar edilenleri kaldırın.",
       "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Grup adı boş olamaz.",
+      "not_enough_groups_selected": "Birleştirmek için en az iki grup seçin."
     },
     "abort": {
       "not_enough_groups": "Bu birleşik grup artık yeterli sayıda kaynak gruba sahip değil. Önce daha fazla grup ekleyin."

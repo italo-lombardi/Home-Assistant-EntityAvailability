@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
       "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Gruppnamnet kan inte vara tomt.",
+      "not_enough_groups_selected": "Välj minst två grupper att kombinera."
     },
     "abort": {
       "not_enough_groups": "Den här kombinerade gruppen har inte längre tillräckligt många källgrupper inlästa. Lägg till fler grupper först."

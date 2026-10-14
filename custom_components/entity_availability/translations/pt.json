@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "A mesma entidade não pode aparecer em ambas as listas. Remova os duplicados antes de guardar.",
       "collapse_requires_device_names": "Agrupar entidades por dispositivo requer que «Mostrar nomes de dispositivo» esteja ativado.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "O nome do grupo não pode estar vazio.",
+      "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar."
     },
     "abort": {
       "not_enough_groups": "Este grupo combinado já não tem grupos de origem suficientes carregados. Adicione mais grupos primeiro."

@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring.",
       "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Gruppenavnet kan ikke være tomt.",
+      "not_enough_groups_selected": "Velg minst to grupper å kombinere."
     },
     "abort": {
       "not_enough_groups": "Denne kombinerte gruppen har ikke lenger nok kildegrupper lastet inn. Legg til flere grupper først."

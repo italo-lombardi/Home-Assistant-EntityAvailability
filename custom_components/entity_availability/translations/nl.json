@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan.",
       "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Groepsnaam mag niet leeg zijn.",
+      "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren."
     },
     "abort": {
       "not_enough_groups": "Deze gecombineerde groep heeft niet meer genoeg brongroepen geladen. Voeg eerst meer groepen toe."

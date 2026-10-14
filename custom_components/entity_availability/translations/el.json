@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Η ίδια οντότητα δεν μπορεί να εμφανίζεται και στις δύο λίστες. Αφαιρέστε τα διπλότυπα πριν αποθηκεύσετε.",
       "collapse_requires_device_names": "Η ομαδοποίηση οντοτήτων ανά συσκευή απαιτεί να είναι ενεργοποιημένη η «Εμφάνιση ονομάτων συσκευών».",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Το όνομα ομάδας δεν μπορεί να είναι κενό.",
+      "not_enough_groups_selected": "Επιλέξτε τουλάχιστον δύο ομάδες για συνδυασμό."
     },
     "abort": {
       "not_enough_groups": "Αυτή η συνδυαστική ομάδα δεν έχει πλέον αρκετές ομάδες πηγής φορτωμένες. Προσθέστε περισσότερες ομάδες πρώτα."

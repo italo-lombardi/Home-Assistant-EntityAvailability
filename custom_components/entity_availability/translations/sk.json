@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
       "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Názov skupiny nesmie byť prázdny.",
+      "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie."
     },
     "abort": {
       "not_enough_groups": "Táto kombinovaná skupina už nemá dostatok načítaných zdrojových skupín. Najprv pridajte ďalšie skupiny."

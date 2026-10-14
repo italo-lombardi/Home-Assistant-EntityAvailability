@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
       "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Ryhmän nimi ei voi olla tyhjä.",
+      "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi."
     },
     "abort": {
       "not_enough_groups": "Tässä yhdistetyssä ryhmässä ei ole enää tarpeeksi lähderyhmäjä ladattuna. Lisää ensin lisää ryhmiä."

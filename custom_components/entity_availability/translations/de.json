@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern.",
       "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Der Gruppenname darf nicht leer sein.",
+      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus."
     },
     "abort": {
       "not_enough_groups": "Diese kombinierte Gruppe hat nicht mehr genügend geladene Quellgruppen. Fügen Sie zuerst weitere Gruppen hinzu."

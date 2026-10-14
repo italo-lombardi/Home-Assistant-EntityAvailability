@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
       "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
+      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui."
     },
     "abort": {
       "not_enough_groups": "Šioje jungtinėje grupėje nebėra pakankamai šaltinio grupių. Pirmiausia pridėkite daugiau grupių."

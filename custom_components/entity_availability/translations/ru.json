@@ -139,7 +139,9 @@
     "error": {
       "duplicate_entities": "Один и тот же объект не может присутствовать в обоих списках. Удалите дубликаты перед сохранением.",
       "collapse_requires_device_names": "Объединение объектов по устройству требует включения параметра «Показывать имена устройств».",
-      "already_configured": "A group with this name already exists."
+      "already_configured": "A group with this name already exists.",
+      "empty_group_name": "Название группы не может быть пустым.",
+      "not_enough_groups_selected": "Выберите не менее двух групп для объединения."
     },
     "abort": {
       "not_enough_groups": "В этой объединённой группе больше недостаточно загруженных исходных групп. Сначала добавьте больше групп."
