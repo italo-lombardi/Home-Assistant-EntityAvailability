@@ -4909,7 +4909,8 @@ for e in cfg['data']['entries']:
                 if fid_121 and r_121.get("step_id") == "combined_init":
                     schema_121 = r_121.get("data_schema", [])
                     gname_field = next(
-                        (f for f in schema_121 if f.get("name") == "group_name"), None
+                        (f for f in schema_121 if f.get("name") == "combined_name"),
+                        None,
                     )
                     current_gname = (gname_field or {}).get("default", "")
                     # Echo all non-group_name field defaults back unchanged (fields are group titles)
@@ -4919,11 +4920,11 @@ for e in cfg['data']['entries']:
                         "all_essential",
                         "all_non_essential",
                     }
-                    payload_121 = {"group_name": current_gname}
+                    payload_121 = {"combined_name": current_gname}
                     for f in schema_121:
                         fname = f.get("name", "")
                         fdefault = f.get("default", "excluded")
-                        if fname != "group_name" and fdefault in _override_values:
+                        if fname != "combined_name" and fdefault in _override_values:
                             payload_121[fname] = fdefault
                     r2_121 = api(
                         "POST",
