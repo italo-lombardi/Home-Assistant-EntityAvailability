@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Creare grup combinat",
-        "description": "Combinați mai multe grupuri într-o singură vizualizare pentru automatizări și tablouri de bord.",
+        "description": "Selectați modul în care fiecare grup trebuie clasificat: Neinclus, Inclus cu propriile setări ale grupului sau suprascriere la Esențial sau Neesențial.",
         "data": {
-          "group_name": "Numele grupului combinat",
-          "combined_groups": "Grupuri de inclus"
+          "group_name": "Numele grupului combinat"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Editare grup combinat",
-        "description": "Modificați numele și grupurile incluse în grupul combinat.",
+        "description": "Selectați modul în care fiecare grup trebuie clasificat: Neinclus, Inclus cu propriile setări ale grupului sau suprascriere la Esențial sau Neesențial.",
         "data": {
-          "group_name": "Numele grupului combinat",
-          "combined_groups": "Grupuri de inclus"
+          "group_name": "Numele grupului combinat"
         }
       },
       "battery_mapping": {

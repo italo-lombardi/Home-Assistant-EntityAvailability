@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Luo yhdistetty ryhmä",
-        "description": "Yhdistä useita ryhmiä yhdeksi näkymäksi automaatioita ja koontinäyttöjä varten.",
+        "description": "Valitse, miten kukin ryhmä luokitellaan: Ei sisällytetty, Sisällytetty ryhmän omilla asetuksilla tai pakota Oleellinen tai Ei-oleellinen.",
         "data": {
-          "group_name": "Yhdistetyn ryhmän nimi",
-          "combined_groups": "Sisällytettävät ryhmät"
+          "group_name": "Yhdistetyn ryhmän nimi"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Muokkaa yhdistettyä ryhmää",
-        "description": "Muokkaa yhdistetyn ryhmän nimeä ja mukana olevia ryhmiä.",
+        "description": "Valitse, miten kukin ryhmä luokitellaan: Ei sisällytetty, Sisällytetty ryhmän omilla asetuksilla tai pakota Oleellinen tai Ei-oleellinen.",
         "data": {
-          "group_name": "Yhdistetyn ryhmän nimi",
-          "combined_groups": "Sisällytettävät ryhmät"
+          "group_name": "Yhdistetyn ryhmän nimi"
         }
       },
       "battery_mapping": {

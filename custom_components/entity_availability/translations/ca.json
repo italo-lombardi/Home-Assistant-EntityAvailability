@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Crea un grup combinat",
-        "description": "Combineu diversos grups en una sola vista per a automatitzacions i taulers.",
+        "description": "Seleccioneu com s'ha de classificar cada grup: No inclòs, Inclòs amb la configuració pròpia del grup, o substituïu-lo per Essencial o No essencial.",
         "data": {
-          "group_name": "Nom del grup combinat",
-          "combined_groups": "Grups a incloure"
+          "group_name": "Nom del grup combinat"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Edita el grup combinat",
-        "description": "Modifiqueu el nom del grup combinat i els grups inclosos.",
+        "description": "Seleccioneu com s'ha de classificar cada grup: No inclòs, Inclòs amb la configuració pròpia del grup, o substituïu-lo per Essencial o No essencial.",
         "data": {
-          "group_name": "Nom del grup combinat",
-          "combined_groups": "Grups a incloure"
+          "group_name": "Nom del grup combinat"
         }
       },
       "battery_mapping": {

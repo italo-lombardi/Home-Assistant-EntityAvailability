@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Birleşik Grup Oluştur",
-        "description": "Otomasyonlar ve gösterge panelleri için birden fazla grubu tek bir görünümde birleştirin.",
+        "description": "Her grubun nasıl sınıflandırılacağını seçin: Dahil edilmez, Grubun kendi ayarlarıyla dahil edilir veya Temel ya da Temel Olmayan olarak geçersiz kılınır.",
         "data": {
-          "group_name": "Birleşik Grup Adı",
-          "combined_groups": "Dahil Edilecek Gruplar"
+          "group_name": "Birleşik Grup Adı"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Birleşik Grubu Düzenle",
-        "description": "Birleşik grup adını ve dahil edilen grupları değiştirin.",
+        "description": "Her grubun nasıl sınıflandırılacağını seçin: Dahil edilmez, Grubun kendi ayarlarıyla dahil edilir veya Temel ya da Temel Olmayan olarak geçersiz kılınır.",
         "data": {
-          "group_name": "Birleşik Grup Adı",
-          "combined_groups": "Dahil Edilecek Gruplar"
+          "group_name": "Birleşik Grup Adı"
         }
       },
       "battery_mapping": {

@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Izveidot apvienoto grupu",
-        "description": "Apvienojiet vairākas grupas vienā skatā automatizācijai un informācijas paneļiem.",
+        "description": "Atlasiet, kā jāklasificē katra grupa: nav iekļauta, iekļauta, izmantojot grupas pašas iestatījumus, vai pārdefinēta kā Būtiska vai Nebūtiska.",
         "data": {
-          "group_name": "Apvienotās grupas nosaukums",
-          "combined_groups": "Iekļaujamās grupas"
+          "group_name": "Apvienotās grupas nosaukums"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Rediģēt apvienoto grupu",
-        "description": "Mainiet apvienotās grupas nosaukumu un iekļaujamās grupas.",
+        "description": "Atlasiet, kā jāklasificē katra grupa: nav iekļauta, iekļauta, izmantojot grupas pašas iestatījumus, vai pārdefinēta kā Būtiska vai Nebūtiska.",
         "data": {
-          "group_name": "Apvienotās grupas nosaukums",
-          "combined_groups": "Iekļaujamās grupas"
+          "group_name": "Apvienotās grupas nosaukums"
         }
       },
       "battery_mapping": {

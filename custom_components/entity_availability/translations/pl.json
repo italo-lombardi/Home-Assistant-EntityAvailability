@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Utwórz grupę zbiorczą",
-        "description": "Połącz wiele grup w jeden widok dla automatyzacji i pulpitów.",
+        "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
         "data": {
-          "group_name": "Nazwa grupy zbiorczej",
-          "combined_groups": "Grupy do uwzględnienia"
+          "group_name": "Nazwa grupy zbiorczej"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Edytuj grupę zbiorczą",
-        "description": "Zmień nazwę i uwzględnione grupy tej grupy zbiorczej.",
+        "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
         "data": {
-          "group_name": "Nazwa grupy zbiorczej",
-          "combined_groups": "Grupy do uwzględnienia"
+          "group_name": "Nazwa grupy zbiorczej"
         }
       },
       "battery_mapping": {

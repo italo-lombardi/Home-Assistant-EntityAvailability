@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Kurti jungtinę grupę",
-        "description": "Sujunkite kelias grupes į vieną rodinį automatizavimui ir informaciniams skydeliams.",
+        "description": "Pasirinkite, kaip kiekviena grupė turi būti klasifikuojama: neįtraukta, įtraukta naudojant grupės savus nustatymus arba pakeista į Esminę arba Neesminę.",
         "data": {
-          "group_name": "Jungtinės grupės pavadinimas",
-          "combined_groups": "Įtraukiamos grupės"
+          "group_name": "Jungtinės grupės pavadinimas"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Redaguoti jungtinę grupę",
-        "description": "Keiskite jungtinės grupės pavadinimą ir įtraukiamas grupes.",
+        "description": "Pasirinkite, kaip kiekviena grupė turi būti klasifikuojama: neįtraukta, įtraukta naudojant grupės savus nustatymus arba pakeista į Esminę arba Neesminę.",
         "data": {
-          "group_name": "Jungtinės grupės pavadinimas",
-          "combined_groups": "Įtraukiamos grupės"
+          "group_name": "Jungtinės grupės pavadinimas"
         }
       },
       "battery_mapping": {

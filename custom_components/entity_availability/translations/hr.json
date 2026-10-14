@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Stvori kombiniranu grupu",
-        "description": "Kombinirajte više grupa u jedan prikaz za automatizacije i nadzorne ploče.",
+        "description": "Odaberite kako treba klasificirati svaku grupu: Nije uključena, Uključena s vlastitim postavkama grupe, ili prisilno postavite na Bitno ili Nebitno.",
         "data": {
-          "group_name": "Naziv kombinirane grupe",
-          "combined_groups": "Grupe za uključivanje"
+          "group_name": "Naziv kombinirane grupe"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Uredi kombiniranu grupu",
-        "description": "Izmjenite naziv i uključene grupe kombinirane grupe.",
+        "description": "Odaberite kako treba klasificirati svaku grupu: Nije uključena, Uključena s vlastitim postavkama grupe, ili prisilno postavite na Bitno ili Nebitno.",
         "data": {
-          "group_name": "Naziv kombinirane grupe",
-          "combined_groups": "Grupe za uključivanje"
+          "group_name": "Naziv kombinirane grupe"
         }
       },
       "battery_mapping": {

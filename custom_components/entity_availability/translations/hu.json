@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Összesített csoport létrehozása",
-        "description": "Több csoport egyesítése egyetlen nézetbe automatizációkhoz és irányítópultokhoz.",
+        "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
         "data": {
-          "group_name": "Összesített csoport neve",
-          "combined_groups": "Belefoglalandó csoportok"
+          "group_name": "Összesített csoport neve"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Összesített csoport szerkesztése",
-        "description": "Az összesített csoport nevének és tartalmának módosítása.",
+        "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
         "data": {
-          "group_name": "Összesített csoport neve",
-          "combined_groups": "Belefoglalandó csoportok"
+          "group_name": "Összesített csoport neve"
         }
       },
       "battery_mapping": {

@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "결합 그룹 생성",
-        "description": "자동화 및 대시보드를 위해 여러 그룹을 하나의 뷰로 결합합니다.",
+        "description": "각 그룹을 어떻게 분류할지 선택하세요: 포함하지 않음, 그룹 자체 설정으로 포함, 또는 필수 혹은 비필수로 재지정.",
         "data": {
-          "group_name": "결합 그룹 이름",
-          "combined_groups": "포함할 그룹"
+          "group_name": "결합 그룹 이름"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "결합 그룹 편집",
-        "description": "결합 그룹 이름과 포함된 그룹을 수정합니다.",
+        "description": "각 그룹을 어떻게 분류할지 선택하세요: 포함하지 않음, 그룹 자체 설정으로 포함, 또는 필수 혹은 비필수로 재지정.",
         "data": {
-          "group_name": "결합 그룹 이름",
-          "combined_groups": "포함할 그룹"
+          "group_name": "결합 그룹 이름"
         }
       },
       "battery_mapping": {

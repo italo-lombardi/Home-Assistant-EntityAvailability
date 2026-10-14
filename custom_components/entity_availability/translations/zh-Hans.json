@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "创建合并组",
-        "description": "将多个组合并为一个视图，用于自动化和仪表盘。",
+        "description": "为每个组选择分类方式：不包含、使用组自有设置包含，或覆盖为必要或非必要。",
         "data": {
-          "group_name": "合并组名",
-          "combined_groups": "要包含的组"
+          "group_name": "合并组名"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "编辑合并组",
-        "description": "修改合并组的名称及包含的组。",
+        "description": "为每个组选择分类方式：不包含、使用组自有设置包含，或覆盖为必要或非必要。",
         "data": {
-          "group_name": "合并组名",
-          "combined_groups": "要包含的组"
+          "group_name": "合并组名"
         }
       },
       "battery_mapping": {

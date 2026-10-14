@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Vytvořit kombinovanou skupinu",
-        "description": "Sloučte více skupin do jednoho přehledu pro automatizace a dashboardy.",
+        "description": "Vyberte, jak má být každá skupina klasifikována: Nezahrnuta, Zahrnuta s vlastním nastavením skupiny, nebo přepište na Základní nebo Nedůležitá.",
         "data": {
-          "group_name": "Název kombinované skupiny",
-          "combined_groups": "Skupiny k zahrnutí"
+          "group_name": "Název kombinované skupiny"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Upravit kombinovanou skupinu",
-        "description": "Změňte název a zahrnuté skupiny této kombinované skupiny.",
+        "description": "Vyberte, jak má být každá skupina klasifikována: Nezahrnuta, Zahrnuta s vlastním nastavením skupiny, nebo přepište na Základní nebo Nedůležitá.",
         "data": {
-          "group_name": "Název kombinované skupiny",
-          "combined_groups": "Skupiny k zahrnutí"
+          "group_name": "Název kombinované skupiny"
         }
       },
       "battery_mapping": {

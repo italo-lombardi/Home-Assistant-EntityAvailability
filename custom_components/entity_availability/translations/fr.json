@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Créer un groupe combiné",
-        "description": "Combinez plusieurs groupes en une vue pour les automatisations et les tableaux de bord.",
+        "description": "Sélectionnez la classification de chaque groupe : Non inclus, Inclus avec ses propres paramètres, ou forcer Essentiel ou Non essentiel.",
         "data": {
-          "group_name": "Nom du groupe combiné",
-          "combined_groups": "Groupes à inclure"
+          "group_name": "Nom du groupe combiné"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Modifier le groupe combiné",
-        "description": "Modifier le nom et les groupes inclus dans ce groupe combiné.",
+        "description": "Sélectionnez la classification de chaque groupe : Non inclus, Inclus avec ses propres paramètres, ou forcer Essentiel ou Non essentiel.",
         "data": {
-          "group_name": "Nom du groupe combiné",
-          "combined_groups": "Groupes à inclure"
+          "group_name": "Nom du groupe combiné"
         }
       },
       "battery_mapping": {

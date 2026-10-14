@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Skapa kombinerad grupp",
-        "description": "Kombinera flera grupper i en vy för automatiseringar och dashboards.",
+        "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
         "data": {
-          "group_name": "Namn på kombinerad grupp",
-          "combined_groups": "Grupper att inkludera"
+          "group_name": "Namn på kombinerad grupp"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Redigera kombinerad grupp",
-        "description": "Ändra namn och inkluderade grupper för denna kombinerade grupp.",
+        "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
         "data": {
-          "group_name": "Namn på kombinerad grupp",
-          "combined_groups": "Grupper att inkludera"
+          "group_name": "Namn på kombinerad grupp"
         }
       },
       "battery_mapping": {

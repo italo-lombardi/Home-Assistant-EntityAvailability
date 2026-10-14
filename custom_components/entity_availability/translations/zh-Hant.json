@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "建立合併組",
-        "description": "將多個組合併為一個視圖，用於自動化與儀表板。",
+        "description": "為每個組選擇分類方式：不包含、使用組自有設定包含，或覆寫為必要或非必要。",
         "data": {
-          "group_name": "合併組名",
-          "combined_groups": "要包含的組"
+          "group_name": "合併組名"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "編輯合併組",
-        "description": "修改合併組的名稱及包含的組。",
+        "description": "為每個組選擇分類方式：不包含、使用組自有設定包含，或覆寫為必要或非必要。",
         "data": {
-          "group_name": "合併組名",
-          "combined_groups": "要包含的組"
+          "group_name": "合併組名"
         }
       },
       "battery_mapping": {

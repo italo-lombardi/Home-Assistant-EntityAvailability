@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Gecombineerde groep aanmaken",
-        "description": "Combineer meerdere groepen in één weergave voor automatiseringen en dashboards.",
+        "description": "Selecteer hoe elke groep geclassificeerd moet worden: Niet opgenomen, Opgenomen met de eigen instellingen van de groep, of overschreven naar Essentieel of Niet-essentieel.",
         "data": {
-          "group_name": "Naam gecombineerde groep",
-          "combined_groups": "In te sluiten groepen"
+          "group_name": "Naam gecombineerde groep"
         }
       },
       "monitoring": {
@@ -122,10 +121,9 @@
       },
       "combined_init": {
         "title": "Gecombineerde groep bewerken",
-        "description": "Wijzig de naam en opgenomen groepen van deze gecombineerde groep.",
+        "description": "Selecteer hoe elke groep geclassificeerd moet worden: Niet opgenomen, Opgenomen met de eigen instellingen van de groep, of overschreven naar Essentieel of Niet-essentieel.",
         "data": {
-          "group_name": "Naam gecombineerde groep",
-          "combined_groups": "In te sluiten groepen"
+          "group_name": "Naam gecombineerde groep"
         }
       },
       "battery_mapping": {

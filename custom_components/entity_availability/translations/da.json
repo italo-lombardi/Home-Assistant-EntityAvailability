@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Opret kombineret gruppe",
-        "description": "Kombiner flere grupper i én visning til automationer og dashboards.",
+        "description": "Vælg, hvordan hver gruppe skal klassificeres: Ikke inkluderet, Inkluderet med gruppens egne indstillinger, eller tilsidesæt til Essentiel eller Ikke-essentiel.",
         "data": {
-          "group_name": "Kombineret gruppenavn",
-          "combined_groups": "Grupper der skal inkluderes"
+          "group_name": "Kombineret gruppenavn"
         }
       },
       "monitoring": {
@@ -123,10 +122,9 @@
       },
       "combined_init": {
         "title": "Rediger kombineret gruppe",
-        "description": "Rediger navn og inkluderede grupper for denne kombinerede gruppe.",
+        "description": "Vælg, hvordan hver gruppe skal klassificeres: Ikke inkluderet, Inkluderet med gruppens egne indstillinger, eller tilsidesæt til Essentiel eller Ikke-essentiel.",
         "data": {
-          "group_name": "Kombineret gruppenavn",
-          "combined_groups": "Grupper der skal inkluderes"
+          "group_name": "Kombineret gruppenavn"
         }
       },
       "battery_mapping": {
