@@ -10,7 +10,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.entity_availability.config_flow import _make_override_slug
 from custom_components.entity_availability.const import (
     CONF_AVAILABILITY_WINDOWS,
     CONF_BAD_STATES,
@@ -503,8 +502,8 @@ async def test_step_combined_empty_name_error(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             CONF_GROUP_NAME: "   ",
-            "Group A": "keep",
-            "Group B": "keep",
+            "g:Group A": "keep",
+            "g:Group B": "keep",
         },
     )
     assert result["type"] == FlowResultType.FORM
@@ -524,7 +523,7 @@ async def test_step_combined_not_enough_groups_selected_error(
     )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {CONF_GROUP_NAME: "My Combined", "Group A": "keep"},
+        {CONF_GROUP_NAME: "My Combined", "g:Group A": "keep"},
     )
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "not_enough_groups_selected"}
@@ -547,8 +546,8 @@ async def test_step_combined_creates_entry(hass: HomeAssistant) -> None:
             result["flow_id"],
             {
                 CONF_GROUP_NAME: "My Combined",
-                "Group A": "keep",
-                "Group B": "keep",
+                "g:Group A": "keep",
+                "g:Group B": "keep",
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -581,14 +580,14 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
             result["flow_id"],
             {
                 CONF_GROUP_NAME: "Override Test",
-                "Group A": NE_OVERRIDE_ALL_NON_ESSENTIAL,
-                "Group B": "keep",
+                "g:Group A": NE_OVERRIDE_ALL_NON_ESSENTIAL,
+                "g:Group B": "keep",
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     overrides = result["data"][CONF_COMBINED_GROUPS_OVERRIDES]
     assert overrides[entry_a.entry_id] == NE_OVERRIDE_ALL_NON_ESSENTIAL
-    assert overrides.get(entry_b.entry_id, "keep") == "keep"
+    assert overrides[entry_b.entry_id] == "keep"
 
     """Creating a combined group with the same name is aborted."""
     entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
@@ -607,8 +606,8 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
             result["flow_id"],
             {
                 CONF_GROUP_NAME: "My Combined",
-                "Group A": "keep",
-                "Group B": "keep",
+                "g:Group A": "keep",
+                "g:Group B": "keep",
             },
         )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -622,8 +621,8 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
         result2["flow_id"],
         {
             CONF_GROUP_NAME: "My Combined",
-            "Group A": "keep",
-            "Group B": "keep",
+            "g:Group A": "keep",
+            "g:Group B": "keep",
         },
     )
     assert result2["type"] == FlowResultType.ABORT
@@ -659,8 +658,8 @@ async def test_step_combined_excludes_non_loaded_entries(hass: HomeAssistant) ->
     # The form schema must have group_* fields only for LOADED entries
     schema_keys = [str(k) for k in result["data_schema"].schema]
     # Group A and Group B (LOADED) should be present; Bad Group (SETUP_ERROR) should not
-    assert "Group A" in schema_keys
-    assert "Group B" in schema_keys
+    assert "g:Group A" in schema_keys
+    assert "g:Group B" in schema_keys
     assert not any("Bad" in k for k in schema_keys)
 
 
@@ -702,15 +701,15 @@ async def test_step_combined_deduplicates_same_title(hass: HomeAssistant) -> Non
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "combined"
     schema_keys = [str(k) for k in result["data_schema"].schema]
-    assert "Duplicate" in schema_keys
-    assert "Duplicate (2)" in schema_keys
+    assert "g:Duplicate" in schema_keys
+    assert "g:Duplicate (2)" in schema_keys
 
     result2 = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
             CONF_GROUP_NAME: "Both Dupes",
-            "Duplicate": "keep",
-            "Duplicate (2)": "keep",
+            "g:Duplicate": "keep",
+            "g:Duplicate (2)": "keep",
         },
     )
     assert result2["type"] == FlowResultType.CREATE_ENTRY
@@ -780,8 +779,8 @@ async def test_combined_options_flow_deduplicates_same_title(
     result = await hass.config_entries.options.async_init(combined.entry_id)
     assert result["type"] == FlowResultType.FORM
     schema_keys = [str(k) for k in result["data_schema"].schema]
-    assert "Duplicate" in schema_keys
-    assert "Duplicate (2)" in schema_keys
+    assert "g:Duplicate" in schema_keys
+    assert "g:Duplicate (2)" in schema_keys
 
 
 async def test_combined_options_flow_shows_form(hass: HomeAssistant) -> None:
@@ -847,9 +846,9 @@ async def test_combined_options_flow_updates_entry(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             CONF_GROUP_NAME: "Renamed Combined",
-            "Group A": "keep",
-            "Group B": "excluded",
-            "Group C": "keep",
+            "g:Group A": "keep",
+            "g:Group B": "excluded",
+            "g:Group C": "keep",
         },
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
@@ -888,8 +887,8 @@ async def test_combined_options_flow_empty_name_error(hass: HomeAssistant) -> No
         result["flow_id"],
         {
             CONF_GROUP_NAME: "   ",
-            "Group A": "keep",
-            "Group B": "keep",
+            "g:Group A": "keep",
+            "g:Group B": "keep",
         },
     )
     assert result["type"] == FlowResultType.FORM
@@ -929,8 +928,8 @@ async def test_combined_options_flow_not_enough_groups_error(
         result["flow_id"],
         {
             CONF_GROUP_NAME: "Valid Name",
-            "Group A": "keep",
-            "Group B": "excluded",
+            "g:Group A": "keep",
+            "g:Group B": "excluded",
         },
     )
     assert result["type"] == FlowResultType.FORM
@@ -2960,12 +2959,3 @@ async def test_detect_signal_entity_non_signal_sibling_then_naming(
         )
 
     assert result["step_id"] == "signal_mapping"
-
-
-def test_make_override_slug_deduplicates() -> None:
-    existing: dict[str, str] = {"my_group": "eid1"}
-    slug = _make_override_slug("My Group", existing)
-    assert slug == "my_group_2"
-    existing[slug] = "eid2"
-    slug2 = _make_override_slug("My Group", existing)
-    assert slug2 == "my_group_3"

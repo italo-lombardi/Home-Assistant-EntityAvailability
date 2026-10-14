@@ -137,7 +137,9 @@
     },
     "error": {
       "duplicate_entities": "The same entity cannot appear in both lists. Remove duplicates before saving.",
-      "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled."
+      "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled.",
+      "empty_group_name": "Group name cannot be empty.",
+      "not_enough_groups_selected": "Select at least two groups to combine."
     }
   },
   "entity": {

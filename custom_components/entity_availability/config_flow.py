@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any
 
 import voluptuous as vol
@@ -143,17 +142,6 @@ def _build_signal_map_from_input(
     return signal_map
 
 
-def _make_override_slug(title: str, existing: dict[str, str]) -> str:
-    """Return a unique slug for a group title, deduplicating against existing."""
-    base = re.sub(r"[^a-z0-9]", "_", title.lower())[:40].strip("_") or "group"
-    slug = base
-    counter = 2
-    while slug in existing:
-        slug = f"{base}_{counter}"
-        counter += 1
-    return slug
-
-
 class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Entity Availability."""
 
@@ -282,13 +270,13 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             combined_groups = [
                 eid
                 for title, eid in title_to_eid.items()
-                if (user_input.get(title) or NE_OVERRIDE_EXCLUDED)
+                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
                 != NE_OVERRIDE_EXCLUDED
             ]
             overrides = {
-                eid: (user_input.get(title) or NE_OVERRIDE_EXCLUDED)
+                eid: user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
                 for title, eid in title_to_eid.items()
-                if (user_input.get(title) or NE_OVERRIDE_EXCLUDED)
+                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
                 != NE_OVERRIDE_EXCLUDED
             }
 
@@ -327,7 +315,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         ]
         fields: dict[vol.Marker, Any] = {vol.Required(CONF_GROUP_NAME): str}
         for title in title_to_eid:
-            fields[vol.Optional(title, default=NE_OVERRIDE_EXCLUDED)] = (
+            fields[vol.Optional(f"g:{title}", default=NE_OVERRIDE_EXCLUDED)] = (
                 selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=group_options,
@@ -341,7 +329,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={
-                "eid_title_map": ",".join(
+                "eid_title_map": "|".join(
                     f"{eid}:{title}" for title, eid in title_to_eid.items()
                 )
             },
@@ -895,6 +883,9 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             key=lambda e: e.title,
         )
 
+        if len(existing_groups) < 2:
+            return self.async_abort(reason="not_enough_groups")
+
         # title_to_eid: field key = group title so HA frontend shows a readable label
         title_to_eid: dict[str, str] = {}
         for e in existing_groups:
@@ -910,13 +901,13 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             combined_groups = [
                 eid
                 for title, eid in title_to_eid.items()
-                if (user_input.get(title) or NE_OVERRIDE_EXCLUDED)
+                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
                 != NE_OVERRIDE_EXCLUDED
             ]
             overrides = {
-                eid: (user_input.get(title) or NE_OVERRIDE_EXCLUDED)
+                eid: user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
                 for title, eid in title_to_eid.items()
-                if (user_input.get(title) or NE_OVERRIDE_EXCLUDED)
+                if user_input.get(f"g:{title}", NE_OVERRIDE_EXCLUDED)
                 != NE_OVERRIDE_EXCLUDED
             }
 
@@ -962,10 +953,12 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 default_val = current_overrides.get(eid, NE_OVERRIDE_KEEP)
             else:
                 default_val = NE_OVERRIDE_EXCLUDED
-            fields[vol.Optional(title, default=default_val)] = selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=group_options,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
+            fields[vol.Optional(f"g:{title}", default=default_val)] = (
+                selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=group_options,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
                 )
             )
 
@@ -974,7 +967,7 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={
-                "eid_title_map": ",".join(
+                "eid_title_map": "|".join(
                     f"{eid}:{title}" for title, eid in title_to_eid.items()
                 )
             },
