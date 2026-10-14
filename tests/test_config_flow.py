@@ -201,6 +201,9 @@ async def test_advanced_collapse_requires_device_names(hass: HomeAssistant) -> N
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "advanced"
     assert result["errors"] == {CONF_COLLAPSE_DEVICES: "collapse_requires_device_names"}
+
+
+async def test_full_config_flow_with_battery(hass: HomeAssistant) -> None:
     """Test complete flow with battery threshold > 0 shows battery mapping step."""
     result = await _init_flow(hass)
 
@@ -588,11 +591,11 @@ async def test_step_combined_overrides_stored(hass: HomeAssistant) -> None:
     assert overrides[entry_a.entry_id] == NE_OVERRIDE_ALL_NON_ESSENTIAL
     assert overrides[entry_b.entry_id] == "keep"
 
-    """Creating a combined group with the same name is aborted."""
-    entry_a = await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
-    entry_b = await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
 
-    # First combined entry
+async def test_step_combined_duplicate_name_aborted(hass: HomeAssistant) -> None:
+    """Creating a combined group with the same name is aborted."""
+    await _create_group_entry(hass, "Group A", ["binary_sensor.a"])
+    await _create_group_entry(hass, "Group B", ["binary_sensor.b"])
     result = await _init_flow(hass)
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"entry_type": ENTRY_TYPE_COMBINED}
