@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "建立合併組",
-        "description": "將多個組合併為一個視圖，用於自動化與儀表板。",
+        "description": "為每個組選擇分類方式：不包含、使用組自有設定包含，或覆寫為必要或非必要。",
         "data": {
-          "group_name": "合併組名",
-          "combined_groups": "要包含的組"
+          "combined_name": "合併組名"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "必須至少選擇一個實體。",
       "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
       "not_enough_groups_selected": "至少選擇兩個組進行合併。",
-      "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。"
+      "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。",
+      "already_configured": "已存在同名組。"
     },
     "abort": {
       "already_configured": "已存在同名組。",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "編輯合併組",
-        "description": "修改合併組的名稱及包含的組。",
+        "description": "為每個組選擇分類方式：不包含、使用組自有設定包含，或覆寫為必要或非必要。",
         "data": {
-          "group_name": "合併組名",
-          "combined_groups": "要包含的組"
+          "combined_name": "合併組名"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "同一實體不能同時出現在兩個清單中。儲存前請移除重複項目。",
-      "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。"
+      "collapse_requires_device_names": "按設備合併實體需要先啟用「顯示設備名稱」。",
+      "already_configured": "已存在同名組。",
+      "empty_group_name": "組名不得為空。",
+      "not_enough_groups_selected": "至少選擇兩個組進行合併。"
+    },
+    "abort": {
+      "not_enough_groups": "此合併組的來源組數量不足。請先新增更多組。"
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "監控實體",
         "combined_group": "合併組"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 不包含",
+        "keep": "✅ 包含 - 使用組設定",
+        "all_essential": "🔴 包含 - 覆寫：必要",
+        "all_non_essential": "🟡 包含 - 覆寫：非必要"
       }
     }
   }

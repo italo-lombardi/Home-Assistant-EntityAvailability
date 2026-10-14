@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Crea un grup combinat",
-        "description": "Combineu diversos grups en una sola vista per a automatitzacions i taulers.",
+        "description": "Seleccioneu com s'ha de classificar cada grup: No inclòs, Inclòs amb la configuració pròpia del grup, o substituïu-lo per Essencial o No essencial.",
         "data": {
-          "group_name": "Nom del grup combinat",
-          "combined_groups": "Grups a incloure"
+          "combined_name": "Nom del grup combinat"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Heu de seleccionar almenys una entitat.",
       "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
       "not_enough_groups_selected": "Seleccioneu almenys dos grups per combinar.",
-      "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat."
+      "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat.",
+      "already_configured": "Ja existeix un grup amb aquest nom."
     },
     "abort": {
       "already_configured": "Ja existeix un grup amb aquest nom.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Edita el grup combinat",
-        "description": "Modifiqueu el nom del grup combinat i els grups inclosos.",
+        "description": "Seleccioneu com s'ha de classificar cada grup: No inclòs, Inclòs amb la configuració pròpia del grup, o substituïu-lo per Essencial o No essencial.",
         "data": {
-          "group_name": "Nom del grup combinat",
-          "combined_groups": "Grups a incloure"
+          "combined_name": "Nom del grup combinat"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "La mateixa entitat no pot aparèixer a les dues llistes. Elimineu els duplicats abans de desar.",
-      "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat."
+      "collapse_requires_device_names": "Agrupar les entitats per dispositiu requereix que «Mostra els noms del dispositiu» estigui activat.",
+      "already_configured": "Ja existeix un grup amb aquest nom.",
+      "empty_group_name": "El nom del grup no pot estar buit.",
+      "not_enough_groups_selected": "Seleccioneu almenys dos grups per combinar."
+    },
+    "abort": {
+      "not_enough_groups": "Aquest grup combinat ja no té prou grups d'origen carregats. Afegiu-hi més grups primer."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Supervisar entitats",
         "combined_group": "Combinar grups"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 No inclòs",
+        "keep": "✅ Inclòs - usa la configuració del grup",
+        "all_essential": "🔴 Inclòs - substitueix: Essencial",
+        "all_non_essential": "🟡 Inclòs - substitueix: No essencial"
       }
     }
   }

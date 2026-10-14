@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "创建合并组",
-        "description": "将多个组合并为一个视图，用于自动化和仪表盘。",
+        "description": "为每个组选择分类方式：不包含、使用组自有设置包含，或覆盖为必要或非必要。",
         "data": {
-          "group_name": "合并组名",
-          "combined_groups": "要包含的组"
+          "combined_name": "合并组名"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "必须至少选择一个实体。",
       "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
       "not_enough_groups_selected": "至少选择两个组进行合并。",
-      "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。"
+      "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。",
+      "already_configured": "已存在同名组。"
     },
     "abort": {
       "already_configured": "已存在同名组。",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "编辑合并组",
-        "description": "修改合并组的名称及包含的组。",
+        "description": "为每个组选择分类方式：不包含、使用组自有设置包含，或覆盖为必要或非必要。",
         "data": {
-          "group_name": "合并组名",
-          "combined_groups": "要包含的组"
+          "combined_name": "合并组名"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
-      "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。"
+      "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。",
+      "already_configured": "已存在同名组。",
+      "empty_group_name": "组名不能为空。",
+      "not_enough_groups_selected": "至少选择两个组进行合并。"
+    },
+    "abort": {
+      "not_enough_groups": "此合并组的源组数量不足。请先添加更多组。"
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "监控实体",
         "combined_group": "合并组"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 不包含",
+        "keep": "✅ 包含 - 使用组设置",
+        "all_essential": "🔴 包含 - 覆盖：必要",
+        "all_non_essential": "🟡 包含 - 覆盖：非必要"
       }
     }
   }

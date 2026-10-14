@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Birleşik Grup Oluştur",
-        "description": "Otomasyonlar ve gösterge panelleri için birden fazla grubu tek bir görünümde birleştirin.",
+        "description": "Her grubun nasıl sınıflandırılacağını seçin: Dahil edilmez, Grubun kendi ayarlarıyla dahil edilir veya Temel ya da Temel Olmayan olarak geçersiz kılınır.",
         "data": {
-          "group_name": "Birleşik Grup Adı",
-          "combined_groups": "Dahil Edilecek Gruplar"
+          "combined_name": "Birleşik Grup Adı"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "En az bir varlık seçmelisiniz.",
       "duplicate_entities": "Aynı varlık her iki listede de görünemez. Kaydetmeden önce tekrar edilenleri kaldırın.",
       "not_enough_groups_selected": "Birleştirmek için en az iki grup seçin.",
-      "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir."
+      "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir.",
+      "already_configured": "Bu adda bir grup zaten mevcut."
     },
     "abort": {
       "already_configured": "Bu adda bir grup zaten mevcut.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Birleşik Grubu Düzenle",
-        "description": "Birleşik grup adını ve dahil edilen grupları değiştirin.",
+        "description": "Her grubun nasıl sınıflandırılacağını seçin: Dahil edilmez, Grubun kendi ayarlarıyla dahil edilir veya Temel ya da Temel Olmayan olarak geçersiz kılınır.",
         "data": {
-          "group_name": "Birleşik Grup Adı",
-          "combined_groups": "Dahil Edilecek Gruplar"
+          "combined_name": "Birleşik Grup Adı"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Aynı varlık her iki listede de görünemez. Kaydetmeden önce tekrar edilenleri kaldırın.",
-      "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir."
+      "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir.",
+      "already_configured": "Bu adda bir grup zaten mevcut.",
+      "empty_group_name": "Grup adı boş olamaz.",
+      "not_enough_groups_selected": "Birleştirmek için en az iki grup seçin."
+    },
+    "abort": {
+      "not_enough_groups": "Bu birleşik grup artık yeterli sayıda kaynak gruba sahip değil. Önce daha fazla grup ekleyin."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Varlıkları izle",
         "combined_group": "Grupları birleştir"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Dahil edilmez",
+        "keep": "✅ Dahil edilir - grup ayarlarını kullan",
+        "all_essential": "🔴 Dahil edilir - geçersiz kılma: Temel",
+        "all_non_essential": "🟡 Dahil edilir - geçersiz kılma: Temel Olmayan"
       }
     }
   }

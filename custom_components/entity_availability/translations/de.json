@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Kombinierte Gruppe erstellen",
-        "description": "Mehrere Gruppen zu einer Ansicht für Automationen und Dashboards zusammenführen.",
+        "description": "Wählen Sie aus, wie jede Gruppe klassifiziert werden soll: Nicht enthalten, Enthalten mit den eigenen Einstellungen der Gruppe oder als Wesentlich bzw. Nicht-Wesentlich festlegen.",
         "data": {
-          "group_name": "Name der kombinierten Gruppe",
-          "combined_groups": "Einzuschließende Gruppen"
+          "combined_name": "Name der kombinierten Gruppe"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Sie müssen mindestens eine Entität auswählen.",
       "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus.",
       "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern.",
-      "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist."
+      "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
+      "already_configured": "Eine Gruppe mit diesem Namen existiert bereits."
     },
     "abort": {
       "already_configured": "Eine Gruppe mit diesem Namen existiert bereits.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Kombinierte Gruppe bearbeiten",
-        "description": "Name und enthaltene Gruppen dieser kombinierten Gruppe ändern.",
+        "description": "Wählen Sie aus, wie jede Gruppe klassifiziert werden soll: Nicht enthalten, Enthalten mit den eigenen Einstellungen der Gruppe oder als Wesentlich bzw. Nicht-Wesentlich festlegen.",
         "data": {
-          "group_name": "Name der kombinierten Gruppe",
-          "combined_groups": "Einzuschließende Gruppen"
+          "combined_name": "Name der kombinierten Gruppe"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern.",
-      "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist."
+      "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
+      "already_configured": "Eine Gruppe mit diesem Namen existiert bereits.",
+      "empty_group_name": "Der Gruppenname darf nicht leer sein.",
+      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus."
+    },
+    "abort": {
+      "not_enough_groups": "Diese kombinierte Gruppe hat nicht mehr genügend geladene Quellgruppen. Fügen Sie zuerst weitere Gruppen hinzu."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Entitäten überwachen",
         "combined_group": "Gruppen kombinieren"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Nicht enthalten",
+        "keep": "✅ Enthalten - Gruppeneinstellungen verwenden",
+        "all_essential": "🔴 Enthalten - Überschreiben: Wesentlich",
+        "all_non_essential": "🟡 Enthalten - Überschreiben: Nicht-Wesentlich"
       }
     }
   }

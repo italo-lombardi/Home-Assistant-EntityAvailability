@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Creare grup combinat",
-        "description": "Combinați mai multe grupuri într-o singură vizualizare pentru automatizări și tablouri de bord.",
+        "description": "Selectați modul în care fiecare grup trebuie clasificat: Neinclus, Inclus cu propriile setări ale grupului sau suprascriere la Esențial sau Neesențial.",
         "data": {
-          "group_name": "Numele grupului combinat",
-          "combined_groups": "Grupuri de inclus"
+          "combined_name": "Numele grupului combinat"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Trebuie să selectați cel puțin o entitate.",
       "duplicate_entities": "Aceeași entitate nu poate apărea în ambele liste. Eliminați duplicatele înainte de salvare.",
       "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare.",
-      "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“."
+      "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“.",
+      "already_configured": "Există deja un grup cu acest nume."
     },
     "abort": {
       "already_configured": "Există deja un grup cu acest nume.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Editare grup combinat",
-        "description": "Modificați numele și grupurile incluse în grupul combinat.",
+        "description": "Selectați modul în care fiecare grup trebuie clasificat: Neinclus, Inclus cu propriile setări ale grupului sau suprascriere la Esențial sau Neesențial.",
         "data": {
-          "group_name": "Numele grupului combinat",
-          "combined_groups": "Grupuri de inclus"
+          "combined_name": "Numele grupului combinat"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Aceeași entitate nu poate apărea în ambele liste. Eliminați duplicatele înainte de salvare.",
-      "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“."
+      "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“.",
+      "already_configured": "Există deja un grup cu acest nume.",
+      "empty_group_name": "Numele grupului nu poate fi gol.",
+      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare."
+    },
+    "abort": {
+      "not_enough_groups": "Acest grup combinat nu mai are suficiente grupuri sursă încărcate. Adăugați mai întâi mai multe grupuri."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Monitorizare entități",
         "combined_group": "Combinare grupuri"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Neinclus",
+        "keep": "✅ Inclus - utilizați setările grupului",
+        "all_essential": "🔴 Inclus - suprascriere: Esențial",
+        "all_non_essential": "🟡 Inclus - suprascriere: Neesențial"
       }
     }
   }

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import json
 import logging
-import re
 from typing import Any
 
 import voluptuous as vol
@@ -54,6 +54,7 @@ from .const import (
     ENTRY_TYPE_GROUP,
     NE_OVERRIDE_ALL_ESSENTIAL,
     NE_OVERRIDE_ALL_NON_ESSENTIAL,
+    NE_OVERRIDE_EXCLUDED,
     NE_OVERRIDE_KEEP,
     SIGNAL_NETWORK_TYPES,
 )
@@ -140,17 +141,6 @@ def _build_signal_map_from_input(
                 "network_type": nt,
             }
     return signal_map
-
-
-def _make_override_slug(title: str, existing: dict[str, str]) -> str:
-    """Return a unique slug for a group title, deduplicating against existing."""
-    base = re.sub(r"[^a-z0-9]", "_", title.lower())[:40].strip("_") or "group"
-    slug = base
-    counter = 2
-    while slug in existing:
-        slug = f"{base}_{counter}"
-        counter += 1
-    return slug
 
 
 class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -250,7 +240,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_combined(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 1 for creating a combined group: name and group selection."""
+        """Single step for creating a combined group: name + per-group inclusion/override."""
         errors: dict[str, str] = {}
 
         existing_groups = sorted(
@@ -266,109 +256,85 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         if len(existing_groups) < 2:
             return self.async_abort(reason="not_enough_groups")
 
+        # title_to_eid: field key = group title so HA frontend shows a readable label
+        _COMBINED_NAME_KEY = "combined_name"
+        title_to_eid: dict[str, str] = {}
+        for e in existing_groups:
+            title = e.title
+            suffix = 2
+            while title in title_to_eid or title == _COMBINED_NAME_KEY:
+                title = f"{e.title} ({suffix})"
+                suffix += 1
+            title_to_eid[title] = e.entry_id
+
         if user_input is not None:
-            group_name = user_input[CONF_GROUP_NAME].strip()
-            combined_groups = user_input[CONF_COMBINED_GROUPS]
+            group_name = user_input[_COMBINED_NAME_KEY].strip()
+            combined_groups = [
+                eid
+                for title, eid in title_to_eid.items()
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
+            ]
+            overrides = {
+                eid: user_input.get(title, NE_OVERRIDE_EXCLUDED)
+                for title, eid in title_to_eid.items()
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
+            }
 
             if not group_name:
-                errors[CONF_GROUP_NAME] = "empty_group_name"
+                errors[_COMBINED_NAME_KEY] = "empty_group_name"
             elif len(combined_groups) < 2:
-                errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
+                errors["base"] = "not_enough_groups_selected"
             else:
-                self._combined_group_name = group_name
-                self._combined_group_ids = combined_groups
-                self._combined_entry_map = {
-                    e.entry_id: e.title for e in existing_groups
-                }
-                return await self.async_step_combined_overrides()
+                await self.async_set_unique_id(
+                    f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
+                )
+                self._abort_if_unique_id_configured()
+
+                return self.async_create_entry(
+                    title=group_name,
+                    data={
+                        CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
+                        CONF_GROUP_NAME: group_name,
+                        CONF_COMBINED_GROUPS: combined_groups,
+                        CONF_COMBINED_GROUPS_OVERRIDES: overrides,
+                    },
+                )
 
         group_options = [
-            selector.SelectOptionDict(value=e.entry_id, label=e.title)
-            for e in existing_groups
+            NE_OVERRIDE_EXCLUDED,
+            NE_OVERRIDE_KEEP,
+            NE_OVERRIDE_ALL_ESSENTIAL,
+            NE_OVERRIDE_ALL_NON_ESSENTIAL,
         ]
+        fields: dict[vol.Marker, Any] = {
+            vol.Required(
+                _COMBINED_NAME_KEY,
+                default=(user_input or {}).get(_COMBINED_NAME_KEY, ""),
+            ): str
+        }
+        for title in title_to_eid:
+            fields[
+                vol.Optional(
+                    title,
+                    default=(user_input or {}).get(title, NE_OVERRIDE_EXCLUDED),
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=group_options,
+                    translation_key="combined_group_override",
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
 
         return self.async_show_form(
             step_id="combined",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_GROUP_NAME): str,
-                    vol.Required(
-                        CONF_COMBINED_GROUPS, default=[]
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=group_options,
-                            multiple=True,
-                            mode=selector.SelectSelectorMode.LIST,
-                        )
-                    ),
-                }
-            ),
-            errors=errors,
-        )
-
-    async def async_step_combined_overrides(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Step 2 for creating a combined group: per-group NE override."""
-        if user_input is not None:
-            overrides = {
-                self._combined_slug_to_eid[slug[len("override_") :]]: val
-                for slug, val in user_input.items()
-                if slug.startswith("override_")
-            }
-            # Fill in keep for any missing groups
-            for eid in self._combined_group_ids:
-                overrides.setdefault(eid, NE_OVERRIDE_KEEP)
-            group_name = self._combined_group_name
-
-            await self.async_set_unique_id(
-                f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
-            )
-            self._abort_if_unique_id_configured()
-
-            return self.async_create_entry(
-                title=group_name,
-                data={
-                    CONF_ENTRY_TYPE: ENTRY_TYPE_COMBINED,
-                    CONF_GROUP_NAME: group_name,
-                    CONF_COMBINED_GROUPS: self._combined_group_ids,
-                    CONF_COMBINED_GROUPS_OVERRIDES: overrides,
-                },
-            )
-
-        override_options = [
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_KEEP, label="Keep configuration"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_ESSENTIAL, label="All essential"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_NON_ESSENTIAL, label="All non-essential"
-            ),
-        ]
-        slug_to_eid: dict[str, str] = {}
-        fields: dict[vol.Marker, Any] = {}
-        for eid in self._combined_group_ids:
-            title = self._combined_entry_map.get(eid, eid)
-            slug = _make_override_slug(title, slug_to_eid)
-            slug_to_eid[slug] = eid
-            fields[vol.Optional(f"override_{slug}", default=NE_OVERRIDE_KEEP)] = (
-                selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=override_options,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                )
-            )
-        self._combined_slug_to_eid = slug_to_eid
-
-        return self.async_show_form(
-            step_id="combined_overrides",
             data_schema=vol.Schema(fields),
+            errors=errors,
+            # eid_title_map is not consumed by translations; smoke.py reads it
+            # directly from description_placeholders as a side-channel mapping.
             description_placeholders={
-                "eid_slug_map": ",".join(
-                    f"{eid}:{slug}" for slug, eid in slug_to_eid.items()
+                "eid_title_map": json.dumps(
+                    {eid: title for title, eid in title_to_eid.items()}
                 )
             },
         )
@@ -908,7 +874,7 @@ class CombinedGroupOptionsFlow(OptionsFlow):
     async def async_step_combined_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 1: edit combined group name and included groups."""
+        """Single step: edit combined group name + per-group inclusion/override."""
         errors: dict[str, str] = {}
 
         existing_groups = sorted(
@@ -921,115 +887,114 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             key=lambda e: e.title,
         )
 
-        if user_input is not None:
-            group_name = user_input[CONF_GROUP_NAME].strip()
-            combined_groups = user_input[CONF_COMBINED_GROUPS]
+        if len(existing_groups) < 2:
+            return self.async_abort(reason="not_enough_groups")
 
-            if not group_name:
-                errors[CONF_GROUP_NAME] = "empty_group_name"
-            elif len(combined_groups) < 2:
-                errors[CONF_COMBINED_GROUPS] = "not_enough_groups_selected"
-            else:
-                self._combined_group_name = group_name
-                self._combined_group_ids = combined_groups
-                self._combined_entry_map = {
-                    e.entry_id: e.title for e in existing_groups
-                }
-                return await self.async_step_combined_init_overrides()
+        # title_to_eid: field key = group title so HA frontend shows a readable label
+        _COMBINED_NAME_KEY = "combined_name"
+        title_to_eid: dict[str, str] = {}
+        for e in existing_groups:
+            title = e.title
+            suffix = 2
+            while title in title_to_eid or title == _COMBINED_NAME_KEY:
+                title = f"{e.title} ({suffix})"
+                suffix += 1
+            title_to_eid[title] = e.entry_id
 
         current = self.config_entry.data
-        valid_ids = {e.entry_id for e in existing_groups}
-        default_combined = [
-            eid for eid in current.get(CONF_COMBINED_GROUPS, []) if eid in valid_ids
-        ]
+        current_combined: list[str] = current.get(CONF_COMBINED_GROUPS, [])
+        current_overrides: dict[str, str] = current.get(
+            CONF_COMBINED_GROUPS_OVERRIDES, {}
+        )
+
+        if user_input is not None:
+            group_name = user_input[_COMBINED_NAME_KEY].strip()
+            loaded_eids = set(title_to_eid.values())
+            combined_groups = [
+                eid
+                for title, eid in title_to_eid.items()
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
+            ]
+            overrides = {
+                eid: user_input.get(title, NE_OVERRIDE_EXCLUDED)
+                for title, eid in title_to_eid.items()
+                if user_input.get(title, NE_OVERRIDE_EXCLUDED) != NE_OVERRIDE_EXCLUDED
+            }
+            # Preserve groups that exist in current_combined but are not currently
+            # LOADED (e.g. Zigbee coordinator restart, transient SETUP_ERROR).
+            # Unloaded groups count toward the <2 minimum: if 2+ unloaded groups
+            # exist they satisfy validation even when all loaded groups are excluded.
+            # This is intentional — unloaded groups are a transient state, not a
+            # user removal.
+            for eid in current_combined:
+                if eid not in loaded_eids:
+                    combined_groups.append(eid)
+                    if eid in current_overrides:
+                        overrides[eid] = current_overrides[eid]
+
+            if not group_name:
+                errors[_COMBINED_NAME_KEY] = "empty_group_name"
+            elif len(combined_groups) < 2:
+                errors["base"] = "not_enough_groups_selected"
+            else:
+                new_uid = f"{DOMAIN}_combined_{group_name.lower().replace(' ', '_')}"
+                existing = self.hass.config_entries.async_entry_for_domain_unique_id(
+                    DOMAIN, new_uid
+                )
+                if existing not in (None, self.config_entry):
+                    errors[_COMBINED_NAME_KEY] = "already_configured"
+                else:
+                    new_data = {
+                        **self.config_entry.data,
+                        CONF_GROUP_NAME: group_name,
+                        CONF_COMBINED_GROUPS: combined_groups,
+                        CONF_COMBINED_GROUPS_OVERRIDES: overrides,
+                    }
+                    self.hass.config_entries.async_update_entry(
+                        self.config_entry,
+                        title=group_name,
+                        unique_id=new_uid,
+                        data=new_data,
+                    )
+                    return self.async_create_entry(title="", data={})
         group_options = [
-            selector.SelectOptionDict(value=e.entry_id, label=e.title)
-            for e in existing_groups
+            NE_OVERRIDE_EXCLUDED,
+            NE_OVERRIDE_KEEP,
+            NE_OVERRIDE_ALL_ESSENTIAL,
+            NE_OVERRIDE_ALL_NON_ESSENTIAL,
         ]
+        fields: dict[vol.Marker, Any] = {
+            vol.Required(
+                _COMBINED_NAME_KEY,
+                default=(user_input or {}).get(
+                    _COMBINED_NAME_KEY, current.get(CONF_GROUP_NAME, "")
+                ),
+            ): str
+        }
+        for title, eid in title_to_eid.items():
+            if user_input is not None:
+                default_val = user_input.get(title, NE_OVERRIDE_EXCLUDED)
+            elif eid in current_combined:
+                default_val = current_overrides.get(eid, NE_OVERRIDE_KEEP)
+            else:
+                default_val = NE_OVERRIDE_EXCLUDED
+            fields[vol.Optional(title, default=default_val)] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=group_options,
+                    translation_key="combined_group_override",
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            )
 
         return self.async_show_form(
             step_id="combined_init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_GROUP_NAME, default=current.get(CONF_GROUP_NAME, "")
-                    ): str,
-                    vol.Required(
-                        CONF_COMBINED_GROUPS,
-                        default=default_combined,
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=group_options,
-                            multiple=True,
-                            mode=selector.SelectSelectorMode.LIST,
-                        )
-                    ),
-                }
-            ),
-            errors=errors,
-        )
-
-    async def async_step_combined_init_overrides(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Step 2: per-group NE override."""
-        if user_input is not None:
-            overrides = {
-                self._combined_slug_to_eid[slug[len("override_") :]]: val
-                for slug, val in user_input.items()
-                if slug.startswith("override_")
-            }
-            for eid in self._combined_group_ids:
-                overrides.setdefault(eid, NE_OVERRIDE_KEEP)
-            group_name = self._combined_group_name
-            new_data = {
-                **self.config_entry.data,
-                CONF_GROUP_NAME: group_name,
-                CONF_COMBINED_GROUPS: self._combined_group_ids,
-                CONF_COMBINED_GROUPS_OVERRIDES: overrides,
-            }
-            self.hass.config_entries.async_update_entry(
-                self.config_entry, title=group_name, data=new_data
-            )
-            return self.async_create_entry(title="", data={})
-
-        current_overrides: dict[str, str] = self.config_entry.data.get(
-            CONF_COMBINED_GROUPS_OVERRIDES, {}
-        )
-        override_options = [
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_KEEP, label="Keep configuration"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_ESSENTIAL, label="All essential"
-            ),
-            selector.SelectOptionDict(
-                value=NE_OVERRIDE_ALL_NON_ESSENTIAL, label="All non-essential"
-            ),
-        ]
-        slug_to_eid: dict[str, str] = {}
-        fields: dict[vol.Marker, Any] = {}
-        for eid in self._combined_group_ids:
-            title = self._combined_entry_map.get(eid, eid)
-            slug = _make_override_slug(title, slug_to_eid)
-            slug_to_eid[slug] = eid
-            current_val = current_overrides.get(eid, NE_OVERRIDE_KEEP)
-            fields[vol.Optional(f"override_{slug}", default=current_val)] = (
-                selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=override_options,
-                        mode=selector.SelectSelectorMode.DROPDOWN,
-                    )
-                )
-            )
-        self._combined_slug_to_eid = slug_to_eid
-
-        return self.async_show_form(
-            step_id="combined_init_overrides",
             data_schema=vol.Schema(fields),
+            errors=errors,
+            # eid_title_map is not consumed by translations; smoke.py reads it
+            # directly from description_placeholders as a side-channel mapping.
             description_placeholders={
-                "eid_slug_map": ",".join(
-                    f"{eid}:{slug}" for slug, eid in slug_to_eid.items()
+                "eid_title_map": json.dumps(
+                    {eid: title for title, eid in title_to_eid.items()}
                 )
             },
         )

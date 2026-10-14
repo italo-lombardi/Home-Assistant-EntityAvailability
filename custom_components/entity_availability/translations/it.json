@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Crea gruppo combinato",
-        "description": "Combina più gruppi in un'unica vista per automazioni e dashboard.",
+        "description": "Seleziona come classificare ogni gruppo: Non incluso, Incluso con le proprie impostazioni del gruppo, oppure sovrascrivi come Essenziale o Non essenziale.",
         "data": {
-          "group_name": "Nome del gruppo combinato",
-          "combined_groups": "Gruppi da includere"
+          "combined_name": "Nome del gruppo combinato"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Devi selezionare almeno un'entità.",
       "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare.",
       "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare.",
-      "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato."
+      "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato.",
+      "already_configured": "Un gruppo con questo nome esiste già."
     },
     "abort": {
       "already_configured": "Un gruppo con questo nome esiste già.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Modifica gruppo combinato",
-        "description": "Modifica il nome e i gruppi inclusi in questo gruppo combinato.",
+        "description": "Seleziona come classificare ogni gruppo: Non incluso, Incluso con le proprie impostazioni del gruppo, oppure sovrascrivi come Essenziale o Non essenziale.",
         "data": {
-          "group_name": "Nome del gruppo combinato",
-          "combined_groups": "Gruppi da includere"
+          "combined_name": "Nome del gruppo combinato"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare.",
-      "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato."
+      "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato.",
+      "already_configured": "Un gruppo con questo nome esiste già.",
+      "empty_group_name": "Il nome del gruppo non può essere vuoto.",
+      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare."
+    },
+    "abort": {
+      "not_enough_groups": "Questo gruppo combinato non ha più abbastanza gruppi sorgente caricati. Aggiungi prima altri gruppi."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Monitora entità",
         "combined_group": "Combina gruppi"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Non incluso",
+        "keep": "✅ Incluso - usa impostazioni del gruppo",
+        "all_essential": "🔴 Incluso - sovrascrittura: Essenziale",
+        "all_non_essential": "🟡 Incluso - sovrascrittura: Non essenziale"
       }
     }
   }

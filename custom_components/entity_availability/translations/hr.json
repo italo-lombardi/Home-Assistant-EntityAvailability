@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Stvori kombiniranu grupu",
-        "description": "Kombinirajte više grupa u jedan prikaz za automatizacije i nadzorne ploče.",
+        "description": "Odaberite kako treba klasificirati svaku grupu: Nije uključena, Uključena s vlastitim postavkama grupe, ili prisilno postavite na Bitno ili Nebitno.",
         "data": {
-          "group_name": "Naziv kombinirane grupe",
-          "combined_groups": "Grupe za uključivanje"
+          "combined_name": "Naziv kombinirane grupe"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Morate odabrati najmanje jedan entitet.",
       "duplicate_entities": "Isti entitet ne može se pojaviti na oba popisa. Uklonite duplikate prije spremanja.",
       "not_enough_groups_selected": "Odaberite najmanje dvije grupe za kombiniranje.",
-      "collapse_requires_device_names": "Grupiranje entiteta po uređaju zahtijeva da je uključeno „Prikaži nazive uređaja“."
+      "collapse_requires_device_names": "Grupiranje entiteta po uređaju zahtijeva da je uključeno „Prikaži nazive uređaja“.",
+      "already_configured": "Grupa s ovim nazivom već postoji."
     },
     "abort": {
       "already_configured": "Grupa s ovim nazivom već postoji.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Uredi kombiniranu grupu",
-        "description": "Izmjenite naziv i uključene grupe kombinirane grupe.",
+        "description": "Odaberite kako treba klasificirati svaku grupu: Nije uključena, Uključena s vlastitim postavkama grupe, ili prisilno postavite na Bitno ili Nebitno.",
         "data": {
-          "group_name": "Naziv kombinirane grupe",
-          "combined_groups": "Grupe za uključivanje"
+          "combined_name": "Naziv kombinirane grupe"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Isti entitet ne može se pojaviti na oba popisa. Uklonite duplikate prije spremanja.",
-      "collapse_requires_device_names": "Grupiranje entiteta po uređaju zahtijeva da je uključeno „Prikaži nazive uređaja“."
+      "collapse_requires_device_names": "Grupiranje entiteta po uređaju zahtijeva da je uključeno „Prikaži nazive uređaja“.",
+      "already_configured": "Grupa s ovim nazivom već postoji.",
+      "empty_group_name": "Naziv grupe ne smije biti prazan.",
+      "not_enough_groups_selected": "Odaberite najmanje dvije grupe za kombiniranje."
+    },
+    "abort": {
+      "not_enough_groups": "Ovaj kombinirani grupa više nema dovoljno izvornih grupa učitanih. Najprije dodajte više grupa."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Pratite entitete",
         "combined_group": "Kombinirajte grupe"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Nije uključena",
+        "keep": "✅ Uključena - koristi postavke grupe",
+        "all_essential": "🔴 Uključena - prisilno: Bitno",
+        "all_non_essential": "🟡 Uključena - prisilno: Nebitno"
       }
     }
   }

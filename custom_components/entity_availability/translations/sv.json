@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Skapa kombinerad grupp",
-        "description": "Kombinera flera grupper i en vy för automatiseringar och dashboards.",
+        "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
         "data": {
-          "group_name": "Namn på kombinerad grupp",
-          "combined_groups": "Grupper att inkludera"
+          "combined_name": "Namn på kombinerad grupp"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Du måste välja minst en entitet.",
       "not_enough_groups_selected": "Välj minst två grupper att kombinera.",
       "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
-      "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget."
+      "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget.",
+      "already_configured": "En grupp med detta namn finns redan."
     },
     "abort": {
       "already_configured": "En grupp med detta namn finns redan.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Redigera kombinerad grupp",
-        "description": "Ändra namn och inkluderade grupper för denna kombinerade grupp.",
+        "description": "Välj hur varje grupp ska klassificeras: Ej inkluderad, Inkluderad med gruppens egna inställningar, eller åsidosätt till Väsentlig eller Icke-väsentlig.",
         "data": {
-          "group_name": "Namn på kombinerad grupp",
-          "combined_groups": "Grupper att inkludera"
+          "combined_name": "Namn på kombinerad grupp"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
-      "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget."
+      "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget.",
+      "already_configured": "En grupp med detta namn finns redan.",
+      "empty_group_name": "Gruppnamnet kan inte vara tomt.",
+      "not_enough_groups_selected": "Välj minst två grupper att kombinera."
+    },
+    "abort": {
+      "not_enough_groups": "Den här kombinerade gruppen har inte längre tillräckligt många källgrupper inlästa. Lägg till fler grupper först."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Övervaka entiteter",
         "combined_group": "Kombinera grupper"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Ej inkluderad",
+        "keep": "✅ Inkluderad — använd gruppinställningar",
+        "all_essential": "🔴 Inkluderad — åsidosätt: Väsentlig",
+        "all_non_essential": "🟡 Inkluderad — åsidosätt: Icke-väsentlig"
       }
     }
   }

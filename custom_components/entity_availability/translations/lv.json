@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Izveidot apvienoto grupu",
-        "description": "Apvienojiet vairākas grupas vienā skatā automatizācijai un informācijas paneļiem.",
+        "description": "Atlasiet, kā jāklasificē katra grupa: nav iekļauta, iekļauta, izmantojot grupas pašas iestatījumus, vai pārdefinēta kā Būtiska vai Nebūtiska.",
         "data": {
-          "group_name": "Apvienotās grupas nosaukums",
-          "combined_groups": "Iekļaujamās grupas"
+          "combined_name": "Apvienotās grupas nosaukums"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Jums jāizvēlas vismaz viena entitāte.",
       "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
       "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai.",
-      "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“."
+      "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“.",
+      "already_configured": "Grupa ar šādu nosaukumu jau eksistē."
     },
     "abort": {
       "already_configured": "Grupa ar šādu nosaukumu jau eksistē.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Rediģēt apvienoto grupu",
-        "description": "Mainiet apvienotās grupas nosaukumu un iekļaujamās grupas.",
+        "description": "Atlasiet, kā jāklasificē katra grupa: nav iekļauta, iekļauta, izmantojot grupas pašas iestatījumus, vai pārdefinēta kā Būtiska vai Nebūtiska.",
         "data": {
-          "group_name": "Apvienotās grupas nosaukums",
-          "combined_groups": "Iekļaujamās grupas"
+          "combined_name": "Apvienotās grupas nosaukums"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
-      "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“."
+      "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“.",
+      "already_configured": "Grupa ar šādu nosaukumu jau eksistē.",
+      "empty_group_name": "Grupas nosaukums nedrīkst būt tukšs.",
+      "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai."
+    },
+    "abort": {
+      "not_enough_groups": "Šajā apvienotajā grupā vairs nav pietiekami daudz avota grupu. Vispirms pievienojiet vairāk grupu."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Uzraudzīt entitātes",
         "combined_group": "Apvienot grupas"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Nav iekļauta",
+        "keep": "✅ Iekļauta - izmantot grupas iestatījumus",
+        "all_essential": "🔴 Iekļauta - pārdefinēt: Būtiska",
+        "all_non_essential": "🟡 Iekļauta - pārdefinēt: Nebūtiska"
       }
     }
   }

@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Vytvoriť kombinovanú skupinu",
-        "description": "Zlúčte viacero skupín do jedného prehľadu pre automatizácie a dashboardy.",
+        "description": "Vyberte, ako má byť každá skupina klasifikovaná: Nezahrnutá, Zahrnutá s vlastnými nastaveniami skupiny alebo prepísať na Dôležitá alebo Nedôležitá.",
         "data": {
-          "group_name": "Názov kombinovanej skupiny",
-          "combined_groups": "Skupiny na zahrnutie"
+          "combined_name": "Názov kombinovanej skupiny"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Musíte vybrať aspoň jednu entitu.",
       "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
       "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie.",
-      "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“."
+      "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“.",
+      "already_configured": "Skupina s týmto názvom už existuje."
     },
     "abort": {
       "already_configured": "Skupina s týmto názvom už existuje.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Upraviť kombinovanú skupinu",
-        "description": "Zmeňte názov a zahrnuté skupiny tejto kombinovanej skupiny.",
+        "description": "Vyberte, ako má byť každá skupina klasifikovaná: Nezahrnutá, Zahrnutá s vlastnými nastaveniami skupiny alebo prepísať na Dôležitá alebo Nedôležitá.",
         "data": {
-          "group_name": "Názov kombinovanej skupiny",
-          "combined_groups": "Skupiny na zahrnutie"
+          "combined_name": "Názov kombinovanej skupiny"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
-      "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“."
+      "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“.",
+      "already_configured": "Skupina s týmto názvom už existuje.",
+      "empty_group_name": "Názov skupiny nesmie byť prázdny.",
+      "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie."
+    },
+    "abort": {
+      "not_enough_groups": "Táto kombinovaná skupina už nemá dostatok načítaných zdrojových skupín. Najprv pridajte ďalšie skupiny."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Monitorovať entity",
         "combined_group": "Kombinovať skupiny"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Nezahrnutá",
+        "keep": "✅ Zahrnutá — použiť nastavenia skupiny",
+        "all_essential": "🔴 Zahrnutá — prepísať: Dôležitá",
+        "all_non_essential": "🟡 Zahrnutá — prepísať: Nedôležitá"
       }
     }
   }

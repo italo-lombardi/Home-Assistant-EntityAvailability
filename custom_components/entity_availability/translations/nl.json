@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Gecombineerde groep aanmaken",
-        "description": "Combineer meerdere groepen in één weergave voor automatiseringen en dashboards.",
+        "description": "Selecteer hoe elke groep geclassificeerd moet worden: Niet opgenomen, Opgenomen met de eigen instellingen van de groep, of overschreven naar Essentieel of Niet-essentieel.",
         "data": {
-          "group_name": "Naam gecombineerde groep",
-          "combined_groups": "In te sluiten groepen"
+          "combined_name": "Naam gecombineerde groep"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Je moet minstens één entiteit selecteren.",
       "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren.",
       "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan.",
-      "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld."
+      "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld.",
+      "already_configured": "Een groep met deze naam bestaat al."
     },
     "abort": {
       "already_configured": "Een groep met deze naam bestaat al.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Gecombineerde groep bewerken",
-        "description": "Wijzig de naam en opgenomen groepen van deze gecombineerde groep.",
+        "description": "Selecteer hoe elke groep geclassificeerd moet worden: Niet opgenomen, Opgenomen met de eigen instellingen van de groep, of overschreven naar Essentieel of Niet-essentieel.",
         "data": {
-          "group_name": "Naam gecombineerde groep",
-          "combined_groups": "In te sluiten groepen"
+          "combined_name": "Naam gecombineerde groep"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Dezelfde entiteit kan niet in beide lijsten staan. Verwijder duplicaten voor het opslaan.",
-      "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld."
+      "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld.",
+      "already_configured": "Een groep met deze naam bestaat al.",
+      "empty_group_name": "Groepsnaam mag niet leeg zijn.",
+      "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren."
+    },
+    "abort": {
+      "not_enough_groups": "Deze gecombineerde groep heeft niet meer genoeg brongroepen geladen. Voeg eerst meer groepen toe."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Entiteiten bewaken",
         "combined_group": "Groepen combineren"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Niet opgenomen",
+        "keep": "✅ Opgenomen – gebruik groepsinstellingen",
+        "all_essential": "🔴 Opgenomen – overschrijving: Essentieel",
+        "all_non_essential": "🟡 Opgenomen – overschrijving: Niet-essentieel"
       }
     }
   }

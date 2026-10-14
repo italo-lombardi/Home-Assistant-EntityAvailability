@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "結合グループの作成",
-        "description": "複数のグループをオートメーションとダッシュボード用に1つのビューに結合します。",
+        "description": "各グループをどのように分類するかを選択してください：含めない、グループ独自の設定で含める、または必須・非必須に上書きする。",
         "data": {
-          "group_name": "結合グループ名",
-          "combined_groups": "含めるグループ"
+          "combined_name": "結合グループ名"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "少なくとも1つのエンティティを選択してください。",
       "duplicate_entities": "同じエンティティを両方のリストに含めることはできません。重複を削除してから保存してください。",
       "not_enough_groups_selected": "結合するには少なくとも2つのグループを選択してください。",
-      "collapse_requires_device_names": "デバイスごとにエンティティをまとめるには「デバイス名を表示」を有効にする必要があります。"
+      "collapse_requires_device_names": "デバイスごとにエンティティをまとめるには「デバイス名を表示」を有効にする必要があります。",
+      "already_configured": "この名前のグループはすでに存在します。"
     },
     "abort": {
       "already_configured": "この名前のグループはすでに存在します。",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "結合グループの編集",
-        "description": "結合グループ名と含まれるグループを変更します。",
+        "description": "各グループをどのように分類するかを選択してください：含めない、グループ独自の設定で含める、または必須・非必須に上書きする。",
         "data": {
-          "group_name": "結合グループ名",
-          "combined_groups": "含めるグループ"
+          "combined_name": "結合グループ名"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "同じエンティティを両方のリストに含めることはできません。重複を削除してから保存してください。",
-      "collapse_requires_device_names": "デバイスごとにエンティティをまとめるには「デバイス名を表示」を有効にする必要があります。"
+      "collapse_requires_device_names": "デバイスごとにエンティティをまとめるには「デバイス名を表示」を有効にする必要があります。",
+      "already_configured": "この名前のグループはすでに存在します。",
+      "empty_group_name": "グループ名を入力してください。",
+      "not_enough_groups_selected": "結合するには少なくとも2つのグループを選択してください。"
+    },
+    "abort": {
+      "not_enough_groups": "この結合グループには、ロードされているソースグループが不足しています。先にグループを追加してください。"
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "エンティティを監視",
         "combined_group": "グループを結合"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 含めない",
+        "keep": "✅ 含める - グループ設定を使用",
+        "all_essential": "🔴 含める - 上書き：必須",
+        "all_non_essential": "🟡 含める - 上書き：非必須"
       }
     }
   }

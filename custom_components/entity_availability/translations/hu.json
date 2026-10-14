@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Összesített csoport létrehozása",
-        "description": "Több csoport egyesítése egyetlen nézetbe automatizációkhoz és irányítópultokhoz.",
+        "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
         "data": {
-          "group_name": "Összesített csoport neve",
-          "combined_groups": "Belefoglalandó csoportok"
+          "combined_name": "Összesített csoport neve"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Legalább egy entitást ki kell választani.",
       "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
       "not_enough_groups_selected": "Legalább két csoportot válasszon ki az összesítéshez.",
-      "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást."
+      "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást.",
+      "already_configured": "Már létezik ilyen nevű csoport."
     },
     "abort": {
       "already_configured": "Már létezik ilyen nevű csoport.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Összesített csoport szerkesztése",
-        "description": "Az összesített csoport nevének és tartalmának módosítása.",
+        "description": "Adja meg, hogyan kell besorolni az egyes csoportokat: Nincs belefoglalva, Belefoglalva a csoport saját beállításaival, vagy felülbírálva Kritikusra vagy Nem kritikusra.",
         "data": {
-          "group_name": "Összesített csoport neve",
-          "combined_groups": "Belefoglalandó csoportok"
+          "combined_name": "Összesített csoport neve"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Ugyanaz az entitás nem szerepelhet mindkét listában. A mentés előtt távolítsa el az ismétlődéseket.",
-      "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást."
+      "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást.",
+      "already_configured": "Már létezik ilyen nevű csoport.",
+      "empty_group_name": "A csoport neve nem lehet üres.",
+      "not_enough_groups_selected": "Legalább két csoportot válasszon ki az összesítéshez."
+    },
+    "abort": {
+      "not_enough_groups": "Ennek az összesített csoportnak már nincs elegendő betöltött forráscsoport. Először adjon hozzá több csoportot."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Entitások figyelése",
         "combined_group": "Csoportok összesítése"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Nincs belefoglalva",
+        "keep": "✅ Belefoglalva - csoport beállításainak használata",
+        "all_essential": "🔴 Belefoglalva - felülbírálat: Kritikus",
+        "all_non_essential": "🟡 Belefoglalva - felülbírálat: Nem kritikus"
       }
     }
   }

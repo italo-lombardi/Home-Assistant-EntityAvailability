@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Opprett kombinert gruppe",
-        "description": "Kombiner flere grupper i én visning for automatisering og dashboards.",
+        "description": "Velg hvordan hver gruppe skal klassifiseres: Ikke inkludert, Inkludert med gruppens egne innstillinger, eller overstyrt til Essensiell eller Ikke-essensiell.",
         "data": {
-          "group_name": "Navn på kombinert gruppe",
-          "combined_groups": "Grupper som skal inkluderes"
+          "combined_name": "Navn på kombinert gruppe"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Du må velge minst én entitet.",
       "not_enough_groups_selected": "Velg minst to grupper å kombinere.",
       "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring.",
-      "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på."
+      "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på.",
+      "already_configured": "En gruppe med dette navnet finnes allerede."
     },
     "abort": {
       "already_configured": "En gruppe med dette navnet finnes allerede.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Rediger kombinert gruppe",
-        "description": "Rediger navn og inkluderte grupper for denne kombinerte gruppen.",
+        "description": "Velg hvordan hver gruppe skal klassifiseres: Ikke inkludert, Inkludert med gruppens egne innstillinger, eller overstyrt til Essensiell eller Ikke-essensiell.",
         "data": {
-          "group_name": "Navn på kombinert gruppe",
-          "combined_groups": "Grupper som skal inkluderes"
+          "combined_name": "Navn på kombinert gruppe"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring.",
-      "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på."
+      "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på.",
+      "already_configured": "En gruppe med dette navnet finnes allerede.",
+      "empty_group_name": "Gruppenavnet kan ikke være tomt.",
+      "not_enough_groups_selected": "Velg minst to grupper å kombinere."
+    },
+    "abort": {
+      "not_enough_groups": "Denne kombinerte gruppen har ikke lenger nok kildegrupper lastet inn. Legg til flere grupper først."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Overvåk entiteter",
         "combined_group": "Kombiner grupper"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Ikke inkludert",
+        "keep": "✅ Inkludert – bruk gruppeinnstillinger",
+        "all_essential": "🔴 Inkludert – overstyring: Essensiell",
+        "all_non_essential": "🟡 Inkludert – overstyring: Ikke-essensiell"
       }
     }
   }

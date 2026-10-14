@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Opret kombineret gruppe",
-        "description": "Kombiner flere grupper i én visning til automationer og dashboards.",
+        "description": "Vælg, hvordan hver gruppe skal klassificeres: Ikke inkluderet, Inkluderet med gruppens egne indstillinger, eller tilsidesæt til Essentiel eller Ikke-essentiel.",
         "data": {
-          "group_name": "Kombineret gruppenavn",
-          "combined_groups": "Grupper der skal inkluderes"
+          "combined_name": "Kombineret gruppenavn"
         }
       },
       "monitoring": {
@@ -80,7 +79,8 @@
       "no_entities": "Du skal vælge mindst én entitet.",
       "not_enough_groups_selected": "Vælg mindst to grupper at kombinere.",
       "duplicate_entities": "Den samme entitet kan ikke optræde på begge lister. Fjern dubletter, inden du gemmer.",
-      "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til."
+      "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til.",
+      "already_configured": "En gruppe med dette navn findes allerede."
     },
     "abort": {
       "already_configured": "En gruppe med dette navn findes allerede.",
@@ -123,10 +123,9 @@
       },
       "combined_init": {
         "title": "Rediger kombineret gruppe",
-        "description": "Rediger navn og inkluderede grupper for denne kombinerede gruppe.",
+        "description": "Vælg, hvordan hver gruppe skal klassificeres: Ikke inkluderet, Inkluderet med gruppens egne indstillinger, eller tilsidesæt til Essentiel eller Ikke-essentiel.",
         "data": {
-          "group_name": "Kombineret gruppenavn",
-          "combined_groups": "Grupper der skal inkluderes"
+          "combined_name": "Kombineret gruppenavn"
         }
       },
       "battery_mapping": {
@@ -140,7 +139,13 @@
     },
     "error": {
       "duplicate_entities": "Den samme entitet kan ikke optræde på begge lister. Fjern dubletter, inden du gemmer.",
-      "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til."
+      "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til.",
+      "already_configured": "En gruppe med dette navn findes allerede.",
+      "empty_group_name": "Gruppenavnet kan ikke være tomt.",
+      "not_enough_groups_selected": "Vælg mindst to grupper at kombinere."
+    },
+    "abort": {
+      "not_enough_groups": "Denne kombinerede gruppe har ikke længere nok kildegrupper indlæst. Tilføj flere grupper først."
     }
   },
   "entity": {
@@ -274,6 +279,14 @@
       "options": {
         "group": "Overvåg entiteter",
         "combined_group": "Kombiner grupper"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Ikke inkluderet",
+        "keep": "✅ Inkluderet - brug gruppeindstillinger",
+        "all_essential": "🔴 Inkluderet - tilsidesæt: Essentiel",
+        "all_non_essential": "🟡 Inkluderet - tilsidesæt: Ikke-essentiel"
       }
     }
   }

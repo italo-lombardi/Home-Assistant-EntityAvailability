@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Kurti jungtinę grupę",
-        "description": "Sujunkite kelias grupes į vieną rodinį automatizavimui ir informaciniams skydeliams.",
+        "description": "Pasirinkite, kaip kiekviena grupė turi būti klasifikuojama: neįtraukta, įtraukta naudojant grupės savus nustatymus arba pakeista į Esminę arba Neesminę.",
         "data": {
-          "group_name": "Jungtinės grupės pavadinimas",
-          "combined_groups": "Įtraukiamos grupės"
+          "combined_name": "Jungtinės grupės pavadinimas"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Turite pasirinkti bent vieną objektą.",
       "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
       "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui.",
-      "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“."
+      "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
+      "already_configured": "Grupė tokiu pavadinimu jau egzistuoja."
     },
     "abort": {
       "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Redaguoti jungtinę grupę",
-        "description": "Keiskite jungtinės grupės pavadinimą ir įtraukiamas grupes.",
+        "description": "Pasirinkite, kaip kiekviena grupė turi būti klasifikuojama: neįtraukta, įtraukta naudojant grupės savus nustatymus arba pakeista į Esminę arba Neesminę.",
         "data": {
-          "group_name": "Jungtinės grupės pavadinimas",
-          "combined_groups": "Įtraukiamos grupės"
+          "combined_name": "Jungtinės grupės pavadinimas"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
-      "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“."
+      "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
+      "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
+      "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
+      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui."
+    },
+    "abort": {
+      "not_enough_groups": "Šioje jungtinėje grupėje nebėra pakankamai šaltinio grupių. Pirmiausia pridėkite daugiau grupių."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Stebėti objektus",
         "combined_group": "Sujungti grupes"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Neįtraukta",
+        "keep": "✅ Įtraukta - naudoti grupės nustatymus",
+        "all_essential": "🔴 Įtraukta - perrašyti: Esminė",
+        "all_non_essential": "🟡 Įtraukta - perrašyti: Neesminė"
       }
     }
   }

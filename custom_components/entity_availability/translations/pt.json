@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Criar Grupo Combinado",
-        "description": "Combine vários grupos numa vista para automatizações e dashboards.",
+        "description": "Selecione como cada grupo deve ser classificado: Não incluído, Incluído com as definições próprias do grupo, ou substituído para Essencial ou Não Essencial.",
         "data": {
-          "group_name": "Nome do Grupo Combinado",
-          "combined_groups": "Grupos a Incluir"
+          "combined_name": "Nome do Grupo Combinado"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Deve selecionar pelo menos uma entidade.",
       "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar.",
       "duplicate_entities": "A mesma entidade não pode aparecer em ambas as listas. Remova os duplicados antes de guardar.",
-      "collapse_requires_device_names": "Agrupar entidades por dispositivo requer que «Mostrar nomes de dispositivo» esteja ativado."
+      "collapse_requires_device_names": "Agrupar entidades por dispositivo requer que «Mostrar nomes de dispositivo» esteja ativado.",
+      "already_configured": "Já existe um grupo com este nome."
     },
     "abort": {
       "already_configured": "Já existe um grupo com este nome.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Editar Grupo Combinado",
-        "description": "Modificar o nome e os grupos incluídos neste grupo combinado.",
+        "description": "Selecione como cada grupo deve ser classificado: Não incluído, Incluído com as definições próprias do grupo, ou substituído para Essencial ou Não Essencial.",
         "data": {
-          "group_name": "Nome do Grupo Combinado",
-          "combined_groups": "Grupos a Incluir"
+          "combined_name": "Nome do Grupo Combinado"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "A mesma entidade não pode aparecer em ambas as listas. Remova os duplicados antes de guardar.",
-      "collapse_requires_device_names": "Agrupar entidades por dispositivo requer que «Mostrar nomes de dispositivo» esteja ativado."
+      "collapse_requires_device_names": "Agrupar entidades por dispositivo requer que «Mostrar nomes de dispositivo» esteja ativado.",
+      "already_configured": "Já existe um grupo com este nome.",
+      "empty_group_name": "O nome do grupo não pode estar vazio.",
+      "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar."
+    },
+    "abort": {
+      "not_enough_groups": "Este grupo combinado já não tem grupos de origem suficientes carregados. Adicione mais grupos primeiro."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Monitorizar entidades",
         "combined_group": "Combinar grupos"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Não incluído",
+        "keep": "✅ Incluído – usar definições do grupo",
+        "all_essential": "🔴 Incluído – substituição: Essencial",
+        "all_non_essential": "🟡 Incluído – substituição: Não Essencial"
       }
     }
   }

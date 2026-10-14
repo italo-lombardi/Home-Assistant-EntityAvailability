@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Luo yhdistetty ryhmä",
-        "description": "Yhdistä useita ryhmiä yhdeksi näkymäksi automaatioita ja koontinäyttöjä varten.",
+        "description": "Valitse, miten kukin ryhmä luokitellaan: Ei sisällytetty, Sisällytetty ryhmän omilla asetuksilla tai pakota Oleellinen tai Ei-oleellinen.",
         "data": {
-          "group_name": "Yhdistetyn ryhmän nimi",
-          "combined_groups": "Sisällytettävät ryhmät"
+          "combined_name": "Yhdistetyn ryhmän nimi"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Sinun täytyy valita vähintään yksi entiteetti.",
       "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
       "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi.",
-      "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä."
+      "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä.",
+      "already_configured": "Tällä nimellä on jo olemassa ryhmä."
     },
     "abort": {
       "already_configured": "Tällä nimellä on jo olemassa ryhmä.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Muokkaa yhdistettyä ryhmää",
-        "description": "Muokkaa yhdistetyn ryhmän nimeä ja mukana olevia ryhmiä.",
+        "description": "Valitse, miten kukin ryhmä luokitellaan: Ei sisällytetty, Sisällytetty ryhmän omilla asetuksilla tai pakota Oleellinen tai Ei-oleellinen.",
         "data": {
-          "group_name": "Yhdistetyn ryhmän nimi",
-          "combined_groups": "Sisällytettävät ryhmät"
+          "combined_name": "Yhdistetyn ryhmän nimi"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
-      "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä."
+      "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä.",
+      "already_configured": "Tällä nimellä on jo olemassa ryhmä.",
+      "empty_group_name": "Ryhmän nimi ei voi olla tyhjä.",
+      "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi."
+    },
+    "abort": {
+      "not_enough_groups": "Tässä yhdistetyssä ryhmässä ei ole enää tarpeeksi lähderyhmäjä ladattuna. Lisää ensin lisää ryhmiä."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Seuraa entiteettejä",
         "combined_group": "Yhdistä ryhmiä"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Ei sisällytetty",
+        "keep": "✅ Sisällytetty - käytä ryhmän asetuksia",
+        "all_essential": "🔴 Sisällytetty - pakota: Oleellinen",
+        "all_non_essential": "🟡 Sisällytetty - pakota: Ei-oleellinen"
       }
     }
   }

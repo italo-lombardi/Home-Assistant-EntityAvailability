@@ -23,10 +23,9 @@
       },
       "combined": {
         "title": "Utwórz grupę zbiorczą",
-        "description": "Połącz wiele grup w jeden widok dla automatyzacji i pulpitów.",
+        "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
         "data": {
-          "group_name": "Nazwa grupy zbiorczej",
-          "combined_groups": "Grupy do uwzględnienia"
+          "combined_name": "Nazwa grupy zbiorczej"
         }
       },
       "monitoring": {
@@ -79,7 +78,8 @@
       "no_entities": "Musisz wybrać co najmniej jedną encję.",
       "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia.",
       "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem.",
-      "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“."
+      "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“.",
+      "already_configured": "Grupa o tej nazwie już istnieje."
     },
     "abort": {
       "already_configured": "Grupa o tej nazwie już istnieje.",
@@ -122,10 +122,9 @@
       },
       "combined_init": {
         "title": "Edytuj grupę zbiorczą",
-        "description": "Zmień nazwę i uwzględnione grupy tej grupy zbiorczej.",
+        "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
         "data": {
-          "group_name": "Nazwa grupy zbiorczej",
-          "combined_groups": "Grupy do uwzględnienia"
+          "combined_name": "Nazwa grupy zbiorczej"
         }
       },
       "battery_mapping": {
@@ -139,7 +138,13 @@
     },
     "error": {
       "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem.",
-      "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“."
+      "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“.",
+      "already_configured": "Grupa o tej nazwie już istnieje.",
+      "empty_group_name": "Nazwa grupy nie może być pusta.",
+      "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia."
+    },
+    "abort": {
+      "not_enough_groups": "Ta grupa zbiorcza nie ma już wystarczającej liczby załadowanych grup źródłowych. Najpierw dodaj więcej grup."
     }
   },
   "entity": {
@@ -273,6 +278,14 @@
       "options": {
         "group": "Monitoruj encje",
         "combined_group": "Połącz grupy"
+      }
+    },
+    "combined_group_override": {
+      "options": {
+        "excluded": "🚫 Nie uwzględniona",
+        "keep": "✅ Uwzględniona – użyj ustawień grupy",
+        "all_essential": "🔴 Uwzględniona – nadpisanie: Istotna",
+        "all_non_essential": "🟡 Uwzględniona – nadpisanie: Nieistotna"
       }
     }
   }
