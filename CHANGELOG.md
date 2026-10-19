@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-19
+
+### Added
+- **Storage cleanup on entry deletion** — deleting a config entry now removes its `.storage/entity_availability_{entry_id}` file via `async_remove_entry`. Previously the file was left on disk indefinitely after the entry was removed.
+- **Orphaned storage purge on startup** — a one-shot scan at integration load removes storage files left behind by entries deleted before v0.6.1. No user action required; runs silently on first boot after upgrade.
+
+### Tests
+- Added 6 unit tests covering `async_remove_entry` and `_async_purge_orphaned_storage` (orphan deleted, active entry untouched, missing storage dir, OSError warning, `async_setup` calls purge, `Store.async_remove` called with correct key).
+- Added EC125 smoke test (isolated, `EA_SMOKE_EC=125`): creates entry, waits for storage file to exist, deletes entry, asserts file removed.
+
 ## [0.6.0] - 2026-10-14
 
 ### Added

@@ -771,7 +771,7 @@ Selecting a combined group hides editor controls that don't apply (availability 
 A: Two things can cause this. First, try **Settings → Companion App → Debug → Reset frontend cache** in the iOS app — WKWebView caches JS aggressively and a stale copy of the card can break after a HA update. Second, if resetting the cache doesn't help, update to v0.3.1 or later, which replaced the card's element bootstrap with a more reliable approach that works with the iOS WebView's load order.
 
 **Q: Does this integration require the Recorder component?**
-A: No. Entity Availability uses its own `.storage` file for tracking history. This keeps your database lean.
+A: No. Entity Availability uses its own `.storage` file for tracking history. This keeps your database lean. The storage file for each group is automatically deleted when you remove the config entry, and any orphaned files from older versions are cleaned up on the next HA startup.
 
 **Q: Why are availability sensors showing "unavailable" after installation?**
 A: This is normal. Availability sensors need time to collect data before they can report a percentage. For "today" they need at least one 5-minute data point; for longer windows (3d, 7d) they need at least 10% of expected data. They will populate automatically as the integration runs.
