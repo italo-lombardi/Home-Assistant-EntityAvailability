@@ -2094,7 +2094,6 @@ class EntityAvailabilityCardEditor extends LitElement {
           </label>
         </div>
         ` : nothing}
-        ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row">
           <label>Filter Entities (requires Show Entity List)</label>
           <select
@@ -2107,7 +2106,6 @@ class EntityAvailabilityCardEditor extends LitElement {
             <option value="online">Healthy only (online)</option>
           </select>
         </div>
-        ` : nothing}
         ${this._isSelectedGroupCombined() ? html`
         <div class="editor-row checkbox">
           <label>
