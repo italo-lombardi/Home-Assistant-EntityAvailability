@@ -5165,6 +5165,7 @@ for e in cfg['data']['entries']:
     # Runs last; does NOT restore (entry is gone). Only for isolated smoke runs
     # (EA_SMOKE_EC=125) — destructive, rebuilding the entry is manual.
     # ------------------------------------------------------------------
+    ec125_deleted = False
     if ec_enabled(125):
         print(
             "\n=== EC125: async_remove_entry — storage file removed on entry deletion ===",
@@ -5202,8 +5203,12 @@ for e in cfg['data']['entries']:
                 )
             except Exception as e:
                 chk("EC125 entry deletion API call succeeded", False, True, str(e))
+        if exists_before:
+            ec125_deleted = True
 
     # ------------------------------------------------------------------
+    if ec125_deleted:
+        return
     restore_all(ctx)
     print(
         f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
