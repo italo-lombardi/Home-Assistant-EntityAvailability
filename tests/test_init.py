@@ -9,6 +9,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability import (
     PLATFORMS,
+    _async_purge_orphaned_storage,
+    async_remove_entry,
+    async_setup,
     async_setup_entry,
     async_unload_entry,
 )
@@ -737,3 +740,116 @@ async def test_register_lovelace_resource_non_storage_duplicates_not_deleted(
 
     # isinstance check was False — no delete called
     mock_resources.async_delete_item.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# _async_purge_orphaned_storage — startup cleanup for pre-fix orphans
+# ---------------------------------------------------------------------------
+
+
+async def test_purge_orphaned_storage_deletes_unknown_file(
+    mock_hass: HomeAssistant, tmp_path
+) -> None:
+    """Orphaned .storage file (no matching config entry) is deleted."""
+    storage_dir = tmp_path / ".storage"
+    storage_dir.mkdir()
+    orphan = storage_dir / "entity_availability_deadbeef"
+    orphan.write_text("{}")
+
+    with patch.object(mock_hass.config, "path", return_value=str(storage_dir)):
+        await _async_purge_orphaned_storage(mock_hass)
+
+    assert not orphan.exists()
+
+
+async def test_purge_orphaned_storage_keeps_active_entry_file(
+    mock_hass: HomeAssistant, tmp_path, mock_config_entry
+) -> None:
+    """Storage file whose suffix matches a registered entry is NOT deleted."""
+    mock_config_entry.add_to_hass(mock_hass)
+    storage_dir = tmp_path / ".storage"
+    storage_dir.mkdir()
+    active = storage_dir / f"entity_availability_{mock_config_entry.entry_id}"
+    active.write_text("{}")
+
+    with patch.object(mock_hass.config, "path", return_value=str(storage_dir)):
+        await _async_purge_orphaned_storage(mock_hass)
+
+    assert active.exists()
+
+
+async def test_purge_orphaned_storage_no_storage_dir(
+    mock_hass: HomeAssistant, tmp_path
+) -> None:
+    """Missing .storage directory is handled gracefully (no error)."""
+    missing = tmp_path / ".storage_nonexistent"
+    with patch.object(mock_hass.config, "path", return_value=str(missing)):
+        await _async_purge_orphaned_storage(mock_hass)
+
+
+async def test_purge_orphaned_storage_oserror_warns(
+    mock_hass: HomeAssistant, tmp_path, caplog
+) -> None:
+    """OSError during unlink logs a warning and does not raise."""
+    import logging
+
+    storage_dir = tmp_path / ".storage"
+    storage_dir.mkdir()
+    orphan = storage_dir / "entity_availability_deadbeef"
+    orphan.write_text("{}")
+
+    def _raise(missing_ok=False):
+        raise OSError("permission denied")
+
+    with (
+        patch.object(mock_hass.config, "path", return_value=str(storage_dir)),
+        patch("pathlib.Path.unlink", side_effect=_raise),
+        caplog.at_level(logging.WARNING),
+    ):
+        await _async_purge_orphaned_storage(mock_hass)
+
+    assert "Could not remove orphaned storage file" in caplog.text
+
+
+async def test_async_setup_calls_purge(mock_hass: HomeAssistant) -> None:
+    """async_setup calls _async_purge_orphaned_storage."""
+    with patch(
+        "custom_components.entity_availability._async_purge_orphaned_storage",
+        new_callable=AsyncMock,
+    ) as mock_purge:
+        result = await async_setup(mock_hass, {})
+
+    assert result is True
+    mock_purge.assert_awaited_once_with(mock_hass)
+
+
+# ---------------------------------------------------------------------------
+# async_remove_entry — storage cleanup on entry deletion
+# ---------------------------------------------------------------------------
+
+
+async def test_async_remove_entry_removes_storage(mock_hass: HomeAssistant) -> None:
+    """async_remove_entry calls Store.async_remove with the correct key."""
+    from custom_components.entity_availability.const import (
+        STORAGE_KEY_PREFIX,
+        STORAGE_VERSION,
+    )
+
+    hass = mock_hass
+    entry = MockConfigEntry(domain="entity_availability", entry_id="test_entry_123")
+    entry.add_to_hass(hass)
+
+    mock_remove = AsyncMock()
+    with patch(
+        "homeassistant.helpers.storage.Store",
+        autospec=True,
+    ) as MockStore:
+        MockStore.return_value.async_remove = mock_remove
+        await async_remove_entry(hass, entry)
+
+    MockStore.assert_called_once_with(
+        hass,
+        STORAGE_VERSION,
+        f"{STORAGE_KEY_PREFIX}_{entry.entry_id}",
+    )
+    mock_remove.assert_called_once()

@@ -99,6 +99,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC122 combined any_offline=off when all offline entities forced NE via all_non_essential override
   EC123 combined groups attr shows non_essential_offline bucket (not essential) with override
   EC124 combined any_offline=on after override removed (entity still offline — restore check)
+  EC125 async_remove_entry: .storage/entity_availability_{entry_id}.json deleted on entry removal (DESTRUCTIVE — isolated run only)
 
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
@@ -5157,6 +5158,50 @@ for e in cfg['data']['entries']:
             # Always restore entity + remove override
             ss(target, "on", {"friendly_name": "smoke test"})
             _clear_ne_override()
+
+    # ------------------------------------------------------------------
+    # EC125: async_remove_entry — storage file deleted when entry is removed
+    # This calls the HA delete-entry API, then checks the .storage file is gone.
+    # Runs last; does NOT restore (entry is gone). Only for isolated smoke runs
+    # (EA_SMOKE_EC=125) — destructive, rebuilding the entry is manual.
+    # ------------------------------------------------------------------
+    if ec_enabled(125):
+        print(
+            "\n=== EC125: async_remove_entry — storage file removed on entry deletion ===",
+            flush=True,
+        )
+        import subprocess
+
+        storage_path = f"/workspaces/home-assistant-core/config/.storage/entity_availability_{ctx['entry_id']}.json"
+        # Verify the storage file exists before deletion
+        exists_before = (
+            subprocess.run(["test", "-f", storage_path], capture_output=True).returncode
+            == 0
+        )
+        if not exists_before:
+            print(
+                f"  EC125: SKIP — storage file not found at {storage_path} (coordinator may not have flushed yet)",
+                flush=True,
+            )
+        else:
+            try:
+                api("DELETE", f"/api/config/config_entries/entry/{ctx['entry_id']}")
+                # Give HA a moment to run async_remove_entry
+                wait(8)
+                exists_after = (
+                    subprocess.run(
+                        ["test", "-f", storage_path], capture_output=True
+                    ).returncode
+                    == 0
+                )
+                chk(
+                    "EC125 storage file removed after entry deletion",
+                    exists_after,
+                    False,
+                    f"path={storage_path}",
+                )
+            except Exception as e:
+                chk("EC125 entry deletion API call succeeded", False, True, str(e))
 
     # ------------------------------------------------------------------
     restore_all(ctx)

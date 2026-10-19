@@ -13,7 +13,14 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
-from .const import CONF_ENTRY_TYPE, DOMAIN, ENTRY_TYPE_COMBINED, ENTRY_TYPE_GROUP
+from .const import (
+    CONF_ENTRY_TYPE,
+    DOMAIN,
+    ENTRY_TYPE_COMBINED,
+    ENTRY_TYPE_GROUP,
+    STORAGE_KEY_PREFIX,
+    STORAGE_VERSION,
+)
 from .coordinator import EntityAvailabilityCoordinator
 from .services import async_setup_services, async_unload_services
 
@@ -51,7 +58,39 @@ def _get_version() -> str:
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the Entity Availability integration."""
+    await _async_purge_orphaned_storage(hass)
     return True
+
+
+async def _async_purge_orphaned_storage(hass: HomeAssistant) -> None:
+    """Delete .storage files for entry IDs that no longer exist.
+
+    Versions before async_remove_entry was added left storage files behind on
+    entry deletion. This one-shot scan on integration load cleans them up.
+    """
+    storage_dir = Path(hass.config.path(".storage"))
+    known_ids = {e.entry_id for e in hass.config_entries.async_entries(DOMAIN)}
+    file_prefix = f"{STORAGE_KEY_PREFIX}_"
+
+    def _scan() -> list[Path]:
+        if not storage_dir.is_dir():
+            return []
+        return [
+            p
+            for p in storage_dir.iterdir()
+            if p.name.startswith(file_prefix)
+            and p.name[len(file_prefix) :] not in known_ids
+        ]
+
+    orphans = await hass.async_add_executor_job(_scan)
+    for path in orphans:
+        try:
+            await hass.async_add_executor_job(path.unlink, True)
+            _LOGGER.info("Removed orphaned storage file %s", path.name)
+        except OSError as err:
+            _LOGGER.warning(
+                "Could not remove orphaned storage file %s: %s", path.name, err
+            )
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -169,7 +208,6 @@ async def _async_register_lovelace_resource(hass: HomeAssistant, version: str) -
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
     is_combined = entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_COMBINED
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
@@ -192,3 +230,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data.get(DOMAIN, {}).pop(_CARD_INSTALLED_KEY, None)
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove storage file when a config entry is deleted."""
+    from homeassistant.helpers.storage import Store
+
+    await Store(
+        hass, STORAGE_VERSION, f"{STORAGE_KEY_PREFIX}_{entry.entry_id}"
+    ).async_remove()
