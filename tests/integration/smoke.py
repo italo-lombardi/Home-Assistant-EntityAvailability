@@ -99,7 +99,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC122 combined any_offline=off when all offline entities forced NE via all_non_essential override
   EC123 combined groups attr shows non_essential_offline bucket (not essential) with override
   EC124 combined any_offline=on after override removed (entity still offline — restore check)
-  EC125 async_remove_entry: .storage/entity_availability_{entry_id}.json deleted on entry removal (DESTRUCTIVE — isolated run only)
+  EC125 async_remove_entry: .storage/entity_availability_{entry_id} deleted on entry removal (DESTRUCTIVE — isolated run only)
 
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
@@ -5165,6 +5165,7 @@ for e in cfg['data']['entries']:
     # Runs last; does NOT restore (entry is gone). Only for isolated smoke runs
     # (EA_SMOKE_EC=125) — destructive, rebuilding the entry is manual.
     # ------------------------------------------------------------------
+    ec125_deleted = False
     if ec_enabled(125):
         print(
             "\n=== EC125: async_remove_entry — storage file removed on entry deletion ===",
@@ -5172,10 +5173,12 @@ for e in cfg['data']['entries']:
         )
         import subprocess
 
-        storage_path = f"/workspaces/home-assistant-core/config/.storage/entity_availability_{ctx['entry_id']}.json"
+        storage_path = f"/workspaces/home-assistant-core/config/.storage/entity_availability_{ctx['entry_id']}"
         # Verify the storage file exists before deletion
         exists_before = (
-            subprocess.run(["test", "-f", storage_path], capture_output=True).returncode
+            subprocess.run(
+                ["test", "-f", storage_path], capture_output=True, check=False
+            ).returncode
             == 0
         )
         if not exists_before:
@@ -5190,7 +5193,7 @@ for e in cfg['data']['entries']:
                 wait(8)
                 exists_after = (
                     subprocess.run(
-                        ["test", "-f", storage_path], capture_output=True
+                        ["test", "-f", storage_path], capture_output=True, check=False
                     ).returncode
                     == 0
                 )
@@ -5202,8 +5205,12 @@ for e in cfg['data']['entries']:
                 )
             except Exception as e:
                 chk("EC125 entry deletion API call succeeded", False, True, str(e))
+        if exists_before:
+            ec125_deleted = True
 
     # ------------------------------------------------------------------
+    if ec125_deleted:
+        return
     restore_all(ctx)
     print(
         f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
