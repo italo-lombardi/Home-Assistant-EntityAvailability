@@ -5176,7 +5176,9 @@ for e in cfg['data']['entries']:
         storage_path = f"/workspaces/home-assistant-core/config/.storage/entity_availability_{ctx['entry_id']}"
         # Verify the storage file exists before deletion
         exists_before = (
-            subprocess.run(["test", "-f", storage_path], capture_output=True).returncode
+            subprocess.run(
+                ["test", "-f", storage_path], capture_output=True, check=False
+            ).returncode
             == 0
         )
         if not exists_before:
@@ -5191,7 +5193,7 @@ for e in cfg['data']['entries']:
                 wait(8)
                 exists_after = (
                     subprocess.run(
-                        ["test", "-f", storage_path], capture_output=True
+                        ["test", "-f", storage_path], capture_output=True, check=False
                     ).returncode
                     == 0
                 )
