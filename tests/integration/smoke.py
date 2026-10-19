@@ -99,7 +99,7 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC122 combined any_offline=off when all offline entities forced NE via all_non_essential override
   EC123 combined groups attr shows non_essential_offline bucket (not essential) with override
   EC124 combined any_offline=on after override removed (entity still offline — restore check)
-  EC125 async_remove_entry: .storage/entity_availability_{entry_id}.json deleted on entry removal (DESTRUCTIVE — isolated run only)
+  EC125 async_remove_entry: .storage/entity_availability_{entry_id} deleted on entry removal (DESTRUCTIVE — isolated run only)
 
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
@@ -5172,7 +5172,7 @@ for e in cfg['data']['entries']:
         )
         import subprocess
 
-        storage_path = f"/workspaces/home-assistant-core/config/.storage/entity_availability_{ctx['entry_id']}.json"
+        storage_path = f"/workspaces/home-assistant-core/config/.storage/entity_availability_{ctx['entry_id']}"
         # Verify the storage file exists before deletion
         exists_before = (
             subprocess.run(["test", "-f", storage_path], capture_output=True).returncode
