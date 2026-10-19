@@ -841,7 +841,7 @@ async def test_async_remove_entry_removes_storage(mock_hass: HomeAssistant) -> N
 
     mock_remove = AsyncMock()
     with patch(
-        "homeassistant.helpers.storage.Store",
+        "custom_components.entity_availability.Store",
         autospec=True,
     ) as MockStore:
         MockStore.return_value.async_remove = mock_remove
