@@ -5229,6 +5229,66 @@ for e in cfg['data']['entries']:
             )
 
     # ------------------------------------------------------------------
+    # EC129-EC131: show_collapse_count config option exposed on summary attrs
+    # ------------------------------------------------------------------
+    # The per-entry `show_collapse_count` option (default True) is emitted as a
+    # recorded attribute on BOTH the classic group summary and the combined
+    # summary, so the card can gate the ×N collapse badge. These guard that the
+    # attribute is present, boolean, and defaults True on a fixture that never
+    # set it (back-compat: absent key reads as True via .get default).
+    if any(ec_enabled(n) for n in (129, 130, 131)):
+        print(
+            "\n=== EC129-EC131: show_collapse_count exposed on summary attrs ===",
+            flush=True,
+        )
+
+        if ec_enabled(129):
+            g_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+            chk(
+                "EC129 group_summary show_collapse_count present",
+                "show_collapse_count" in g_attrs,
+                True,
+                f"attrs keys (sample)={list(g_attrs.keys())[:15]}",
+            )
+            chk(
+                "EC129 group_summary show_collapse_count is bool",
+                isinstance(g_attrs.get("show_collapse_count"), bool),
+                True,
+                f"value={g_attrs.get('show_collapse_count')!r}",
+            )
+
+        if ec_enabled(130):
+            if combined_prefix:
+                c_attrs = gs(f"{combined_prefix}_combined_summary").get(
+                    "attributes", {}
+                )
+                chk(
+                    "EC130 combined_summary show_collapse_count present",
+                    "show_collapse_count" in c_attrs,
+                    True,
+                    f"attrs keys (sample)={list(c_attrs.keys())[:15]}",
+                )
+                chk(
+                    "EC130 combined_summary show_collapse_count is bool",
+                    isinstance(c_attrs.get("show_collapse_count"), bool),
+                    True,
+                    f"value={c_attrs.get('show_collapse_count')!r}",
+                )
+            else:
+                print("  EC130: skipped (no combined entry in fixture)", flush=True)
+
+        if ec_enabled(131):
+            # Fixtures do not set the option, so the default (True) must surface
+            # through the .get fallback on the classic summary.
+            g_attrs = gs(f"{prefix}_group_summary").get("attributes", {})
+            chk(
+                "EC131 show_collapse_count defaults True when entry unset",
+                g_attrs.get("show_collapse_count"),
+                True,
+                "fixture never set the option; .get default must be True",
+            )
+
+    # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed
     # This calls the HA delete-entry API, then checks the .storage file is gone.
     # Runs last; does NOT restore (entry is gone). Only for isolated smoke runs
