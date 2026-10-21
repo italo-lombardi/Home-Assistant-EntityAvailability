@@ -659,6 +659,7 @@ show_actions: false
 show_suppress_toggle: false
 show_stat_icons: false
 show_table_icons: false
+show_collapse_count: true    # show the ×N badge on device-collapsed rows
 compact: false
 entity_detail: "off"           # "off" | "tooltip" | "inline"
 entity_filter: "all"           # "all" | "offline" | "online"
@@ -691,6 +692,7 @@ availability_colors:
 | `entity_filter` | `"all"` | Filter entity list: `"all"`, `"offline"` (problems only: offline/stale/low battery), `"online"` (healthy only). Section title and count update to reflect filter (e.g., "Offline Entities (2/6)"). (regular groups only) |
 | `compact` | `false` | Reduced padding mode |
 | `show_entity_health` | `true` | Show health columns (Bat. & Signal) in the entity list when the feature is active (regular groups only) |
+| `show_collapse_count` | `true` | Show the `×N` badge next to a device-collapsed row's name (N = entities merged into that row). Turn off to hide the badge; collapsing itself, member lists, and aggregated status are unaffected. (regular and combined groups) |
 | `sort_by` | `status` | Entity list sort order: `status`, `name_asc`, `name_desc`, `battery_asc`, `battery_desc`, `signal_asc`, `signal_desc` (regular groups only) |
 | `group_sort_by` | `name_asc` | Sort order for both the groups breakdown table and the flat entity list: `name_asc`, `name_desc`, `offline_desc` (most offline first). (combined groups only) |
 | `availability_thresholds` | `{high: 99, mid: 95}` | % thresholds for bar colors (regular groups only) |
