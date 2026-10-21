@@ -495,6 +495,9 @@ const cardStyles = css`
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 260px;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .entity-dot {

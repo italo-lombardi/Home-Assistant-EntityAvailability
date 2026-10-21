@@ -739,6 +739,35 @@ class TestCombinedGroupSensor:
             "binary_sensor.r1": ["Renamed Group"]
         }, "rename must surface without manual cache clearing"
 
+    def test_dm_rk_groups_and_full_cache_set_in_lockstep(self, mock_hass):
+        """_dm_rk_groups and _dm_full_cache (rep_of) must be populated together by
+        _device_map_of. The row_groups fold indexes self._dm_rk_groups[rk] without
+        a guard, relying on this invariant — guard it so a future refactor that
+        sets one cache without the other fails loudly here."""
+        entry_a = _make_group_entry("la", "Group A", ["binary_sensor.l1"])
+        combined = _make_combined_entry("lc", "L", ["la"])
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.l1": DeviceState(entity_id="binary_sensor.l1"),
+            }
+        mock_hass.data[DOMAIN] = {"la": coord_a}
+        sensor = CombinedGroupSensor(mock_hass, combined, "L", "l", ["la"])
+
+        # Fresh instance: neither cache primed yet.
+        assert sensor._dm_full_cache is None
+        assert sensor._dm_rk_groups == {}
+
+        merged, rep_of, _ = sensor._device_map_cached(sensor._active_coordinators())
+        # After a build both are set, and every rep_of key has a _dm_rk_groups
+        # entry (the no-guard fold's precondition).
+        assert sensor._dm_full_cache is not None
+        assert sensor._dm_rk_groups != {}
+        missing = [rk for rk in rep_of if rk not in sensor._dm_rk_groups]
+        assert missing == [], f"rep_of keys absent from _dm_rk_groups: {missing}"
+
     def test_attributes_battery_powered_via_device_states(
         self, mock_hass, combined_entry, coordinators
     ):
