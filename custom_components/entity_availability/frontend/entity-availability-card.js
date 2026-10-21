@@ -1119,7 +1119,7 @@ class EntityAvailabilityCard extends LitElement {
             <div class="entity-item" tabindex="0" role="button" @mouseenter=${(e) => this._positionTooltip(e, item, suppressedUntil)} @mouseleave=${() => this._hideTooltip()} @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
               <div class="entity-item-row" style="${gridStyle}">
                 <div class="entity-dot ${item.dotColor}"></div>
-                <span class="entity-name">${item.isNonEssential ? html`<ha-icon icon="mdi:minus-circle-outline" class="non-essential-icon" style="color:var(--eac-${item.dotColor === 'green' ? 'green' : item.dotColor === 'red' ? 'red' : 'yellow'});vertical-align:middle;--mdc-icon-size:14px"></ha-icon> ` : nothing}${item.name}${item.memberCount > 1 ? html`<span class="entity-member-count" title="${item.memberCount} entities collapsed into this row" aria-label="${item.memberCount} entities collapsed">×${item.memberCount}</span>` : nothing}</span>
+                <span class="entity-name">${item.isNonEssential ? html`<ha-icon icon="mdi:minus-circle-outline" class="non-essential-icon" style="color:var(--eac-${item.dotColor === 'green' ? 'green' : item.dotColor === 'red' ? 'red' : 'yellow'});vertical-align:middle;--mdc-icon-size:14px"></ha-icon> ` : nothing}${item.name}${item.memberCount > 1 && this._config.show_collapse_count !== false ? html`<span class="entity-member-count" title="${item.memberCount} entities collapsed into this row" aria-label="${item.memberCount} entities collapsed">×${item.memberCount}</span>` : nothing}</span>
                 <span class="entity-status">${item.status}</span>
                 ${hasBattery
                   ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`
@@ -2125,6 +2125,16 @@ class EntityAvailabilityCardEditor extends LitElement {
           </label>
         </div>
         `}
+        <div class="editor-row checkbox">
+          <label>
+            <input
+              type="checkbox"
+              .checked=${this._config.show_collapse_count !== false}
+              @change=${(e) => this._updateConfig("show_collapse_count", e.target.checked)}
+            />
+            Show Collapse Count (×N badge)
+          </label>
+        </div>
         <div class="editor-row checkbox">
           <label>
             <input
