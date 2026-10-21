@@ -29,7 +29,7 @@
           "show_collapse_count": "Vis sammenslåingsantall (×N-merke)"
         },
         "data_description": {
-          "show_collapse_count": "Når slått på (standard), viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på dette kombinerte kortet — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke."
+          "show_collapse_count": "Når slått på, viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på dette kombinerte kortet — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke."
         }
       },
       "monitoring": {
@@ -66,7 +66,7 @@
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
           "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
           "collapse_devices": "Fungerer bare når «Vis enhetsnavn» er aktivert. Når slått på, telles flere entiteter som tilhører samme fysiske enhet som én i hver sensorverdi, liste og hendelse (offline, lavt batteri, inaktiv, dårlig signal). Entiteter slås bare sammen når de deler samme enhet, batterinivå og signal — entiteter som ikke er koblet til en enhet, slås aldri sammen, og entiteter på samme enhet med ulikt batteri- eller signalnivå forblir separate. Tilgjengelighet %, MTBF og MTTR forblir per entitet. Merk: hvis denne gruppen er inkludert i en kombinert gruppe, brukes sammenslåingsinnstillingen automatisk i den kombinerte visningen — ingen ekstra konfigurasjon er nødvendig.",
-          "show_collapse_count": "Når slått på (standard), viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på denne gruppens kort — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke.",
+          "show_collapse_count": "Når slått på, viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på denne gruppens kort — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke.",
           "signal_enabled": "Spor signalstyrke (dBm) for overvåkede enheter og varsle når signalkvaliteten faller til «dårlig». Etter aktivering vil du bli bedt om å koble til en signalsensor og velge nettverkstype for hver enhet."
         }
       },
@@ -122,7 +122,7 @@
           "recovery_window": "Hvor lenge (i minutter) en entitet forblir i sensorene Nylig frakoblet eller Nylig gjenopprettet etter en tilstandsovergang.",
           "use_device_names": "Vis enhetsnavn i stedet for entitetens visningsnavn i sensorene for frakoblede/gjenopprettede entiteter. Faller tilbake til visningsnavn for entiteter som ikke er koblet til en enhet.",
           "collapse_devices": "Fungerer bare når «Vis enhetsnavn» er aktivert. Når slått på, telles flere entiteter som tilhører samme fysiske enhet som én i hver sensorverdi, liste og hendelse (offline, lavt batteri, inaktiv, dårlig signal). Entiteter slås bare sammen når de deler samme enhet, batterinivå og signal — entiteter som ikke er koblet til en enhet, slås aldri sammen, og entiteter på samme enhet med ulikt batteri- eller signalnivå forblir separate. Tilgjengelighet %, MTBF og MTTR forblir per entitet. Merk: hvis denne gruppen er inkludert i en kombinert gruppe, brukes sammenslåingsinnstillingen automatisk i den kombinerte visningen — ingen ekstra konfigurasjon er nødvendig.",
-          "show_collapse_count": "Når slått på (standard), viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på denne gruppens kort — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke.",
+          "show_collapse_count": "Når slått på, viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på denne gruppens kort — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke.",
           "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil).",
           "entities": "Enheter som overvåkes for tilgjengelighet. Disse er fullt overvåket og inkludert i alle KPI-er og varsler.",
           "signal_enabled": "Spor signalstyrke (dBm) for overvåkede enheter og varsle når signalkvaliteten faller til «dårlig». Etter aktivering vil du bli bedt om å koble til en signalsensor og velge nettverkstype for hver enhet."
@@ -136,7 +136,7 @@
           "show_collapse_count": "Vis sammenslåingsantall (×N-merke)"
         },
         "data_description": {
-          "show_collapse_count": "Når slått på (standard), viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på dette kombinerte kortet — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke."
+          "show_collapse_count": "Når slått på, viser en sammenslått enhetsrad et ×N-merke ved siden av navnet som teller entitetene som er slått sammen i den raden. Slå av for å skjule merket overalt på dette kombinerte kortet — selve sammenslåingen, medlemslisten og den aggregerte statusen påvirkes ikke."
         }
       },
       "battery_mapping": {

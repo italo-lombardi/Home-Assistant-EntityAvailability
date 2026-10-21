@@ -29,7 +29,7 @@
           "show_collapse_count": "Vis samlingsantal (×N-mærke)"
         },
         "data_description": {
-          "show_collapse_count": "Når slået til (standard), viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på dette kombinerede kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke."
+          "show_collapse_count": "Når slået til, viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på dette kombinerede kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke."
         }
       },
       "monitoring": {
@@ -66,7 +66,7 @@
           "staleness_threshold": "Hvis en entitet ikke har ændret tilstand i dette antal minutter, markeres den som forringet. Dette opdager entiteter, der rapporterer 'tilgængelig', men faktisk er stoppet med at sende data. Sæt til 0 for at deaktivere.",
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
           "collapse_devices": "Virker kun, når 'Vis enhedsnavne' er aktiveret. Når slået til, tælles flere entiteter, der tilhører den samme fysiske enhed, som én i hver sensorværdi, liste og hændelse (offline, lavt batteri, inaktiv, dårligt signal). Entiteter samles kun, når de deler den samme enhed, batteriniveau og signal — entiteter, der ikke er tilknyttet en enhed, samles aldrig, og entiteter på den samme enhed med forskelligt batteri- eller signalniveau forbliver separate. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet. Bemærk: hvis denne gruppe er inkluderet i en kombineret gruppe, anvendes dens samlingsindstilling automatisk i den kombinerede visning — ingen ekstra konfiguration er nødvendig.",
-          "show_collapse_count": "Når slået til (standard), viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på denne gruppes kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke.",
+          "show_collapse_count": "Når slået til, viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på denne gruppes kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke.",
           "availability_windows": "Tidsvinduer til sporing af gruppens tilgængelighed (f.eks. i dag, 3d, 7d).",
           "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift."
         }
@@ -124,7 +124,7 @@
           "recovery_window": "Hvor længe (i minutter) en entitet forbliver i sensorerne Senest offline eller Senest genoprettet efter et tilstandsskift.",
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
           "collapse_devices": "Virker kun, når 'Vis enhedsnavne' er aktiveret. Når slået til, tælles flere entiteter, der tilhører den samme fysiske enhed, som én i hver sensorværdi, liste og hændelse (offline, lavt batteri, inaktiv, dårligt signal). Entiteter samles kun, når de deler den samme enhed, batteriniveau og signal — entiteter, der ikke er tilknyttet en enhed, samles aldrig, og entiteter på den samme enhed med forskelligt batteri- eller signalniveau forbliver separate. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet. Bemærk: hvis denne gruppe er inkluderet i en kombineret gruppe, anvendes dens samlingsindstilling automatisk i den kombinerede visning — ingen ekstra konfiguration er nødvendig.",
-          "show_collapse_count": "Når slået til (standard), viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på denne gruppes kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke.",
+          "show_collapse_count": "Når slået til, viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på denne gruppes kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke.",
           "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter eller gentagne rapporter med samme værdi — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil).",
           "entities": "Enheder der overvåges for tilgængelighed. Disse er fuldt overvåget og inkluderet i alle KPI'er og advarsler."
         }
@@ -137,7 +137,7 @@
           "show_collapse_count": "Vis samlingsantal (×N-mærke)"
         },
         "data_description": {
-          "show_collapse_count": "Når slået til (standard), viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på dette kombinerede kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke."
+          "show_collapse_count": "Når slået til, viser en samlet enhedsrække et ×N-mærke ved siden af navnet, der tæller de entiteter, som er samlet i den række. Slå fra for at skjule mærket overalt på dette kombinerede kort — selve samlingen, medlemslisten og den samlede status påvirkes ikke."
         }
       },
       "battery_mapping": {

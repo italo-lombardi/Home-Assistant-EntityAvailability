@@ -29,7 +29,7 @@
           "show_collapse_count": "Zobrazit počet sloučených (odznak ×N)"
         },
         "data_description": {
-          "show_collapse_count": "Když je zapnuto (výchozí), sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na této kombinované kartě — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny."
+          "show_collapse_count": "Když je zapnuto, sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na této kombinované kartě — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny."
         }
       },
       "monitoring": {
@@ -66,7 +66,7 @@
           "recovery_window": "Jak dlouho (v minutách) setrvá entity v senzorech Nedávno offline nebo Nedávno obnovena po změně stavu.",
           "use_device_names": "Zobrazuje název zařízení HA místo přátelského názvu entity ve stavech offline/obnovena. Pro entity nepropojené se zařízením se použije přátelský název entity.",
           "collapse_devices": "Funguje pouze při zapnuté volbě 'Zobrazovat názvy zařízení'. Když je zapnuto, více entit patřících ke stejnému fyzickému zařízení se počítá jako jedna v každé hodnotě senzoru, seznamu i události (offline, nízká baterie, zastaralé, špatný signál). Entity se sloučí pouze tehdy, když sdílejí stejné zařízení, úroveň baterie a signál — entity nepropojené se zařízením se nikdy neslučují, a entity na stejném zařízení s odlišnými hodnotami baterie nebo signálu zůstávají oddělené. Dostupnost %, MTBF a MTTR zůstávají na entitu. Poznámka: pokud je tato skupina zahrnuta v kombinované skupině, její nastavení sloučení se v kombinovaném zobrazení použije automaticky — není potřeba žádná další konfigurace.",
-          "show_collapse_count": "Když je zapnuto (výchozí), sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na kartě této skupiny — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny.",
+          "show_collapse_count": "Když je zapnuto, sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na kartě této skupiny — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny.",
           "signal_enabled": "Sledovat sílu signálu (dBm) u monitorovaných entit a upozornit, když kvalita signálu klesne na úroveň „špatný\". Po povolení budete požádáni o přiřazení senzoru signálu a výběr typu sítě pro každou entitu."
         }
       },
@@ -123,7 +123,7 @@
           "recovery_window": "Jak dlouho (v minutách) setrvá entity v senzorech Nedávno offline nebo Nedávno obnovena po změně stavu.",
           "use_device_names": "Zobrazuje název zařízení HA místo přátelského názvu entity ve stavech offline/obnovena. Pro entity nepropojené se zařízením se použije přátelský název entity.",
           "collapse_devices": "Funguje pouze při zapnuté volbě 'Zobrazovat názvy zařízení'. Když je zapnuto, více entit patřících ke stejnému fyzickému zařízení se počítá jako jedna v každé hodnotě senzoru, seznamu i události (offline, nízká baterie, zastaralé, špatný signál). Entity se sloučí pouze tehdy, když sdílejí stejné zařízení, úroveň baterie a signál — entity nepropojené se zařízením se nikdy neslučují, a entity na stejném zařízení s odlišnými hodnotami baterie nebo signálu zůstávají oddělené. Dostupnost %, MTBF a MTTR zůstávají na entitu. Poznámka: pokud je tato skupina zahrnuta v kombinované skupině, její nastavení sloučení se v kombinovaném zobrazení použije automaticky — není potřeba žádná další konfigurace.",
-          "show_collapse_count": "Když je zapnuto (výchozí), sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na kartě této skupiny — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny.",
+          "show_collapse_count": "Když je zapnuto, sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na kartě této skupiny — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny.",
           "staleness_use_last_updated": "Když je zapnuto, jakákoli aktualizace entity — včetně změn pouze atributů nebo opakovaných hlášení stejné hodnoty — resetuje časovač zastarání. Když je vypnuto (výchozí), počítá se pouze změna hlavního stavu. Zapněte pro zařízení, která hlásí často, ale jen zřídka mění hodnotu (např. teplota nebo výkon, který zůstává stabilní).",
           "signal_enabled": "Sledovat sílu signálu (dBm) u monitorovaných entit a upozornit, když kvalita signálu klesne na úroveň „špatný\". Po povolení budete požádáni o přiřazení senzoru signálu a výběr typu sítě pro každou entitu."
         }
@@ -136,7 +136,7 @@
           "show_collapse_count": "Zobrazit počet sloučených (odznak ×N)"
         },
         "data_description": {
-          "show_collapse_count": "Když je zapnuto (výchozí), sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na této kombinované kartě — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny."
+          "show_collapse_count": "Když je zapnuto, sloučený řádek zařízení zobrazuje vedle svého názvu odznak ×N počítající entity sloučené do tohoto řádku. Vypnutím skryjete odznak všude na této kombinované kartě — samotné slučování, seznam členů ani agregovaný stav tím nejsou ovlivněny."
         }
       },
       "battery_mapping": {

@@ -29,7 +29,7 @@
           "show_collapse_count": "Näytä yhdistämismäärä (×N-merkki)"
         },
         "data_description": {
-          "show_collapse_count": "Kun käytössä (oletus), yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tältä yhdistetyltä kortilta — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu."
+          "show_collapse_count": "Kun käytössä, yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tältä yhdistetyltä kortilta — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu."
         }
       },
       "monitoring": {
@@ -66,7 +66,7 @@
           "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
           "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen.",
           "collapse_devices": "Toimii vain, kun 'Näytä laitteiden nimet' on käytössä. Kun päällä, useat samaan fyysiseen laitteeseen kuuluvat entiteetit lasketaan yhdeksi jokaisessa anturiarvossa, luettelossa ja tapahtumassa (offline, matala akku, vanhentunut, heikko signaali). Entiteetit yhdistetään vain, kun niillä on sama laite, akun taso ja signaali — entiteettejä, joita ei ole yhdistetty laitteeseen, ei koskaan yhdistetä, ja saman laitteen entiteetit, joilla on eri akku- tai signaalivoimakkuuslukemat, pysyvät erillisinä. Saatavuus-%, MTBF ja MTTR pysyvät entiteettikohtaisina. Huom: jos tämä ryhmä sisältyy yhdistettyyn ryhmään, sen yhdistämisasetus otetaan automaattisesti käyttöön yhdistetyssä näkymässä — lisäasetuksia ei tarvita.",
-          "show_collapse_count": "Kun käytössä (oletus), yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tämän ryhmän kortilla — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu.",
+          "show_collapse_count": "Kun käytössä, yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tämän ryhmän kortilla — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu.",
           "signal_enabled": "Seuraa signaalivoimakkuutta (dBm) valvotuille entiteeteille ja varoita, kun signaalin laatu heikkenee tasolle \"heikko\". Käyttöönoton jälkeen sinua pyydetään sitomaan signaalianturi ja valitsemaan verkkotyyppi kullekin entiteetille."
         }
       },
@@ -123,7 +123,7 @@
           "recovery_window": "Kuinka kauan (minuuteissa) entiteetti pysyy Äskettäin offline- tai Äskettäin palautunut -antureissa tilamuutoksen jälkeen.",
           "use_device_names": "Näytä HA-laitteen nimi entiteetin kutsumanimen sijasta offline/palautunut-anturitiloissa. Turvautuu kutsumanimen, jos entiteetti ei ole yhdistetty laitteeseen.",
           "collapse_devices": "Toimii vain, kun 'Näytä laitteiden nimet' on käytössä. Kun päällä, useat samaan fyysiseen laitteeseen kuuluvat entiteetit lasketaan yhdeksi jokaisessa anturiarvossa, luettelossa ja tapahtumassa (offline, matala akku, vanhentunut, heikko signaali). Entiteetit yhdistetään vain, kun niillä on sama laite, akun taso ja signaali — entiteettejä, joita ei ole yhdistetty laitteeseen, ei koskaan yhdistetä, ja saman laitteen entiteetit, joilla on eri akku- tai signaalivoimakkuuslukemat, pysyvät erillisinä. Saatavuus-%, MTBF ja MTTR pysyvät entiteettikohtaisina. Huom: jos tämä ryhmä sisältyy yhdistettyyn ryhmään, sen yhdistämisasetus otetaan automaattisesti käyttöön yhdistetyssä näkymässä — lisäasetuksia ei tarvita.",
-          "show_collapse_count": "Kun käytössä (oletus), yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tämän ryhmän kortilla — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu.",
+          "show_collapse_count": "Kun käytössä, yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tämän ryhmän kortilla — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu.",
           "staleness_use_last_updated": "Kun käytössä, mikä tahansa päivitys entiteetiltä — mukaan lukien pelkät attribuuttimuutokset tai toistuvat saman arvon raportit — nollaa vanhentumisajastimen. Kun pois käytöstä (oletus), vain muutos päätilassa lasketaan. Ota käyttöön laitteille, jotka raportoivat usein mutta muuttuvat harvoin (esim. lämpötila tai teho, joka pysyy vakaana).",
           "signal_enabled": "Seuraa signaalivoimakkuutta (dBm) valvotuille entiteeteille ja varoita, kun signaalin laatu heikkenee tasolle \"heikko\". Käyttöönoton jälkeen sinua pyydetään sitomaan signaalianturi ja valitsemaan verkkotyyppi kullekin entiteetille."
         }
@@ -136,7 +136,7 @@
           "show_collapse_count": "Näytä yhdistämismäärä (×N-merkki)"
         },
         "data_description": {
-          "show_collapse_count": "Kun käytössä (oletus), yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tältä yhdistetyltä kortilta — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu."
+          "show_collapse_count": "Kun käytössä, yhdistetyn laiterivin nimen vieressä näkyy ×N-merkki, joka ilmaisee kyseiselle riville yhdistettyjen entiteettien määrän. Poista käytöstä piilottaaksesi merkin kaikkialta tältä yhdistetyltä kortilta — yhdistäminen itse, jäsenluettelo ja koostettu tila eivät muutu."
         }
       },
       "battery_mapping": {

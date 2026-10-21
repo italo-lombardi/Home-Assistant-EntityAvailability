@@ -29,7 +29,7 @@
           "show_collapse_count": "Összevonási darabszám megjelenítése (×N jelvény)"
         },
         "data_description": {
-          "show_collapse_count": "Bekapcsolt állapotban (alapértelmezett) az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ezen az összesített kártyán — maga az összevonás, a taglista és az összesített állapot változatlan marad."
+          "show_collapse_count": "Bekapcsolt állapotban az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ezen az összesített kártyán — maga az összevonás, a taglista és az összesített állapot változatlan marad."
         }
       },
       "monitoring": {
@@ -66,7 +66,7 @@
           "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
           "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
           "collapse_devices": "Csak akkor működik, ha az „Eszköznevek megjelenítése” engedélyezve van. Bekapcsolt állapotban az ugyanahhoz a fizikai eszközhöz tartozó több entitás egynek számít minden szenzorértékben, listában és eseményben (offline, alacsony akkumulátor, elavult, gyenge jel). Az entitások csak akkor vonódnak össze, ha ugyanaz az eszköz, akkumulátorszint és jel — az eszközhöz nem kapcsolt entitások soha nem vonódnak össze, és az ugyanazon az eszközön lévő, eltérő akkumulátor- vagy jelleolvasással rendelkező entitások külön maradnak. Az elérhetőség %, az MTBF és az MTTR entitásonként marad. Megjegyzés: ha ez a csoport egy összesített csoportban szerepel, az összevonási beállítása automatikusan érvényesül az összesített nézetben — nincs szükség további konfigurációra.",
-          "show_collapse_count": "Bekapcsolt állapotban (alapértelmezett) az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ennek a csoportnak a kártyáján — maga az összevonás, a taglista és az összesített állapot változatlan marad.",
+          "show_collapse_count": "Bekapcsolt állapotban az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ennek a csoportnak a kártyáján — maga az összevonás, a taglista és az összesített állapot változatlan marad.",
           "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
         }
       },
@@ -123,7 +123,7 @@
           "recovery_window": "Mennyi ideig (percben) marad egy entitás a Nemrég offline vagy Nemrég visszaállt szenzorokban egy állapotváltást követően.",
           "use_device_names": "A HA-eszköz nevét jeleníti meg az entitás köznapi neve helyett az offline/visszaállt szenzor állapotokban. Eszközhöz nem kapcsolt entitásoknál visszaesik a köznapi névre.",
           "collapse_devices": "Csak akkor működik, ha az „Eszköznevek megjelenítése” engedélyezve van. Bekapcsolt állapotban az ugyanahhoz a fizikai eszközhöz tartozó több entitás egynek számít minden szenzorértékben, listában és eseményben (offline, alacsony akkumulátor, elavult, gyenge jel). Az entitások csak akkor vonódnak össze, ha ugyanaz az eszköz, akkumulátorszint és jel — az eszközhöz nem kapcsolt entitások soha nem vonódnak össze, és az ugyanazon az eszközön lévő, eltérő akkumulátor- vagy jelleolvasással rendelkező entitások külön maradnak. Az elérhetőség %, az MTBF és az MTTR entitásonként marad. Megjegyzés: ha ez a csoport egy összesített csoportban szerepel, az összevonási beállítása automatikusan érvényesül az összesített nézetben — nincs szükség további konfigurációra.",
-          "show_collapse_count": "Bekapcsolt állapotban (alapértelmezett) az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ennek a csoportnak a kártyáján — maga az összevonás, a taglista és az összesített állapot változatlan marad.",
+          "show_collapse_count": "Bekapcsolt állapotban az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ennek a csoportnak a kártyáján — maga az összevonás, a taglista és az összesített állapot változatlan marad.",
           "staleness_use_last_updated": "Bekapcsolt állapotban az entitás bármilyen frissítése — beleértve az attribútum-módosításokat vagy az ismételt azonos értékű jelentéseket — visszaállítja az elavultsági időzítőt. Kikapcsolt állapotban (alapértelmezett) csak a fő állapot változása számít. Kapcsolja be olyan eszközökhöz, amelyek sűrűn jelentenek, de ritkán változtatnak értéket (pl. stabil hőmérséklet vagy teljesítmény).",
           "signal_enabled": "Nyomon követi a figyelt entitások jelerősségét (dBm), és riasztást küld, ha a jelminőség „gyenge\" szintre esik. Az engedélyezés után a rendszer megkéri, hogy rendeljen hozzá egy jelerősség-szenzort, és válassza ki a hálózat típusát minden egyes entitáshoz."
         }
@@ -136,7 +136,7 @@
           "show_collapse_count": "Összevonási darabszám megjelenítése (×N jelvény)"
         },
         "data_description": {
-          "show_collapse_count": "Bekapcsolt állapotban (alapértelmezett) az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ezen az összesített kártyán — maga az összevonás, a taglista és az összesített állapot változatlan marad."
+          "show_collapse_count": "Bekapcsolt állapotban az összevont eszközsor neve mellett egy ×N jelvény jelenik meg, amely az adott sorba összevont entitások számát mutatja. Kapcsolja ki, hogy a jelvényt mindenhol elrejtse ezen az összesített kártyán — maga az összevonás, a taglista és az összesített állapot változatlan marad."
         }
       },
       "battery_mapping": {
