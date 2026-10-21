@@ -7,8 +7,12 @@ All notable changes to this project will be documented in this file.
 ## [0.6.2] - 2026-10-21
 
 ### Added
-- **Source group provenance in combined cards** — the combined card's entity detail (tooltip or inline) now shows a *Group* / *Groups* row naming which source group(s) each entity row came from. A new `row_groups` attribute on the combined summary sensor maps each row to its owning group(s): a device collapsed from two groups shows the union; an entity monitored by two groups with different config (split row) shows only its own group per row.
+- **Source group provenance in combined cards** — the combined card's entity detail (tooltip or inline) now shows a *Group* / *Groups* row naming which source group(s) each entity row came from. A new `row_groups` attribute on the combined summary sensor maps each row to its owning group(s): a device collapsed from two groups shows the union; an entity monitored by two groups with different config (split row) shows only its own group per row. Collapsed device rows (`×N`) also show the *Group* / *Groups* row — previously the group field was suppressed for any multi-member row.
 - **Entity Detail & Per-Entity Suppress Toggle exposed for combined cards** — the card editor now surfaces the *Entity Detail* (tooltip/inline) selector and the *Per-Entity Suppress Toggle* for combined groups. Both were already honored by the render path but previously only configurable via hand-written YAML.
+
+### Changed
+- **Combined card: richer inline detail for collapsed rows** — an expanded collapsed row now renders a full metadata block (Device, Area, Group(s), Condition, Battery, Signal) followed by a *Members* sub-section listing each member entity's state. Member labels drop the device-name prefix (e.g. *"Balcony Luminance Motion Sensor Occupancy"* → *"Occupancy"*) when the friendly name carries it, falling back to the full name otherwise. Compact inline mode adds the Group row alongside the single Condition line.
+- **Card version alignment** — `CARD_VERSION` in the card JS is kept in sync with the integration `manifest.json` version; the stale header comment version was removed in favor of the single `CARD_VERSION` source.
 
 ### Tests
 - Unit: `row_groups` shared-row union, split-row isolation, collapsed-device union, write-dedup signature on membership/name change, coordinator-replacement rebuild, cache lockstep invariant, and `_unrecorded_attributes` guard.
