@@ -274,7 +274,9 @@ class OfflineDevicesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        return render_name_list(offline, MAX_STATE_LENGTH)
+        return render_name_list(
+            offline, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -324,7 +326,9 @@ class DegradedDevicesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        return render_name_list(low_bat, MAX_STATE_LENGTH)
+        return render_name_list(
+            low_bat, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -386,7 +390,9 @@ class NonEssentialOfflineEntitiesSensor(DedupCoordinatorSensor):
                 lambda d: d.is_non_essential and d.is_offline and not d.is_suppressed
             )
         ]
-        return render_name_list(offline, MAX_STATE_LENGTH)
+        return render_name_list(
+            offline, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -442,7 +448,9 @@ class NonEssentialLowBatterySensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        return render_name_list(low_bat, MAX_STATE_LENGTH)
+        return render_name_list(
+            low_bat, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -560,7 +568,9 @@ class NonEssentialStaleEntitiesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        return render_name_list(stale, MAX_STATE_LENGTH)
+        return render_name_list(
+            stale, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -652,7 +662,9 @@ class StaleEntitiesSensor(DedupCoordinatorSensor):
                 )
             )
         ]
-        return render_name_list(stale, MAX_STATE_LENGTH)
+        return render_name_list(
+            stale, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1278,6 +1290,7 @@ class RecentlyOfflineSensor(DedupCoordinatorSensor):
                 for d in devices
             ],
             MAX_STATE_LENGTH,
+            self.coordinator.show_collapse_count,
         )
 
     @property
@@ -1361,6 +1374,7 @@ class RecentlyRecoveredSensor(DedupCoordinatorSensor):
                 for d in devices
             ],
             MAX_STATE_LENGTH,
+            self.coordinator.show_collapse_count,
         )
 
     @property
@@ -1621,7 +1635,9 @@ class PoorSignalSensor(DedupCoordinatorSensor):
             for eid in self.coordinator._poor_signal_entity_ids()
             if eid in states
         ]
-        return render_name_list(poor, MAX_STATE_LENGTH)
+        return render_name_list(
+            poor, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1692,7 +1708,9 @@ class NonEssentialPoorSignalSensor(DedupCoordinatorSensor):
             for eid in self.coordinator._poor_signal_ne_entity_ids()
             if eid in states
         ]
-        return render_name_list(poor, MAX_STATE_LENGTH)
+        return render_name_list(
+            poor, MAX_STATE_LENGTH, self.coordinator.show_collapse_count
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

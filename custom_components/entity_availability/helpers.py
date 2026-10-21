@@ -62,7 +62,7 @@ def resolve_display_name(
     return entity_id.split(".")[-1].replace("_", " ").title()
 
 
-def dedup_display_names(names: list[str]) -> list[str]:
+def dedup_display_names(names: list[str], show_count: bool = True) -> list[str]:
     """Collapse identical display strings to ``"<name> {N}"`` and sort by name.
 
     After device-collapse and name resolution, two rows can still render the
@@ -73,17 +73,23 @@ def dedup_display_names(names: list[str]) -> list[str]:
     N is the post-collapse row count, so it agrees with the numeric count
     sensors. Sorted by the bare display string so severity and recovery lists
     share one deterministic order.
+
+    When ``show_count`` is False (the group's ``show_collapse_count`` option is
+    off), the ``{N}`` suffix is suppressed — identical names collapse to a
+    single bare entry, matching the card hiding the ×N badge. The row is still
+    deduplicated (one entry per distinct display string) so the state does not
+    repeat a name; the count just isn't shown.
     """
     counts: dict[str, int] = {}
     for name in names:
         counts[name] = counts.get(name, 0) + 1
     return [
-        name if n == 1 else f"{name} {{{n}}}"
+        name if (n == 1 or not show_count) else f"{name} {{{n}}}"
         for name, n in sorted(counts.items(), key=lambda kv: (kv[0].casefold(), kv[0]))
     ]
 
 
-def render_name_list(names: list[str], max_len: int) -> str:
+def render_name_list(names: list[str], max_len: int, show_count: bool = True) -> str:
     """Sort + {N}-dedup names, join with ", ", truncate to max_len.
 
     Empty input renders ``"None"`` (the sentinel every list sensor uses).
@@ -91,8 +97,11 @@ def render_name_list(names: list[str], max_len: int) -> str:
     marker is never sliced mid-token (e.g. ``"...Motion {1"``). If even the
     first name overflows, that single name is byte-truncated with a trailing
     ``"..."`` as a last resort.
+
+    ``show_count`` forwards to :func:`dedup_display_names` — False suppresses the
+    ``{N}`` collapse-count suffix.
     """
-    deduped = dedup_display_names(names)
+    deduped = dedup_display_names(names, show_count)
     if not deduped:
         return "None"
     result = ", ".join(deduped)

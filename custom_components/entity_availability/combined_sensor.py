@@ -140,6 +140,13 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
     _attr_has_entity_name = True
     _on_coordinator_update: Callable[[], None] | None = None
 
+    @property
+    def _show_collapse_count(self) -> bool:
+        """Whether the ×N / {N} collapse count is shown (group option, default on)."""
+        return self._entry.data.get(
+            CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+        )
+
     def _ea_current_value(self) -> Any:
         return self.native_value
 
@@ -1204,7 +1211,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
                 ),
             )
         ]
-        return render_name_list(offline, MAX_STATE_LENGTH)
+        return render_name_list(offline, MAX_STATE_LENGTH, self._show_collapse_count)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1254,7 +1261,7 @@ class CombinedLowBatterySensor(CombinedSensorBase):
                 ),
             )
         ]
-        return render_name_list(low, MAX_STATE_LENGTH)
+        return render_name_list(low, MAX_STATE_LENGTH, self._show_collapse_count)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -1344,7 +1351,9 @@ class CombinedRecentlyOfflineSensor(CombinedSensorBase):
     def native_value(self) -> str:
         pairs = self._matching_devices()
         return render_name_list(
-            [self._pair_name(coord, d) for coord, d in pairs], MAX_STATE_LENGTH
+            [self._pair_name(coord, d) for coord, d in pairs],
+            MAX_STATE_LENGTH,
+            self._show_collapse_count,
         )
 
     @property
@@ -1387,7 +1396,9 @@ class CombinedRecentlyRecoveredSensor(CombinedSensorBase):
     def native_value(self) -> str:
         pairs = self._matching_devices()
         return render_name_list(
-            [self._pair_name(coord, d) for coord, d in pairs], MAX_STATE_LENGTH
+            [self._pair_name(coord, d) for coord, d in pairs],
+            MAX_STATE_LENGTH,
+            self._show_collapse_count,
         )
 
     @property

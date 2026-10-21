@@ -29,6 +29,7 @@ from .const import (
     CONF_ENTITIES,
     CONF_NON_ESSENTIAL_ENTITIES,
     CONF_RECOVERY_WINDOW,
+    CONF_SHOW_COLLAPSE_COUNT,
     CONF_SIGNAL_ENABLED,
     CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
@@ -39,6 +40,7 @@ from .const import (
     DEFAULT_COLLAPSE_DEVICES,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
+    DEFAULT_SHOW_COLLAPSE_COUNT,
     DEFAULT_SIGNAL_ENABLED,
     DEFAULT_STALENESS_THRESHOLD,
     DEFAULT_STALENESS_USE_LAST_UPDATED,
@@ -1095,6 +1097,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         return self.entry.data.get(
             CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
         ) and self.entry.data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES)
+
+    @property
+    def show_collapse_count(self) -> bool:
+        """Whether the {N}/×N collapse count is shown (group option, default on)."""
+        return self.entry.data.get(
+            CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+        )
 
     def _collapsed_map(self) -> dict[str, str]:
         """Return {entity_id -> representative entity_id}, memoized per update tick.

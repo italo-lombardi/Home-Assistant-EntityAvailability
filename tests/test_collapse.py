@@ -1562,6 +1562,22 @@ class TestDedupDisplayNames:
     def test_triple_identical(self):
         assert dedup_display_names(["Kitchen", "Kitchen", "Kitchen"]) == ["Kitchen {3}"]
 
+    def test_show_count_false_suppresses_brace_suffix(self):
+        # show_collapse_count off: no {N} suffix, still deduped to one entry.
+        assert dedup_display_names(["Balcony", "Balcony"], show_count=False) == [
+            "Balcony"
+        ]
+        assert dedup_display_names(
+            ["Kitchen", "Kitchen", "Kitchen"], show_count=False
+        ) == ["Kitchen"]
+
+    def test_show_count_false_keeps_distinct_names(self):
+        # Distinct names are unaffected by the toggle.
+        assert dedup_display_names(["A", "B"], show_count=False) == ["A", "B"]
+
+    def test_render_name_list_show_count_false(self):
+        assert render_name_list(["B", "A", "A"], 255, show_count=False) == "A, B"
+
     def test_battery_suffix_kept_distinct(self):
         # Same base name, different % — NOT folded (full display string differs).
         assert dedup_display_names(["Balcony (10%)", "Balcony (90%)"]) == [
