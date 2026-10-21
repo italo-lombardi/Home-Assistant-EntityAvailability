@@ -5160,6 +5160,75 @@ for e in cfg['data']['entries']:
             _clear_ne_override()
 
     # ------------------------------------------------------------------
+    # EC126-EC128: combined_summary row_groups — per-row source provenance (PR row_groups)
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (126, 127, 128)) and combined_prefix:
+        print(
+            "\n=== EC126-EC128: combined_summary row_groups source provenance ===",
+            flush=True,
+        )
+        c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+        row_groups = c_attrs.get("row_groups")
+
+        if ec_enabled(126):
+            chk(
+                "EC126 combined_summary row_groups present",
+                "row_groups" in c_attrs,
+                True,
+                f"attrs keys (sample)={list(c_attrs.keys())[:15]}",
+            )
+            chk(
+                "EC126 combined_summary row_groups is dict",
+                isinstance(row_groups, dict),
+                True,
+                f"type={type(row_groups).__name__}",
+            )
+
+        if ec_enabled(127):
+            rg = row_groups or {}
+            # Every value is a non-empty list of non-empty group-name strings.
+            bad_vals = [
+                (rk, v)
+                for rk, v in rg.items()
+                if not isinstance(v, list)
+                or not v
+                or any(not isinstance(n, str) or not n.strip() for n in v)
+            ]
+            chk(
+                "EC127 row_groups values are non-empty lists of group names",
+                len(bad_vals),
+                0,
+                f"bad={bad_vals[:3]}",
+            )
+            # Keys are representative rows — must appear in entities_collapsed.
+            collapsed = set(c_attrs.get("entities_collapsed") or [])
+            orphan_keys = [rk for rk in rg if rk not in collapsed]
+            chk(
+                "EC127 row_groups keys are all representative rows (in entities_collapsed)",
+                len(orphan_keys),
+                0,
+                f"orphans={orphan_keys[:5]}",
+            )
+
+        if ec_enabled(128):
+            rg = row_groups or {}
+            # Every name referenced must be a real source group name (from the
+            # groups dict). Guards against stale/synthetic provenance labels.
+            groups = c_attrs.get("groups") or {}
+            known_names = {
+                g.get("name") for g in groups.values() if isinstance(g, dict)
+            }
+            unknown = sorted(
+                {n for names in rg.values() for n in names if n not in known_names}
+            )
+            chk(
+                "EC128 every row_groups name is a known source group name",
+                len(unknown),
+                0,
+                f"unknown={unknown[:5]} known={sorted(known_names)[:5]}",
+            )
+
+    # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed
     # This calls the HA delete-entry API, then checks the .storage file is gone.
     # Runs last; does NOT restore (entry is gone). Only for isolated smoke runs

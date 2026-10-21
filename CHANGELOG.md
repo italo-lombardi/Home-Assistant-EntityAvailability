@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-21
+
+### Added
+- **Source group provenance in combined cards** — the combined card's entity detail (tooltip or inline) now shows a *Group* / *Groups* row naming which source group(s) each entity row came from. A new `row_groups` attribute on the combined summary sensor maps each row to its owning group(s): a device collapsed from two groups shows the union; an entity monitored by two groups with different config (split row) shows only its own group per row.
+- **Entity Detail & Per-Entity Suppress Toggle exposed for combined cards** — the card editor now surfaces the *Entity Detail* (tooltip/inline) selector and the *Per-Entity Suppress Toggle* for combined groups. Both were already honored by the render path but previously only configurable via hand-written YAML.
+
+### Tests
+- Unit: `row_groups` shared-row union, split-row isolation, collapsed-device union, write-dedup signature on membership/name change, coordinator-replacement rebuild, cache lockstep invariant, and `_unrecorded_attributes` guard.
+- Smoke EC126-128: `row_groups` present and a dict; values are non-empty group-name lists keyed by representative rows; every name is a known source group name.
+
 ## [0.6.1] - 2026-10-19
 
 ### Added

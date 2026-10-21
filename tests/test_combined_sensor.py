@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE
@@ -517,6 +517,256 @@ class TestCombinedGroupSensor:
         assert attrs["total_entities"] == 2, "a1 + shared, deduped"
         assert attrs["offline"] == 1, "a1 shared across groups must count once"
         assert attrs["online"] == 1, "shared entity online count must not double"
+
+    def test_row_groups_maps_entity_to_source_groups(self, mock_hass):
+        """row_groups attr: each row → its source group name(s), shared → both."""
+        entry_a = _make_group_entry("entry_a", "Group A", ["binary_sensor.a1"])
+        shared_entry = _make_group_entry(
+            "entry_shared", "Shared Group", ["binary_sensor.a1", "binary_sensor.shared"]
+        )
+        combined = _make_combined_entry(
+            "combined_rg", "RG", ["entry_a", "entry_shared"]
+        )
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.a1": DeviceState(entity_id="binary_sensor.a1"),
+            }
+            coord_shared = EntityAvailabilityCoordinator(mock_hass, shared_entry)
+            coord_shared._device_states = {
+                "binary_sensor.a1": DeviceState(entity_id="binary_sensor.a1"),
+                "binary_sensor.shared": DeviceState(entity_id="binary_sensor.shared"),
+            }
+
+        mock_hass.data[DOMAIN] = {"entry_a": coord_a, "entry_shared": coord_shared}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "RG", "rg", ["entry_a", "entry_shared"]
+        )
+        row_groups = sensor.extra_state_attributes["row_groups"]
+        assert row_groups["binary_sensor.a1"] == ["Group A", "Shared Group"], (
+            "shared entity lists both source groups, sorted"
+        )
+        assert row_groups["binary_sensor.shared"] == ["Shared Group"]
+
+    def test_row_groups_split_row_shows_only_its_own_group(self, mock_hass):
+        """A shared entity split across different-config groups: each split row
+        shows only its OWN group, never the union (keying by row_key, not eid)."""
+        entry_a = _make_group_entry("sa", "Group A", ["binary_sensor.shared"])
+        entry_b = MockConfigEntry(
+            version=1,
+            domain=DOMAIN,
+            title="Group B",
+            data={
+                CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                CONF_GROUP_NAME: "Group B",
+                CONF_ENTITIES: ["binary_sensor.shared"],
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+            entry_id="sb",
+        )
+        combined = _make_combined_entry("sc", "Split", ["sa", "sb"])
+
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.shared": DeviceState(entity_id="binary_sensor.shared"),
+            }
+            coord_b = EntityAvailabilityCoordinator(mock_hass, entry_b)
+            coord_b._device_states = {
+                "binary_sensor.shared": DeviceState(
+                    entity_id="binary_sensor.shared", is_non_essential=True
+                ),
+            }
+
+        mock_hass.data[DOMAIN] = {"sa": coord_a, "sb": coord_b}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "Split", "split", ["sa", "sb"]
+        )
+        row_groups = sensor.extra_state_attributes["row_groups"]
+        # Two rows: bare "binary_sensor.shared" (Group A) and the split
+        # "binary_sensor.shared::sb" (Group B). Neither unions the other.
+        assert row_groups.get("binary_sensor.shared") == ["Group A"]
+        assert row_groups.get("binary_sensor.shared::sb") == ["Group B"]
+        for names in row_groups.values():
+            assert names != ["Group A", "Group B"], "split rows must not union"
+
+    def test_row_groups_change_triggers_write(self, mock_hass):
+        """A group-membership/name change with flat row structure must still
+        advance the write-dedup signature (no stale label frozen on live state)."""
+        entry_a = _make_group_entry("wa", "Group A", ["binary_sensor.w1"])
+        combined = _make_combined_entry("wc", "W", ["wa"])
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.w1": DeviceState(entity_id="binary_sensor.w1"),
+            }
+        mock_hass.data[DOMAIN] = {"wa": coord_a}
+        sensor = CombinedGroupSensor(mock_hass, combined, "W", "w", ["wa"])
+
+        before = sensor._ea_dedup_attrs()
+        # Rename the source group (config string change) — row count and member
+        # structure are unchanged, so only the group signature should move. The
+        # device-map cache is keyed by collapse generation, not group name, so a
+        # rebuild (as happens on the entry reload a rename triggers) is forced
+        # here to re-prime _dm_rk_groups with the new name.
+        with patch.object(
+            type(coord_a),
+            "group_name",
+            new_callable=PropertyMock,
+            return_value="Renamed Group",
+        ):
+            sensor._dm_cache_key = None
+            sensor._dm_full_cache = None
+            after = sensor._ea_dedup_attrs()
+        assert before["_ea_groupsig"] != after["_ea_groupsig"], (
+            "group rename must change the dedup signature so state writes"
+        )
+
+    def test_row_groups_collapsed_device_unions_member_groups(self, mock_hass):
+        """A device collapsed from two source groups shows the UNION of both
+        groups on its single representative row (the fold-onto-rep path)."""
+
+        # Both groups collapse-active (udn + collapse) so their entities fold by
+        # device key into one representative row.
+        def _collapse_entry(entry_id, name, entities):
+            return MockConfigEntry(
+                version=1,
+                domain=DOMAIN,
+                title=name,
+                data={
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
+                    CONF_GROUP_NAME: name,
+                    CONF_ENTITIES: entities,
+                    CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+                    CONF_COLLAPSE_DEVICES: True,
+                    CONF_USE_DEVICE_NAMES: True,
+                },
+                entry_id=entry_id,
+            )
+
+        entry_a = _collapse_entry("ca", "Group A", ["binary_sensor.dev_a"])
+        entry_b = _collapse_entry("cb", "Group B", ["binary_sensor.dev_b"])
+        combined = _make_combined_entry("cc", "Collapsed", ["ca", "cb"])
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.dev_a": DeviceState(entity_id="binary_sensor.dev_a"),
+            }
+            coord_b = EntityAvailabilityCoordinator(mock_hass, entry_b)
+            coord_b._device_states = {
+                "binary_sensor.dev_b": DeviceState(entity_id="binary_sensor.dev_b"),
+            }
+        mock_hass.data[DOMAIN] = {"ca": coord_a, "cb": coord_b}
+        sensor = CombinedGroupSensor(mock_hass, combined, "C", "c", ["ca", "cb"])
+
+        # Both entities resolve to the SAME device -> identical collapse_key ->
+        # one representative row.
+        ent_reg = MagicMock()
+        ent_entry = MagicMock()
+        ent_entry.device_id = "shared_dev"
+        ent_entry.area_id = None
+        ent_reg.async_get.return_value = ent_entry
+        dev_reg = MagicMock()
+        device = MagicMock()
+        device.name_by_user = None
+        device.name = "Shared Device"
+        dev_reg.async_get.return_value = device
+        with (
+            patch(
+                "custom_components.entity_availability.helpers.er.async_get",
+                return_value=ent_reg,
+            ),
+            patch(
+                "custom_components.entity_availability.helpers.dr.async_get",
+                return_value=dev_reg,
+            ),
+        ):
+            row_groups = sensor.extra_state_attributes["row_groups"]
+
+        # Exactly one representative row, carrying the union of both groups.
+        assert len(row_groups) == 1, f"expected one collapsed row, got {row_groups}"
+        (names,) = row_groups.values()
+        assert names == ["Group A", "Group B"], (
+            "collapsed device must union its members' source groups"
+        )
+
+    def test_row_groups_rebuilds_on_coordinator_replacement(self, mock_hass):
+        """End-to-end D1: a source-group rename replaces its coordinator (fresh
+        collapse_generation), which busts the device-map cache so row_groups
+        re-primes with the new name — no manual cache clearing."""
+        entry_a = _make_group_entry("ra", "Group A", ["binary_sensor.r1"])
+        combined = _make_combined_entry("rc", "R", ["ra"])
+
+        def _coord(entry):
+            with patch.object(
+                EntityAvailabilityCoordinator,
+                "_async_save_storage",
+                new_callable=AsyncMock,
+            ):
+                c = EntityAvailabilityCoordinator(mock_hass, entry)
+            c._device_states = {
+                "binary_sensor.r1": DeviceState(entity_id="binary_sensor.r1"),
+            }
+            # Simulate a coordinator that has ticked (generation advanced).
+            c._collapse_generation = 3
+            return c
+
+        coord_old = _coord(entry_a)
+        mock_hass.data[DOMAIN] = {"ra": coord_old}
+        sensor = CombinedGroupSensor(mock_hass, combined, "R", "r", ["ra"])
+        assert sensor.extra_state_attributes["row_groups"] == {
+            "binary_sensor.r1": ["Group A"]
+        }
+
+        # Rename reloads the source group: a NEW coordinator object with the new
+        # title and a reset (then first-refresh-bumped) generation replaces it.
+        renamed = _make_group_entry("ra", "Renamed Group", ["binary_sensor.r1"])
+        coord_new = _coord(renamed)
+        coord_new._collapse_generation = 1  # fresh coordinator, differs from old 3
+        mock_hass.data[DOMAIN] = {"ra": coord_new}
+
+        # No manual cache busting: the differing collapse_generation must bust it.
+        assert sensor.extra_state_attributes["row_groups"] == {
+            "binary_sensor.r1": ["Renamed Group"]
+        }, "rename must surface without manual cache clearing"
+
+    def test_dm_rk_groups_and_full_cache_set_in_lockstep(self, mock_hass):
+        """_dm_rk_groups and _dm_full_cache (rep_of) must be populated together by
+        _device_map_of. The row_groups fold indexes self._dm_rk_groups[rk] without
+        a guard, relying on this invariant — guard it so a future refactor that
+        sets one cache without the other fails loudly here."""
+        entry_a = _make_group_entry("la", "Group A", ["binary_sensor.l1"])
+        combined = _make_combined_entry("lc", "L", ["la"])
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.l1": DeviceState(entity_id="binary_sensor.l1"),
+            }
+        mock_hass.data[DOMAIN] = {"la": coord_a}
+        sensor = CombinedGroupSensor(mock_hass, combined, "L", "l", ["la"])
+
+        # Fresh instance: neither cache primed yet.
+        assert sensor._dm_full_cache is None
+        assert sensor._dm_rk_groups == {}
+
+        merged, rep_of, _ = sensor._device_map_cached(sensor._active_coordinators())
+        # After a build both are set, and every rep_of key has a _dm_rk_groups
+        # entry (the no-guard fold's precondition).
+        assert sensor._dm_full_cache is not None
+        assert sensor._dm_rk_groups != {}
+        missing = [rk for rk in rep_of if rk not in sensor._dm_rk_groups]
+        assert missing == [], f"rep_of keys absent from _dm_rk_groups: {missing}"
 
     def test_attributes_battery_powered_via_device_states(
         self, mock_hass, combined_entry, coordinators
@@ -1416,6 +1666,7 @@ class TestCombinedGroupSensor:
         """All large per-entity keys must be excluded from recorder."""
         expected_unrecorded = {
             "display_names",
+            "row_groups",
             "entities",
             "groups",
             "offline_entities",
