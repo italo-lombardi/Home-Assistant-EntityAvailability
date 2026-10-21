@@ -1,9 +1,10 @@
 /**
- * Entity Availability Card v0.5.2
+ * Entity Availability Card
  * Custom Lovelace card for the Home Assistant Entity Availability integration.
+ * Keep CARD_VERSION in sync with manifest.json "version".
  */
 
-const CARD_VERSION = "0.6.1";
+const CARD_VERSION = "0.6.2";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -498,6 +499,24 @@ const cardStyles = css`
     max-width: 260px;
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  .entity-detail-members-header {
+    margin-top: 4px;
+    padding-top: 4px;
+    border-top: 1px solid var(--eac-divider);
+  }
+
+  .entity-detail-members-header .entity-tooltip-label {
+    color: var(--secondary-text-color, #727272);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+
+  .entity-detail-member {
+    padding-left: 12px;
   }
 
   .entity-dot {
@@ -1430,6 +1449,15 @@ class EntityAvailabilityCard extends LitElement {
     return `${_entityWord(offlineCount)} offline for ${item.status}${suffix}`;
   }
 
+  _groupRowFor(item) {
+    if (!this._isCombinedGroup()) return null;
+    const rowGroups = (this._getGroupSummary()?.attributes?.row_groups?.[item.rowKey] || [])
+      .map((g) => String(g ?? "").trim()).filter(Boolean);
+    return rowGroups.length
+      ? { label: rowGroups.length > 1 ? "Groups" : "Group", value: rowGroups.join(", ") }
+      : null;
+  }
+
   _buildDetailRows(item, suppressedUntilMap) {
     const entityState = this.hass.states[item.entityId];
     const lastChanged = this._computeDuration(item.entityId);
@@ -1438,16 +1466,10 @@ class EntityAvailabilityCard extends LitElement {
     const areaName = areaId ? (this.hass.areas?.[areaId]?.name || null) : null;
 
     // Combined-only: which source group(s) this row came from. row_groups is
-    // keyed by the same rowKey the row model uses. Suppressed for collapsed
-    // rows (memberCount > 1) so tooltip and inline stay consistent — the inline
-    // collapsed branch renders a per-member list and never reaches this row.
-    const rowGroups = (this._isCombinedGroup() && !(item.memberCount > 1))
-      ? (this._getGroupSummary()?.attributes?.row_groups?.[item.rowKey] || [])
-        .map((g) => String(g ?? "").trim()).filter(Boolean)
-      : [];
-    const groupRow = rowGroups.length
-      ? { label: rowGroups.length > 1 ? "Groups" : "Group", value: rowGroups.join(", ") }
-      : null;
+    // keyed by the same rowKey the row model uses; for a collapsed device the
+    // backend folds all members' groups onto the representative row_key, so the
+    // union shows here too.
+    const groupRow = this._groupRowFor(item);
 
     const suppressedUntilIso = (item.rowKey != null && item.rowKey in suppressedUntilMap)
       ? suppressedUntilMap[item.rowKey]
@@ -1488,21 +1510,44 @@ class EntityAvailabilityCard extends LitElement {
     const isCollapsed = item.memberCount > 1;
     let rows;
     if (isCollapsed && compact) {
-      rows = [{ label: "Condition", value: this._collapsedCondition(item, suppressedUntilMap) }];
+      const groupRow = this._groupRowFor(item);
+      rows = (groupRow ? [groupRow] : []).concat([
+        { label: "Condition", value: this._collapsedCondition(item, suppressedUntilMap) },
+      ]);
     } else if (isCollapsed && !compact) {
       if (!item.members) {
         console.warn("[EA] collapsed row missing members", item.entityId);
         rows = [];
       } else {
-        rows = item.members.map((eid) => {
+        // Metadata block (Device/Area/Groups/Condition/Battery/Signal) reused
+        // from the tooltip builder, then a Members sub-section with each
+        // member's state. Member labels drop the device-name prefix when the
+        // friendly name carries it, falling back to the full name otherwise.
+        const deviceName = item.deviceId
+          ? (this.hass.devices?.[item.deviceId]?.name_by_user || this.hass.devices?.[item.deviceId]?.name || null)
+          : null;
+        const memberRows = item.members.map((eid) => {
           const entityState = this.hass.states[eid];
           const lastChanged = this._computeDuration(eid);
-          const label = entityState?.attributes?.friendly_name || eid.split(".").pop();
+          const full = entityState?.attributes?.friendly_name || eid.split(".").pop();
+          let label = full;
+          // Only strip the device name when it's a whole-word prefix (next char
+          // is whitespace), so "Balcony" doesn't mangle "Balcony2 Occupancy".
+          if (deviceName && full.length > deviceName.length
+              && full.startsWith(deviceName) && /\s/.test(full[deviceName.length])) {
+            const trimmed = full.slice(deviceName.length).trim();
+            if (trimmed) label = trimmed;
+          }
           const value = lastChanged
             ? `${this._formatStateDisplay(entityState)} · ${lastChanged}`
             : this._formatStateDisplay(entityState);
-          return { label, value };
+          return { label, value, member: true };
         });
+        rows = [
+          ...this._buildDetailRows(item, suppressedUntilMap),
+          { label: "Members", value: "", header: true },
+          ...memberRows,
+        ];
       }
     } else if (compact) {
       const entityState = this.hass.states[item.entityId];
@@ -1516,8 +1561,10 @@ class EntityAvailabilityCard extends LitElement {
     }
     return html`
       <div class="entity-detail-inline">
-        ${rows.map((r) => html`
-          <div class="entity-tooltip-row">
+        ${rows.map((r) => r.header
+          ? html`<div class="entity-tooltip-row entity-detail-members-header"><span class="entity-tooltip-label">${r.label}</span></div>`
+          : html`
+          <div class="entity-tooltip-row ${r.member ? "entity-detail-member" : ""}">
             <span class="entity-tooltip-label">${r.label}</span>
             <span class="entity-tooltip-value">${r.value}</span>
           </div>
