@@ -164,6 +164,9 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         self._dm_cache_key: tuple | None = None
         self._dm_cache: dict[str, Any] | None = None
         self._dm_full_cache: tuple[dict, dict, dict] | None = None
+        # row_key → set of source group names, set as a side output of
+        # _device_map_of (same cache lifecycle as _dm_full_cache).
+        self._dm_rk_groups: dict[str, set[str]] = {}
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to all included coordinators."""
@@ -296,6 +299,13 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         merged: dict[str, Any] = {}
         collapsible: set[str] = set()
         udn_map: dict[str, bool] = {}
+        # row_key → set of owning source group names. Authoritative because the
+        # coord→row_key assignment only exists here: a same-fingerprint merge
+        # keeps one ``eid`` key owned by BOTH coords (union), while a split
+        # ``eid::entry_id`` key is owned by exactly the one coord that produced
+        # it. Reconstructing this from entity_id alone (outside this loop) would
+        # wrongly union split rows. Consumed by extra_state_attributes.
+        rk_groups: dict[str, set[str]] = {}
 
         for coord in coords:
             udn = coord.entry.data.get(CONF_USE_DEVICE_NAMES, False)
@@ -337,14 +347,19 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
                         )
                     ):
                         merged[eid] = d
+                    # Shared across groups with identical config → one row owned
+                    # by every such coordinator.
+                    rk_groups.setdefault(eid, set()).add(coord.group_name)
                     continue
                 else:
                     row_key = f"{eid}::{coord.entry.entry_id}"
                 merged[row_key] = d
                 udn_map[row_key] = udn
+                rk_groups.setdefault(row_key, set()).add(coord.group_name)
                 if collapse_active:
                     collapsible.add(row_key)
 
+        self._dm_rk_groups = rk_groups
         if not collapsible:
             return merged, {rk: rk for rk in merged}, udn_map
         return (
@@ -446,6 +461,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             "entities_collapsed",
             "row_entity_ids",
             "row_members",
+            "row_groups",
             "groups",
             "offline_entities",
             "stale_entities",
@@ -479,20 +495,32 @@ class CombinedGroupSensor(CombinedSensorBase):
         volatile values like battery/signal) back into the compared view so a real
         membership change triggers a write. Drifting readings cannot move it, so
         the per-tick write-amp reduction (see ``_unrecorded_attributes``) holds.
+
+        ``row_groups`` (rep to source group names) is likewise unrecorded, so it
+        is folded in too: a group rename or a membership move that leaves the
+        collapsed row COUNT and member structure flat would otherwise skip the
+        write and freeze a stale group label on the live state the card reads.
+        Group names are config strings, not drifting readings, so this cannot
+        reintroduce per-tick amplification.
         """
         stored = super()._ea_dedup_attrs()
         # CombinedGroupSensor.extra_state_attributes always returns a populated
         # dict, so super() (which passes non-dicts straight through) always
         # returns a dict here.
+        attrs = self.extra_state_attributes
         rowsig = tuple(
             sorted(
                 (rep, tuple(members))
-                for rep, members in (
-                    self.extra_state_attributes.get("row_members") or {}
-                ).items()
+                for rep, members in (attrs.get("row_members") or {}).items()
             )
         )
-        return {**stored, "_ea_rowsig": rowsig}
+        groupsig = tuple(
+            sorted(
+                (rep, tuple(names))
+                for rep, names in (attrs.get("row_groups") or {}).items()
+            )
+        )
+        return {**stored, "_ea_rowsig": rowsig, "_ea_groupsig": groupsig}
 
     def __init__(
         self, hass, entry, group_name, group_slug, combined_entry_ids, ne_overrides=None
@@ -977,6 +1005,25 @@ class CombinedGroupSensor(CombinedSensorBase):
                 and not d.is_non_essential
             ):
                 ok_signal_eids.add(rk)
+        # row_groups: rep row_key → sorted list of source group names.
+        #
+        # _dm_rk_groups (built by _device_map_of) maps each merged row_key to its
+        # authoritative owning group(s): a split row ``eid::entry_id`` to its one
+        # coordinator, a shared same-config row to the union. We fold member row
+        # keys onto their representative so a collapsed device shows the union of
+        # its members' groups.
+        #
+        # row_groups shares display_names' live-staleness-on-rename trade-off:
+        # both are unrecorded and derived, so a bare group rename only surfaces
+        # on the next real write. _ea_dedup_attrs folds a row_groups signature
+        # into the write-dedup compare so a membership/name CHANGE still writes.
+        # _device_map_of guarantees every row_key in rep_of also has a
+        # _dm_rk_groups entry (both are built in its loop), so no guard here.
+        row_groups: dict[str, set[str]] = {}
+        for rk, rep in rep_of.items():
+            row_groups.setdefault(rep, set()).update(self._dm_rk_groups[rk])
+        row_groups = {rep: sorted(names) for rep, names in row_groups.items()}
+
         status_color = (
             "red"
             if offline > 0
@@ -1039,6 +1086,7 @@ class CombinedGroupSensor(CombinedSensorBase):
                 > 1
             },
             "display_names": display_names,
+            "row_groups": row_groups,
             "battery_levels": battery_levels,
             "signal_levels": signal_levels,
             "signal_units": signal_units,

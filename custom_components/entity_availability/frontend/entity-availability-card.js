@@ -1434,6 +1434,18 @@ class EntityAvailabilityCard extends LitElement {
     const areaId = this.hass.entities?.[item.entityId]?.area_id;
     const areaName = areaId ? (this.hass.areas?.[areaId]?.name || null) : null;
 
+    // Combined-only: which source group(s) this row came from. row_groups is
+    // keyed by the same rowKey the row model uses. Suppressed for collapsed
+    // rows (memberCount > 1) so tooltip and inline stay consistent — the inline
+    // collapsed branch renders a per-member list and never reaches this row.
+    const rowGroups = (this._isCombinedGroup() && !(item.memberCount > 1))
+      ? (this._getGroupSummary()?.attributes?.row_groups?.[item.rowKey] || [])
+        .map((g) => String(g ?? "").trim()).filter(Boolean)
+      : [];
+    const groupRow = rowGroups.length
+      ? { label: rowGroups.length > 1 ? "Groups" : "Group", value: rowGroups.join(", ") }
+      : null;
+
     const suppressedUntilIso = (item.rowKey != null && item.rowKey in suppressedUntilMap)
       ? suppressedUntilMap[item.rowKey]
       : suppressedUntilMap[item.entityId];
@@ -1459,6 +1471,7 @@ class EntityAvailabilityCard extends LitElement {
     return [
       identityRow,
       areaName ? { label: "Area", value: areaName } : null,
+      groupRow,
       !isCollapsed ? { label: "HA State", value: lastChanged ? `${this._formatStateDisplay(entityState)} · ${lastChanged}` : this._formatStateDisplay(entityState) } : null,
       { label: "Condition", value: conditionValue },
       item.battery !== null ? { label: "Battery", value: `${item.battery}%` } : null,
@@ -2162,6 +2175,7 @@ class EntityAvailabilityCardEditor extends LitElement {
             Show Health Columns (Bat. &amp; Signal, when active)
           </label>
         </div>
+        ` : nothing}
         <div class="editor-row checkbox">
           <label>
             <input
@@ -2172,7 +2186,6 @@ class EntityAvailabilityCardEditor extends LitElement {
             Show Per-Entity Suppress Toggle
           </label>
         </div>
-        ` : nothing}
         <div class="editor-row checkbox">
           <label>
             <input
@@ -2216,7 +2229,6 @@ class EntityAvailabilityCardEditor extends LitElement {
           </select>
         </div>
         ` : nothing}
-        ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row">
           <label>Entity Detail</label>
           <select
@@ -2228,6 +2240,7 @@ class EntityAvailabilityCardEditor extends LitElement {
             <option value="inline">Always visible (inline)</option>
           </select>
         </div>
+        ${!this._isSelectedGroupCombined() ? html`
         <div class="editor-row">
           <label>Sort Entities By</label>
           <select
