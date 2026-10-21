@@ -25,7 +25,11 @@
         "title": "Utwórz grupę zbiorczą",
         "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
         "data": {
-          "combined_name": "Nazwa grupy zbiorczej"
+          "combined_name": "Nazwa grupy zbiorczej",
+          "show_collapse_count": "Pokaż licznik scalenia (odznaka ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Gdy włączone (domyślnie), scalony wiersz urządzenia pokazuje obok nazwy odznakę ×N zliczającą encje scalone w tym wierszu. Wyłącz, aby ukryć odznakę wszędzie na tej karcie zbiorczej — samo scalanie, lista encji oraz zagregowany status pozostają bez zmian."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Okno odzyskiwania",
           "use_device_names": "Pokaż nazwy urządzeń",
           "collapse_devices": "Scal encje według urządzenia",
+          "show_collapse_count": "Pokaż licznik scalenia (odznaka ×N)",
           "signal_enabled": "Włącz monitorowanie siły sygnału"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
           "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
           "collapse_devices": "Działa tylko, gdy włączona jest opcja „Pokaż nazwy urządzeń”. Po włączeniu wiele encji należących do tego samego urządzenia fizycznego liczonych jest jako jedna w każdej wartości czujnika, liście i zdarzeniu (offline, niski poziom baterii, nieaktywna, słaby sygnał). Encje są scalane tylko wtedy, gdy mają to samo urządzenie, poziom baterii i sygnał — encje niepowiązane z urządzeniem nigdy nie są scalane, a encje na tym samym urządzeniu z różnymi odczytami baterii lub sygnału pozostają osobne. Dostępność %, MTBF i MTTR pozostają na encję. Uwaga: jeśli ta grupa jest uwzględniona w grupie zbiorczej, jej ustawienie scalania jest automatycznie stosowane w widoku zbiorczym — nie jest wymagana żadna dodatkowa konfiguracja.",
+          "show_collapse_count": "Gdy włączone (domyślnie), scalony wiersz urządzenia pokazuje obok nazwy odznakę ×N zliczającą encje scalone w tym wierszu. Wyłącz, aby ukryć odznakę wszędzie na karcie tej grupy — samo scalanie, lista encji oraz zagregowany status pozostają bez zmian.",
           "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Okno odzyskiwania (minuty)",
           "use_device_names": "Pokaż nazwy urządzeń",
           "collapse_devices": "Scal encje według urządzenia",
+          "show_collapse_count": "Pokaż licznik scalenia (odznaka ×N)",
           "staleness_use_last_updated": "Licz aktualizacje atrybutów jako aktywność",
           "signal_enabled": "Włącz monitorowanie siły sygnału"
         },
@@ -115,6 +122,7 @@
           "recovery_window": "Jak długo (w minutach) encja pozostaje w czujnikach Niedawno offline lub Niedawno odzyskana po zmianie stanu.",
           "use_device_names": "Wyświetla nazwę urządzenia HA zamiast przyjaznej nazwy encji w stanach offline/odzyskana. Jeśli encja nie jest powiązana z urządzeniem, używana jest przyjazna nazwa encji.",
           "collapse_devices": "Działa tylko, gdy włączona jest opcja „Pokaż nazwy urządzeń”. Po włączeniu wiele encji należących do tego samego urządzenia fizycznego liczonych jest jako jedna w każdej wartości czujnika, liście i zdarzeniu (offline, niski poziom baterii, nieaktywna, słaby sygnał). Encje są scalane tylko wtedy, gdy mają to samo urządzenie, poziom baterii i sygnał — encje niepowiązane z urządzeniem nigdy nie są scalane, a encje na tym samym urządzeniu z różnymi odczytami baterii lub sygnału pozostają osobne. Dostępność %, MTBF i MTTR pozostają na encję. Uwaga: jeśli ta grupa jest uwzględniona w grupie zbiorczej, jej ustawienie scalania jest automatycznie stosowane w widoku zbiorczym — nie jest wymagana żadna dodatkowa konfiguracja.",
+          "show_collapse_count": "Gdy włączone (domyślnie), scalony wiersz urządzenia pokazuje obok nazwy odznakę ×N zliczającą encje scalone w tym wierszu. Wyłącz, aby ukryć odznakę wszędzie na karcie tej grupy — samo scalanie, lista encji oraz zagregowany status pozostają bez zmian.",
           "staleness_use_last_updated": "Gdy włączone, każda aktualizacja encji — w tym zmiany dotyczące tylko atrybutów lub powtarzające się raporty o tej samej wartości — resetuje licznik nieaktywności. Gdy wyłączone (domyślnie), liczy się tylko zmiana stanu głównego. Włącz dla urządzeń, które często raportują, ale rzadko zmieniają wartość (np. temperatura lub moc, która pozostaje stabilna).",
           "entities": "Encje monitorowane pod kątem dostępności. Są w pełni monitorowane i uwzględniane we wszystkich KPI i alertach.",
           "signal_enabled": "Śledź siłę sygnału (dBm) dla monitorowanych encji i alertuj, gdy jakość sygnału spadnie do poziomu „słaby\". Po włączeniu zostaniesz poproszony o powiązanie czujnika sygnału i wybranie typu sieci dla każdej encji."
@@ -124,7 +132,11 @@
         "title": "Edytuj grupę zbiorczą",
         "description": "Wybierz sposób klasyfikacji każdej grupy: Nie uwzględniona, Uwzględniona z własnymi ustawieniami grupy, lub nadpisana jako Istotna lub Nieistotna.",
         "data": {
-          "combined_name": "Nazwa grupy zbiorczej"
+          "combined_name": "Nazwa grupy zbiorczej",
+          "show_collapse_count": "Pokaż licznik scalenia (odznaka ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Gdy włączone (domyślnie), scalony wiersz urządzenia pokazuje obok nazwy odznakę ×N zliczającą encje scalone w tym wierszu. Wyłącz, aby ukryć odznakę wszędzie na tej karcie zbiorczej — samo scalanie, lista encji oraz zagregowany status pozostają bez zmian."
         }
       },
       "battery_mapping": {

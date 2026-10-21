@@ -25,7 +25,11 @@
         "title": "Izveidot apvienoto grupu",
         "description": "Atlasiet, kā jāklasificē katra grupa: nav iekļauta, iekļauta, izmantojot grupas pašas iestatījumus, vai pārdefinēta kā Būtiska vai Nebūtiska.",
         "data": {
-          "combined_name": "Apvienotās grupas nosaukums"
+          "combined_name": "Apvienotās grupas nosaukums",
+          "show_collapse_count": "Rādīt apvienošanas skaitu (×N nozīmīte)"
+        },
+        "data_description": {
+          "show_collapse_count": "Kad ieslēgts (noklusējums), apvienotās ierīces rindas nosaukuma blakus tiek rādīta ×N nozīmīte, kas norāda šajā rindā apvienoto entitāšu skaitu. Izslēdziet, lai paslēptu nozīmīti visur šajā apvienotajā kartē — pati apvienošana, dalībnieku saraksts un apkopotais stāvoklis netiek ietekmēti."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Atjaunošanas logs",
           "use_device_names": "Rādīt ierīces nosaukumus",
           "collapse_devices": "Apvienot entitātes pēc ierīces",
+          "show_collapse_count": "Rādīt apvienošanas skaitu (×N nozīmīte)",
           "signal_enabled": "Iespējot signāla stipruma uzraudzību"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē\" vai „Nesen atjaunots\" pēc stāvokļa pārejas.",
           "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci.",
           "collapse_devices": "Darbojas tikai tad, ja ir iespējots „Rādīt ierīces nosaukumus\". Kad ieslēgts, vairākas entitātes, kas pieder vienai fiziskai ierīcei, tiek skaitītas kā viena katrā sensora vērtībā, sarakstā un notikumā (bezsaistē, zems akumulators, novecojis, vājš signāls). Entitātes tiek apvienotas tikai tad, ja tām ir viena un tā pati ierīce, akumulatora līmenis un signāls — entitātes, kas nav saistītas ar ierīci, nekad netiek apvienotas, un entitātes vienā ierīcē ar atšķirīgiem akumulatora vai signāla rādījumiem paliek atsevišķas. Pieejamība %, MTBF un MTTR paliek katrai entitātei atsevišķi. Piezīme: ja šī grupa ir iekļauta apvienotajā grupā, tās apvienošanas iestatījums tiek automātiski piemērots apvienotajā skatā — papildu konfigurācija nav nepieciešama.",
+          "show_collapse_count": "Kad ieslēgts (noklusējums), apvienotās ierīces rindas nosaukuma blakus tiek rādīta ×N nozīmīte, kas norāda šajā rindā apvienoto entitāšu skaitu. Izslēdziet, lai paslēptu nozīmīti visur šīs grupas kartē — pati apvienošana, dalībnieku saraksts un apkopotais stāvoklis netiek ietekmēti.",
           "signal_enabled": "Izsekot signāla stiprumu (dBm) uzraudzītajiem elementiem un brīdināt, kad signāla kvalitāte nokrītas līdz \"vājam\". Pēc iespējošanas jums tiks lūgts saistīt signāla sensoru un katram elementam izvēlēties tīkla veidu."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Atjaunošanas logs (minūtes)",
           "use_device_names": "Rādīt ierīces nosaukumus",
           "collapse_devices": "Apvienot entitātes pēc ierīces",
+          "show_collapse_count": "Rādīt apvienošanas skaitu (×N nozīmīte)",
           "staleness_use_last_updated": "Atribūtu atjauninājumus skaitīt kā aktivitāti",
           "signal_enabled": "Iespējot signāla stipruma uzraudzību"
         },
@@ -116,6 +123,7 @@
           "recovery_window": "Cik ilgi (minūtēs) entitāte paliek sensoros „Nesen bezsaistē\" vai „Nesen atjaunots\" pēc stāvokļa pārejas.",
           "use_device_names": "Rādīt HA ierīces nosaukumu tā vietā, lai rādītu entitātes draudzīgo nosaukumu bezsaistē/atjaunoto sensoru stāvokļos. Atgriežas pie draudzīgā nosaukuma entitātēm, kas nav saistītas ar ierīci.",
           "collapse_devices": "Darbojas tikai tad, ja ir iespējots „Rādīt ierīces nosaukumus\". Kad ieslēgts, vairākas entitātes, kas pieder vienai fiziskai ierīcei, tiek skaitītas kā viena katrā sensora vērtībā, sarakstā un notikumā (bezsaistē, zems akumulators, novecojis, vājš signāls). Entitātes tiek apvienotas tikai tad, ja tām ir viena un tā pati ierīce, akumulatora līmenis un signāls — entitātes, kas nav saistītas ar ierīci, nekad netiek apvienotas, un entitātes vienā ierīcē ar atšķirīgiem akumulatora vai signāla rādījumiem paliek atsevišķas. Pieejamība %, MTBF un MTTR paliek katrai entitātei atsevišķi. Piezīme: ja šī grupa ir iekļauta apvienotajā grupā, tās apvienošanas iestatījums tiek automātiski piemērots apvienotajā skatā — papildu konfigurācija nav nepieciešama.",
+          "show_collapse_count": "Kad ieslēgts (noklusējums), apvienotās ierīces rindas nosaukuma blakus tiek rādīta ×N nozīmīte, kas norāda šajā rindā apvienoto entitāšu skaitu. Izslēdziet, lai paslēptu nozīmīti visur šīs grupas kartē — pati apvienošana, dalībnieku saraksts un apkopotais stāvoklis netiek ietekmēti.",
           "staleness_use_last_updated": "Ieslēgts — jebkurš entitātes atjauninājums, ieskaitot tikai atribūtu izmaiņas vai atkārtotus vienas un tās pašas vērtības ziņojumus, atiestata novecošanas taimeri. Izslēgts (noklusējums) — tiek skaitītas tikai galvenā stāvokļa izmaiņas. Ieslēdziet ierīcēm, kas bieži ziņo, bet reti maina vērtību (piemēram, temperatūra vai jauda, kas paliek stabila).",
           "signal_enabled": "Izsekot signāla stiprumu (dBm) uzraudzītajiem elementiem un brīdināt, kad signāla kvalitāte nokrītas līdz \"vājam\". Pēc iespējošanas jums tiks lūgts saistīt signāla sensoru un katram elementam izvēlēties tīkla veidu."
         }
@@ -124,7 +132,11 @@
         "title": "Rediģēt apvienoto grupu",
         "description": "Atlasiet, kā jāklasificē katra grupa: nav iekļauta, iekļauta, izmantojot grupas pašas iestatījumus, vai pārdefinēta kā Būtiska vai Nebūtiska.",
         "data": {
-          "combined_name": "Apvienotās grupas nosaukums"
+          "combined_name": "Apvienotās grupas nosaukums",
+          "show_collapse_count": "Rādīt apvienošanas skaitu (×N nozīmīte)"
+        },
+        "data_description": {
+          "show_collapse_count": "Kad ieslēgts (noklusējums), apvienotās ierīces rindas nosaukuma blakus tiek rādīta ×N nozīmīte, kas norāda šajā rindā apvienoto entitāšu skaitu. Izslēdziet, lai paslēptu nozīmīti visur šajā apvienotajā kartē — pati apvienošana, dalībnieku saraksts un apkopotais stāvoklis netiek ietekmēti."
         }
       },
       "battery_mapping": {

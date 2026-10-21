@@ -25,7 +25,11 @@
         "title": "Kurti jungtinę grupę",
         "description": "Pasirinkite, kaip kiekviena grupė turi būti klasifikuojama: neįtraukta, įtraukta naudojant grupės savus nustatymus arba pakeista į Esminę arba Neesminę.",
         "data": {
-          "combined_name": "Jungtinės grupės pavadinimas"
+          "combined_name": "Jungtinės grupės pavadinimas",
+          "show_collapse_count": "Rodyti sujungimo skaičių (×N ženklelis)"
+        },
+        "data_description": {
+          "show_collapse_count": "Kai įjungta (numatytoji reikšmė), sujungtos įrenginio eilutės pavadinimo šalia rodomas ×N ženklelis, nurodantis į tą eilutę sujungtų objektų skaičių. Išjunkite, kad paslėptumėte ženklelį visur šioje jungtinėje kortelėje — pats sujungimas, narių sąrašas ir apibendrinta būsena nepakinta."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Atkūrimo langas",
           "use_device_names": "Rodyti įrenginių pavadinimus",
           "collapse_devices": "Sujungti objektus pagal įrenginį",
+          "show_collapse_count": "Rodyti sujungimo skaičių (×N ženklelis)",
           "signal_enabled": "Įjungti signalo stiprumo stebėjimą"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių\" arba „Neseniai atkurtų\" jutikliuose po būsenos perėjimo.",
           "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu.",
           "collapse_devices": "Veikia tik įjungus „Rodyti įrenginių pavadinimus\". Kai įjungta, keli objektai, priklausantys tam pačiam fiziniam įrenginiui, skaičiuojami kaip vienas kiekvienoje jutiklio reikšmėje, sąraše ir įvykyje (neprisijungęs, žema baterija, pasenęs, prastas signalas). Objektai sujungiami tik tada, kai jie turi tą patį įrenginį, baterijos lygį ir signalą — objektai, nesusieti su įrenginiu, niekada nesujungiami, o objektai tame pačiame įrenginyje su skirtingais baterijos ar signalo rodmenimis lieka atskiri. Pasiekiamumas %, MTBF ir MTTR lieka kiekvienam objektui atskirai. Pastaba: jei ši grupė įtraukta į jungtinę grupę, jos sujungimo nustatymas automatiškai taikomas jungtiniame rodinyje — papildoma konfigūracija nereikalinga.",
+          "show_collapse_count": "Kai įjungta (numatytoji reikšmė), sujungtos įrenginio eilutės pavadinimo šalia rodomas ×N ženklelis, nurodantis į tą eilutę sujungtų objektų skaičių. Išjunkite, kad paslėptumėte ženklelį visur šios grupės kortelėje — pats sujungimas, narių sąrašas ir apibendrinta būsena nepakinta.",
           "signal_enabled": "Stebėti signalo stiprumą (dBm) stebimiems objektams ir įspėti, kai signalo kokybė nukrenta iki „prasto\" lygio. Įjungus, būsite paprašyti susieti signalo jutiklį ir pasirinkti tinklo tipą kiekvienam objektui."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Atkūrimo langas (minutės)",
           "use_device_names": "Rodyti įrenginių pavadinimus",
           "collapse_devices": "Sujungti objektus pagal įrenginį",
+          "show_collapse_count": "Rodyti sujungimo skaičių (×N ženklelis)",
           "staleness_use_last_updated": "Atributų atnaujinimą skaičiuoti kaip aktyvumą",
           "signal_enabled": "Įjungti signalo stiprumo stebėjimą"
         },
@@ -116,6 +123,7 @@
           "recovery_window": "Kiek laiko (minutėmis) objektas lieka „Neseniai neprisijungusių\" arba „Neseniai atkurtų\" jutikliuose po būsenos perėjimo.",
           "use_device_names": "Rodyti HA įrenginio pavadinimą vietoj objekto draugiško pavadinimo neprisijungusių/atkurtų jutiklių būsenose. Grįžtama prie draugiško pavadinimo objektams, nesusitiems su įrenginiu.",
           "collapse_devices": "Veikia tik įjungus „Rodyti įrenginių pavadinimus\". Kai įjungta, keli objektai, priklausantys tam pačiam fiziniam įrenginiui, skaičiuojami kaip vienas kiekvienoje jutiklio reikšmėje, sąraše ir įvykyje (neprisijungęs, žema baterija, pasenęs, prastas signalas). Objektai sujungiami tik tada, kai jie turi tą patį įrenginį, baterijos lygį ir signalą — objektai, nesusieti su įrenginiu, niekada nesujungiami, o objektai tame pačiame įrenginyje su skirtingais baterijos ar signalo rodmenimis lieka atskiri. Pasiekiamumas %, MTBF ir MTTR lieka kiekvienam objektui atskirai. Pastaba: jei ši grupė įtraukta į jungtinę grupę, jos sujungimo nustatymas automatiškai taikomas jungtiniame rodinyje — papildoma konfigūracija nereikalinga.",
+          "show_collapse_count": "Kai įjungta (numatytoji reikšmė), sujungtos įrenginio eilutės pavadinimo šalia rodomas ×N ženklelis, nurodantis į tą eilutę sujungtų objektų skaičių. Išjunkite, kad paslėptumėte ženklelį visur šios grupės kortelėje — pats sujungimas, narių sąrašas ir apibendrinta būsena nepakinta.",
           "staleness_use_last_updated": "Įjungus, bet koks objekto atnaujinimas — įskaitant tik atributų pakeitimus ar pasikartojančias tas pačias reikšmes — atnaujina pasenimo laikmatį. Išjungus (numatytoji reikšmė), skaičiuojamas tik pagrindinės būsenos pasikeitimas. Įjunkite įrenginiams, kurie dažnai praneša, bet retai keičia reikšmę (pvz., temperatūra ar galia, kuri išlieka stabili).",
           "signal_enabled": "Stebėti signalo stiprumą (dBm) stebimiems objektams ir įspėti, kai signalo kokybė nukrenta iki „prasto\" lygio. Įjungus, būsite paprašyti susieti signalo jutiklį ir pasirinkti tinklo tipą kiekvienam objektui."
         }
@@ -124,7 +132,11 @@
         "title": "Redaguoti jungtinę grupę",
         "description": "Pasirinkite, kaip kiekviena grupė turi būti klasifikuojama: neįtraukta, įtraukta naudojant grupės savus nustatymus arba pakeista į Esminę arba Neesminę.",
         "data": {
-          "combined_name": "Jungtinės grupės pavadinimas"
+          "combined_name": "Jungtinės grupės pavadinimas",
+          "show_collapse_count": "Rodyti sujungimo skaičių (×N ženklelis)"
+        },
+        "data_description": {
+          "show_collapse_count": "Kai įjungta (numatytoji reikšmė), sujungtos įrenginio eilutės pavadinimo šalia rodomas ×N ženklelis, nurodantis į tą eilutę sujungtų objektų skaičių. Išjunkite, kad paslėptumėte ženklelį visur šioje jungtinėje kortelėje — pats sujungimas, narių sąrašas ir apibendrinta būsena nepakinta."
         }
       },
       "battery_mapping": {

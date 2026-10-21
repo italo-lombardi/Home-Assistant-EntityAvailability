@@ -856,7 +856,7 @@ class EntityAvailabilityCard extends LitElement {
           ${this._renderSuppressedBanner(suppressed, attrs.non_essential_suppressed || 0, Object.values(groups))}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
           ${this._config.show_groups !== false ? this._renderCombinedGroupBreakdown(groups, batteryEnabled, stalenessEnabled, this._config.show_table_icons === true) : nothing}
-          ${this._config.show_entities !== false ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(rowEntityIds[e] || e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true, rowEntityIds, rowMembers) : nothing}
+          ${this._config.show_entities !== false ? this._renderEntityList(allEntities.filter(e => showNE || !nonEssentialEntities.includes(rowEntityIds[e] || e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNE ? nonEssentialOfflineEntities : [], showNE ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabledCombined, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true, rowEntityIds, rowMembers, attrs.show_collapse_count !== false) : nothing}
           ${this._config.show_actions && (allEntities.length + (showNE ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
         </ha-card>
       `;
@@ -940,7 +940,7 @@ class EntityAvailabilityCard extends LitElement {
         ${this._renderSuppressedBanner(suppressed, showNEStats ? nonEssentialSuppressed : 0)}
         ${this._config.show_availability ? this._renderAvailability(prefix) : nothing}
         ${this._config.show_actions && (entities.length + (showNEStats ? nonEssentialEntities.length : 0)) > 50 ? this._renderActions(prefix) : nothing}
-        ${this._config.show_entities !== false ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true, {}, rowMembers) : nothing}
+        ${this._config.show_entities !== false ? this._renderEntityList(entities.filter(e => showNEStats || !nonEssentialEntities.includes(e)), batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames, nonEssentialEntities, showNEStats ? nonEssentialOfflineEntities : [], showNEStats ? staleEntitiesNonEssential : [], batteryEnabled, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, this._config.show_table_icons === true, {}, rowMembers, attrs.show_collapse_count !== false) : nothing}
         ${this._config.show_actions && (entities.length + (showNEStats ? nonEssentialEntities.length : 0)) <= 50 ? this._renderActions(prefix) : nothing}
       </ha-card>
     `;
@@ -1061,7 +1061,7 @@ class EntityAvailabilityCard extends LitElement {
     `;
   }
 
-  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], batteryEnabled = false, signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = [], iconMode = false, rowEntityIds = {}, rowMembers = {}) {
+  _renderEntityList(entities, batteryLevels, suppressedUntil, staleEntities, offlineSince, total, lowBatteryEntities, displayNames = {}, nonEssentialEntities = [], nonEssentialOfflineEntities = [], staleEntitiesNonEssential = [], batteryEnabled = false, signalEnabled = false, signalLevels = {}, poorSignalEntities = [], signalUnits = {}, okSignalEntities = [], iconMode = false, rowEntityIds = {}, rowMembers = {}, showCollapseCount = true) {
     if (entities.length === 0 && total === 0) return nothing;
 
     const allItems = this._buildEntityItems(entities, batteryLevels, staleEntities, offlineSince, suppressedUntil, lowBatteryEntities, displayNames, nonEssentialEntities, nonEssentialOfflineEntities, staleEntitiesNonEssential, signalEnabled, signalLevels, poorSignalEntities, signalUnits, okSignalEntities, rowEntityIds, rowMembers);
@@ -1119,7 +1119,7 @@ class EntityAvailabilityCard extends LitElement {
             <div class="entity-item" tabindex="0" role="button" @mouseenter=${(e) => this._positionTooltip(e, item, suppressedUntil)} @mouseleave=${() => this._hideTooltip()} @click=${(e) => this._handleEntityClick(e, item.entityId)} @keydown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (e.key === "Enter") this._handleEntityClick(e, item.entityId); } }} @keyup=${(e) => { if (e.key === " ") { e.preventDefault(); this._handleEntityClick(e, item.entityId); } }}>
               <div class="entity-item-row" style="${gridStyle}">
                 <div class="entity-dot ${item.dotColor}"></div>
-                <span class="entity-name">${item.isNonEssential ? html`<ha-icon icon="mdi:minus-circle-outline" class="non-essential-icon" style="color:var(--eac-${item.dotColor === 'green' ? 'green' : item.dotColor === 'red' ? 'red' : 'yellow'});vertical-align:middle;--mdc-icon-size:14px"></ha-icon> ` : nothing}${item.name}${item.memberCount > 1 ? html`<span class="entity-member-count" title="${item.memberCount} entities collapsed into this row" aria-label="${item.memberCount} entities collapsed">×${item.memberCount}</span>` : nothing}</span>
+                <span class="entity-name">${item.isNonEssential ? html`<ha-icon icon="mdi:minus-circle-outline" class="non-essential-icon" style="color:var(--eac-${item.dotColor === 'green' ? 'green' : item.dotColor === 'red' ? 'red' : 'yellow'});vertical-align:middle;--mdc-icon-size:14px"></ha-icon> ` : nothing}${item.name}${item.memberCount > 1 && showCollapseCount ? html`<span class="entity-member-count" title="${item.memberCount} entities collapsed into this row" aria-label="${item.memberCount} entities collapsed">×${item.memberCount}</span>` : nothing}</span>
                 <span class="entity-status">${item.status}</span>
                 ${hasBattery
                   ? html`<span class="entity-battery">${item.battery !== null ? `${item.battery}%` : ""}</span>`

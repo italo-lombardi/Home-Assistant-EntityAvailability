@@ -25,7 +25,11 @@
         "title": "Crea gruppo combinato",
         "description": "Seleziona come classificare ogni gruppo: Non incluso, Incluso con le proprie impostazioni del gruppo, oppure sovrascrivi come Essenziale o Non essenziale.",
         "data": {
-          "combined_name": "Nome del gruppo combinato"
+          "combined_name": "Nome del gruppo combinato",
+          "show_collapse_count": "Mostra conteggio raggruppato (badge ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Quando attivo (predefinito), una riga di dispositivo raggruppata mostra un badge ×N accanto al suo nome che conta le entità unite in quella riga. Disattiva per nascondere il badge ovunque su questa scheda combinata — il raggruppamento stesso, l'elenco dei membri e lo stato aggregato non vengono influenzati."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Finestra di recupero",
           "use_device_names": "Mostra nomi dispositivo",
           "collapse_devices": "Raggruppa entità per dispositivo",
+          "show_collapse_count": "Mostra conteggio raggruppato (badge ×N)",
           "signal_enabled": "Abilita il monitoraggio della potenza del segnale"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
           "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
           "collapse_devices": "Funziona solo quando «Mostra nomi dispositivo» è abilitato. Quando attivo, più entità che appartengono allo stesso dispositivo fisico vengono conteggiate come una sola in ogni valore del sensore, elenco ed evento (offline, batteria scarica, inattiva, segnale scarso). Le entità vengono unite solo quando condividono lo stesso dispositivo, livello di batteria e segnale — le entità non associate a un dispositivo non vengono mai unite, e le entità sullo stesso dispositivo con livelli di batteria o segnale diversi rimangono separate. Disponibilità %, MTBF e MTTR restano per entità. Nota: se questo gruppo è incluso in un gruppo combinato, la sua impostazione di raggruppamento viene applicata automaticamente nella vista combinata — non è necessaria alcuna configurazione aggiuntiva.",
+          "show_collapse_count": "Quando attivo (predefinito), una riga di dispositivo raggruppata mostra un badge ×N accanto al suo nome che conta le entità unite in quella riga. Disattiva per nascondere il badge ovunque sulla scheda di questo gruppo — il raggruppamento stesso, l'elenco dei membri e lo stato aggregato non vengono influenzati.",
           "signal_enabled": "Monitora la potenza del segnale (dBm) per le entità controllate e avvisa quando la qualità del segnale scende a \"scarsa\". Dopo l'attivazione, verrà richiesto di associare un sensore del segnale e selezionare il tipo di rete per ciascuna entità."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Finestra di recupero (minuti)",
           "use_device_names": "Mostra nomi dispositivo",
           "collapse_devices": "Raggruppa entità per dispositivo",
+          "show_collapse_count": "Mostra conteggio raggruppato (badge ×N)",
           "staleness_use_last_updated": "Conta gli aggiornamenti degli attributi come attività",
           "signal_enabled": "Abilita il monitoraggio della potenza del segnale"
         },
@@ -115,6 +122,7 @@
           "recovery_window": "Per quanto tempo (in minuti) un'entità rimane nei sensori Recentemente offline o Recentemente recuperata dopo una transizione di stato.",
           "use_device_names": "Mostra il nome del dispositivo HA al posto del nome descrittivo dell'entità nei sensori di stato offline/recuperata. Usa il nome descrittivo come fallback per le entità non associate a un dispositivo.",
           "collapse_devices": "Funziona solo quando «Mostra nomi dispositivo» è abilitato. Quando attivo, più entità che appartengono allo stesso dispositivo fisico vengono conteggiate come una sola in ogni valore del sensore, elenco ed evento (offline, batteria scarica, inattiva, segnale scarso). Le entità vengono unite solo quando condividono lo stesso dispositivo, livello di batteria e segnale — le entità non associate a un dispositivo non vengono mai unite, e le entità sullo stesso dispositivo con livelli di batteria o segnale diversi rimangono separate. Disponibilità %, MTBF e MTTR restano per entità. Nota: se questo gruppo è incluso in un gruppo combinato, la sua impostazione di raggruppamento viene applicata automaticamente nella vista combinata — non è necessaria alcuna configurazione aggiuntiva.",
+          "show_collapse_count": "Quando attivo (predefinito), una riga di dispositivo raggruppata mostra un badge ×N accanto al suo nome che conta le entità unite in quella riga. Disattiva per nascondere il badge ovunque sulla scheda di questo gruppo — il raggruppamento stesso, l'elenco dei membri e lo stato aggregato non vengono influenzati.",
           "staleness_use_last_updated": "Quando attivo, qualsiasi aggiornamento dell'entità — comprese le modifiche ai soli attributi o le segnalazioni ripetute dello stesso valore — reimposta il timer di inattività. Quando disattivato (predefinito), conta solo una modifica dello stato principale. Attiva per dispositivi che segnalano spesso ma cambiano raramente valore (es. temperatura o potenza che rimane stabile).",
           "entities": "Entità da monitorare per la disponibilità. Sono completamente monitorate e incluse in tutti i KPI e gli avvisi.",
           "signal_enabled": "Monitora la potenza del segnale (dBm) per le entità controllate e avvisa quando la qualità del segnale scende a \"scarsa\". Dopo l'attivazione, verrà richiesto di associare un sensore del segnale e selezionare il tipo di rete per ciascuna entità."
@@ -124,7 +132,11 @@
         "title": "Modifica gruppo combinato",
         "description": "Seleziona come classificare ogni gruppo: Non incluso, Incluso con le proprie impostazioni del gruppo, oppure sovrascrivi come Essenziale o Non essenziale.",
         "data": {
-          "combined_name": "Nome del gruppo combinato"
+          "combined_name": "Nome del gruppo combinato",
+          "show_collapse_count": "Mostra conteggio raggruppato (badge ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Quando attivo (predefinito), una riga di dispositivo raggruppata mostra un badge ×N accanto al suo nome che conta le entità unite in quella riga. Disattiva per nascondere il badge ovunque su questa scheda combinata — il raggruppamento stesso, l'elenco dei membri e lo stato aggregato non vengono influenzati."
         }
       },
       "battery_mapping": {

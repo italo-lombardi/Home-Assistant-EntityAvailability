@@ -25,7 +25,11 @@
         "title": "Stvori kombiniranu grupu",
         "description": "Odaberite kako treba klasificirati svaku grupu: Nije uključena, Uključena s vlastitim postavkama grupe, ili prisilno postavite na Bitno ili Nebitno.",
         "data": {
-          "combined_name": "Naziv kombinirane grupe"
+          "combined_name": "Naziv kombinirane grupe",
+          "show_collapse_count": "Prikaži broj spojenih (oznaka ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Kada je uključeno (zadano), spojeni redak uređaja prikazuje pokraj svog naziva oznaku ×N koja broji entitete spojene u taj redak. Isključite da biste sakrili oznaku posvuda na ovoj kombiniranoj kartici — samo grupiranje, popis članova i agregirani status pritom nisu promijenjeni."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Prozor za oporavak",
           "use_device_names": "Prikaži nazive uređaja",
           "collapse_devices": "Grupiraj entitete po uređaju",
+          "show_collapse_count": "Prikaži broj spojenih (oznaka ×N)",
           "signal_enabled": "Omogući praćenje jačine signala"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Koliko dugo (u minutama) entitet ostaje u senzorima 'Nedavno offline' ili 'Nedavno oporavljen' nakon promjene stanja.",
           "use_device_names": "Prikazuje naziv HA uređaja umjesto prijaznog naziva entiteta u stanjima offline/oporavljen senzora. Za entitete koji nisu povezani s uređajem koristi se prijazni naziv.",
           "collapse_devices": "Radi samo kada je uključeno 'Prikaži nazive uređaja'. Kada je uključeno, više entiteta koji pripadaju istom fizičkom uređaju broje se kao jedan u svakoj vrijednosti senzora, popisu i događaju (offline, slaba baterija, zastarjelo, slab signal). Entiteti se spajaju samo kada dijele isti uređaj, razinu baterije i signal — entiteti koji nisu povezani s uređajem nikada se ne spajaju, a entiteti na istom uređaju s različitim očitanjima baterije ili signala ostaju odvojeni. Dostupnost %, MTBF i MTTR ostaju po entitetu. Napomena: ako je ova grupa uključena u kombiniranu grupu, njezina postavka grupiranja primjenjuje se automatski u kombiniranom prikazu — nije potrebna dodatna konfiguracija.",
+          "show_collapse_count": "Kada je uključeno (zadano), spojeni redak uređaja prikazuje pokraj svog naziva oznaku ×N koja broji entitete spojene u taj redak. Isključite da biste sakrili oznaku posvuda na kartici ove grupe — samo grupiranje, popis članova i agregirani status pritom nisu promijenjeni.",
           "signal_enabled": "Prati jačinu signala (dBm) za nadzirane entitete i upozori kada kvaliteta signala padne na \"slabu\". Nakon aktivacije, bit će zatraženo da povežete senzor signala i odaberete vrstu mreže za svaki entitet."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Prozor za oporavak (minute)",
           "use_device_names": "Prikaži nazive uređaja",
           "collapse_devices": "Grupiraj entitete po uređaju",
+          "show_collapse_count": "Prikaži broj spojenih (oznaka ×N)",
           "staleness_use_last_updated": "Računanje ažuriranja atributa kao aktivnost",
           "signal_enabled": "Omogući praćenje jačine signala"
         },
@@ -116,6 +123,7 @@
           "recovery_window": "Koliko dugo (u minutama) entitet ostaje u senzorima 'Nedavno offline' ili 'Nedavno oporavljen' nakon promjene stanja.",
           "use_device_names": "Prikazuje naziv HA uređaja umjesto prijaznog naziva entiteta u stanjima offline/oporavljen senzora. Za entitete koji nisu povezani s uređajem koristi se prijazni naziv.",
           "collapse_devices": "Radi samo kada je uključeno 'Prikaži nazive uređaja'. Kada je uključeno, više entiteta koji pripadaju istom fizičkom uređaju broje se kao jedan u svakoj vrijednosti senzora, popisu i događaju (offline, slaba baterija, zastarjelo, slab signal). Entiteti se spajaju samo kada dijele isti uređaj, razinu baterije i signal — entiteti koji nisu povezani s uređajem nikada se ne spajaju, a entiteti na istom uređaju s različitim očitanjima baterije ili signala ostaju odvojeni. Dostupnost %, MTBF i MTTR ostaju po entitetu. Napomena: ako je ova grupa uključena u kombiniranu grupu, njezina postavka grupiranja primjenjuje se automatski u kombiniranom prikazu — nije potrebna dodatna konfiguracija.",
+          "show_collapse_count": "Kada je uključeno (zadano), spojeni redak uređaja prikazuje pokraj svog naziva oznaku ×N koja broji entitete spojene u taj redak. Isključite da biste sakrili oznaku posvuda na kartici ove grupe — samo grupiranje, popis članova i agregirani status pritom nisu promijenjeni.",
           "staleness_use_last_updated": "Kada je uključeno, svako ažuriranje od entiteta — uključujući promjene samo atributa ili ponavljajuće iste vrijednosti — resetira tajmer zastarjelosti. Kada je isključeno (zadano), računa se samo promjena glavnog stanja. Uključite za uređaje koji često šalju podatke, ali rijetko mijenjaju vrijednost (npr. temperatura ili snaga koja ostaje stabilna).",
           "signal_enabled": "Prati jačinu signala (dBm) za nadzirane entitete i upozori kada kvaliteta signala padne na \"slabu\". Nakon aktivacije, bit će zatraženo da povežete senzor signala i odaberete vrstu mreže za svaki entitet."
         }
@@ -124,7 +132,11 @@
         "title": "Uredi kombiniranu grupu",
         "description": "Odaberite kako treba klasificirati svaku grupu: Nije uključena, Uključena s vlastitim postavkama grupe, ili prisilno postavite na Bitno ili Nebitno.",
         "data": {
-          "combined_name": "Naziv kombinirane grupe"
+          "combined_name": "Naziv kombinirane grupe",
+          "show_collapse_count": "Prikaži broj spojenih (oznaka ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Kada je uključeno (zadano), spojeni redak uređaja prikazuje pokraj svog naziva oznaku ×N koja broji entitete spojene u taj redak. Isključite da biste sakrili oznaku posvuda na ovoj kombiniranoj kartici — samo grupiranje, popis članova i agregirani status pritom nisu promijenjeni."
         }
       },
       "battery_mapping": {

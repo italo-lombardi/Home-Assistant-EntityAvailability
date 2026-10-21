@@ -20,6 +20,7 @@ CONF_SIGNAL_ENTITY_MAP = "signal_entity_map"
 CONF_AVAILABILITY_WINDOWS = "availability_windows"
 CONF_USE_DEVICE_NAMES = "use_device_names"
 CONF_COLLAPSE_DEVICES = "collapse_devices"
+CONF_SHOW_COLLAPSE_COUNT = "show_collapse_count"
 CONF_NON_ESSENTIAL_ENTITIES = "non_essential_entities"
 
 # Entry types
@@ -46,6 +47,7 @@ DEFAULT_SIGNAL_ENABLED = False
 DEFAULT_AVAILABILITY_WINDOWS = ["today", "7d"]
 DEFAULT_USE_DEVICE_NAMES = False
 DEFAULT_COLLAPSE_DEVICES = False
+DEFAULT_SHOW_COLLAPSE_COUNT = True
 
 # De-jitter dead-bands: a flag flips ON at its threshold but only flips back OFF
 # once the reading clears the threshold by this margin. Stops a reading sitting on

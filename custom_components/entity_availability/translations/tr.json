@@ -25,7 +25,11 @@
         "title": "Birleşik Grup Oluştur",
         "description": "Her grubun nasıl sınıflandırılacağını seçin: Dahil edilmez, Grubun kendi ayarlarıyla dahil edilir veya Temel ya da Temel Olmayan olarak geçersiz kılınır.",
         "data": {
-          "combined_name": "Birleşik Grup Adı"
+          "combined_name": "Birleşik Grup Adı",
+          "show_collapse_count": "Birleştirme sayısını göster (×N rozeti)"
+        },
+        "data_description": {
+          "show_collapse_count": "Açık olduğunda (varsayılan), birleştirilmiş bir cihaz satırı, adının yanında o satırda birleştirilen varlık sayısını gösteren bir ×N rozeti görüntüler. Rozeti bu birleşik kartın her yerinde gizlemek için kapatın — birleştirmenin kendisi, üye listesi ve toplu durum bundan etkilenmez."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Kurtarma penceresi",
           "use_device_names": "Cihaz adlarını göster",
           "collapse_devices": "Varlıkları cihaza göre birleştir",
+          "show_collapse_count": "Birleştirme sayısını göster (×N rozeti)",
           "signal_enabled": "Sinyal gücü izlemeyi etkinleştir"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Bir varlığın durum geçişinden sonra Son Zamanda Çevrimdışı veya Son Zamanda Kurtarıldı sensörlerinde kalma süresi (dakika cinsinden).",
           "use_device_names": "Çevrimdışı/kurtarıldı sensör durumlarında varlık kolay adı yerine HA cihaz adını gösterin. Bir cihaza bağlı olmayan varlıklar için kolay ada geri döner.",
           "collapse_devices": "Yalnızca 'Cihaz adlarını göster' etkinleştirildiğinde çalışır. Açık olduğunda, aynı fiziksel cihaza ait birden fazla varlık her sensör değeri, liste ve olayda (çevrimdışı, düşük pil, güncel olmayan, zayıf sinyal) tek olarak sayılır. Varlıklar yalnızca aynı cihazı, pil seviyesini ve sinyali paylaştıklarında birleştirilir — bir cihaza bağlı olmayan varlıklar asla birleştirilmez ve aynı cihazdaki farklı pil veya sinyal değerlerine sahip varlıklar ayrı kalır. Kullanılabilirlik %, MTBF ve MTTR varlık başına kalır. Not: bu grup bir birleşik gruba dahil edilirse, birleştirme ayarı birleşik görünümde otomatik olarak uygulanır — ekstra yapılandırma gerekmez.",
+          "show_collapse_count": "Açık olduğunda (varsayılan), birleştirilmiş bir cihaz satırı, adının yanında o satırda birleştirilen varlık sayısını gösteren bir ×N rozeti görüntüler. Rozeti bu grubun kartının her yerinde gizlemek için kapatın — birleştirmenin kendisi, üye listesi ve toplu durum bundan etkilenmez.",
           "signal_enabled": "İzlenen varlıklar için sinyal gücünü (dBm) takip eder ve sinyal kalitesi 'zayıf' seviyesine düştüğünde uyarı verir. Etkinleştirdikten sonra, her varlık için bir sinyal sensörü bağlamanız ve ağ türünü seçmeniz istenecektir."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Kurtarma penceresi (dakika)",
           "use_device_names": "Cihaz adlarını göster",
           "collapse_devices": "Varlıkları cihaza göre birleştir",
+          "show_collapse_count": "Birleştirme sayısını göster (×N rozeti)",
           "staleness_use_last_updated": "Nitelik güncellemelerini etkinlik olarak say",
           "signal_enabled": "Sinyal gücü izlemeyi etkinleştir"
         },
@@ -116,6 +123,7 @@
           "recovery_window": "Bir varlığın durum geçişinden sonra Son Zamanda Çevrimdışı veya Son Zamanda Kurtarıldı sensörlerinde kalma süresi (dakika cinsinden).",
           "use_device_names": "Çevrimdışı/kurtarıldı sensör durumlarında varlık kolay adı yerine HA cihaz adını gösterin. Bir cihaza bağlı olmayan varlıklar için kolay ada geri döner.",
           "collapse_devices": "Yalnızca 'Cihaz adlarını göster' etkinleştirildiğinde çalışır. Açık olduğunda, aynı fiziksel cihaza ait birden fazla varlık her sensör değeri, liste ve olayda (çevrimdışı, düşük pil, güncel olmayan, zayıf sinyal) tek olarak sayılır. Varlıklar yalnızca aynı cihazı, pil seviyesini ve sinyali paylaştıklarında birleştirilir — bir cihaza bağlı olmayan varlıklar asla birleştirilmez ve aynı cihazdaki farklı pil veya sinyal değerlerine sahip varlıklar ayrı kalır. Kullanılabilirlik %, MTBF ve MTTR varlık başına kalır. Not: bu grup bir birleşik gruba dahil edilirse, birleştirme ayarı birleşik görünümde otomatik olarak uygulanır — ekstra yapılandırma gerekmez.",
+          "show_collapse_count": "Açık olduğunda (varsayılan), birleştirilmiş bir cihaz satırı, adının yanında o satırda birleştirilen varlık sayısını gösteren bir ×N rozeti görüntüler. Rozeti bu grubun kartının her yerinde gizlemek için kapatın — birleştirmenin kendisi, üye listesi ve toplu durum bundan etkilenmez.",
           "staleness_use_last_updated": "Açık olduğunda, yalnızca nitelik değişiklikleri veya tekrarlanan aynı değer raporları dahil olmak üzere varlıktan gelen herhangi bir güncelleme güncellik zamanlayıcısını sıfırlar. Kapalı olduğunda (varsayılan), yalnızca ana durumdaki bir değişiklik sayılır. Sık rapor eden ancak nadiren değer değiştiren cihazlar için açın (ör. sabit kalan sıcaklık veya güç).",
           "signal_enabled": "İzlenen varlıklar için sinyal gücünü (dBm) takip eder ve sinyal kalitesi 'zayıf' seviyesine düştüğünde uyarı verir. Etkinleştirdikten sonra, her varlık için bir sinyal sensörü bağlamanız ve ağ türünü seçmeniz istenecektir."
         }
@@ -124,7 +132,11 @@
         "title": "Birleşik Grubu Düzenle",
         "description": "Her grubun nasıl sınıflandırılacağını seçin: Dahil edilmez, Grubun kendi ayarlarıyla dahil edilir veya Temel ya da Temel Olmayan olarak geçersiz kılınır.",
         "data": {
-          "combined_name": "Birleşik Grup Adı"
+          "combined_name": "Birleşik Grup Adı",
+          "show_collapse_count": "Birleştirme sayısını göster (×N rozeti)"
+        },
+        "data_description": {
+          "show_collapse_count": "Açık olduğunda (varsayılan), birleştirilmiş bir cihaz satırı, adının yanında o satırda birleştirilen varlık sayısını gösteren bir ×N rozeti görüntüler. Rozeti bu birleşik kartın her yerinde gizlemek için kapatın — birleştirmenin kendisi, üye listesi ve toplu durum bundan etkilenmez."
         }
       },
       "battery_mapping": {

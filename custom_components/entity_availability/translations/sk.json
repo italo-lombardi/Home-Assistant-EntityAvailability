@@ -25,7 +25,11 @@
         "title": "Vytvoriť kombinovanú skupinu",
         "description": "Vyberte, ako má byť každá skupina klasifikovaná: Nezahrnutá, Zahrnutá s vlastnými nastaveniami skupiny alebo prepísať na Dôležitá alebo Nedôležitá.",
         "data": {
-          "combined_name": "Názov kombinovanej skupiny"
+          "combined_name": "Názov kombinovanej skupiny",
+          "show_collapse_count": "Zobraziť počet zlúčených (odznak ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Keď je zapnuté (predvolené), zlúčený riadok zariadenia zobrazuje vedľa svojho názvu odznak ×N počítajúci entity zlúčené do tohto riadka. Vypnutím skryjete odznak všade na tejto kombinovanej karte — samotné zlučovanie, zoznam členov ani agregovaný stav tým nie sú ovplyvnené."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Okno obnovy",
           "use_device_names": "Zobrazovať názvy zariadení",
           "collapse_devices": "Zlúčiť entity podľa zariadenia",
+          "show_collapse_count": "Zobraziť počet zlúčených (odznak ×N)",
           "signal_enabled": "Povoliť monitorovanie sily signálu"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Ako dlho (v minútach) zostane entita v senzoroch Nedávno offline alebo Nedávno obnovená po zmene stavu.",
           "use_device_names": "Zobrazuje názov zariadenia HA namiesto priateľského názvu entity v stavoch offline/obnovená. Pre entity neprepojené so zariadením sa použije priateľský názov entity.",
           "collapse_devices": "Funguje iba pri zapnutej voľbe 'Zobrazovať názvy zariadení'. Keď je zapnuté, viac entít patriacich k rovnakému fyzickému zariadeniu sa počíta ako jedna v každej hodnote senzora, zozname aj udalosti (offline, nízka batéria, zastaraná, slabý signál). Entity sa zlúčia iba vtedy, keď zdieľajú rovnaké zariadenie, úroveň batérie a signál — entity neprepojené so zariadením sa nikdy nezlučujú a entity na rovnakom zariadení s rôznymi hodnotami batérie alebo signálu zostávajú oddelené. Dostupnosť %, MTBF a MTTR zostávajú na entitu. Poznámka: ak je táto skupina zahrnutá v kombinovanej skupine, jej nastavenie zlúčenia sa v kombinovanom zobrazení použije automaticky — nie je potrebná žiadna ďalšia konfigurácia.",
+          "show_collapse_count": "Keď je zapnuté (predvolené), zlúčený riadok zariadenia zobrazuje vedľa svojho názvu odznak ×N počítajúci entity zlúčené do tohto riadka. Vypnutím skryjete odznak všade na karte tejto skupiny — samotné zlučovanie, zoznam členov ani agregovaný stav tým nie sú ovplyvnené.",
           "signal_enabled": "Sledovať silu signálu (dBm) pre monitorované entity a upozorniť, keď kvalita signálu klesne na úroveň „slabý\". Po aktivácii budete požiadaní o prepojenie senzora signálu a výber typu siete pre každú entitu."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Okno obnovy (minúty)",
           "use_device_names": "Zobrazovať názvy zariadení",
           "collapse_devices": "Zlúčiť entity podľa zariadenia",
+          "show_collapse_count": "Zobraziť počet zlúčených (odznak ×N)",
           "staleness_use_last_updated": "Počítať aktualizácie atribútov ako aktivitu",
           "signal_enabled": "Povoliť monitorovanie sily signálu"
         },
@@ -116,6 +123,7 @@
           "recovery_window": "Ako dlho (v minútach) zostane entita v senzoroch Nedávno offline alebo Nedávno obnovená po zmene stavu.",
           "use_device_names": "Zobrazuje názov zariadenia HA namiesto priateľského názvu entity v stavoch offline/obnovená. Pre entity neprepojené so zariadením sa použije priateľský názov entity.",
           "collapse_devices": "Funguje iba pri zapnutej voľbe 'Zobrazovať názvy zariadení'. Keď je zapnuté, viac entít patriacich k rovnakému fyzickému zariadeniu sa počíta ako jedna v každej hodnote senzora, zozname aj udalosti (offline, nízka batéria, zastaraná, slabý signál). Entity sa zlúčia iba vtedy, keď zdieľajú rovnaké zariadenie, úroveň batérie a signál — entity neprepojené so zariadením sa nikdy nezlučujú a entity na rovnakom zariadení s rôznymi hodnotami batérie alebo signálu zostávajú oddelené. Dostupnosť %, MTBF a MTTR zostávajú na entitu. Poznámka: ak je táto skupina zahrnutá v kombinovanej skupine, jej nastavenie zlúčenia sa v kombinovanom zobrazení použije automaticky — nie je potrebná žiadna ďalšia konfigurácia.",
+          "show_collapse_count": "Keď je zapnuté (predvolené), zlúčený riadok zariadenia zobrazuje vedľa svojho názvu odznak ×N počítajúci entity zlúčené do tohto riadka. Vypnutím skryjete odznak všade na karte tejto skupiny — samotné zlučovanie, zoznam členov ani agregovaný stav tým nie sú ovplyvnené.",
           "staleness_use_last_updated": "Keď je zapnuté, akákoľvek aktualizácia entity — vrátane zmien len atribútov alebo opakovaných hlásení rovnakej hodnoty — resetuje časovač zastarania. Keď je vypnuté (predvolené), počíta sa iba zmena hlavného stavu. Zapnite pre zariadenia, ktoré hlásia často, ale len zriedka menia hodnotu (napr. teplota alebo výkon, ktorý zostáva stabilný).",
           "signal_enabled": "Sledovať silu signálu (dBm) pre monitorované entity a upozorniť, keď kvalita signálu klesne na úroveň „slabý\". Po aktivácii budete požiadaní o prepojenie senzora signálu a výber typu siete pre každú entitu."
         }
@@ -124,7 +132,11 @@
         "title": "Upraviť kombinovanú skupinu",
         "description": "Vyberte, ako má byť každá skupina klasifikovaná: Nezahrnutá, Zahrnutá s vlastnými nastaveniami skupiny alebo prepísať na Dôležitá alebo Nedôležitá.",
         "data": {
-          "combined_name": "Názov kombinovanej skupiny"
+          "combined_name": "Názov kombinovanej skupiny",
+          "show_collapse_count": "Zobraziť počet zlúčených (odznak ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Keď je zapnuté (predvolené), zlúčený riadok zariadenia zobrazuje vedľa svojho názvu odznak ×N počítajúci entity zlúčené do tohto riadka. Vypnutím skryjete odznak všade na tejto kombinovanej karte — samotné zlučovanie, zoznam členov ani agregovaný stav tým nie sú ovplyvnené."
         }
       },
       "battery_mapping": {

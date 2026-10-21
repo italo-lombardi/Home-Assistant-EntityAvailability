@@ -21,10 +21,12 @@ from .const import (
     CONF_BATTERY_THRESHOLD,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_SHOW_COLLAPSE_COUNT,
     CONF_SIGNAL_ENABLED,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BATTERY_THRESHOLD,
+    DEFAULT_SHOW_COLLAPSE_COUNT,
     DEFAULT_SIGNAL_ENABLED,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
@@ -1145,6 +1147,9 @@ class GroupSummarySensor(DedupCoordinatorSensor):
             "battery_enabled": battery_enabled,
             "staleness_enabled": staleness_enabled,
             "signal_enabled": signal_enabled,
+            "show_collapse_count": self.coordinator.entry.data.get(
+                CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+            ),
             "low_battery": low_battery,
             "low_battery_non_essential": low_battery_non_essential,
             "low_battery_entities": low_battery_entities,

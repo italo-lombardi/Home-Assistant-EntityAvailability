@@ -23,10 +23,12 @@ from .const import (
     CONF_COMBINED_GROUPS,
     CONF_COMBINED_GROUPS_OVERRIDES,
     CONF_GROUP_NAME,
+    CONF_SHOW_COLLAPSE_COUNT,
     CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_BAD_STATES,
+    DEFAULT_SHOW_COLLAPSE_COUNT,
     DOMAIN,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
@@ -1054,6 +1056,9 @@ class CombinedGroupSensor(CombinedSensorBase):
             "battery_enabled": battery_enabled,
             "staleness_enabled": staleness_enabled,
             "signal_enabled": signal_enabled,
+            "show_collapse_count": self._entry.data.get(
+                CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+            ),
             "poor_signal": poor_signal_count,
             "status": status,
             "status_color": status_color,

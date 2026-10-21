@@ -25,7 +25,11 @@
         "title": "Kombinierte Gruppe erstellen",
         "description": "Wählen Sie aus, wie jede Gruppe klassifiziert werden soll: Nicht enthalten, Enthalten mit den eigenen Einstellungen der Gruppe oder als Wesentlich bzw. Nicht-Wesentlich festlegen.",
         "data": {
-          "combined_name": "Name der kombinierten Gruppe"
+          "combined_name": "Name der kombinierten Gruppe",
+          "show_collapse_count": "Zusammenfassungsanzahl anzeigen (×N-Abzeichen)"
+        },
+        "data_description": {
+          "show_collapse_count": "Wenn aktiviert (Standard), zeigt eine zusammengefasste Gerätezeile ein ×N-Abzeichen neben ihrem Namen, das die in diese Zeile zusammengefassten Entitäten zählt. Deaktivieren Sie dies, um das Abzeichen überall auf dieser kombinierten Karte auszublenden — das Zusammenfassen selbst, die Mitgliederliste und der aggregierte Status bleiben davon unberührt."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Wiederherstellungsfenster",
           "use_device_names": "Gerätenamen anzeigen",
           "collapse_devices": "Entitäten nach Gerät zusammenfassen",
+          "show_collapse_count": "Zusammenfassungsanzahl anzeigen (×N-Abzeichen)",
           "signal_enabled": "Signalstärke-Überwachung aktivieren"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
           "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen.",
           "collapse_devices": "Funktioniert nur, wenn 'Gerätenamen anzeigen' aktiviert ist. Wenn aktiviert, werden mehrere Entitäten, die zum selben physischen Gerät gehören, in jedem Sensorwert, jeder Liste und jedem Ereignis (offline, niedriger Batteriestand, veraltet, schlechtes Signal) als eine gezählt. Entitäten werden nur zusammengefasst, wenn sie dasselbe Gerät, denselben Batteriestand und dasselbe Signal teilen — Entitäten ohne verknüpftes Gerät werden nie zusammengefasst, und Entitäten am selben Gerät mit unterschiedlichem Batterie- oder Signalwert bleiben getrennt. Verfügbarkeit %, MTBF und MTTR bleiben pro Entität. Hinweis: Wenn diese Gruppe in einer kombinierten Gruppe enthalten ist, wird ihre Zusammenfassungseinstellung automatisch in der kombinierten Ansicht angewendet — keine zusätzliche Konfiguration erforderlich.",
+          "show_collapse_count": "Wenn aktiviert (Standard), zeigt eine zusammengefasste Gerätezeile ein ×N-Abzeichen neben ihrem Namen, das die in diese Zeile zusammengefassten Entitäten zählt. Deaktivieren Sie dies, um das Abzeichen überall auf der Karte dieser Gruppe auszublenden — das Zusammenfassen selbst, die Mitgliederliste und der aggregierte Status bleiben davon unberührt.",
           "signal_enabled": "Signalstärke (dBm) für überwachte Entitäten verfolgen und warnen, wenn die Signalqualität auf „schlecht\" sinkt. Nach der Aktivierung werden Sie aufgefordert, für jede Entität einen Signalsensor zu verknüpfen und den Netzwerktyp auszuwählen."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Wiederherstellungsfenster (Minuten)",
           "use_device_names": "Gerätenamen anzeigen",
           "collapse_devices": "Entitäten nach Gerät zusammenfassen",
+          "show_collapse_count": "Zusammenfassungsanzahl anzeigen (×N-Abzeichen)",
           "staleness_use_last_updated": "Attributaktualisierungen als Aktivität zählen",
           "signal_enabled": "Signalstärke-Überwachung aktivieren"
         },
@@ -115,6 +122,7 @@
           "recovery_window": "Wie lange (in Minuten) eine Entität nach einem Zustandswechsel in den Sensoren 'Kürzlich offline' oder 'Kürzlich wiederhergestellt' verbleibt.",
           "use_device_names": "Zeigt den HA-Gerätenamen anstelle des benutzerfreundlichen Entitätsnamens in den Sensorwerten für offline/wiederhergestellte Entitäten an. Für Entitäten ohne verknüpftes Gerät wird auf den benutzerfreundlichen Namen zurückgegriffen.",
           "collapse_devices": "Funktioniert nur, wenn 'Gerätenamen anzeigen' aktiviert ist. Wenn aktiviert, werden mehrere Entitäten, die zum selben physischen Gerät gehören, in jedem Sensorwert, jeder Liste und jedem Ereignis (offline, niedriger Batteriestand, veraltet, schlechtes Signal) als eine gezählt. Entitäten werden nur zusammengefasst, wenn sie dasselbe Gerät, denselben Batteriestand und dasselbe Signal teilen — Entitäten ohne verknüpftes Gerät werden nie zusammengefasst, und Entitäten am selben Gerät mit unterschiedlichem Batterie- oder Signalwert bleiben getrennt. Verfügbarkeit %, MTBF und MTTR bleiben pro Entität. Hinweis: Wenn diese Gruppe in einer kombinierten Gruppe enthalten ist, wird ihre Zusammenfassungseinstellung automatisch in der kombinierten Ansicht angewendet — keine zusätzliche Konfiguration erforderlich.",
+          "show_collapse_count": "Wenn aktiviert (Standard), zeigt eine zusammengefasste Gerätezeile ein ×N-Abzeichen neben ihrem Namen, das die in diese Zeile zusammengefassten Entitäten zählt. Deaktivieren Sie dies, um das Abzeichen überall auf der Karte dieser Gruppe auszublenden — das Zusammenfassen selbst, die Mitgliederliste und der aggregierte Status bleiben davon unberührt.",
           "staleness_use_last_updated": "Wenn aktiviert, setzt jede Aktualisierung der Entität — einschließlich reiner Attributänderungen oder wiederholter Meldungen desselben Werts — den Veralterungstimer zurück. Wenn deaktiviert (Standard), zählt nur eine Änderung des Hauptzustands. Aktivieren Sie dies für Geräte, die häufig melden, aber ihren Wert selten ändern (z. B. Temperatur oder Leistung, die konstant bleibt).",
           "entities": "Entitäten, die auf Verfügbarkeit überwacht werden. Diese werden vollständig überwacht und in alle KPIs und Warnungen einbezogen.",
           "signal_enabled": "Signalstärke (dBm) für überwachte Entitäten verfolgen und warnen, wenn die Signalqualität auf „schlecht\" sinkt. Nach der Aktivierung werden Sie aufgefordert, für jede Entität einen Signalsensor zu verknüpfen und den Netzwerktyp auszuwählen."
@@ -124,7 +132,11 @@
         "title": "Kombinierte Gruppe bearbeiten",
         "description": "Wählen Sie aus, wie jede Gruppe klassifiziert werden soll: Nicht enthalten, Enthalten mit den eigenen Einstellungen der Gruppe oder als Wesentlich bzw. Nicht-Wesentlich festlegen.",
         "data": {
-          "combined_name": "Name der kombinierten Gruppe"
+          "combined_name": "Name der kombinierten Gruppe",
+          "show_collapse_count": "Zusammenfassungsanzahl anzeigen (×N-Abzeichen)"
+        },
+        "data_description": {
+          "show_collapse_count": "Wenn aktiviert (Standard), zeigt eine zusammengefasste Gerätezeile ein ×N-Abzeichen neben ihrem Namen, das die in diese Zeile zusammengefassten Entitäten zählt. Deaktivieren Sie dies, um das Abzeichen überall auf dieser kombinierten Karte auszublenden — das Zusammenfassen selbst, die Mitgliederliste und der aggregierte Status bleiben davon unberührt."
         }
       },
       "battery_mapping": {

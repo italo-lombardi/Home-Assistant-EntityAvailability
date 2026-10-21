@@ -25,7 +25,11 @@
         "title": "Crear grupo combinado",
         "description": "Seleccione cómo debe clasificarse cada grupo: No incluido, Incluido con la configuración propia del grupo, o establecer como Esencial o No esencial.",
         "data": {
-          "combined_name": "Nombre del grupo combinado"
+          "combined_name": "Nombre del grupo combinado",
+          "show_collapse_count": "Mostrar recuento agrupado (insignia ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Cuando está activado (predeterminado), una fila de dispositivo agrupada muestra una insignia ×N junto a su nombre que cuenta las entidades combinadas en esa fila. Desactívelo para ocultar la insignia en toda esta tarjeta combinada — la agrupación en sí, la lista de miembros y el estado agregado no se ven afectados."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Ventana de recuperación",
           "use_device_names": "Mostrar nombres de dispositivo",
           "collapse_devices": "Agrupar entidades por dispositivo",
+          "show_collapse_count": "Mostrar recuento agrupado (insignia ×N)",
           "signal_enabled": "Habilitar monitoreo de intensidad de señal"
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
           "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
           "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan, y las entidades del mismo dispositivo con distintos niveles de batería o señal permanecen separadas. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad. Nota: si este grupo está incluido en un grupo combinado, su configuración de agrupación se aplica automáticamente en la vista combinada — no se necesita configuración adicional.",
+          "show_collapse_count": "Cuando está activado (predeterminado), una fila de dispositivo agrupada muestra una insignia ×N junto a su nombre que cuenta las entidades combinadas en esa fila. Desactívelo para ocultar la insignia en toda la tarjeta de este grupo — la agrupación en sí, la lista de miembros y el estado agregado no se ven afectados.",
           "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Ventana de recuperación (minutos)",
           "use_device_names": "Mostrar nombres de dispositivo",
           "collapse_devices": "Agrupar entidades por dispositivo",
+          "show_collapse_count": "Mostrar recuento agrupado (insignia ×N)",
           "staleness_use_last_updated": "Contar actualizaciones de atributos como actividad",
           "signal_enabled": "Habilitar monitoreo de intensidad de señal"
         },
@@ -115,6 +122,7 @@
           "recovery_window": "Cuánto tiempo (en minutos) permanece una entidad en los sensores Sin conexión recientemente o Recuperada recientemente tras un cambio de estado.",
           "use_device_names": "Muestra el nombre del dispositivo en HA en lugar del nombre descriptivo de la entidad en los estados sin conexión o recuperada recientemente. Si la entidad no está vinculada a ningún dispositivo, se usa el nombre descriptivo como alternativa.",
           "collapse_devices": "Solo funciona cuando «Mostrar nombres de dispositivo» está habilitado. Cuando está activado, varias entidades que pertenecen al mismo dispositivo físico se cuentan como una sola en cada valor de sensor, lista y evento (sin conexión, batería baja, obsoleta, señal deficiente). Las entidades solo se combinan cuando comparten el mismo dispositivo, nivel de batería y señal — las entidades no vinculadas a un dispositivo nunca se combinan, y las entidades del mismo dispositivo con distintos niveles de batería o señal permanecen separadas. La disponibilidad %, el MTBF y el MTTR se mantienen por entidad. Nota: si este grupo está incluido en un grupo combinado, su configuración de agrupación se aplica automáticamente en la vista combinada — no se necesita configuración adicional.",
+          "show_collapse_count": "Cuando está activado (predeterminado), una fila de dispositivo agrupada muestra una insignia ×N junto a su nombre que cuenta las entidades combinadas en esa fila. Desactívelo para ocultar la insignia en toda la tarjeta de este grupo — la agrupación en sí, la lista de miembros y el estado agregado no se ven afectados.",
           "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable).",
           "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
           "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
@@ -124,7 +132,11 @@
         "title": "Editar grupo combinado",
         "description": "Seleccione cómo debe clasificarse cada grupo: No incluido, Incluido con la configuración propia del grupo, o establecer como Esencial o No esencial.",
         "data": {
-          "combined_name": "Nombre del grupo combinado"
+          "combined_name": "Nombre del grupo combinado",
+          "show_collapse_count": "Mostrar recuento agrupado (insignia ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Cuando está activado (predeterminado), una fila de dispositivo agrupada muestra una insignia ×N junto a su nombre que cuenta las entidades combinadas en esa fila. Desactívelo para ocultar la insignia en toda esta tarjeta combinada — la agrupación en sí, la lista de miembros y el estado agregado no se ven afectados."
         }
       },
       "battery_mapping": {

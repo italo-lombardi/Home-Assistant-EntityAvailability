@@ -25,7 +25,11 @@
         "title": "Creare grup combinat",
         "description": "Selectați modul în care fiecare grup trebuie clasificat: Neinclus, Inclus cu propriile setări ale grupului sau suprascriere la Esențial sau Neesențial.",
         "data": {
-          "combined_name": "Numele grupului combinat"
+          "combined_name": "Numele grupului combinat",
+          "show_collapse_count": "Afișați numărul grupat (insignă ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Când este activat (implicit), un rând de dispozitiv grupat afișează o insignă ×N lângă numele său, care numără entitățile combinate în acel rând. Dezactivați pentru a ascunde insigna peste tot pe acest card combinat — gruparea în sine, lista de membri și starea agregată nu sunt afectate."
         }
       },
       "monitoring": {
@@ -53,6 +57,7 @@
           "recovery_window": "Fereastră de recuperare",
           "use_device_names": "Afișați numele dispozitivelor",
           "collapse_devices": "Grupați entitățile după dispozitiv",
+          "show_collapse_count": "Afișați numărul grupat (insignă ×N)",
           "signal_enabled": "„Activați monitorizarea puterii semnalului\""
         },
         "data_description": {
@@ -61,6 +66,7 @@
           "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
           "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv.",
           "collapse_devices": "Funcționează doar când este activată opțiunea „Afișați numele dispozitivelor”. Când este activat, mai multe entități care aparțin aceluiași dispozitiv fizic sunt numărate ca una singură în fiecare valoare de senzor, listă și eveniment (offline, baterie descărcată, expirată, semnal slab). Entitățile sunt combinate doar când au același dispozitiv, nivel de baterie și semnal — entitățile care nu sunt asociate unui dispozitiv nu sunt combinate niciodată, iar entitățile de pe același dispozitiv cu niveluri diferite de baterie sau semnal rămân separate. Disponibilitatea %, MTBF și MTTR rămân per entitate. Notă: dacă acest grup este inclus într-un grup combinat, setarea sa de grupare se aplică automat în vizualizarea combinată — nu este necesară nicio configurație suplimentară.",
+          "show_collapse_count": "Când este activat (implicit), un rând de dispozitiv grupat afișează o insignă ×N lângă numele său, care numără entitățile combinate în acel rând. Dezactivați pentru a ascunde insigna peste tot pe cardul acestui grup — gruparea în sine, lista de membri și starea agregată nu sunt afectate.",
           "signal_enabled": "„Urmăriți puterea semnalului (dBm) pentru entitățile monitorizate și primiți alerte când calitatea semnalului scade la „slabă\". După activare, vi se va cere să asociați un senzor de semnal și să selectați tipul de rețea pentru fiecare entitate.\""
         }
       },
@@ -102,6 +108,7 @@
           "recovery_window": "Fereastră de recuperare (minute)",
           "use_device_names": "Afișați numele dispozitivelor",
           "collapse_devices": "Grupați entitățile după dispozitiv",
+          "show_collapse_count": "Afișați numărul grupat (insignă ×N)",
           "staleness_use_last_updated": "Actualizările de atribute contează ca activitate",
           "signal_enabled": "„Activați monitorizarea puterii semnalului\""
         },
@@ -116,6 +123,7 @@
           "recovery_window": "Cât timp (în minute) rămâne o entitate în senzorii Offline Recent sau Recuperat Recent după o tranziție de stare.",
           "use_device_names": "Afișează numele dispozitivului HA în locul numelui prietenos al entității în stările senzorilor offline/recuperat. Revine la numele prietenos pentru entitățile care nu sunt asociate unui dispozitiv.",
           "collapse_devices": "Funcționează doar când este activată opțiunea „Afișați numele dispozitivelor”. Când este activat, mai multe entități care aparțin aceluiași dispozitiv fizic sunt numărate ca una singură în fiecare valoare de senzor, listă și eveniment (offline, baterie descărcată, expirată, semnal slab). Entitățile sunt combinate doar când au același dispozitiv, nivel de baterie și semnal — entitățile care nu sunt asociate unui dispozitiv nu sunt combinate niciodată, iar entitățile de pe același dispozitiv cu niveluri diferite de baterie sau semnal rămân separate. Disponibilitatea %, MTBF și MTTR rămân per entitate. Notă: dacă acest grup este inclus într-un grup combinat, setarea sa de grupare se aplică automat în vizualizarea combinată — nu este necesară nicio configurație suplimentară.",
+          "show_collapse_count": "Când este activat (implicit), un rând de dispozitiv grupat afișează o insignă ×N lângă numele său, care numără entitățile combinate în acel rând. Dezactivați pentru a ascunde insigna peste tot pe cardul acestui grup — gruparea în sine, lista de membri și starea agregată nu sunt afectate.",
           "staleness_use_last_updated": "Când este activat, orice actualizare de la entitate — inclusiv modificări doar de atribute sau raportări repetate cu aceeași valoare — resetează cronometrul de expirare. Când este dezactivat (implicit), contează doar o schimbare a stării principale. Activați pentru dispozitivele care raportează frecvent, dar își schimbă rar valoarea (ex.: temperatură sau putere stabilă).",
           "signal_enabled": "„Urmăriți puterea semnalului (dBm) pentru entitățile monitorizate și primiți alerte când calitatea semnalului scade la „slabă\". După activare, vi se va cere să asociați un senzor de semnal și să selectați tipul de rețea pentru fiecare entitate.\""
         }
@@ -124,7 +132,11 @@
         "title": "Editare grup combinat",
         "description": "Selectați modul în care fiecare grup trebuie clasificat: Neinclus, Inclus cu propriile setări ale grupului sau suprascriere la Esențial sau Neesențial.",
         "data": {
-          "combined_name": "Numele grupului combinat"
+          "combined_name": "Numele grupului combinat",
+          "show_collapse_count": "Afișați numărul grupat (insignă ×N)"
+        },
+        "data_description": {
+          "show_collapse_count": "Când este activat (implicit), un rând de dispozitiv grupat afișează o insignă ×N lângă numele său, care numără entitățile combinate în acel rând. Dezactivați pentru a ascunde insigna peste tot pe acest card combinat — gruparea în sine, lista de membri și starea agregată nu sunt afectate."
         }
       },
       "battery_mapping": {

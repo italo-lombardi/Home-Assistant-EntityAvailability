@@ -34,6 +34,7 @@ from .const import (
     CONF_GROUP_NAME,
     CONF_NON_ESSENTIAL_ENTITIES,
     CONF_RECOVERY_WINDOW,
+    CONF_SHOW_COLLAPSE_COUNT,
     CONF_SIGNAL_ENABLED,
     CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
@@ -45,6 +46,7 @@ from .const import (
     DEFAULT_COLLAPSE_DEVICES,
     DEFAULT_COOLDOWN,
     DEFAULT_RECOVERY_WINDOW,
+    DEFAULT_SHOW_COLLAPSE_COUNT,
     DEFAULT_SIGNAL_ENABLED,
     DEFAULT_STALENESS_THRESHOLD,
     DEFAULT_STALENESS_USE_LAST_UPDATED,
@@ -297,6 +299,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_GROUP_NAME: group_name,
                         CONF_COMBINED_GROUPS: combined_groups,
                         CONF_COMBINED_GROUPS_OVERRIDES: overrides,
+                        CONF_SHOW_COLLAPSE_COUNT: user_input.get(
+                            CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+                        ),
                     },
                 )
 
@@ -310,7 +315,13 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             vol.Required(
                 _COMBINED_NAME_KEY,
                 default=(user_input or {}).get(_COMBINED_NAME_KEY, ""),
-            ): str
+            ): str,
+            vol.Optional(
+                CONF_SHOW_COLLAPSE_COUNT,
+                default=(user_input or {}).get(
+                    CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+                ),
+            ): selector.BooleanSelector(),
         }
         for title in title_to_eid:
             fields[
@@ -411,6 +422,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._data[CONF_COLLAPSE_DEVICES] = user_input.get(
                     CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
                 )
+                self._data[CONF_SHOW_COLLAPSE_COUNT] = user_input.get(
+                    CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+                )
                 self._data[CONF_SIGNAL_ENABLED] = user_input.get(
                     CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED
                 )
@@ -460,6 +474,9 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 ): selector.BooleanSelector(),
                 vol.Optional(
                     CONF_COLLAPSE_DEVICES, default=DEFAULT_COLLAPSE_DEVICES
+                ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_SHOW_COLLAPSE_COUNT, default=DEFAULT_SHOW_COLLAPSE_COUNT
                 ): selector.BooleanSelector(),
             }
         )
@@ -726,6 +743,12 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                         CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
                     ),
                 ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_SHOW_COLLAPSE_COUNT,
+                    default=current.get(
+                        CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+                    ),
+                ): selector.BooleanSelector(),
             }
         )
 
@@ -949,6 +972,9 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                         CONF_GROUP_NAME: group_name,
                         CONF_COMBINED_GROUPS: combined_groups,
                         CONF_COMBINED_GROUPS_OVERRIDES: overrides,
+                        CONF_SHOW_COLLAPSE_COUNT: user_input.get(
+                            CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT
+                        ),
                     }
                     self.hass.config_entries.async_update_entry(
                         self.config_entry,
@@ -969,7 +995,14 @@ class CombinedGroupOptionsFlow(OptionsFlow):
                 default=(user_input or {}).get(
                     _COMBINED_NAME_KEY, current.get(CONF_GROUP_NAME, "")
                 ),
-            ): str
+            ): str,
+            vol.Optional(
+                CONF_SHOW_COLLAPSE_COUNT,
+                default=(user_input or {}).get(
+                    CONF_SHOW_COLLAPSE_COUNT,
+                    current.get(CONF_SHOW_COLLAPSE_COUNT, DEFAULT_SHOW_COLLAPSE_COUNT),
+                ),
+            ): selector.BooleanSelector(),
         }
         for title, eid in title_to_eid.items():
             if user_input is not None:
