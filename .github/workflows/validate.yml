@@ -55,3 +55,15 @@ jobs:
           pip install pytest pytest-homeassistant-custom-component pytest-cov
       - name: Run tests
         run: pytest tests/ --tb=short -q
+
+  card-js-tests:
+    name: Card JS Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run card JS tests
+        run: node --test tests/test_card_counts.mjs tests/frontend/test_format_state_display.mjs
