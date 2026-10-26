@@ -55,12 +55,9 @@ export function extractMethods(names) {
       }
     }
     if (end < 0) throw new Error(`unbalanced braces extracting ${name}`);
-    // ponytail: naive brace-count — ignores braces inside strings/regex literals.
-    // A `}` inside a string could close the match early, truncating the body into
-    // code that's still valid JS → a test passes while the card is broken (false
-    // green). This boundary check catches that: a correctly-matched method ends at
-    // a method/class boundary (blank line, next `  _method(`, or the class `}`). An
-    // early close lands mid-body, where the next non-space is NOT a boundary.
+    // ponytail: naive brace-count ignores braces in strings/regex. A stray `}`
+    // there can close early into valid JS (false green); assert we landed on a
+    // real method/class boundary (blank line, next `  _method(`, or class `}`).
     const after = cardSource.slice(end).replace(/^[ \t]*\r?\n/, "");
     if (!/^(\r?\n|  [A-Za-z_]|})/.test(after)) {
       throw new Error(
