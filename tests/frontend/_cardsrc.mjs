@@ -18,7 +18,11 @@ const cardPath = fileURLToPath(
 
 export const cardSource = readFileSync(cardPath, "utf8");
 
-// Extract a top-level arrow/function `const NAME = (...) => {...};` and eval it.
+// Extract a top-level arrow `const NAME = (...) => {...};` and eval it.
+// ponytail: regex, not a parser — anchors the end on a line that is exactly `});`.
+// Throws loudly (CI red) if the shape shifts; never silently extracts the wrong
+// thing. Current card helper (_collapsedCounts) matches; harden only when a real
+// second helper needs it.
 export function extractConst(name) {
   const re = new RegExp(`const ${name} = (\\(.*?\\n\\});`, "s");
   const m = cardSource.match(re);
@@ -51,6 +55,18 @@ export function extractMethods(names) {
       }
     }
     if (end < 0) throw new Error(`unbalanced braces extracting ${name}`);
+    // ponytail: naive brace-count — ignores braces inside strings/regex literals.
+    // A `}` inside a string could close the match early, truncating the body into
+    // code that's still valid JS → a test passes while the card is broken (false
+    // green). This boundary check catches that: a correctly-matched method ends at
+    // a method/class boundary (blank line, next `  _method(`, or the class `}`). An
+    // early close lands mid-body, where the next non-space is NOT a boundary.
+    const after = cardSource.slice(end).replace(/^[ \t]*\r?\n/, "");
+    if (!/^(\r?\n|  [A-Za-z_]|})/.test(after)) {
+      throw new Error(
+        `suspicious extraction of ${name}: body may be truncated by a brace inside a string/regex — add a real tokenizer`,
+      );
+    }
     const block = cardSource.slice(start, end); // "_name(args) {...}"
     const sig = block.slice(0, block.indexOf("{")).trim(); // "_name(args)"
     const argStr = sig.slice(sig.indexOf("(") + 1, sig.lastIndexOf(")"));
@@ -59,9 +75,8 @@ export function extractMethods(names) {
     proto[name] = new Function(argStr, body);
   }
   class CardStub {
-    constructor({ hass = null, _config = {} } = {}) {
+    constructor({ hass = null } = {}) {
       this.hass = hass;
-      this._config = _config;
     }
   }
   Object.assign(CardStub.prototype, proto);
