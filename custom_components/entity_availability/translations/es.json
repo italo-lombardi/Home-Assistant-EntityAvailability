@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entidad sin conexión",
-      "description": "Una entidad supervisada pasó a no disponible o dejó de responder."
+      "description": "Una entidad supervisada pasó a no disponible o dejó de responder.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     },
     "recovered": {
       "name": "Entidad recuperada",
-      "description": "Una entidad supervisada volvió a estar en línea tras haber estado sin conexión."
+      "description": "Una entidad supervisada volvió a estar en línea tras haber estado sin conexión.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     },
     "low_battery": {
       "name": "Batería baja",
-      "description": "La batería de una entidad supervisada bajó hasta el umbral de batería baja o por debajo de él."
+      "description": "La batería de una entidad supervisada bajó hasta el umbral de batería baja o por debajo de él.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     },
     "battery_ok": {
       "name": "Batería recuperada",
-      "description": "La batería de una entidad supervisada volvió a subir por encima del umbral de batería baja."
+      "description": "La batería de una entidad supervisada volvió a subir por encima del umbral de batería baja.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     },
     "stale": {
       "name": "Entidad obsoleta",
-      "description": "Una entidad supervisada dejó de actualizarse dentro del intervalo esperado."
+      "description": "Una entidad supervisada dejó de actualizarse dentro del intervalo esperado.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entidad ya no obsoleta",
-      "description": "Una entidad supervisada volvió a actualizarse tras haber estado obsoleta."
+      "description": "Una entidad supervisada volvió a actualizarse tras haber estado obsoleta.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     },
     "poor_signal": {
       "name": "Señal deficiente",
-      "description": "La calidad de señal de una entidad supervisada bajó a un nivel deficiente."
+      "description": "La calidad de señal de una entidad supervisada bajó a un nivel deficiente.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     },
     "signal_ok": {
       "name": "Señal recuperada",
-      "description": "La calidad de señal de una entidad supervisada volvió a un nivel aceptable."
+      "description": "La calidad de señal de una entidad supervisada volvió a un nivel aceptable.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este disparador a un único grupo de Entity Availability. Déjalo vacío para que se active con cualquier grupo."
+        }
+      }
     }
   }
 }

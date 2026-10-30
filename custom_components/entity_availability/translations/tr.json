@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Varlık çevrimdışı oldu",
-      "description": "İzlenen bir varlık kullanılamaz hale geldi veya yanıt vermeyi durdurdu."
+      "description": "İzlenen bir varlık kullanılamaz hale geldi veya yanıt vermeyi durdurdu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     },
     "recovered": {
       "name": "Varlık kurtarıldı",
-      "description": "İzlenen bir varlık çevrimdışı olduktan sonra yeniden çevrimiçi oldu."
+      "description": "İzlenen bir varlık çevrimdışı olduktan sonra yeniden çevrimiçi oldu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     },
     "low_battery": {
       "name": "Pil düşük seviyeye geldi",
-      "description": "İzlenen bir varlığın pili düşük pil eşiğine veya altına düştü."
+      "description": "İzlenen bir varlığın pili düşük pil eşiğine veya altına düştü.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     },
     "battery_ok": {
       "name": "Pil kurtarıldı",
-      "description": "İzlenen bir varlığın pili yeniden düşük pil eşiğinin üzerine çıktı."
+      "description": "İzlenen bir varlığın pili yeniden düşük pil eşiğinin üzerine çıktı.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     },
     "stale": {
       "name": "Varlık güncel olmayan duruma geldi",
-      "description": "İzlenen bir varlık beklenen aralığında güncellenmeyi durdurdu."
+      "description": "İzlenen bir varlık beklenen aralığında güncellenmeyi durdurdu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Varlık artık güncel",
-      "description": "İzlenen bir varlık güncel olmayan durumdan sonra güncellenmeye devam etti."
+      "description": "İzlenen bir varlık güncel olmayan durumdan sonra güncellenmeye devam etti.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     },
     "poor_signal": {
       "name": "Sinyal zayıfladı",
-      "description": "İzlenen bir varlığın sinyal kalitesi zayıf bir seviyeye düştü."
+      "description": "İzlenen bir varlığın sinyal kalitesi zayıf bir seviyeye düştü.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     },
     "signal_ok": {
       "name": "Sinyal kurtarıldı",
-      "description": "İzlenen bir varlığın sinyal kalitesi kabul edilebilir bir seviyeye geri döndü."
+      "description": "İzlenen bir varlığın sinyal kalitesi kabul edilebilir bir seviyeye geri döndü.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Bu tetikleyiciyi tek bir Entity Availability grubuyla sınırlayın. Herhangi bir grup için tetiklenmesini sağlamak üzere boş bırakın."
+        }
+      }
     }
   }
 }

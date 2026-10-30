@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entità andata offline",
-      "description": "Un'entità monitorata è diventata non disponibile o ha smesso di rispondere."
+      "description": "Un'entità monitorata è diventata non disponibile o ha smesso di rispondere.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     },
     "recovered": {
       "name": "Entità recuperata",
-      "description": "Un'entità monitorata è tornata online dopo essere stata offline."
+      "description": "Un'entità monitorata è tornata online dopo essere stata offline.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     },
     "low_battery": {
       "name": "Batteria scarica",
-      "description": "La batteria di un'entità monitorata è scesa alla soglia di batteria scarica o al di sotto."
+      "description": "La batteria di un'entità monitorata è scesa alla soglia di batteria scarica o al di sotto.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     },
     "battery_ok": {
       "name": "Batteria recuperata",
-      "description": "La batteria di un'entità monitorata è risalita al di sopra della soglia di batteria scarica."
+      "description": "La batteria di un'entità monitorata è risalita al di sopra della soglia di batteria scarica.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     },
     "stale": {
       "name": "Entità diventata inattiva",
-      "description": "Un'entità monitorata ha smesso di aggiornarsi entro l'intervallo previsto."
+      "description": "Un'entità monitorata ha smesso di aggiornarsi entro l'intervallo previsto.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entità non più inattiva",
-      "description": "Un'entità monitorata ha ripreso ad aggiornarsi dopo essere stata inattiva."
+      "description": "Un'entità monitorata ha ripreso ad aggiornarsi dopo essere stata inattiva.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     },
     "poor_signal": {
       "name": "Segnale diventato scarso",
-      "description": "La qualità del segnale di un'entità monitorata è scesa a un livello scarso."
+      "description": "La qualità del segnale di un'entità monitorata è scesa a un livello scarso.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     },
     "signal_ok": {
       "name": "Segnale recuperato",
-      "description": "La qualità del segnale di un'entità monitorata è tornata a un livello accettabile."
+      "description": "La qualità del segnale di un'entità monitorata è tornata a un livello accettabile.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Gruppo",
+          "description": "Limita questo trigger a un singolo gruppo di Entity Availability. Lascia vuoto per attivarlo per qualsiasi gruppo."
+        }
+      }
     }
   }
 }

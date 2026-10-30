@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entiteit is offline gegaan",
-      "description": "Een bewaakte entiteit werd onbeschikbaar of reageerde niet meer."
+      "description": "Een bewaakte entiteit werd onbeschikbaar of reageerde niet meer.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     },
     "recovered": {
       "name": "Entiteit hersteld",
-      "description": "Een bewaakte entiteit is weer online gekomen nadat deze offline was."
+      "description": "Een bewaakte entiteit is weer online gekomen nadat deze offline was.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     },
     "low_battery": {
       "name": "Batterij werd laag",
-      "description": "De batterij van een bewaakte entiteit is gedaald tot op of onder de drempel voor lage batterij."
+      "description": "De batterij van een bewaakte entiteit is gedaald tot op of onder de drempel voor lage batterij.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     },
     "battery_ok": {
       "name": "Batterij hersteld",
-      "description": "De batterij van een bewaakte entiteit is weer boven de drempel voor lage batterij gestegen."
+      "description": "De batterij van een bewaakte entiteit is weer boven de drempel voor lage batterij gestegen.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     },
     "stale": {
       "name": "Entiteit werd inactief",
-      "description": "Een bewaakte entiteit is binnen het verwachte interval niet meer bijgewerkt."
+      "description": "Een bewaakte entiteit is binnen het verwachte interval niet meer bijgewerkt.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entiteit niet langer inactief",
-      "description": "Een bewaakte entiteit wordt weer bijgewerkt nadat deze inactief was."
+      "description": "Een bewaakte entiteit wordt weer bijgewerkt nadat deze inactief was.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     },
     "poor_signal": {
       "name": "Signaal werd slecht",
-      "description": "De signaalkwaliteit van een bewaakte entiteit is gedaald naar een slecht niveau."
+      "description": "De signaalkwaliteit van een bewaakte entiteit is gedaald naar een slecht niveau.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     },
     "signal_ok": {
       "name": "Signaal hersteld",
-      "description": "De signaalkwaliteit van een bewaakte entiteit is teruggekeerd naar een aanvaardbaar niveau."
+      "description": "De signaalkwaliteit van een bewaakte entiteit is teruggekeerd naar een aanvaardbaar niveau.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Groep",
+          "description": "Beperk deze trigger tot één enkele Entity Availability-groep. Laat leeg om voor elke groep te activeren."
+        }
+      }
     }
   }
 }

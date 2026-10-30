@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "エンティティがオフラインになった",
-      "description": "監視中のエンティティが利用不可になるか、応答しなくなったとき。"
+      "description": "監視中のエンティティが利用不可になるか、応答しなくなったとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     },
     "recovered": {
       "name": "エンティティが回復した",
-      "description": "監視中のエンティティがオフライン状態からオンラインに復帰したとき。"
+      "description": "監視中のエンティティがオフライン状態からオンラインに復帰したとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     },
     "low_battery": {
       "name": "バッテリーが低下した",
-      "description": "監視中のエンティティのバッテリーが低バッテリーしきい値以下に低下したとき。"
+      "description": "監視中のエンティティのバッテリーが低バッテリーしきい値以下に低下したとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     },
     "battery_ok": {
       "name": "バッテリーが回復した",
-      "description": "監視中のエンティティのバッテリーが低バッテリーしきい値を上回って回復したとき。"
+      "description": "監視中のエンティティのバッテリーが低バッテリーしきい値を上回って回復したとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     },
     "stale": {
       "name": "エンティティのデータが停止した",
-      "description": "監視中のエンティティが想定された間隔内に更新されなくなったとき。"
+      "description": "監視中のエンティティが想定された間隔内に更新されなくなったとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     },
     "stale_recovered": {
       "name": "エンティティのデータ停止が解消した",
-      "description": "監視中のエンティティがデータ停止状態から更新を再開したとき。"
+      "description": "監視中のエンティティがデータ停止状態から更新を再開したとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     },
     "poor_signal": {
       "name": "シグナルが不良になった",
-      "description": "監視中のエンティティのシグナル品質が不良レベルまで低下したとき。"
+      "description": "監視中のエンティティのシグナル品質が不良レベルまで低下したとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     },
     "signal_ok": {
       "name": "シグナルが回復した",
-      "description": "監視中のエンティティのシグナル品質が許容レベルに回復したとき。"
+      "description": "監視中のエンティティのシグナル品質が許容レベルに回復したとき。",
+      "fields": {
+        "config_entry_id": {
+          "name": "グループ",
+          "description": "このトリガーを単一の Entity Availability グループに限定します。空欄のままにすると、すべてのグループで発動します。"
+        }
+      }
     }
   }
 }

@@ -21,6 +21,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - Group Summary sensor — total, online, offline, suppressed, non_essential counts + full entity list
 - Maintenance/suppression mode — suppress individual entities or entire groups. Card shows three action buttons: **Suppress All** (offline + stale + poor signal), **Suppress Offline** (offline only), **Unsuppress All**. Works on both regular and combined groups.
 - Any Offline binary sensor (Problem class) — triggers automations when entities go offline
+- Named automation triggers (HA 2025.11+) — all 8 bus events (offline, recovered, low/ok battery, stale, stale-recovered, poor/ok signal) exposed as UI-discoverable triggers, each optionally scoped to a single group
 - Custom Lovelace card — dashboard-style display with status icon, stats, availability bars, entity list, and visual editor; supports both regular and combined groups
 - **Card: icon mode for stats row** — enable `show_stat_icons` to replace text labels with MDI icons in the stats row (default off)
 - **Card: sort by signal** — sort entity list by signal quality (`signal_asc` / `signal_desc`); dBm and % normalized so mixed-protocol groups sort correctly

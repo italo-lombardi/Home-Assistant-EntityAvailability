@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entita prešla do offline",
-      "description": "Sledovaná entita sa stala nedostupnou alebo prestala reagovať."
+      "description": "Sledovaná entita sa stala nedostupnou alebo prestala reagovať.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     },
     "recovered": {
       "name": "Entita obnovená",
-      "description": "Sledovaná entita sa po výpadku vrátila online."
+      "description": "Sledovaná entita sa po výpadku vrátila online.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     },
     "low_battery": {
       "name": "Batéria klesla na nízku úroveň",
-      "description": "Batéria sledovanej entity klesla na prah nízkej úrovne batérie alebo pod neho."
+      "description": "Batéria sledovanej entity klesla na prah nízkej úrovne batérie alebo pod neho.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     },
     "battery_ok": {
       "name": "Batéria obnovená",
-      "description": "Batéria sledovanej entity sa vrátila nad prah nízkej úrovne batérie."
+      "description": "Batéria sledovanej entity sa vrátila nad prah nízkej úrovne batérie.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     },
     "stale": {
       "name": "Entita sa stala zastaranou",
-      "description": "Sledovaná entita prestala aktualizovať stav v rámci očakávaného intervalu."
+      "description": "Sledovaná entita prestala aktualizovať stav v rámci očakávaného intervalu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entita už nie je zastaraná",
-      "description": "Sledovaná entita po zastaraní obnovila aktualizovanie stavu."
+      "description": "Sledovaná entita po zastaraní obnovila aktualizovanie stavu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     },
     "poor_signal": {
       "name": "Signál sa zhoršil",
-      "description": "Kvalita signálu sledovanej entity klesla na slabú úroveň."
+      "description": "Kvalita signálu sledovanej entity klesla na slabú úroveň.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     },
     "signal_ok": {
       "name": "Signál obnovený",
-      "description": "Kvalita signálu sledovanej entity sa vrátila na prijateľnú úroveň."
+      "description": "Kvalita signálu sledovanej entity sa vrátila na prijateľnú úroveň.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Obmedzí tento spúšťač na jednu skupinu Entity Availability. Ponechajte prázdne, aby sa spustil pre ktorúkoľvek skupinu."
+        }
+      }
     }
   }
 }

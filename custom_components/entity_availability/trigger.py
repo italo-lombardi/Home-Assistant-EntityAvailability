@@ -11,11 +11,15 @@ in HA Core 2025.11 — matching the integration's min-HA floor in ``hacs.json``.
 from collections.abc import Callable
 from typing import override
 
+import voluptuous as vol
+from homeassistant.const import CONF_OPTIONS
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
-from homeassistant.helpers.trigger import Trigger, TriggerActionRunner
+from homeassistant.helpers.automation import move_top_level_schema_fields_to_options
+from homeassistant.helpers.trigger import Trigger, TriggerActionRunner, TriggerConfig
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
+    CONF_CONFIG_ENTRY_ID,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
     EVENT_OFFLINE,
@@ -26,6 +30,11 @@ from .const import (
     EVENT_STALE_RECOVERED,
 )
 
+# Plain {marker: type} dict — reused by move_top_level_schema_fields_to_options
+# (needs the raw markers) and wrapped in a Schema for validation below.
+_OPTIONS_SCHEMA_DICT = {vol.Optional(CONF_CONFIG_ENTRY_ID): str}
+_OPTIONS_SCHEMA = vol.Schema(_OPTIONS_SCHEMA_DICT)
+
 
 class _EventTrigger(Trigger):
     """Relay a single Entity Availability bus event to an automation."""
@@ -35,16 +44,40 @@ class _EventTrigger(Trigger):
 
     @classmethod
     @override
+    async def async_validate_complete_config(
+        cls, hass: HomeAssistant, complete_config: ConfigType
+    ) -> ConfigType:
+        """Migrate a top-level ``config_entry_id`` into the ``options`` block.
+
+        The automation editor (and hand-written YAML) put trigger fields at the
+        top level; the new-style Trigger base expects them under ``options``.
+        Mirror the zwave_js precedent: move them before the base validates.
+        """
+        complete_config = move_top_level_schema_fields_to_options(
+            complete_config, _OPTIONS_SCHEMA_DICT
+        )
+        return await super().async_validate_complete_config(hass, complete_config)
+
+    @classmethod
+    @override
     async def async_validate_config(
         cls, hass: HomeAssistant, config: ConfigType
     ) -> ConfigType:
         """Validate the trigger configuration.
 
-        Our events carry no user-selectable options, so the config is empty and
-        passes through unchanged — keeping the `options` key out of the stored
-        YAML (the base merges back only keys we return).
+        The only user-selectable option is ``config_entry_id`` (group scoping).
+        When it is unset we return an empty config so the ``options`` key stays
+        out of the stored YAML (the base merges back only keys we return); when
+        it is set we return the validated ``options`` block so it round-trips.
         """
-        return config
+        options = _OPTIONS_SCHEMA(config.get(CONF_OPTIONS) or {})
+        return {CONF_OPTIONS: options} if options else {}
+
+    @override
+    def __init__(self, hass: HomeAssistant, config: TriggerConfig) -> None:
+        """Capture the optional group-scoping config entry id."""
+        super().__init__(hass, config)
+        self._entry_id = (config.options or {}).get(CONF_CONFIG_ENTRY_ID)
 
     @override
     async def async_attach_runner(
@@ -52,10 +85,19 @@ class _EventTrigger(Trigger):
         run_action: TriggerActionRunner,
         _did_not_trigger: Callable[..., None] | None = None,
     ) -> CALLBACK_TYPE:
-        """Listen for the event and forward its data to the action."""
+        """Listen for the event and forward its data to the action.
+
+        When scoped to a single config entry, events from other groups are
+        skipped.
+        """
 
         @callback
         def _handle(event: Event) -> None:
+            # ponytail: direct entry_id compare — every EA event payload already
+            # carries entry_id (coordinator + combined_sensor), so no unique_id
+            # resolution is needed. Revisit only if a payload stops stamping it.
+            if self._entry_id and event.data.get("entry_id") != self._entry_id:
+                return
             run_action(dict(event.data), self._description, event.context)
 
         return self._hass.bus.async_listen(self._event_type, _handle)

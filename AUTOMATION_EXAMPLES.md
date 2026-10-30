@@ -60,6 +60,20 @@ automation:
           {{ trigger.event.data.offline_entities | join(', ') }}
 ```
 
+> **UI alternative (HA 2025.11+).** Every event is also a **named trigger** in the
+> automation editor's *Triggers* tab, each with an optional **Group** picker
+> (classic or combined). The editor emits this — equivalent to Automation 1 but
+> scoped by config entry instead of the `group` name, and selectable without
+> typing the event string:
+> ```yaml
+> triggers:
+>   - trigger: entity_availability.offline
+>     config_entry_id: 1a2b3c…   # pick the group in the UI; blank = any group
+> ```
+> The same payload is delivered, but a named trigger exposes its fields at the
+> top level — use `trigger.offline_count`, `trigger.entity_id`, etc. (not
+> `trigger.event.data.offline_count`) when adapting the actions above.
+
 ---
 
 ### Automation 2 — Recovery notification with downtime

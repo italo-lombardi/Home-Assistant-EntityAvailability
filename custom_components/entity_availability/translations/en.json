@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entity went offline",
-      "description": "A monitored entity became unavailable or stopped responding."
+      "description": "A monitored entity became unavailable or stopped responding.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     },
     "recovered": {
       "name": "Entity recovered",
-      "description": "A monitored entity came back online after being offline."
+      "description": "A monitored entity came back online after being offline.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     },
     "low_battery": {
       "name": "Battery became low",
-      "description": "A monitored entity's battery dropped to or below the low-battery threshold."
+      "description": "A monitored entity's battery dropped to or below the low-battery threshold.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     },
     "battery_ok": {
       "name": "Battery recovered",
-      "description": "A monitored entity's battery rose back above the low-battery threshold."
+      "description": "A monitored entity's battery rose back above the low-battery threshold.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     },
     "stale": {
       "name": "Entity became stale",
-      "description": "A monitored entity stopped updating within its expected interval."
+      "description": "A monitored entity stopped updating within its expected interval.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entity no longer stale",
-      "description": "A monitored entity resumed updating after being stale."
+      "description": "A monitored entity resumed updating after being stale.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     },
     "poor_signal": {
       "name": "Signal became poor",
-      "description": "A monitored entity's signal quality dropped to a poor level."
+      "description": "A monitored entity's signal quality dropped to a poor level.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     },
     "signal_ok": {
       "name": "Signal recovered",
-      "description": "A monitored entity's signal quality returned to an acceptable level."
+      "description": "A monitored entity's signal quality returned to an acceptable level.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Group",
+          "description": "Limit this trigger to a single Entity Availability group. Leave blank to fire for any group."
+        }
+      }
     }
   }
 }

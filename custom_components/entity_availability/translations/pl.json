@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Encja przeszła w tryb offline",
-      "description": "Monitorowana encja stała się niedostępna lub przestała odpowiadać."
+      "description": "Monitorowana encja stała się niedostępna lub przestała odpowiadać.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     },
     "recovered": {
       "name": "Encja odzyskana",
-      "description": "Monitorowana encja wróciła do trybu online po byciu offline."
+      "description": "Monitorowana encja wróciła do trybu online po byciu offline.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     },
     "low_battery": {
       "name": "Niski poziom baterii",
-      "description": "Poziom baterii monitorowanej encji spadł do progu niskiego poziomu baterii lub poniżej niego."
+      "description": "Poziom baterii monitorowanej encji spadł do progu niskiego poziomu baterii lub poniżej niego.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     },
     "battery_ok": {
       "name": "Bateria odzyskana",
-      "description": "Poziom baterii monitorowanej encji wzrósł z powrotem powyżej progu niskiego poziomu baterii."
+      "description": "Poziom baterii monitorowanej encji wzrósł z powrotem powyżej progu niskiego poziomu baterii.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     },
     "stale": {
       "name": "Encja stała się nieaktywna",
-      "description": "Monitorowana encja przestała aktualizować się w oczekiwanym odstępie czasu."
+      "description": "Monitorowana encja przestała aktualizować się w oczekiwanym odstępie czasu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Encja znów aktywna",
-      "description": "Monitorowana encja wznowiła aktualizacje po okresie nieaktywności."
+      "description": "Monitorowana encja wznowiła aktualizacje po okresie nieaktywności.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     },
     "poor_signal": {
       "name": "Sygnał stał się słaby",
-      "description": "Jakość sygnału monitorowanej encji spadła do słabego poziomu."
+      "description": "Jakość sygnału monitorowanej encji spadła do słabego poziomu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     },
     "signal_ok": {
       "name": "Sygnał odzyskany",
-      "description": "Jakość sygnału monitorowanej encji wróciła do akceptowalnego poziomu."
+      "description": "Jakość sygnału monitorowanej encji wróciła do akceptowalnego poziomu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ogranicz ten wyzwalacz do jednej grupy Entity Availability. Pozostaw puste, aby wyzwalać dla dowolnej grupy."
+        }
+      }
     }
   }
 }

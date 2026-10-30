@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entitāte pārgāja bezsaistē",
-      "description": "Uzraudzīta entitāte kļuva nepieejama vai pārstāja atbildēt."
+      "description": "Uzraudzīta entitāte kļuva nepieejama vai pārstāja atbildēt.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     },
     "recovered": {
       "name": "Entitāte atjaunota",
-      "description": "Uzraudzīta entitāte atgriezās tiešsaistē pēc bezsaistes."
+      "description": "Uzraudzīta entitāte atgriezās tiešsaistē pēc bezsaistes.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     },
     "low_battery": {
       "name": "Akumulators kļuva zems",
-      "description": "Uzraudzītas entitātes akumulators nokritās līdz zema akumulatora slieksnim vai zem tā."
+      "description": "Uzraudzītas entitātes akumulators nokritās līdz zema akumulatora slieksnim vai zem tā.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     },
     "battery_ok": {
       "name": "Akumulators atjaunots",
-      "description": "Uzraudzītas entitātes akumulators atkal pacēlās virs zema akumulatora sliekšņa."
+      "description": "Uzraudzītas entitātes akumulators atkal pacēlās virs zema akumulatora sliekšņa.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     },
     "stale": {
       "name": "Entitāte novecoja",
-      "description": "Uzraudzīta entitāte pārstāja atjaunināties paredzētajā intervālā."
+      "description": "Uzraudzīta entitāte pārstāja atjaunināties paredzētajā intervālā.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entitāte vairs nav novecojusi",
-      "description": "Uzraudzīta entitāte atsāka atjaunināties pēc novecošanas."
+      "description": "Uzraudzīta entitāte atsāka atjaunināties pēc novecošanas.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     },
     "poor_signal": {
       "name": "Signāls kļuva vājš",
-      "description": "Uzraudzītas entitātes signāla kvalitāte nokritās līdz vājam līmenim."
+      "description": "Uzraudzītas entitātes signāla kvalitāte nokritās līdz vājam līmenim.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     },
     "signal_ok": {
       "name": "Signāls atjaunots",
-      "description": "Uzraudzītas entitātes signāla kvalitāte atgriezās pieņemamā līmenī."
+      "description": "Uzraudzītas entitātes signāla kvalitāte atgriezās pieņemamā līmenī.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupa",
+          "description": "Ierobežojiet šo aktivizētāju līdz vienai Entity Availability grupai. Atstājiet tukšu, lai aktivizētu jebkurai grupai."
+        }
+      }
     }
   }
 }

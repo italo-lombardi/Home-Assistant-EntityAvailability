@@ -1,11 +1,20 @@
 # Describes the format for Entity Availability automation triggers.
-# Each relays a bus event; none take user-configurable fields.
+# Each relays a bus event. The optional config_entry_id field scopes a trigger
+# to a single Entity Availability group; blank fires for any group.
 
-offline: {}
-recovered: {}
-low_battery: {}
-battery_ok: {}
-stale: {}
-stale_recovered: {}
-poor_signal: {}
-signal_ok: {}
+.scope: &scope
+  fields:
+    config_entry_id:
+      required: false
+      selector:
+        config_entry:
+          integration: entity_availability
+
+offline: *scope
+recovered: *scope
+low_battery: *scope
+battery_ok: *scope
+stale: *scope
+stale_recovered: *scope
+poor_signal: *scope
+signal_ok: *scope

@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entitás offline állapotba került",
-      "description": "Egy figyelt entitás elérhetetlenné vált vagy nem válaszol."
+      "description": "Egy figyelt entitás elérhetetlenné vált vagy nem válaszol.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     },
     "recovered": {
       "name": "Entitás visszaállt",
-      "description": "Egy figyelt entitás offline állapot után ismét elérhetővé vált."
+      "description": "Egy figyelt entitás offline állapot után ismét elérhetővé vált.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     },
     "low_battery": {
       "name": "Akkumulátor lemerült",
-      "description": "Egy figyelt entitás akkumulátora elérte vagy alulmúlta az alacsony akkumulátorszint küszöböt."
+      "description": "Egy figyelt entitás akkumulátora elérte vagy alulmúlta az alacsony akkumulátorszint küszöböt.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     },
     "battery_ok": {
       "name": "Akkumulátor visszaállt",
-      "description": "Egy figyelt entitás akkumulátora ismét az alacsony akkumulátorszint küszöb fölé emelkedett."
+      "description": "Egy figyelt entitás akkumulátora ismét az alacsony akkumulátorszint küszöb fölé emelkedett.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     },
     "stale": {
       "name": "Entitás elavulttá vált",
-      "description": "Egy figyelt entitás a várt időközön belül nem frissült tovább."
+      "description": "Egy figyelt entitás a várt időközön belül nem frissült tovább.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entitás már nem elavult",
-      "description": "Egy figyelt entitás elavult állapot után ismét frissülni kezdett."
+      "description": "Egy figyelt entitás elavult állapot után ismét frissülni kezdett.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     },
     "poor_signal": {
       "name": "Jel gyengévé vált",
-      "description": "Egy figyelt entitás jelminősége gyenge szintre esett."
+      "description": "Egy figyelt entitás jelminősége gyenge szintre esett.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     },
     "signal_ok": {
       "name": "Jel visszaállt",
-      "description": "Egy figyelt entitás jelminősége ismét elfogadható szintre tért vissza."
+      "description": "Egy figyelt entitás jelminősége ismét elfogadható szintre tért vissza.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Csoport",
+          "description": "A ravaszt egyetlen Entity Availability csoportra korlátozza. Hagyja üresen, hogy bármely csoport esetén elsüljön."
+        }
+      }
     }
   }
 }

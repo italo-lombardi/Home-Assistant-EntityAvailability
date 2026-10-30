@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entitet gick offline",
-      "description": "En övervakad entitet blev otillgänglig eller slutade svara."
+      "description": "En övervakad entitet blev otillgänglig eller slutade svara.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     },
     "recovered": {
       "name": "Entitet återhämtad",
-      "description": "En övervakad entitet kom tillbaka online efter att ha varit offline."
+      "description": "En övervakad entitet kom tillbaka online efter att ha varit offline.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     },
     "low_battery": {
       "name": "Batteriet blev lågt",
-      "description": "En övervakad entitets batteri sjönk till eller under gränsen för lågt batteri."
+      "description": "En övervakad entitets batteri sjönk till eller under gränsen för lågt batteri.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     },
     "battery_ok": {
       "name": "Batteriet återhämtat",
-      "description": "En övervakad entitets batteri steg tillbaka över gränsen för lågt batteri."
+      "description": "En övervakad entitets batteri steg tillbaka över gränsen för lågt batteri.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     },
     "stale": {
       "name": "Entitet blev inaktuell",
-      "description": "En övervakad entitet slutade uppdateras inom sitt förväntade intervall."
+      "description": "En övervakad entitet slutade uppdateras inom sitt förväntade intervall.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entitet inte längre inaktuell",
-      "description": "En övervakad entitet började uppdateras igen efter att ha varit inaktuell."
+      "description": "En övervakad entitet började uppdateras igen efter att ha varit inaktuell.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     },
     "poor_signal": {
       "name": "Signalen blev dålig",
-      "description": "En övervakad entitets signalkvalitet sjönk till en dålig nivå."
+      "description": "En övervakad entitets signalkvalitet sjönk till en dålig nivå.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     },
     "signal_ok": {
       "name": "Signalen återhämtad",
-      "description": "En övervakad entitets signalkvalitet återgick till en acceptabel nivå."
+      "description": "En övervakad entitets signalkvalitet återgick till en acceptabel nivå.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupp",
+          "description": "Begränsa denna utlösare till en enda Entity Availability-grupp. Lämna tomt för att utlösas för valfri grupp."
+        }
+      }
     }
   }
 }

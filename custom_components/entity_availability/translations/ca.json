@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "L'entitat s'ha posat fora de línia",
-      "description": "Una entitat supervisada ha deixat d'estar disponible o ha deixat de respondre."
+      "description": "Una entitat supervisada ha deixat d'estar disponible o ha deixat de respondre.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     },
     "recovered": {
       "name": "L'entitat s'ha recuperat",
-      "description": "Una entitat supervisada ha tornat a estar en línia després d'estar fora de línia."
+      "description": "Una entitat supervisada ha tornat a estar en línia després d'estar fora de línia.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     },
     "low_battery": {
       "name": "La bateria s'ha quedat baixa",
-      "description": "La bateria d'una entitat supervisada ha baixat fins al llindar de bateria baixa o per sota."
+      "description": "La bateria d'una entitat supervisada ha baixat fins al llindar de bateria baixa o per sota.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     },
     "battery_ok": {
       "name": "La bateria s'ha recuperat",
-      "description": "La bateria d'una entitat supervisada ha tornat a pujar per sobre del llindar de bateria baixa."
+      "description": "La bateria d'una entitat supervisada ha tornat a pujar per sobre del llindar de bateria baixa.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     },
     "stale": {
       "name": "L'entitat ha deixat d'actualitzar-se",
-      "description": "Una entitat supervisada ha deixat d'actualitzar-se dins de l'interval previst."
+      "description": "Una entitat supervisada ha deixat d'actualitzar-se dins de l'interval previst.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     },
     "stale_recovered": {
       "name": "L'entitat torna a actualitzar-se",
-      "description": "Una entitat supervisada ha reprès les actualitzacions després d'haver deixat d'actualitzar-se."
+      "description": "Una entitat supervisada ha reprès les actualitzacions després d'haver deixat d'actualitzar-se.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     },
     "poor_signal": {
       "name": "El senyal s'ha tornat feble",
-      "description": "La qualitat del senyal d'una entitat supervisada ha baixat a un nivell feble."
+      "description": "La qualitat del senyal d'una entitat supervisada ha baixat a un nivell feble.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     },
     "signal_ok": {
       "name": "El senyal s'ha recuperat",
-      "description": "La qualitat del senyal d'una entitat supervisada ha tornat a un nivell acceptable."
+      "description": "La qualitat del senyal d'una entitat supervisada ha tornat a un nivell acceptable.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grup",
+          "description": "Limita aquest activador a un sol grup d'Entity Availability. Deixeu-ho en blanc perquè s'activi per a qualsevol grup."
+        }
+      }
     }
   }
 }

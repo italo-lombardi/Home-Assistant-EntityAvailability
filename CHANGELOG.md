@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Optional group scoping on named triggers** — each of the 8 named automation triggers now has an optional **Group** field (an Entity Availability config-entry picker, covering both classic and combined groups). Leave it blank and the trigger fires for any group (unchanged behavior); pick a group and the trigger fires only for that config entry, matched directly against the event's `entry_id`. Field label localized across all 29 locales. Additive and non-breaking — unset scoping is identical to the previous global firing, and the raw `entity_availability_*` bus events are unaffected.
+
 ## [0.7.0] - 2026-10-30
 
 ### Added

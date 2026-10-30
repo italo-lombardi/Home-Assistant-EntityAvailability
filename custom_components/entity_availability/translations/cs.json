@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entita se dostala offline",
-      "description": "Sledovaná entita přestala být dostupná nebo přestala reagovat."
+      "description": "Sledovaná entita přestala být dostupná nebo přestala reagovat.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     },
     "recovered": {
       "name": "Entita obnovena",
-      "description": "Sledovaná entita se po výpadku vrátila online."
+      "description": "Sledovaná entita se po výpadku vrátila online.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     },
     "low_battery": {
       "name": "Baterie klesla na nízkou úroveň",
-      "description": "Baterie sledované entity klesla na práh nízkého stavu baterie nebo pod něj."
+      "description": "Baterie sledované entity klesla na práh nízkého stavu baterie nebo pod něj.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     },
     "battery_ok": {
       "name": "Baterie obnovena",
-      "description": "Baterie sledované entity opět stoupla nad práh nízkého stavu baterie."
+      "description": "Baterie sledované entity opět stoupla nad práh nízkého stavu baterie.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     },
     "stale": {
       "name": "Entita zastarala",
-      "description": "Sledovaná entita přestala aktualizovat v rámci očekávaného intervalu."
+      "description": "Sledovaná entita přestala aktualizovat v rámci očekávaného intervalu.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entita již není zastaralá",
-      "description": "Sledovaná entita po zastarání opět začala aktualizovat."
+      "description": "Sledovaná entita po zastarání opět začala aktualizovat.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     },
     "poor_signal": {
       "name": "Signál se zhoršil",
-      "description": "Kvalita signálu sledované entity klesla na špatnou úroveň."
+      "description": "Kvalita signálu sledované entity klesla na špatnou úroveň.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     },
     "signal_ok": {
       "name": "Signál obnoven",
-      "description": "Kvalita signálu sledované entity se vrátila na přijatelnou úroveň."
+      "description": "Kvalita signálu sledované entity se vrátila na přijatelnou úroveň.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Skupina",
+          "description": "Omezit tento spouštěč na jednu skupinu Entity Availability. Ponechte prázdné, aby se spouštěl pro jakoukoli skupinu."
+        }
+      }
     }
   }
 }

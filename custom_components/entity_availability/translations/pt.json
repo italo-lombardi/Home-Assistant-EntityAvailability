@@ -292,35 +292,83 @@
   "triggers": {
     "offline": {
       "name": "Entidade ficou offline",
-      "description": "Uma entidade monitorizada ficou indisponível ou deixou de responder."
+      "description": "Uma entidade monitorizada ficou indisponível ou deixou de responder.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     },
     "recovered": {
       "name": "Entidade recuperada",
-      "description": "Uma entidade monitorizada voltou a ficar online depois de estar offline."
+      "description": "Uma entidade monitorizada voltou a ficar online depois de estar offline.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     },
     "low_battery": {
       "name": "Bateria ficou fraca",
-      "description": "A bateria de uma entidade monitorizada desceu até ao limiar de bateria fraca ou abaixo dele."
+      "description": "A bateria de uma entidade monitorizada desceu até ao limiar de bateria fraca ou abaixo dele.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     },
     "battery_ok": {
       "name": "Bateria recuperada",
-      "description": "A bateria de uma entidade monitorizada voltou a subir acima do limiar de bateria fraca."
+      "description": "A bateria de uma entidade monitorizada voltou a subir acima do limiar de bateria fraca.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     },
     "stale": {
       "name": "Entidade ficou inativa",
-      "description": "Uma entidade monitorizada deixou de atualizar dentro do intervalo esperado."
+      "description": "Uma entidade monitorizada deixou de atualizar dentro do intervalo esperado.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     },
     "stale_recovered": {
       "name": "Entidade já não está inativa",
-      "description": "Uma entidade monitorizada voltou a atualizar depois de estar inativa."
+      "description": "Uma entidade monitorizada voltou a atualizar depois de estar inativa.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     },
     "poor_signal": {
       "name": "Sinal ficou fraco",
-      "description": "A qualidade do sinal de uma entidade monitorizada desceu para um nível fraco."
+      "description": "A qualidade do sinal de uma entidade monitorizada desceu para um nível fraco.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     },
     "signal_ok": {
       "name": "Sinal recuperado",
-      "description": "A qualidade do sinal de uma entidade monitorizada voltou a um nível aceitável."
+      "description": "A qualidade do sinal de uma entidade monitorizada voltou a um nível aceitável.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupo",
+          "description": "Limita este acionador a um único grupo do Entity Availability. Deixe vazio para disparar para qualquer grupo."
+        }
+      }
     }
   }
 }
