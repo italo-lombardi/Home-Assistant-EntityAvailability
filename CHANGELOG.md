@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-30
+
+### Added
+- **Named automation triggers** — the 8 availability events (`offline`, `recovered`, `low_battery`, `battery_ok`, `stale`, `stale_recovered`, `poor_signal`, `signal_ok`) now appear as first-class, UI-discoverable triggers in the automation editor's Triggers tab, instead of requiring a hand-written `platform: event` trigger with the literal event string. Each trigger forwards the raw event payload (`entity_id`, `group`, `entry_id`, per-category counts/entities, `source_groups` on combined groups) to the action unchanged. Labels are localized across all 29 locales. The underlying `entity_availability_*` bus events keep firing regardless, so existing `platform: event` automations are unaffected.
+
+### Changed
+- **Minimum Home Assistant version is now 2025.11.0** (`hacs.json` floor raised from 2024.1.0). The Trigger platform's `async_attach_runner` / `async_validate_config` surface the named triggers rely on landed in HA Core 2025.11; 91.6% of installs already run ≥2025.11 per HA analytics. No code path other than the new triggers requires it.
+
+### Tests
+- Unit `test_trigger.py`: `async_get_triggers` exposes all 8 slugs; attaching a trigger and firing its event forwards the raw `event.data`, description, and context to the action.
+- Live-verified on HA 2026.12.0.dev0: the 8 triggers appear in the editor and the relay forwards the payload.
+
 ## [0.6.2] - 2026-10-21
 
 ### Added

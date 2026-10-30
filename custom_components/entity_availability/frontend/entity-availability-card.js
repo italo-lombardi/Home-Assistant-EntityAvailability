@@ -4,7 +4,7 @@
  * Keep CARD_VERSION in sync with manifest.json "version".
  */
 
-const CARD_VERSION = "0.6.2";
+const CARD_VERSION = "0.7.0";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
