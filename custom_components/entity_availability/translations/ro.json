@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Inclus - suprascriere: Neesențial"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entitate trecută offline",
+      "description": "O entitate monitorizată a devenit indisponibilă sau a încetat să mai răspundă."
+    },
+    "recovered": {
+      "name": "Entitate recuperată",
+      "description": "O entitate monitorizată a revenit online după ce a fost offline."
+    },
+    "low_battery": {
+      "name": "Baterie descărcată",
+      "description": "Bateria unei entități monitorizate a scăzut la sau sub pragul de baterie descărcată."
+    },
+    "battery_ok": {
+      "name": "Baterie recuperată",
+      "description": "Bateria unei entități monitorizate a urcat din nou peste pragul de baterie descărcată."
+    },
+    "stale": {
+      "name": "Entitate expirată",
+      "description": "O entitate monitorizată a încetat să se mai actualizeze în intervalul așteptat."
+    },
+    "stale_recovered": {
+      "name": "Entitate nemaiexpirată",
+      "description": "O entitate monitorizată a reluat actualizările după ce a fost expirată."
+    },
+    "poor_signal": {
+      "name": "Semnal slab",
+      "description": "Calitatea semnalului unei entități monitorizate a scăzut la un nivel slab."
+    },
+    "signal_ok": {
+      "name": "Semnal recuperat",
+      "description": "Calitatea semnalului unei entități monitorizate a revenit la un nivel acceptabil."
+    }
   }
 }

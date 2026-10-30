@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Zahrnuto - přepsat: Nedůležité"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entita se dostala offline",
+      "description": "Sledovaná entita přestala být dostupná nebo přestala reagovat."
+    },
+    "recovered": {
+      "name": "Entita obnovena",
+      "description": "Sledovaná entita se po výpadku vrátila online."
+    },
+    "low_battery": {
+      "name": "Baterie klesla na nízkou úroveň",
+      "description": "Baterie sledované entity klesla na práh nízkého stavu baterie nebo pod něj."
+    },
+    "battery_ok": {
+      "name": "Baterie obnovena",
+      "description": "Baterie sledované entity opět stoupla nad práh nízkého stavu baterie."
+    },
+    "stale": {
+      "name": "Entita zastarala",
+      "description": "Sledovaná entita přestala aktualizovat v rámci očekávaného intervalu."
+    },
+    "stale_recovered": {
+      "name": "Entita již není zastaralá",
+      "description": "Sledovaná entita po zastarání opět začala aktualizovat."
+    },
+    "poor_signal": {
+      "name": "Signál se zhoršil",
+      "description": "Kvalita signálu sledované entity klesla na špatnou úroveň."
+    },
+    "signal_ok": {
+      "name": "Signál obnoven",
+      "description": "Kvalita signálu sledované entity se vrátila na přijatelnou úroveň."
+    }
   }
 }

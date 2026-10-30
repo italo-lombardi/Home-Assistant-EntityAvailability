@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Incluído – substituição: Não Essencial"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entidade ficou offline",
+      "description": "Uma entidade monitorizada ficou indisponível ou deixou de responder."
+    },
+    "recovered": {
+      "name": "Entidade recuperada",
+      "description": "Uma entidade monitorizada voltou a ficar online depois de estar offline."
+    },
+    "low_battery": {
+      "name": "Bateria ficou fraca",
+      "description": "A bateria de uma entidade monitorizada desceu até ao limiar de bateria fraca ou abaixo dele."
+    },
+    "battery_ok": {
+      "name": "Bateria recuperada",
+      "description": "A bateria de uma entidade monitorizada voltou a subir acima do limiar de bateria fraca."
+    },
+    "stale": {
+      "name": "Entidade ficou inativa",
+      "description": "Uma entidade monitorizada deixou de atualizar dentro do intervalo esperado."
+    },
+    "stale_recovered": {
+      "name": "Entidade já não está inativa",
+      "description": "Uma entidade monitorizada voltou a atualizar depois de estar inativa."
+    },
+    "poor_signal": {
+      "name": "Sinal ficou fraco",
+      "description": "A qualidade do sinal de uma entidade monitorizada desceu para um nível fraco."
+    },
+    "signal_ok": {
+      "name": "Sinal recuperado",
+      "description": "A qualidade do sinal de uma entidade monitorizada voltou a um nível aceitável."
+    }
   }
 }

@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Inclus - forcer : Non essentiel"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entité passée hors ligne",
+      "description": "Une entité surveillée est devenue indisponible ou a cessé de répondre."
+    },
+    "recovered": {
+      "name": "Entité rétablie",
+      "description": "Une entité surveillée est revenue en ligne après avoir été hors ligne."
+    },
+    "low_battery": {
+      "name": "Batterie devenue faible",
+      "description": "La batterie d'une entité surveillée est tombée au niveau du seuil de batterie faible ou en dessous."
+    },
+    "battery_ok": {
+      "name": "Batterie rétablie",
+      "description": "La batterie d'une entité surveillée est repassée au-dessus du seuil de batterie faible."
+    },
+    "stale": {
+      "name": "Entité devenue dégradée",
+      "description": "Une entité surveillée a cessé de se mettre à jour dans l'intervalle attendu."
+    },
+    "stale_recovered": {
+      "name": "Entité plus dégradée",
+      "description": "Une entité surveillée a recommencé à se mettre à jour après avoir été dégradée."
+    },
+    "poor_signal": {
+      "name": "Signal devenu faible",
+      "description": "La qualité du signal d'une entité surveillée est tombée à un niveau faible."
+    },
+    "signal_ok": {
+      "name": "Signal rétabli",
+      "description": "La qualité du signal d'une entité surveillée est revenue à un niveau acceptable."
+    }
   }
 }

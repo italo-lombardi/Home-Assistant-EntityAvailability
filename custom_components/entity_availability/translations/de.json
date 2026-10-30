@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Enthalten - Überschreiben: Nicht-Wesentlich"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entität ist offline gegangen",
+      "description": "Eine überwachte Entität wurde nicht verfügbar oder reagierte nicht mehr."
+    },
+    "recovered": {
+      "name": "Entität wiederhergestellt",
+      "description": "Eine überwachte Entität ist nach einer Offline-Phase wieder online gegangen."
+    },
+    "low_battery": {
+      "name": "Batteriestand niedrig",
+      "description": "Die Batterie einer überwachten Entität ist auf oder unter den niedrigen Batterieschwellenwert gefallen."
+    },
+    "battery_ok": {
+      "name": "Batterie wiederhergestellt",
+      "description": "Die Batterie einer überwachten Entität ist wieder über den niedrigen Batterieschwellenwert gestiegen."
+    },
+    "stale": {
+      "name": "Entität ist veraltet",
+      "description": "Eine überwachte Entität hat sich innerhalb ihres erwarteten Intervalls nicht mehr aktualisiert."
+    },
+    "stale_recovered": {
+      "name": "Entität nicht mehr veraltet",
+      "description": "Eine überwachte Entität hat sich nach einer Veralterung wieder aktualisiert."
+    },
+    "poor_signal": {
+      "name": "Signal ist schlecht geworden",
+      "description": "Die Signalqualität einer überwachten Entität ist auf ein schlechtes Niveau gefallen."
+    },
+    "signal_ok": {
+      "name": "Signal wiederhergestellt",
+      "description": "Die Signalqualität einer überwachten Entität ist wieder auf ein akzeptables Niveau zurückgekehrt."
+    }
   }
 }

@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Dahil edilir - geçersiz kılma: Temel Olmayan"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Varlık çevrimdışı oldu",
+      "description": "İzlenen bir varlık kullanılamaz hale geldi veya yanıt vermeyi durdurdu."
+    },
+    "recovered": {
+      "name": "Varlık kurtarıldı",
+      "description": "İzlenen bir varlık çevrimdışı olduktan sonra yeniden çevrimiçi oldu."
+    },
+    "low_battery": {
+      "name": "Pil düşük seviyeye geldi",
+      "description": "İzlenen bir varlığın pili düşük pil eşiğine veya altına düştü."
+    },
+    "battery_ok": {
+      "name": "Pil kurtarıldı",
+      "description": "İzlenen bir varlığın pili yeniden düşük pil eşiğinin üzerine çıktı."
+    },
+    "stale": {
+      "name": "Varlık güncel olmayan duruma geldi",
+      "description": "İzlenen bir varlık beklenen aralığında güncellenmeyi durdurdu."
+    },
+    "stale_recovered": {
+      "name": "Varlık artık güncel",
+      "description": "İzlenen bir varlık güncel olmayan durumdan sonra güncellenmeye devam etti."
+    },
+    "poor_signal": {
+      "name": "Sinyal zayıfladı",
+      "description": "İzlenen bir varlığın sinyal kalitesi zayıf bir seviyeye düştü."
+    },
+    "signal_ok": {
+      "name": "Sinyal kurtarıldı",
+      "description": "İzlenen bir varlığın sinyal kalitesi kabul edilebilir bir seviyeye geri döndü."
+    }
   }
 }

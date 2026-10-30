@@ -289,5 +289,39 @@
         "all_non_essential": "🟡 Inkluderet - tilsidesæt: Ikke-essentiel"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entitet gik offline",
+      "description": "En overvåget entitet blev utilgængelig eller holdt op med at svare."
+    },
+    "recovered": {
+      "name": "Entitet genoprettet",
+      "description": "En overvåget entitet kom online igen efter at have været offline."
+    },
+    "low_battery": {
+      "name": "Batteri blev lavt",
+      "description": "En overvåget entitets batteri faldt til eller under grænsen for lavt batteri."
+    },
+    "battery_ok": {
+      "name": "Batteri genoprettet",
+      "description": "En overvåget entitets batteri steg igen over grænsen for lavt batteri."
+    },
+    "stale": {
+      "name": "Entitet blev inaktiv",
+      "description": "En overvåget entitet holdt op med at opdatere inden for det forventede interval."
+    },
+    "stale_recovered": {
+      "name": "Entitet ikke længere inaktiv",
+      "description": "En overvåget entitet begyndte at opdatere igen efter at have været inaktiv."
+    },
+    "poor_signal": {
+      "name": "Signal blev dårligt",
+      "description": "En overvåget entitets signalkvalitet faldt til et dårligt niveau."
+    },
+    "signal_ok": {
+      "name": "Signal genoprettet",
+      "description": "En overvåget entitets signalkvalitet vendte tilbage til et acceptabelt niveau."
+    }
   }
 }

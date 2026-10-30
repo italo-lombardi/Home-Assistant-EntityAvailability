@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Belefoglalva - felülbírálat: Nem kritikus"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entitás offline állapotba került",
+      "description": "Egy figyelt entitás elérhetetlenné vált vagy nem válaszol."
+    },
+    "recovered": {
+      "name": "Entitás visszaállt",
+      "description": "Egy figyelt entitás offline állapot után ismét elérhetővé vált."
+    },
+    "low_battery": {
+      "name": "Akkumulátor lemerült",
+      "description": "Egy figyelt entitás akkumulátora elérte vagy alulmúlta az alacsony akkumulátorszint küszöböt."
+    },
+    "battery_ok": {
+      "name": "Akkumulátor visszaállt",
+      "description": "Egy figyelt entitás akkumulátora ismét az alacsony akkumulátorszint küszöb fölé emelkedett."
+    },
+    "stale": {
+      "name": "Entitás elavulttá vált",
+      "description": "Egy figyelt entitás a várt időközön belül nem frissült tovább."
+    },
+    "stale_recovered": {
+      "name": "Entitás már nem elavult",
+      "description": "Egy figyelt entitás elavult állapot után ismét frissülni kezdett."
+    },
+    "poor_signal": {
+      "name": "Jel gyengévé vált",
+      "description": "Egy figyelt entitás jelminősége gyenge szintre esett."
+    },
+    "signal_ok": {
+      "name": "Jel visszaállt",
+      "description": "Egy figyelt entitás jelminősége ismét elfogadható szintre tért vissza."
+    }
   }
 }

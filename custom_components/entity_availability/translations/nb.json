@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Inkludert – overstyring: Ikke-essensiell"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entitet ble frakoblet",
+      "description": "En overvåket entitet ble utilgjengelig eller sluttet å svare."
+    },
+    "recovered": {
+      "name": "Entitet gjenopprettet",
+      "description": "En overvåket entitet kom tilbake på nett etter å ha vært frakoblet."
+    },
+    "low_battery": {
+      "name": "Batteriet ble lavt",
+      "description": "En overvåket entitets batteri falt til eller under terskelen for lavt batteri."
+    },
+    "battery_ok": {
+      "name": "Batteriet gjenopprettet",
+      "description": "En overvåket entitets batteri steg tilbake over terskelen for lavt batteri."
+    },
+    "stale": {
+      "name": "Entitet ble inaktiv",
+      "description": "En overvåket entitet sluttet å oppdatere seg innenfor forventet intervall."
+    },
+    "stale_recovered": {
+      "name": "Entitet ikke lenger inaktiv",
+      "description": "En overvåket entitet begynte å oppdatere seg igjen etter å ha vært inaktiv."
+    },
+    "poor_signal": {
+      "name": "Signalet ble dårlig",
+      "description": "En overvåket entitets signalkvalitet falt til et dårlig nivå."
+    },
+    "signal_ok": {
+      "name": "Signalet gjenopprettet",
+      "description": "En overvåket entitets signalkvalitet gikk tilbake til et akseptabelt nivå."
+    }
   }
 }

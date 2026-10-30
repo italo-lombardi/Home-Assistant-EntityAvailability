@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Įtraukta - perrašyti: Neesminė"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Objektas atsijungė",
+      "description": "Stebimas objektas tapo nepasiekiamas arba nustojo atsakyti."
+    },
+    "recovered": {
+      "name": "Objektas atsikūrė",
+      "description": "Stebimas objektas vėl prisijungė po atsijungimo."
+    },
+    "low_battery": {
+      "name": "Baterija nukrito žemai",
+      "description": "Stebimo objekto baterija nukrito iki žemo baterijos lygio ribos arba žemiau jos."
+    },
+    "battery_ok": {
+      "name": "Baterija atsistatė",
+      "description": "Stebimo objekto baterija vėl pakilo virš žemo baterijos lygio ribos."
+    },
+    "stale": {
+      "name": "Objektas pasenо",
+      "description": "Stebimas objektas nustojo atsinaujinti per numatytą intervalą."
+    },
+    "stale_recovered": {
+      "name": "Objektas nebepasenęs",
+      "description": "Stebimas objektas vėl pradėjo atsinaujinti po pasenimo."
+    },
+    "poor_signal": {
+      "name": "Signalas tapo prastas",
+      "description": "Stebimo objekto signalo kokybė nukrito iki prasto lygio."
+    },
+    "signal_ok": {
+      "name": "Signalas atsistatė",
+      "description": "Stebimo objekto signalo kokybė grįžo į priimtiną lygį."
+    }
   }
 }

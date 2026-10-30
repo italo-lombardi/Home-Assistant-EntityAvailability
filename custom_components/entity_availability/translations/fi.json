@@ -288,5 +288,39 @@
         "all_non_essential": "🟡 Sisällytetty - pakota: Ei-oleellinen"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entiteetti siirtyi offline-tilaan",
+      "description": "Seurattava entiteetti muuttui tilaan ei saatavilla tai lakkasi vastaamasta."
+    },
+    "recovered": {
+      "name": "Entiteetti palautui",
+      "description": "Seurattava entiteetti palasi verkkoon oltuaan offline-tilassa."
+    },
+    "low_battery": {
+      "name": "Akku laski matalaksi",
+      "description": "Seurattavan entiteetin akku laski matalan akun kynnykseen tai sen alle."
+    },
+    "battery_ok": {
+      "name": "Akku palautui",
+      "description": "Seurattavan entiteetin akku nousi takaisin matalan akun kynnyksen yläpuolelle."
+    },
+    "stale": {
+      "name": "Entiteetti vanhentui",
+      "description": "Seurattava entiteetti lakkasi päivittymästä odotetun aikavälin sisällä."
+    },
+    "stale_recovered": {
+      "name": "Entiteetti ei ole enää vanhentunut",
+      "description": "Seurattava entiteetti alkoi jälleen päivittyä oltuaan vanhentunut."
+    },
+    "poor_signal": {
+      "name": "Signaali heikkeni",
+      "description": "Seurattavan entiteetin signaalin laatu laski heikolle tasolle."
+    },
+    "signal_ok": {
+      "name": "Signaali palautui",
+      "description": "Seurattavan entiteetin signaalin laatu palasi hyväksyttävälle tasolle."
+    }
   }
 }
