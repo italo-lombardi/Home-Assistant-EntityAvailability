@@ -9,10 +9,8 @@ in HA Core 2025.11 — matching the integration's min-HA floor in ``hacs.json``.
 """
 
 from collections.abc import Callable
-from typing import cast, override
+from typing import override
 
-import voluptuous as vol
-from homeassistant.const import CONF_OPTIONS
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
 from homeassistant.helpers.trigger import Trigger, TriggerActionRunner
 from homeassistant.helpers.typing import ConfigType
@@ -28,10 +26,6 @@ from .const import (
     EVENT_STALE_RECOVERED,
 )
 
-# Our events carry no user-selectable options, so the only accepted config is an
-# (optional, empty) options block.
-TRIGGER_SCHEMA = vol.Schema({vol.Required(CONF_OPTIONS, default={}): {}})
-
 
 class _EventTrigger(Trigger):
     """Relay a single Entity Availability bus event to an automation."""
@@ -44,8 +38,13 @@ class _EventTrigger(Trigger):
     async def async_validate_config(
         cls, hass: HomeAssistant, config: ConfigType
     ) -> ConfigType:
-        """Validate the trigger configuration."""
-        return cast(ConfigType, TRIGGER_SCHEMA(config))
+        """Validate the trigger configuration.
+
+        Our events carry no user-selectable options, so the config is empty and
+        passes through unchanged — keeping the `options` key out of the stored
+        YAML (the base merges back only keys we return).
+        """
+        return config
 
     @override
     async def async_attach_runner(
