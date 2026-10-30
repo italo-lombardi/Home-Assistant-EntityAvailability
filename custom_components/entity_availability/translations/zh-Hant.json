@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 包含 - 覆寫：非必要"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "實體離線",
+      "description": "受監控的實體變為無法使用或停止回應。",
+      "description_configured": "實體已離線"
+    },
+    "recovered": {
+      "name": "實體已恢復",
+      "description": "受監控的實體在離線後重新上線。",
+      "description_configured": "實體已恢復"
+    },
+    "low_battery": {
+      "name": "電量變低",
+      "description": "受監控實體的電量降至低電量閾值或以下。",
+      "description_configured": "電量已變低"
+    },
+    "battery_ok": {
+      "name": "電量已恢復",
+      "description": "受監控實體的電量回升至低電量閾值以上。",
+      "description_configured": "電量已恢復"
+    },
+    "stale": {
+      "name": "實體資料逾時",
+      "description": "受監控的實體未在預期間隔內更新。",
+      "description_configured": "實體已資料逾時"
+    },
+    "stale_recovered": {
+      "name": "實體資料不再逾時",
+      "description": "受監控的實體在資料逾時後恢復更新。",
+      "description_configured": "實體資料已不再逾時"
+    },
+    "poor_signal": {
+      "name": "訊號變差",
+      "description": "受監控實體的訊號品質降至不佳的水平。",
+      "description_configured": "訊號已變差"
+    },
+    "signal_ok": {
+      "name": "訊號已恢復",
+      "description": "受監控實體的訊號品質回復至可接受的水平。",
+      "description_configured": "訊號已恢復"
+    }
   }
 }

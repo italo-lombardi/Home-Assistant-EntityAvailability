@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 포함 - 재지정: 비필수"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "엔티티 오프라인 전환",
+      "description": "모니터링 중인 엔티티가 사용 불가 상태가 되거나 응답을 멈췄습니다.",
+      "description_configured": "엔티티가 오프라인으로 전환됨"
+    },
+    "recovered": {
+      "name": "엔티티 복구",
+      "description": "모니터링 중인 엔티티가 오프라인 상태였다가 다시 온라인으로 돌아왔습니다.",
+      "description_configured": "엔티티가 복구됨"
+    },
+    "low_battery": {
+      "name": "배터리 부족 전환",
+      "description": "모니터링 중인 엔티티의 배터리가 낮은 배터리 임계값 이하로 떨어졌습니다.",
+      "description_configured": "배터리가 부족해짐"
+    },
+    "battery_ok": {
+      "name": "배터리 회복",
+      "description": "모니터링 중인 엔티티의 배터리가 낮은 배터리 임계값 이상으로 다시 올라갔습니다.",
+      "description_configured": "배터리가 회복됨"
+    },
+    "stale": {
+      "name": "데이터 중단 전환",
+      "description": "모니터링 중인 엔티티가 예상 주기 내에 업데이트를 멈췄습니다.",
+      "description_configured": "엔티티 데이터가 중단됨"
+    },
+    "stale_recovered": {
+      "name": "데이터 중단 해제",
+      "description": "모니터링 중인 엔티티가 데이터 중단 상태였다가 업데이트를 재개했습니다.",
+      "description_configured": "엔티티 데이터 중단이 해제됨"
+    },
+    "poor_signal": {
+      "name": "신호 불량 전환",
+      "description": "모니터링 중인 엔티티의 신호 품질이 불량 수준으로 떨어졌습니다.",
+      "description_configured": "신호가 불량해짐"
+    },
+    "signal_ok": {
+      "name": "신호 복구",
+      "description": "모니터링 중인 엔티티의 신호 품질이 허용 가능한 수준으로 돌아왔습니다.",
+      "description_configured": "신호가 복구됨"
+    }
   }
 }

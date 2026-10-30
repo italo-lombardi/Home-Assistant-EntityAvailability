@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Uwzględniona – nadpisanie: Nieistotna"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Encja przeszła w tryb offline",
+      "description": "Monitorowana encja stała się niedostępna lub przestała odpowiadać.",
+      "description_configured": "Encja przeszła w tryb offline"
+    },
+    "recovered": {
+      "name": "Encja odzyskana",
+      "description": "Monitorowana encja wróciła do trybu online po byciu offline.",
+      "description_configured": "Encja została odzyskana"
+    },
+    "low_battery": {
+      "name": "Niski poziom baterii",
+      "description": "Poziom baterii monitorowanej encji spadł do progu niskiego poziomu baterii lub poniżej niego.",
+      "description_configured": "Poziom baterii spadł do niskiego"
+    },
+    "battery_ok": {
+      "name": "Bateria odzyskana",
+      "description": "Poziom baterii monitorowanej encji wzrósł z powrotem powyżej progu niskiego poziomu baterii.",
+      "description_configured": "Bateria została odzyskana"
+    },
+    "stale": {
+      "name": "Encja stała się nieaktywna",
+      "description": "Monitorowana encja przestała aktualizować się w oczekiwanym odstępie czasu.",
+      "description_configured": "Encja stała się nieaktywna"
+    },
+    "stale_recovered": {
+      "name": "Encja znów aktywna",
+      "description": "Monitorowana encja wznowiła aktualizacje po okresie nieaktywności.",
+      "description_configured": "Encja nie jest już nieaktywna"
+    },
+    "poor_signal": {
+      "name": "Sygnał stał się słaby",
+      "description": "Jakość sygnału monitorowanej encji spadła do słabego poziomu.",
+      "description_configured": "Sygnał stał się słaby"
+    },
+    "signal_ok": {
+      "name": "Sygnał odzyskany",
+      "description": "Jakość sygnału monitorowanej encji wróciła do akceptowalnego poziomu.",
+      "description_configured": "Sygnał został odzyskany"
+    }
   }
 }

@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Inclòs - substitueix: No essencial"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "L'entitat s'ha posat fora de línia",
+      "description": "Una entitat supervisada ha deixat d'estar disponible o ha deixat de respondre.",
+      "description_configured": "Una entitat s'ha posat fora de línia"
+    },
+    "recovered": {
+      "name": "L'entitat s'ha recuperat",
+      "description": "Una entitat supervisada ha tornat a estar en línia després d'estar fora de línia.",
+      "description_configured": "Una entitat s'ha recuperat"
+    },
+    "low_battery": {
+      "name": "La bateria s'ha quedat baixa",
+      "description": "La bateria d'una entitat supervisada ha baixat fins al llindar de bateria baixa o per sota.",
+      "description_configured": "Una bateria s'ha quedat baixa"
+    },
+    "battery_ok": {
+      "name": "La bateria s'ha recuperat",
+      "description": "La bateria d'una entitat supervisada ha tornat a pujar per sobre del llindar de bateria baixa.",
+      "description_configured": "Una bateria s'ha recuperat"
+    },
+    "stale": {
+      "name": "L'entitat ha deixat d'actualitzar-se",
+      "description": "Una entitat supervisada ha deixat d'actualitzar-se dins de l'interval previst.",
+      "description_configured": "Una entitat ha deixat d'actualitzar-se"
+    },
+    "stale_recovered": {
+      "name": "L'entitat torna a actualitzar-se",
+      "description": "Una entitat supervisada ha reprès les actualitzacions després d'haver deixat d'actualitzar-se.",
+      "description_configured": "Una entitat torna a actualitzar-se"
+    },
+    "poor_signal": {
+      "name": "El senyal s'ha tornat feble",
+      "description": "La qualitat del senyal d'una entitat supervisada ha baixat a un nivell feble.",
+      "description_configured": "Un senyal s'ha tornat feble"
+    },
+    "signal_ok": {
+      "name": "El senyal s'ha recuperat",
+      "description": "La qualitat del senyal d'una entitat supervisada ha tornat a un nivell acceptable.",
+      "description_configured": "Un senyal s'ha recuperat"
+    }
   }
 }

@@ -1,0 +1,11 @@
+# Describes the format for Entity Availability automation triggers.
+# Each relays a bus event; none take user-configurable fields.
+
+offline: {}
+recovered: {}
+low_battery: {}
+battery_ok: {}
+stale: {}
+stale_recovered: {}
+poor_signal: {}
+signal_ok: {}

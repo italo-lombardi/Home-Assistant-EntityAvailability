@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Iekļauta - pārdefinēt: Nebūtiska"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entitāte pārgāja bezsaistē",
+      "description": "Uzraudzīta entitāte kļuva nepieejama vai pārstāja atbildēt.",
+      "description_configured": "Entitāte pārgāja bezsaistē"
+    },
+    "recovered": {
+      "name": "Entitāte atjaunota",
+      "description": "Uzraudzīta entitāte atgriezās tiešsaistē pēc bezsaistes.",
+      "description_configured": "Entitāte atjaunota"
+    },
+    "low_battery": {
+      "name": "Akumulators kļuva zems",
+      "description": "Uzraudzītas entitātes akumulators nokritās līdz zema akumulatora slieksnim vai zem tā.",
+      "description_configured": "Akumulators kļuva zems"
+    },
+    "battery_ok": {
+      "name": "Akumulators atjaunots",
+      "description": "Uzraudzītas entitātes akumulators atkal pacēlās virs zema akumulatora sliekšņa.",
+      "description_configured": "Akumulators atjaunots"
+    },
+    "stale": {
+      "name": "Entitāte novecoja",
+      "description": "Uzraudzīta entitāte pārstāja atjaunināties paredzētajā intervālā.",
+      "description_configured": "Entitāte novecoja"
+    },
+    "stale_recovered": {
+      "name": "Entitāte vairs nav novecojusi",
+      "description": "Uzraudzīta entitāte atsāka atjaunināties pēc novecošanas.",
+      "description_configured": "Entitāte vairs nav novecojusi"
+    },
+    "poor_signal": {
+      "name": "Signāls kļuva vājš",
+      "description": "Uzraudzītas entitātes signāla kvalitāte nokritās līdz vājam līmenim.",
+      "description_configured": "Signāls kļuva vājš"
+    },
+    "signal_ok": {
+      "name": "Signāls atjaunots",
+      "description": "Uzraudzītas entitātes signāla kvalitāte atgriezās pieņemamā līmenī.",
+      "description_configured": "Signāls atjaunots"
+    }
   }
 }

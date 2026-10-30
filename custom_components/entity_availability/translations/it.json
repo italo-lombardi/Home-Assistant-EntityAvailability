@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Incluso - sovrascrittura: Non essenziale"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entità andata offline",
+      "description": "Un'entità monitorata è diventata non disponibile o ha smesso di rispondere.",
+      "description_configured": "Un'entità è andata offline"
+    },
+    "recovered": {
+      "name": "Entità recuperata",
+      "description": "Un'entità monitorata è tornata online dopo essere stata offline.",
+      "description_configured": "Un'entità è stata recuperata"
+    },
+    "low_battery": {
+      "name": "Batteria scarica",
+      "description": "La batteria di un'entità monitorata è scesa alla soglia di batteria scarica o al di sotto.",
+      "description_configured": "Una batteria è diventata scarica"
+    },
+    "battery_ok": {
+      "name": "Batteria recuperata",
+      "description": "La batteria di un'entità monitorata è risalita al di sopra della soglia di batteria scarica.",
+      "description_configured": "Una batteria è stata recuperata"
+    },
+    "stale": {
+      "name": "Entità diventata inattiva",
+      "description": "Un'entità monitorata ha smesso di aggiornarsi entro l'intervallo previsto.",
+      "description_configured": "Un'entità è diventata inattiva"
+    },
+    "stale_recovered": {
+      "name": "Entità non più inattiva",
+      "description": "Un'entità monitorata ha ripreso ad aggiornarsi dopo essere stata inattiva.",
+      "description_configured": "Un'entità non è più inattiva"
+    },
+    "poor_signal": {
+      "name": "Segnale diventato scarso",
+      "description": "La qualità del segnale di un'entità monitorata è scesa a un livello scarso.",
+      "description_configured": "Un segnale è diventato scarso"
+    },
+    "signal_ok": {
+      "name": "Segnale recuperato",
+      "description": "La qualità del segnale di un'entità monitorata è tornata a un livello accettabile.",
+      "description_configured": "Un segnale è stato recuperato"
+    }
   }
 }

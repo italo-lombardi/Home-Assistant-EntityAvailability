@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Zahrnuto - přepsat: Nedůležité"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entita se dostala offline",
+      "description": "Sledovaná entita přestala být dostupná nebo přestala reagovat.",
+      "description_configured": "Entita se dostala offline"
+    },
+    "recovered": {
+      "name": "Entita obnovena",
+      "description": "Sledovaná entita se po výpadku vrátila online.",
+      "description_configured": "Entita byla obnovena"
+    },
+    "low_battery": {
+      "name": "Baterie klesla na nízkou úroveň",
+      "description": "Baterie sledované entity klesla na práh nízkého stavu baterie nebo pod něj.",
+      "description_configured": "Baterie klesla na nízkou úroveň"
+    },
+    "battery_ok": {
+      "name": "Baterie obnovena",
+      "description": "Baterie sledované entity opět stoupla nad práh nízkého stavu baterie.",
+      "description_configured": "Baterie byla obnovena"
+    },
+    "stale": {
+      "name": "Entita zastarala",
+      "description": "Sledovaná entita přestala aktualizovat v rámci očekávaného intervalu.",
+      "description_configured": "Entita zastarala"
+    },
+    "stale_recovered": {
+      "name": "Entita již není zastaralá",
+      "description": "Sledovaná entita po zastarání opět začala aktualizovat.",
+      "description_configured": "Entita již není zastaralá"
+    },
+    "poor_signal": {
+      "name": "Signál se zhoršil",
+      "description": "Kvalita signálu sledované entity klesla na špatnou úroveň.",
+      "description_configured": "Signál se zhoršil"
+    },
+    "signal_ok": {
+      "name": "Signál obnoven",
+      "description": "Kvalita signálu sledované entity se vrátila na přijatelnou úroveň.",
+      "description_configured": "Signál byl obnoven"
+    }
   }
 }

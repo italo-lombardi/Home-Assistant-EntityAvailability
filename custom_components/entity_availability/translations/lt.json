@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Įtraukta - perrašyti: Neesminė"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Objektas atsijungė",
+      "description": "Stebimas objektas tapo nepasiekiamas arba nustojo atsakyti.",
+      "description_configured": "Objektas atsijungė"
+    },
+    "recovered": {
+      "name": "Objektas atsikūrė",
+      "description": "Stebimas objektas vėl prisijungė po atsijungimo.",
+      "description_configured": "Objektas atsikūrė"
+    },
+    "low_battery": {
+      "name": "Baterija nukrito žemai",
+      "description": "Stebimo objekto baterija nukrito iki žemo baterijos lygio ribos arba žemiau jos.",
+      "description_configured": "Baterija nukrito žemai"
+    },
+    "battery_ok": {
+      "name": "Baterija atsistatė",
+      "description": "Stebimo objekto baterija vėl pakilo virš žemo baterijos lygio ribos.",
+      "description_configured": "Baterija atsistatė"
+    },
+    "stale": {
+      "name": "Objektas pasenо",
+      "description": "Stebimas objektas nustojo atsinaujinti per numatytą intervalą.",
+      "description_configured": "Objektas paseno"
+    },
+    "stale_recovered": {
+      "name": "Objektas nebepasenęs",
+      "description": "Stebimas objektas vėl pradėjo atsinaujinti po pasenimo.",
+      "description_configured": "Objektas nebepasenęs"
+    },
+    "poor_signal": {
+      "name": "Signalas tapo prastas",
+      "description": "Stebimo objekto signalo kokybė nukrito iki prasto lygio.",
+      "description_configured": "Signalas tapo prastas"
+    },
+    "signal_ok": {
+      "name": "Signalas atsistatė",
+      "description": "Stebimo objekto signalo kokybė grįžo į priimtiną lygį.",
+      "description_configured": "Signalas atsistatė"
+    }
   }
 }

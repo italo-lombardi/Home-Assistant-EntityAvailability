@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Inkluderad — åsidosätt: Icke-väsentlig"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entitet gick offline",
+      "description": "En övervakad entitet blev otillgänglig eller slutade svara.",
+      "description_configured": "En entitet gick offline"
+    },
+    "recovered": {
+      "name": "Entitet återhämtad",
+      "description": "En övervakad entitet kom tillbaka online efter att ha varit offline.",
+      "description_configured": "En entitet återhämtades"
+    },
+    "low_battery": {
+      "name": "Batteriet blev lågt",
+      "description": "En övervakad entitets batteri sjönk till eller under gränsen för lågt batteri.",
+      "description_configured": "Ett batteri blev lågt"
+    },
+    "battery_ok": {
+      "name": "Batteriet återhämtat",
+      "description": "En övervakad entitets batteri steg tillbaka över gränsen för lågt batteri.",
+      "description_configured": "Ett batteri återhämtades"
+    },
+    "stale": {
+      "name": "Entitet blev inaktuell",
+      "description": "En övervakad entitet slutade uppdateras inom sitt förväntade intervall.",
+      "description_configured": "En entitet blev inaktuell"
+    },
+    "stale_recovered": {
+      "name": "Entitet inte längre inaktuell",
+      "description": "En övervakad entitet började uppdateras igen efter att ha varit inaktuell.",
+      "description_configured": "En entitet är inte längre inaktuell"
+    },
+    "poor_signal": {
+      "name": "Signalen blev dålig",
+      "description": "En övervakad entitets signalkvalitet sjönk till en dålig nivå.",
+      "description_configured": "En signal blev dålig"
+    },
+    "signal_ok": {
+      "name": "Signalen återhämtad",
+      "description": "En övervakad entitets signalkvalitet återgick till en acceptabel nivå.",
+      "description_configured": "En signal återhämtades"
+    }
   }
 }

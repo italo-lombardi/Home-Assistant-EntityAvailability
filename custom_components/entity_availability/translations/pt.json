@@ -288,5 +288,47 @@
         "all_non_essential": "🟡 Incluído – substituição: Não Essencial"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entidade ficou offline",
+      "description": "Uma entidade monitorizada ficou indisponível ou deixou de responder.",
+      "description_configured": "Uma entidade ficou offline"
+    },
+    "recovered": {
+      "name": "Entidade recuperada",
+      "description": "Uma entidade monitorizada voltou a ficar online depois de estar offline.",
+      "description_configured": "Uma entidade recuperou"
+    },
+    "low_battery": {
+      "name": "Bateria ficou fraca",
+      "description": "A bateria de uma entidade monitorizada desceu até ao limiar de bateria fraca ou abaixo dele.",
+      "description_configured": "Uma bateria ficou fraca"
+    },
+    "battery_ok": {
+      "name": "Bateria recuperada",
+      "description": "A bateria de uma entidade monitorizada voltou a subir acima do limiar de bateria fraca.",
+      "description_configured": "Uma bateria recuperou"
+    },
+    "stale": {
+      "name": "Entidade ficou inativa",
+      "description": "Uma entidade monitorizada deixou de atualizar dentro do intervalo esperado.",
+      "description_configured": "Uma entidade ficou inativa"
+    },
+    "stale_recovered": {
+      "name": "Entidade já não está inativa",
+      "description": "Uma entidade monitorizada voltou a atualizar depois de estar inativa.",
+      "description_configured": "Uma entidade já não está inativa"
+    },
+    "poor_signal": {
+      "name": "Sinal ficou fraco",
+      "description": "A qualidade do sinal de uma entidade monitorizada desceu para um nível fraco.",
+      "description_configured": "Um sinal ficou fraco"
+    },
+    "signal_ok": {
+      "name": "Sinal recuperado",
+      "description": "A qualidade do sinal de uma entidade monitorizada voltou a um nível aceitável.",
+      "description_configured": "Um sinal recuperou"
+    }
   }
 }
