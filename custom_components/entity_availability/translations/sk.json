@@ -292,43 +292,35 @@
   "triggers": {
     "offline": {
       "name": "Entita prešla do offline",
-      "description": "Sledovaná entita sa stala nedostupnou alebo prestala reagovať.",
-      "description_configured": "Entita prešla do offline"
+      "description": "Sledovaná entita sa stala nedostupnou alebo prestala reagovať."
     },
     "recovered": {
       "name": "Entita obnovená",
-      "description": "Sledovaná entita sa po výpadku vrátila online.",
-      "description_configured": "Entita bola obnovená"
+      "description": "Sledovaná entita sa po výpadku vrátila online."
     },
     "low_battery": {
       "name": "Batéria klesla na nízku úroveň",
-      "description": "Batéria sledovanej entity klesla na prah nízkej úrovne batérie alebo pod neho.",
-      "description_configured": "Batéria klesla na nízku úroveň"
+      "description": "Batéria sledovanej entity klesla na prah nízkej úrovne batérie alebo pod neho."
     },
     "battery_ok": {
       "name": "Batéria obnovená",
-      "description": "Batéria sledovanej entity sa vrátila nad prah nízkej úrovne batérie.",
-      "description_configured": "Batéria bola obnovená"
+      "description": "Batéria sledovanej entity sa vrátila nad prah nízkej úrovne batérie."
     },
     "stale": {
       "name": "Entita sa stala zastaranou",
-      "description": "Sledovaná entita prestala aktualizovať stav v rámci očakávaného intervalu.",
-      "description_configured": "Entita sa stala zastaranou"
+      "description": "Sledovaná entita prestala aktualizovať stav v rámci očakávaného intervalu."
     },
     "stale_recovered": {
       "name": "Entita už nie je zastaraná",
-      "description": "Sledovaná entita po zastaraní obnovila aktualizovanie stavu.",
-      "description_configured": "Entita už nie je zastaraná"
+      "description": "Sledovaná entita po zastaraní obnovila aktualizovanie stavu."
     },
     "poor_signal": {
       "name": "Signál sa zhoršil",
-      "description": "Kvalita signálu sledovanej entity klesla na slabú úroveň.",
-      "description_configured": "Signál sa zhoršil"
+      "description": "Kvalita signálu sledovanej entity klesla na slabú úroveň."
     },
     "signal_ok": {
       "name": "Signál obnovený",
-      "description": "Kvalita signálu sledovanej entity sa vrátila na prijateľnú úroveň.",
-      "description_configured": "Signál bol obnovený"
+      "description": "Kvalita signálu sledovanej entity sa vrátila na prijateľnú úroveň."
     }
   }
 }

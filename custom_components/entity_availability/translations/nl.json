@@ -292,43 +292,35 @@
   "triggers": {
     "offline": {
       "name": "Entiteit is offline gegaan",
-      "description": "Een bewaakte entiteit werd onbeschikbaar of reageerde niet meer.",
-      "description_configured": "Een entiteit is offline gegaan"
+      "description": "Een bewaakte entiteit werd onbeschikbaar of reageerde niet meer."
     },
     "recovered": {
       "name": "Entiteit hersteld",
-      "description": "Een bewaakte entiteit is weer online gekomen nadat deze offline was.",
-      "description_configured": "Een entiteit is hersteld"
+      "description": "Een bewaakte entiteit is weer online gekomen nadat deze offline was."
     },
     "low_battery": {
       "name": "Batterij werd laag",
-      "description": "De batterij van een bewaakte entiteit is gedaald tot op of onder de drempel voor lage batterij.",
-      "description_configured": "Een batterij werd laag"
+      "description": "De batterij van een bewaakte entiteit is gedaald tot op of onder de drempel voor lage batterij."
     },
     "battery_ok": {
       "name": "Batterij hersteld",
-      "description": "De batterij van een bewaakte entiteit is weer boven de drempel voor lage batterij gestegen.",
-      "description_configured": "Een batterij is hersteld"
+      "description": "De batterij van een bewaakte entiteit is weer boven de drempel voor lage batterij gestegen."
     },
     "stale": {
       "name": "Entiteit werd inactief",
-      "description": "Een bewaakte entiteit is binnen het verwachte interval niet meer bijgewerkt.",
-      "description_configured": "Een entiteit werd inactief"
+      "description": "Een bewaakte entiteit is binnen het verwachte interval niet meer bijgewerkt."
     },
     "stale_recovered": {
       "name": "Entiteit niet langer inactief",
-      "description": "Een bewaakte entiteit wordt weer bijgewerkt nadat deze inactief was.",
-      "description_configured": "Een entiteit is niet langer inactief"
+      "description": "Een bewaakte entiteit wordt weer bijgewerkt nadat deze inactief was."
     },
     "poor_signal": {
       "name": "Signaal werd slecht",
-      "description": "De signaalkwaliteit van een bewaakte entiteit is gedaald naar een slecht niveau.",
-      "description_configured": "Een signaal werd slecht"
+      "description": "De signaalkwaliteit van een bewaakte entiteit is gedaald naar een slecht niveau."
     },
     "signal_ok": {
       "name": "Signaal hersteld",
-      "description": "De signaalkwaliteit van een bewaakte entiteit is teruggekeerd naar een aanvaardbaar niveau.",
-      "description_configured": "Een signaal is hersteld"
+      "description": "De signaalkwaliteit van een bewaakte entiteit is teruggekeerd naar een aanvaardbaar niveau."
     }
   }
 }

@@ -292,43 +292,35 @@
   "triggers": {
     "offline": {
       "name": "实体离线",
-      "description": "受监控的实体变为不可用或停止响应。",
-      "description_configured": "实体已离线"
+      "description": "受监控的实体变为不可用或停止响应。"
     },
     "recovered": {
       "name": "实体已恢复",
-      "description": "受监控的实体在离线后重新上线。",
-      "description_configured": "实体已恢复"
+      "description": "受监控的实体在离线后重新上线。"
     },
     "low_battery": {
       "name": "电量变低",
-      "description": "受监控实体的电量降至低电量阈值或以下。",
-      "description_configured": "电量已变低"
+      "description": "受监控实体的电量降至低电量阈值或以下。"
     },
     "battery_ok": {
       "name": "电量已恢复",
-      "description": "受监控实体的电量回升至低电量阈值以上。",
-      "description_configured": "电量已恢复"
+      "description": "受监控实体的电量回升至低电量阈值以上。"
     },
     "stale": {
       "name": "数据过期",
-      "description": "受监控的实体在预期间隔内停止更新。",
-      "description_configured": "实体数据已过期"
+      "description": "受监控的实体在预期间隔内停止更新。"
     },
     "stale_recovered": {
       "name": "数据不再过期",
-      "description": "受监控的实体在数据过期后恢复更新。",
-      "description_configured": "实体数据不再过期"
+      "description": "受监控的实体在数据过期后恢复更新。"
     },
     "poor_signal": {
       "name": "信号变差",
-      "description": "受监控实体的信号质量降至较差水平。",
-      "description_configured": "信号已变差"
+      "description": "受监控实体的信号质量降至较差水平。"
     },
     "signal_ok": {
       "name": "信号已恢复",
-      "description": "受监控实体的信号质量回升至可接受水平。",
-      "description_configured": "信号已恢复"
+      "description": "受监控实体的信号质量回升至可接受水平。"
     }
   }
 }

@@ -292,43 +292,35 @@
   "triggers": {
     "offline": {
       "name": "Entitet je pao offline",
-      "description": "Nadzirani entitet postao je nedostupan ili je prestao odgovarati.",
-      "description_configured": "Entitet je pao offline"
+      "description": "Nadzirani entitet postao je nedostupan ili je prestao odgovarati."
     },
     "recovered": {
       "name": "Entitet se oporavio",
-      "description": "Nadzirani entitet ponovno je dostupan nakon što je bio offline.",
-      "description_configured": "Entitet se oporavio"
+      "description": "Nadzirani entitet ponovno je dostupan nakon što je bio offline."
     },
     "low_battery": {
       "name": "Baterija je oslabjela",
-      "description": "Baterija nadziranog entiteta pala je na prag slabe baterije ili ispod njega.",
-      "description_configured": "Baterija je oslabjela"
+      "description": "Baterija nadziranog entiteta pala je na prag slabe baterije ili ispod njega."
     },
     "battery_ok": {
       "name": "Baterija se oporavila",
-      "description": "Baterija nadziranog entiteta ponovno je porasla iznad praga slabe baterije.",
-      "description_configured": "Baterija se oporavila"
+      "description": "Baterija nadziranog entiteta ponovno je porasla iznad praga slabe baterije."
     },
     "stale": {
       "name": "Podaci entiteta zastarjeli",
-      "description": "Nadzirani entitet prestao se ažurirati unutar očekivanog intervala.",
-      "description_configured": "Podaci entiteta su zastarjeli"
+      "description": "Nadzirani entitet prestao se ažurirati unutar očekivanog intervala."
     },
     "stale_recovered": {
       "name": "Podaci entiteta više nisu zastarjeli",
-      "description": "Nadzirani entitet ponovno se počeo ažurirati nakon zastarjelosti.",
-      "description_configured": "Podaci entiteta više nisu zastarjeli"
+      "description": "Nadzirani entitet ponovno se počeo ažurirati nakon zastarjelosti."
     },
     "poor_signal": {
       "name": "Signal je oslabio",
-      "description": "Kvaliteta signala nadziranog entiteta pala je na slabu razinu.",
-      "description_configured": "Signal je oslabio"
+      "description": "Kvaliteta signala nadziranog entiteta pala je na slabu razinu."
     },
     "signal_ok": {
       "name": "Signal se oporavio",
-      "description": "Kvaliteta signala nadziranog entiteta vratila se na prihvatljivu razinu.",
-      "description_configured": "Signal se oporavio"
+      "description": "Kvaliteta signala nadziranog entiteta vratila se na prihvatljivu razinu."
     }
   }
 }

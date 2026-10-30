@@ -292,43 +292,35 @@
     "triggers": {
         "offline": {
             "name": "Entity went offline",
-            "description": "A monitored entity became unavailable or stopped responding.",
-            "description_configured": "An entity went offline"
+            "description": "A monitored entity became unavailable or stopped responding."
         },
         "recovered": {
             "name": "Entity recovered",
-            "description": "A monitored entity came back online after being offline.",
-            "description_configured": "An entity recovered"
+            "description": "A monitored entity came back online after being offline."
         },
         "low_battery": {
             "name": "Battery became low",
-            "description": "A monitored entity's battery dropped to or below the low-battery threshold.",
-            "description_configured": "A battery became low"
+            "description": "A monitored entity's battery dropped to or below the low-battery threshold."
         },
         "battery_ok": {
             "name": "Battery recovered",
-            "description": "A monitored entity's battery rose back above the low-battery threshold.",
-            "description_configured": "A battery recovered"
+            "description": "A monitored entity's battery rose back above the low-battery threshold."
         },
         "stale": {
             "name": "Entity became stale",
-            "description": "A monitored entity stopped updating within its expected interval.",
-            "description_configured": "An entity became stale"
+            "description": "A monitored entity stopped updating within its expected interval."
         },
         "stale_recovered": {
             "name": "Entity no longer stale",
-            "description": "A monitored entity resumed updating after being stale.",
-            "description_configured": "An entity is no longer stale"
+            "description": "A monitored entity resumed updating after being stale."
         },
         "poor_signal": {
             "name": "Signal became poor",
-            "description": "A monitored entity's signal quality dropped to a poor level.",
-            "description_configured": "A signal became poor"
+            "description": "A monitored entity's signal quality dropped to a poor level."
         },
         "signal_ok": {
             "name": "Signal recovered",
-            "description": "A monitored entity's signal quality returned to an acceptable level.",
-            "description_configured": "A signal recovered"
+            "description": "A monitored entity's signal quality returned to an acceptable level."
         }
     }
 }

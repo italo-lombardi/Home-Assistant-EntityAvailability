@@ -29,6 +29,12 @@ async def test_async_get_triggers_exposes_all_events(hass: HomeAssistant) -> Non
     assert set(triggers) == _SLUGS
 
 
+async def test_async_validate_config_accepts_empty(hass: HomeAssistant) -> None:
+    """Validation accepts the no-config trigger and defaults the options block."""
+    validated = await ea_trigger._OfflineTrigger.async_validate_config(hass, {})
+    assert validated == {"options": {}}
+
+
 async def test_trigger_relays_event_data(hass: HomeAssistant) -> None:
     """Attaching the offline trigger forwards the raw event.data to the action."""
     trig = ea_trigger._TRIGGERS["offline"](hass, {})

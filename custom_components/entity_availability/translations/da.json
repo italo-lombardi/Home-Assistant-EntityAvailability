@@ -293,43 +293,35 @@
   "triggers": {
     "offline": {
       "name": "Entitet gik offline",
-      "description": "En overvåget entitet blev utilgængelig eller holdt op med at svare.",
-      "description_configured": "En entitet gik offline"
+      "description": "En overvåget entitet blev utilgængelig eller holdt op med at svare."
     },
     "recovered": {
       "name": "Entitet genoprettet",
-      "description": "En overvåget entitet kom online igen efter at have været offline.",
-      "description_configured": "En entitet blev genoprettet"
+      "description": "En overvåget entitet kom online igen efter at have været offline."
     },
     "low_battery": {
       "name": "Batteri blev lavt",
-      "description": "En overvåget entitets batteri faldt til eller under grænsen for lavt batteri.",
-      "description_configured": "Et batteri blev lavt"
+      "description": "En overvåget entitets batteri faldt til eller under grænsen for lavt batteri."
     },
     "battery_ok": {
       "name": "Batteri genoprettet",
-      "description": "En overvåget entitets batteri steg igen over grænsen for lavt batteri.",
-      "description_configured": "Et batteri blev genoprettet"
+      "description": "En overvåget entitets batteri steg igen over grænsen for lavt batteri."
     },
     "stale": {
       "name": "Entitet blev inaktiv",
-      "description": "En overvåget entitet holdt op med at opdatere inden for det forventede interval.",
-      "description_configured": "En entitet blev inaktiv"
+      "description": "En overvåget entitet holdt op med at opdatere inden for det forventede interval."
     },
     "stale_recovered": {
       "name": "Entitet ikke længere inaktiv",
-      "description": "En overvåget entitet begyndte at opdatere igen efter at have været inaktiv.",
-      "description_configured": "En entitet er ikke længere inaktiv"
+      "description": "En overvåget entitet begyndte at opdatere igen efter at have været inaktiv."
     },
     "poor_signal": {
       "name": "Signal blev dårligt",
-      "description": "En overvåget entitets signalkvalitet faldt til et dårligt niveau.",
-      "description_configured": "Et signal blev dårligt"
+      "description": "En overvåget entitets signalkvalitet faldt til et dårligt niveau."
     },
     "signal_ok": {
       "name": "Signal genoprettet",
-      "description": "En overvåget entitets signalkvalitet vendte tilbage til et acceptabelt niveau.",
-      "description_configured": "Et signal blev genoprettet"
+      "description": "En overvåget entitets signalkvalitet vendte tilbage til et acceptabelt niveau."
     }
   }
 }
