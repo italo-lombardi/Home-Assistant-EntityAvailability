@@ -68,6 +68,16 @@ async def test_async_validate_config_rejects_unknown_entry(hass: HomeAssistant) 
         )
 
 
+async def test_async_validate_config_rejects_foreign_entry(hass: HomeAssistant) -> None:
+    """An entry from another integration is rejected — its events never match."""
+    foreign = MockConfigEntry(domain="other", data={}, entry_id="foreign-1")
+    foreign.add_to_hass(hass)
+    with pytest.raises(vol.Invalid):
+        await ea_trigger._OfflineTrigger.async_validate_config(
+            hass, {CONF_OPTIONS: {CONF_CONFIG_ENTRY_ID: foreign.entry_id}}
+        )
+
+
 async def test_complete_config_migrates_top_level_scope(hass: HomeAssistant) -> None:
     """A top-level config_entry_id (how the UI/YAML write it) lands in options.
 

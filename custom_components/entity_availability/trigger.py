@@ -20,6 +20,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_CONFIG_ENTRY_ID,
+    DOMAIN,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
     EVENT_OFFLINE,
@@ -70,18 +71,18 @@ class _EventTrigger(Trigger):
         out of the stored YAML (the base merges back only keys we return); when
         it is set we return the validated ``options`` block so it round-trips.
 
-        A named group is checked for existence here, at validation time: a
-        typo'd or removed ``config_entry_id`` is loud (``vol.Invalid`` surfaces
+        A named group is checked for existence (and that it belongs to this
+        integration) here, at validation time: a typo'd, removed, or
+        wrong-integration ``config_entry_id`` is loud (``vol.Invalid`` surfaces
         in the editor / on reload) instead of silently yielding a scoped trigger
         that matches no event and never fires.
         """
         options = _OPTIONS_SCHEMA(config.get(CONF_OPTIONS) or {})
         entry_id = options.get(CONF_CONFIG_ENTRY_ID)
-        if (
-            entry_id is not None
-            and hass.config_entries.async_get_entry(entry_id) is None
-        ):
-            raise vol.Invalid(f"Config entry '{entry_id}' not found")
+        if entry_id is not None:
+            entry = hass.config_entries.async_get_entry(entry_id)
+            if entry is None or entry.domain != DOMAIN:
+                raise vol.Invalid(f"'{entry_id}' is not an Entity Availability group")
         return {CONF_OPTIONS: options} if options else {}
 
     @override
