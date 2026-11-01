@@ -101,6 +101,20 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC124 combined any_offline=on after override removed (entity still offline — restore check)
   EC125 async_remove_entry: .storage/entity_availability_{entry_id} deleted on entry removal (DESTRUCTIVE — isolated run only)
 
+  Combined row_groups provenance (EC126-EC128):
+  EC126 combined_summary row_groups attr present and is a dict
+  EC127 every row_groups value is a non-empty list of non-empty group-name strings
+  EC128 every row_groups name resolves to a known source group name
+
+  Named-trigger platform (EC130-EC133 — integration Trigger platform, HA >= 2025.11):
+  EC130 a valid, group-scoped named-trigger automation is accepted by HA (async_validate_* passes)
+  EC131 a loaded scoped offline trigger relays the bus event end-to-end; relayed payload carries
+        the SCOPED entry_id, other groups the entity belongs to are filtered out
+        (fires only after the group cooldown; skipped when websocket-client absent)
+  EC132 a bogus config_entry_id is rejected at register time (HTTP 400 — not a silent dead trigger)
+  EC133 a config_entry_id from another integration is rejected the same way (domain check;
+        skipped when no non-EA config entry is present)
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -5227,6 +5241,178 @@ for e in cfg['data']['entries']:
                 0,
                 f"unknown={unknown[:5]} known={sorted(known_names)[:5]}",
             )
+
+    # ------------------------------------------------------------------
+    # EC130-EC133: named-trigger platform — register, relay-fire, reject
+    # EC130: a valid, group-scoped named-trigger automation is accepted by HA
+    #        (the Trigger platform is discovered and async_validate_* passes).
+    # EC131: a loaded scoped offline trigger relays the bus event end-to-end —
+    #        the automation fires and the relayed payload carries the SCOPED
+    #        entry_id (events from other groups the entity belongs to are
+    #        filtered out by the trigger's entry_id compare).
+    # EC132: a bogus config_entry_id is rejected at register time (HTTP 400 from
+    #        async_validate_config's vol.Invalid — not silently a dead trigger).
+    # EC133: a config_entry_id from another integration is rejected the same way
+    #        (domain check — its events could never match this trigger).
+    # EC130/132/133 are non-destructive (probe deleted after). EC131 drives the
+    # monitored entity offline then restores it.
+    # ------------------------------------------------------------------
+    if any(ec_enabled(n) for n in (130, 131, 132, 133)):
+        print(
+            "\n=== EC130-EC133: named-trigger platform register/relay/reject ===",
+            flush=True,
+        )
+        probe_id = "ea_smoke_trigger_probe"
+        probe_path = f"/api/config/automation/config/{probe_id}"
+
+        def _post_automation(config_entry_id: str, action=None):
+            """POST a scoped named-trigger automation; return (status, body)."""
+            body = {
+                "alias": "EA smoke trigger probe",
+                "trigger": [
+                    {
+                        "platform": "entity_availability.offline",
+                        "config_entry_id": config_entry_id,
+                    }
+                ],
+                "action": action or [{"event": "ea_smoke_noop"}],
+            }
+            try:
+                api("POST", probe_path, body)
+                return 200, None
+            except urllib.error.HTTPError as e:
+                return e.code, e.read().decode(errors="replace")
+
+        def _delete_probe():
+            try:
+                api("DELETE", probe_path)
+            except urllib.error.HTTPError:
+                pass
+
+        if ec_enabled(130):
+            status, err = _post_automation(ctx["entry_id"])
+            chk(
+                "EC130 valid group-scoped named trigger accepted",
+                status,
+                200,
+                f"err={err}",
+            )
+            _delete_probe()
+
+        if ec_enabled(131):
+            # The offline edge fires only after the group's cooldown elapses
+            # while the entity stays bad. Capture window must clear cooldown +
+            # one poll; discover cooldown from the entry config (default 30s).
+            cooldown = 30.0
+            try:
+                entry_cfg = api(
+                    "GET", f"/api/config/config_entries/entry/{ctx['entry_id']}"
+                )
+                # cooldown lives in data or options depending on how it was set.
+                cooldown = float(
+                    (entry_cfg.get("options") or {}).get("cooldown")
+                    or (entry_cfg.get("data") or {}).get("cooldown")
+                    or 30.0
+                )
+            except (urllib.error.HTTPError, TypeError, ValueError):
+                pass
+            window = int(cooldown) + 35
+
+            if not _WS_AVAILABLE:
+                print(
+                    "  EC131: SKIP — websocket-client not installed, cannot capture relay",
+                    flush=True,
+                )
+            else:
+                target = ctx["entities"][0]
+                prev = gs_safe(target)
+                prev_state = prev.get("state") if prev else "on"
+                prev_attrs = prev.get("attributes", {}) if prev else {}
+                action = [
+                    {
+                        "event": "ea_smoke_nt_relay_out",
+                        "event_data_template": {
+                            "entity_id": "{{ trigger.entity_id }}",
+                            "entry_id": "{{ trigger.entry_id }}",
+                            "offline_count": "{{ trigger.offline_count }}",
+                        },
+                    }
+                ]
+                status, err = _post_automation(ctx["entry_id"], action=action)
+                chk("EC131 relay automation registered", status, 200, f"err={err}")
+                api("POST", "/api/services/automation/reload")
+                wait(2)
+                # Baseline online, then drive the monitored entity offline and
+                # capture the relayed scoped event across the cooldown window.
+                ss(target, "on", prev_attrs or {"friendly_name": "ea smoke"})
+                wait(1)
+                relayed = capture_events(
+                    "ea_smoke_nt_relay_out",
+                    lambda: ss(
+                        target,
+                        "unavailable",
+                        prev_attrs or {"friendly_name": "ea smoke"},
+                    ),
+                    timeout=window,
+                )
+                chk(
+                    "EC131 scoped offline named trigger relayed at least once",
+                    len(relayed) >= 1,
+                    True,
+                    f"captured={len(relayed)} window={window}s",
+                )
+                # Every relayed event must carry the scoped entry_id — the same
+                # entity can belong to other groups whose offline events fire too,
+                # but the trigger filters them out by entry_id.
+                foreign = [e for e in relayed if e.get("entry_id") != ctx["entry_id"]]
+                chk(
+                    "EC131 every relayed event carries the scoped entry_id",
+                    len(foreign),
+                    0,
+                    f"scoped={ctx['entry_id']} foreign={foreign[:2]}",
+                )
+                _delete_probe()
+                api("POST", "/api/services/automation/reload")
+                # Restore the entity to its pre-test state and settle the group.
+                ss(target, prev_state, prev_attrs)
+                restore_and_wait(ctx)
+
+        if ec_enabled(132):
+            status, err = _post_automation("does-not-exist-entry-id")
+            chk(
+                "EC132 bogus config_entry_id rejected (HTTP 400)",
+                status,
+                400,
+                f"err={err}",
+            )
+            _delete_probe()
+
+        if ec_enabled(133):
+            # Any non-EA config entry stands in for "another integration"; the
+            # combined entry is itself EA so is NOT foreign — use HA's own config
+            # entry list to find a non-entity_availability entry.
+            foreign_id = None
+            try:
+                for e in api("GET", "/api/config/config_entries/entry"):
+                    if e.get("domain") != "entity_availability":
+                        foreign_id = e["entry_id"]
+                        break
+            except urllib.error.HTTPError:
+                pass
+            if foreign_id is None:
+                print(
+                    "  EC133: SKIP — no non-EA config entry present to use as foreign id",
+                    flush=True,
+                )
+            else:
+                status, err = _post_automation(foreign_id)
+                chk(
+                    "EC133 foreign-integration config_entry_id rejected (HTTP 400)",
+                    status,
+                    400,
+                    f"foreign_id={foreign_id} err={err}",
+                )
+                _delete_probe()
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed
