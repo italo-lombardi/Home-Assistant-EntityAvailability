@@ -20,7 +20,8 @@ independent axes:
 - **offline** — the entity is in one of the group's configured *bad states*
   (default `unavailable`/`unknown`, user-editable per group), or is missing
   entirely.
-- **stale** — the entity is reachable but has stopped reporting new data.
+- **stale** — the entity is reachable but has stopped reporting new data for
+  longer than the group's configured staleness threshold (disabled by default).
 - **low_battery** — the entity's battery is below the configured threshold.
 - **poor_signal** — the entity's signal has dropped into the "poor" tier.
 
