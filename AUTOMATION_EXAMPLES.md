@@ -6,9 +6,53 @@ Ready-to-adapt automations for every feature. Replace `security_devices` with yo
 
 ---
 
+## Named triggers (recommended)
+
+**HA 2025.11+.** The cleanest way to react to availability events. Every one of the eight events is a **named trigger** in the automation editor's *Triggers* tab — pick it by name, no event-string typing — each with an optional **Group** picker (classic or combined) that scopes to a single config entry:
+
+```yaml
+triggers:
+  - trigger: entity_availability.offline
+    config_entry_id: 1a2b3c…   # pick the group in the UI; blank = any group
+```
+
+| Named trigger | Fires when |
+|---|---|
+| `entity_availability.offline` | An entity is confirmed offline |
+| `entity_availability.recovered` | An offline entity returns online |
+| `entity_availability.low_battery` | An entity's battery drops below threshold |
+| `entity_availability.battery_ok` | A low-battery entity rises above threshold |
+| `entity_availability.stale` | An entity stops reporting new values |
+| `entity_availability.stale_recovered` | A stale entity resumes reporting |
+| `entity_availability.poor_signal` | Signal drops into the "poor" tier |
+| `entity_availability.signal_ok` | Signal recovers from "poor" |
+
+A named trigger delivers the **same payload** as the matching bus event, but exposes its fields at the **top level**: use `trigger.entity_id`, `trigger.offline_count`, `trigger.offline_since`, etc. (not `trigger.event.data.*`). Omit `config_entry_id` to fire for any group; set it to scope to one group without filtering on the `group` name.
+
+```yaml
+automation:
+  alias: EA — security group offline (named trigger)
+  triggers:
+    - trigger: entity_availability.offline
+      config_entry_id: 1a2b3c…   # the Security Devices entry
+  action:
+    - service: notify.mobile_app_my_phone
+      data:
+        title: "Device offline ({{ trigger.offline_count }} now offline)"
+        message: >-
+          {{ trigger.entity_id }} went offline at
+          {{ as_local(as_datetime(trigger.offline_since)).strftime('%H:%M:%S') }}.
+          Still offline ({{ trigger.offline_count }}):
+          {{ trigger.offline_entities | join(', ') }}
+```
+
+The `platform: event` examples below remain valid and work on any HA version — use them when you want to filter by the `group` *name* in hand-written YAML, or are on HA older than 2025.11. Each one has a direct named-trigger equivalent: swap `platform: event` + `event_type: entity_availability_X` for `trigger: entity_availability.X`, drop the `event_data.group` filter in favour of `config_entry_id`, and change `trigger.event.data.*` to `trigger.*`.
+
+---
+
 ## Bus events
 
-The integration fires six events on the Home Assistant event bus at each transition (after the group's cooldown, outside the 60 s startup grace period). These are the cleanest automation triggers — no template polling of sensor attributes.
+The integration fires eight events on the Home Assistant event bus at each transition (after the group's cooldown, outside the 60 s startup grace period). Each is also surfaced as a [named trigger](#named-triggers-recommended) (above) — the recommended way to consume them.
 
 | Event | Fired when | Data |
 |-------|-----------|------|
@@ -59,20 +103,6 @@ automation:
           Still offline ({{ trigger.event.data.offline_count }}):
           {{ trigger.event.data.offline_entities | join(', ') }}
 ```
-
-> **UI alternative (HA 2025.11+).** Every event is also a **named trigger** in the
-> automation editor's *Triggers* tab, each with an optional **Group** picker
-> (classic or combined). The editor emits this — equivalent to Automation 1 but
-> scoped by config entry instead of the `group` name, and selectable without
-> typing the event string:
-> ```yaml
-> triggers:
->   - trigger: entity_availability.offline
->     config_entry_id: 1a2b3c…   # pick the group in the UI; blank = any group
-> ```
-> The same payload is delivered, but a named trigger exposes its fields at the
-> top level — use `trigger.offline_count`, `trigger.entity_id`, etc. (not
-> `trigger.event.data.offline_count`) when adapting the actions above.
 
 ---
 
