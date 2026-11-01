@@ -22,8 +22,11 @@ independent axes:
   entirely.
 - **stale** — the entity is reachable but has stopped reporting new data for
   longer than the group's configured staleness threshold (disabled by default).
-- **low_battery** — the entity's battery is below the configured threshold.
-- **poor_signal** — the entity's signal has dropped into the "poor" tier.
+- **low_battery** — the entity's battery is below the configured threshold
+  (on by default; threshold 20 %, set to 0 to disable).
+- **poor_signal** — the entity's signal has dropped into the "poor" tier
+  (off by default — opt-in, and each entity needs a signal-sensor mapping;
+  the good/ok/poor cutoffs are fixed per network type, not user-set).
 
 Each axis is evaluated once per coordinator poll. A change on any axis is
 **edge-triggered**: the event fires only on the transition, not every poll it
