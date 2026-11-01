@@ -28,20 +28,28 @@ independent axes:
   (off by default — opt-in, and each entity needs a signal-sensor mapping;
   the good/ok/poor cutoffs are fixed per network type, not user-set).
 
-Each axis is evaluated once per coordinator poll. A change on any axis is
-**edge-triggered**: the event fires only on the transition, not every poll it
-stays in that state. Everything below is how each edge is decided and what
-rides the event when it fires.
+Each poll, every axis is re-checked. An event fires only when an axis
+**changes state** — the moment it flips, not on every poll it stays there.
 
-Every per-group event payload carries `entry_id = entry.entry_id` — the config
-entry of the group that fired it. This is the stable key for scoping an
-automation to one group (the named-trigger **Group** picker sets it for you).
+Every event says which group it came from, in an `entry_id` field — a unique
+ID HA gives each group that never changes, even if the group is renamed. An
+automation can match on it to react to just one group; in the editor, the
+named trigger's **Group** dropdown fills it in for you.
+
+**One poll can fire more than one event.** The axes are independent, so a
+single entity can trip several at once. Most often going offline fires just
+`offline`. But because an offline entity stops sending readings, any axis that
+was *already* flagged sees "no data" as a recovery: an entity that was stale
+fires `stale_recovered`, and one on poor signal fires `signal_ok`, in the same
+poll it goes offline. Battery is the exception — its last-known level is
+retained, so it stays quiet rather than falsely recovering.
 
 ---
 
 ## 2. The eight events
 
-All **per-group** payloads carry `entity_id`, `group` (the group's display
+All **per-group** payloads carry `entity_id` (HA's address for the affected
+entity, e.g. `binary_sensor.front_door`), `group` (the group's display
 name), and `entry_id` (the group's config entry). Beyond those three, each
 event carries the fields in the table. At fire time the coordinator also stamps
 the firing category's `{cat}_count` and `{cat}_entities` onto the payload — a
@@ -130,55 +138,38 @@ threshold is > 0 and a state is present.
   power) — with the default they look stale though healthy; turn this on so
   each transmission counts.
 
-**Hysteresis band** (de-jitters an age hovering on the boundary, and prevents
-trapping a just-recovered entity):
+**Going stale, and recovering.** An entity goes **stale** (fires `stale`) once
+its data age passes the threshold. To stop the flag flickering when the age
+sits right at the threshold, it does not clear the instant the age dips back
+under — it clears (fires `stale_recovered`) only once the age drops a little
+below, by up to one minute (less if the threshold itself is under two minutes).
+That small gap also keeps a just-recovered entity from being re-flagged
+immediately.
 
-```
-band            = min(STALENESS_HYSTERESIS (1 min), staleness_threshold / 2)
-exit_threshold  = staleness_threshold − band
-```
-
-The `threshold/2` cap guarantees `exit_threshold > 0` — without it a small
-threshold could give `exit_threshold ≤ 0` and trap a freshly-recovered entity
-(age ≈ 0) as permanently stale.
-
-**Enter / stay / clear** (one expression, `age` in minutes):
-
-```
-is_stale = age > staleness_threshold
-           OR (device.is_stale AND age > exit_threshold)
-```
-
-- **Enter** — age strictly greater than the threshold → **stale** (rising edge,
-  fires `stale`).
-- **Stay** — already stale and age still above `exit_threshold`.
-- **Clear** — already stale and age drops to ≤ `exit_threshold` → not stale
-  (falling edge, fires `stale_recovered`).
-
-`stale_since` on both events is the stale timestamp (`stale_ts`) or `now`, as
-ISO. tz-naive timestamps are coerced to UTC before the age is computed.
+`stale_since` on both events is when the data went stale, as an ISO timestamp.
 
 ---
 
 ## 5. Battery lifecycle
 
-Disabled by default off? No — `battery_threshold` defaults to **20** (percent;
-0 disables). Evaluated only when the threshold is > 0.
+Battery monitoring is **on by default** — `battery_threshold` is **20 %** (set
+it to 0 to switch battery off entirely).
 
-**Reading the level** — `_get_battery_level`, first match wins:
+**Where the level is read from** — the first of these that yields a value wins:
 
-1. The entity's **own state**, if its `device_class` is `battery` and the state
-   is not unavailable/unknown.
-2. A **mapped companion sensor** (`battery_entity_map`). An empty map value
-   means "no battery" → `None`. A mapped `binary_sensor` reads `on` = 0 % (low),
-   `off` = 100 %. Otherwise the numeric state.
-3. **Auto-detect** from the own-state attributes: `battery_level`, else
-   `battery` (checked `is not None`, not truthiness — a real 0 % must not fall
-   through).
-4. The **device registry**.
-5. A **guessed** `sensor.{object_id}_battery`.
+1. **The entity itself**, if it's a battery entity (device class `battery`) and
+   currently reachable.
+2. **A battery sensor you mapped to it** (`battery_entity_map`). Mapping an
+   entity to an empty value means "this one has no battery" and skips it. A
+   mapped on/off sensor reads `on` as empty (0 %) and `off` as full (100 %);
+   any other mapped sensor uses its numeric reading.
+3. **Auto-detected** from the entity's own attributes — a `battery_level` or
+   `battery` attribute (a real 0 % counts; only a genuinely absent attribute is
+   skipped).
+4. **Home Assistant's device record** for the entity.
+5. **A guessed companion** named `sensor.<entity>_battery`.
 
-Text states parse via `_parse_battery_state`: `"low"` → 0, else `int`.
+A text reading of `"low"` counts as 0 %; any other text is read as a number.
 
 **Retain-last-known.** If a fresh read returns `None` (a Zigbee/MQTT/RTL-SDR
 battery often reports `unknown` for a poll while still online), the device keeps
