@@ -69,8 +69,19 @@ class _EventTrigger(Trigger):
         When it is unset we return an empty config so the ``options`` key stays
         out of the stored YAML (the base merges back only keys we return); when
         it is set we return the validated ``options`` block so it round-trips.
+
+        A named group is checked for existence here, at validation time: a
+        typo'd or removed ``config_entry_id`` is loud (``vol.Invalid`` surfaces
+        in the editor / on reload) instead of silently yielding a scoped trigger
+        that matches no event and never fires.
         """
         options = _OPTIONS_SCHEMA(config.get(CONF_OPTIONS) or {})
+        entry_id = options.get(CONF_CONFIG_ENTRY_ID)
+        if (
+            entry_id is not None
+            and hass.config_entries.async_get_entry(entry_id) is None
+        ):
+            raise vol.Invalid(f"Config entry '{entry_id}' not found")
         return {CONF_OPTIONS: options} if options else {}
 
     @override

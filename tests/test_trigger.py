@@ -6,13 +6,17 @@ hacs.json floor now mandates, so these run unconditionally in CI.
 
 from __future__ import annotations
 
+import pytest
+import voluptuous as vol
 from homeassistant.const import CONF_OPTIONS
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.helpers.trigger import TriggerConfig
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability import trigger as ea_trigger
 from custom_components.entity_availability.const import (
     CONF_CONFIG_ENTRY_ID,
+    DOMAIN,
     EVENT_OFFLINE,
 )
 
@@ -40,12 +44,28 @@ async def test_async_validate_config_drops_empty_options(hass: HomeAssistant) ->
     assert validated == {}
 
 
+def _group_entry(hass: HomeAssistant, entry_id: str = "grp-1") -> MockConfigEntry:
+    """Register a group config entry so validation finds it."""
+    entry = MockConfigEntry(domain=DOMAIN, data={}, title="Group", entry_id=entry_id)
+    entry.add_to_hass(hass)
+    return entry
+
+
 async def test_async_validate_config_round_trips_scope(hass: HomeAssistant) -> None:
-    """A configured config_entry_id survives validation inside options."""
+    """A configured, existing config_entry_id survives validation inside options."""
+    entry = _group_entry(hass)
     validated = await ea_trigger._OfflineTrigger.async_validate_config(
-        hass, {CONF_OPTIONS: {CONF_CONFIG_ENTRY_ID: "abc"}}
+        hass, {CONF_OPTIONS: {CONF_CONFIG_ENTRY_ID: entry.entry_id}}
     )
-    assert validated == {CONF_OPTIONS: {CONF_CONFIG_ENTRY_ID: "abc"}}
+    assert validated == {CONF_OPTIONS: {CONF_CONFIG_ENTRY_ID: entry.entry_id}}
+
+
+async def test_async_validate_config_rejects_unknown_entry(hass: HomeAssistant) -> None:
+    """A typo'd/removed config_entry_id is rejected loudly, not silently dead."""
+    with pytest.raises(vol.Invalid):
+        await ea_trigger._OfflineTrigger.async_validate_config(
+            hass, {CONF_OPTIONS: {CONF_CONFIG_ENTRY_ID: "does-not-exist"}}
+        )
 
 
 async def test_complete_config_migrates_top_level_scope(hass: HomeAssistant) -> None:
@@ -55,10 +75,15 @@ async def test_complete_config_migrates_top_level_scope(hass: HomeAssistant) -> 
     the top-level key and the automation fails to set up — the regression this
     guards against.
     """
+    entry = _group_entry(hass)
     validated = await ea_trigger._OfflineTrigger.async_validate_complete_config(
-        hass, {"platform": "entity_availability.offline", CONF_CONFIG_ENTRY_ID: "abc"}
+        hass,
+        {
+            "platform": "entity_availability.offline",
+            CONF_CONFIG_ENTRY_ID: entry.entry_id,
+        },
     )
-    assert validated[CONF_OPTIONS] == {CONF_CONFIG_ENTRY_ID: "abc"}
+    assert validated[CONF_OPTIONS] == {CONF_CONFIG_ENTRY_ID: entry.entry_id}
     assert CONF_CONFIG_ENTRY_ID not in validated  # moved, not duplicated
 
 

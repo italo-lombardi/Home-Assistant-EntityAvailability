@@ -17,7 +17,9 @@ thresholds: `const.py`.
 A group watches a set of entities and reports their health along four
 independent axes:
 
-- **offline** — the entity is `unavailable`/`unknown` (unreachable).
+- **offline** — the entity is in one of the group's configured *bad states*
+  (default `unavailable`/`unknown`, user-editable per group), or is missing
+  entirely.
 - **stale** — the entity is reachable but has stopped reporting new data.
 - **low_battery** — the entity's battery is below the configured threshold.
 - **poor_signal** — the entity's signal has dropped into the "poor" tier.
@@ -46,12 +48,12 @@ and may lag a poll.
 
 | Event | Fires when | Extra payload fields |
 |---|---|---|
-| **offline** | An entity is confirmed offline (after the group's cooldown, outside the 60 s startup grace). | `offline_since` (ISO, backdated to the cooldown start), `offline_count`, `offline_entities` |
+| **offline** | An entity enters one of the group's configured bad states (or goes missing) and is confirmed offline (after the group's cooldown, outside the 60 s startup grace). | `offline_since` (ISO, backdated to the cooldown start), `offline_count`, `offline_entities` |
 | **recovered** | A previously-offline entity returns online. | `downtime_seconds`, `offline_count`, `offline_entities` (the recovered entity already excluded) |
 | **stale** | A reachable entity's data goes stale (rising edge of `is_stale`). | `stale_since` (ISO), `stale_count`, `stale_entities` |
 | **stale_recovered** | A stale entity resumes reporting (falling edge). | `stale_since` (ISO), `stale_count`, `stale_entities` (recovered entity excluded) |
 | **low_battery** | An entity's battery drops below threshold (rising edge). | `battery_level`, `low_battery_count`, `low_battery_entities` |
-| **battery_ok** | A low-battery entity's level rises back above threshold (falling edge, guarded — see §5). | `battery_level`, `low_battery_count`, `low_battery_entities` (recovered excluded) |
+| **battery_ok** | A low-battery entity's level rises back above threshold (falling edge; a dead battery that drops to `None` does not fire this — only a fresh numeric reading clears low). | `battery_level`, `low_battery_count`, `low_battery_entities` (recovered excluded) |
 | **poor_signal** | An entity's signal drops into the "poor" tier (rising edge). | `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` |
 | **signal_ok** | An entity's signal recovers out of "poor" (falling edge). | `signal_level`, `signal_quality`, `poor_signal_count`, `poor_signal_entities` (recovered excluded) |
 
@@ -67,11 +69,19 @@ the rising-edge event and **already excluded** on the falling-edge event.
 
 ## 3. Offline lifecycle
 
-An entity going `unavailable`/`unknown` does not fire **offline** immediately.
-Two gates stand in front of the edge:
+An entity is **offline** when its state is in the group's configured **bad
+states** (`bad_states` option, default `["unavailable", "unknown"]`) — or when
+the entity is missing entirely (its state object is `None`). The default list
+is editable per group: the config flow exposes it as a multi-select with
+`custom_value=True`, so a group can add arbitrary states (e.g. `off`, `idle`,
+`standby`) on top of — or instead of — the two defaults. A missing entity
+always counts as bad regardless of the list.
+
+Entering a bad state does not fire **offline** immediately. Two gates stand in
+front of the edge:
 
 ```
-entity reads unavailable/unknown
+entity enters a configured bad state (or goes missing)
    │
    ├─ within 60 s startup grace ───────────────► no event (HA still settling)
    │
@@ -81,9 +91,11 @@ entity reads unavailable/unknown
                                                             to the cooldown start)
 ```
 
-- **Startup grace (60 s).** For the first 60 s after the integration loads, no
-  offline/stale/battery/signal events fire — HA is still restoring states and a
-  not-yet-seen entity would read unavailable spuriously.
+- **Startup grace (60 s).** For the first 60 s after the integration loads, the
+  **offline** transition is suppressed — HA is still restoring states and a
+  not-yet-seen entity would read a bad state spuriously. The grace gates
+  **only** the offline edge; stale, battery, and signal edges are *not*
+  grace-gated and can fire within the first 60 s.
 - **Cooldown.** A brief unavailable blip inside the group's cooldown window is
   debounced — the event fires only once the entity is *still* offline after the
   window. `offline_since` is then **backdated to the cooldown start**, so the
@@ -291,3 +303,11 @@ fires with the field null rather than being dropped. Guard before
 individual group fires its own. To react only to the combined view, scope on the
 combined entry's `entry_id` (the named-trigger **Group** picker, or a
 `config_entry_id` on the trigger) or on the combined group name.
+
+**Stale and signal triggers cannot be scoped to a combined group.** A combined
+group fires only `offline`, `recovered`, `low_battery`, and `battery_ok`. The
+`stale`, `stale_recovered`, `poor_signal`, and `signal_ok` events are emitted
+exclusively by the per-group coordinators and always carry an *individual*
+group's `entry_id`. A named trigger for one of those four events scoped to a
+*combined* entry's `config_entry_id` therefore never matches and never fires —
+scope stale/signal triggers to the underlying individual group instead.
