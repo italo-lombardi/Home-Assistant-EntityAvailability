@@ -1,0 +1,28 @@
+{
+    "triggers": {
+        "offline": {
+            "trigger": "mdi:lan-disconnect"
+        },
+        "recovered": {
+            "trigger": "mdi:lan-connect"
+        },
+        "low_battery": {
+            "trigger": "mdi:battery-alert"
+        },
+        "battery_ok": {
+            "trigger": "mdi:battery"
+        },
+        "stale": {
+            "trigger": "mdi:clock-alert"
+        },
+        "stale_recovered": {
+            "trigger": "mdi:clock-check"
+        },
+        "poor_signal": {
+            "trigger": "mdi:signal-off"
+        },
+        "signal_ok": {
+            "trigger": "mdi:signal"
+        }
+    }
+}

@@ -288,5 +288,87 @@
         "all_non_essential": "🟡 包含 - 覆盖：非必要"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "实体离线",
+      "description": "受监控的实体变为不可用或停止响应。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    },
+    "recovered": {
+      "name": "实体已恢复",
+      "description": "受监控的实体在离线后重新上线。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    },
+    "low_battery": {
+      "name": "电量变低",
+      "description": "受监控实体的电量降至低电量阈值或以下。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    },
+    "battery_ok": {
+      "name": "电量已恢复",
+      "description": "受监控实体的电量回升至低电量阈值以上。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    },
+    "stale": {
+      "name": "数据过期",
+      "description": "受监控的实体在预期间隔内停止更新。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    },
+    "stale_recovered": {
+      "name": "数据不再过期",
+      "description": "受监控的实体在数据过期后恢复更新。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    },
+    "poor_signal": {
+      "name": "信号变差",
+      "description": "受监控实体的信号质量降至较差水平。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    },
+    "signal_ok": {
+      "name": "信号已恢复",
+      "description": "受监控实体的信号质量回升至可接受水平。",
+      "fields": {
+        "config_entry_id": {
+          "name": "组",
+          "description": "将此触发器限定为单个实体可用性组。留空则对任意组触发。"
+        }
+      }
+    }
   }
 }

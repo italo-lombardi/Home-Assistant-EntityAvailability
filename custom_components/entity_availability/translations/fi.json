@@ -288,5 +288,87 @@
         "all_non_essential": "🟡 Sisällytetty - pakota: Ei-oleellinen"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Entiteetti siirtyi offline-tilaan",
+      "description": "Seurattava entiteetti muuttui tilaan ei saatavilla tai lakkasi vastaamasta.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    },
+    "recovered": {
+      "name": "Entiteetti palautui",
+      "description": "Seurattava entiteetti palasi verkkoon oltuaan offline-tilassa.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    },
+    "low_battery": {
+      "name": "Akku laski matalaksi",
+      "description": "Seurattavan entiteetin akku laski matalan akun kynnykseen tai sen alle.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    },
+    "battery_ok": {
+      "name": "Akku palautui",
+      "description": "Seurattavan entiteetin akku nousi takaisin matalan akun kynnyksen yläpuolelle.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    },
+    "stale": {
+      "name": "Entiteetti vanhentui",
+      "description": "Seurattava entiteetti lakkasi päivittymästä odotetun aikavälin sisällä.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    },
+    "stale_recovered": {
+      "name": "Entiteetti ei ole enää vanhentunut",
+      "description": "Seurattava entiteetti alkoi jälleen päivittyä oltuaan vanhentunut.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    },
+    "poor_signal": {
+      "name": "Signaali heikkeni",
+      "description": "Seurattavan entiteetin signaalin laatu laski heikolle tasolle.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    },
+    "signal_ok": {
+      "name": "Signaali palautui",
+      "description": "Seurattavan entiteetin signaalin laatu palasi hyväksyttävälle tasolle.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Ryhmä",
+          "description": "Rajaa tämä liipaisin yhteen Entity Availability -ryhmään. Jätä tyhjäksi, jotta se laukeaa mille tahansa ryhmälle."
+        }
+      }
+    }
   }
 }

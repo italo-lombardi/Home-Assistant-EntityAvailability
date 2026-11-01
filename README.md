@@ -3,7 +3,7 @@
 <a href="https://github.com/italo-lombardi/Home-Assistant-EntityAvailability/releases"><img src="https://img.shields.io/github/v/release/italo-lombardi/Home-Assistant-EntityAvailability" alt="GitHub Release"></a>
 <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Custom"></a>
 <a href="https://github.com/italo-lombardi/Home-Assistant-EntityAvailability"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fanalytics.home-assistant.io%2Fcustom_integrations.json&query=%24.entity_availability.total&label=installs&color=41BDF5" alt="HACS Installs"></a>
-<a href="https://www.home-assistant.io/"><img src="https://img.shields.io/badge/Home%20Assistant-2024.1%2B-blue.svg" alt="Home Assistant"></a>
+<a href="https://www.home-assistant.io/"><img src="https://img.shields.io/badge/Home%20Assistant-2025.11%2B-blue.svg" alt="Home Assistant"></a>
 <a href="https://github.com/italo-lombardi/Home-Assistant-EntityAvailability/blob/main/LICENSE"><img src="https://img.shields.io/github/license/italo-lombardi/Home-Assistant-EntityAvailability?logo=gnu&logoColor=white" alt="License"></a>
 <img src="https://img.shields.io/badge/coverage-100%25-brightgreen" alt="Test Coverage">
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/italolombardi)
@@ -24,7 +24,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Cooldown timer** -- ignore brief blips before marking an entity offline
 - **Availability % sensors** -- track uptime over today, 3-day, 5-day, and 7-day windows
 - **Reliability sensors (MTBF + MTTR)** -- flag devices that keep flaking out: separate diagnostic sensors for how *often* each device breaks (MTBF) and how *long* each outage lasts (MTTR), so a genuinely flaky device is distinguishable from one that had a single long outage at the same uptime %
-- **Bus events** -- fires `entity_availability_offline` / `entity_availability_recovered` / `entity_availability_low_battery` / `entity_availability_battery_ok` / `entity_availability_stale` / `entity_availability_stale_recovered` on the HA event bus for use as native automation triggers
+- **Bus events + named triggers** -- fires `offline` / `recovered` / `low_battery` / `battery_ok` / `stale` / `stale_recovered` / `poor_signal` / `signal_ok` events on the HA event bus, each also exposed as a UI-discoverable named automation trigger (optionally scoped to a single group)
 - **Battery monitoring** -- auto-detect or manually map battery entities; supports numeric (%) and text states (`low`)
 - **Degraded entity detection** -- flag entities with low battery or stale data
 - **Recently offline / recovered sensors** -- track which entities went offline or recovered within a configurable time window
@@ -589,6 +589,39 @@ automation:
             {{ trigger.event.data.entity_id }} in
             {{ trigger.event.data.group }} went offline.
 ```
+
+---
+
+## Automation Triggers
+
+Every bus event is also exposed as a **named trigger** in the automation editor's *Triggers* tab (HA 2025.11+), so you can wire them from the UI without hand-typing the raw event string. The eight triggers map one-to-one to the events above:
+
+| Trigger | Event |
+|---------|-------|
+| Entity went offline | `entity_availability_offline` |
+| Entity recovered | `entity_availability_recovered` |
+| Battery became low | `entity_availability_low_battery` |
+| Battery recovered | `entity_availability_battery_ok` |
+| Entity became stale | `entity_availability_stale` |
+| Entity no longer stale | `entity_availability_stale_recovered` |
+| Signal became poor | `entity_availability_poor_signal` |
+| Signal recovered | `entity_availability_signal_ok` |
+
+Each trigger has one optional **Group** field — an Entity Availability config-entry picker (classic *and* combined groups). Leave it blank and the trigger fires for every group; pick a group and it fires only for that one config entry. `trigger.event.data` carries the same payload as the matching bus event, so existing templates work unchanged.
+
+```yaml
+automation:
+  - alias: Alert when the Security group goes offline
+    triggers:
+      - trigger: entity_availability.offline
+        config_entry_id: 1a2b3c…   # picked in the UI; blank = any group
+    actions:
+      - action: notify.mobile_app
+        data:
+          message: "{{ trigger.event.data.entity_id }} went offline."
+```
+
+The raw `platform: event` triggers keep working — the named triggers are purely additive.
 
 ---
 

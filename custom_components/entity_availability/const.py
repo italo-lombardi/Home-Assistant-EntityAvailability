@@ -8,6 +8,7 @@ SignalQuality = Literal["good", "ok", "poor"]
 
 # Config flow
 CONF_GROUP_NAME = "group_name"
+CONF_CONFIG_ENTRY_ID = "config_entry_id"
 CONF_ENTITIES = "entities"
 CONF_BAD_STATES = "bad_states"
 CONF_COOLDOWN = "cooldown"

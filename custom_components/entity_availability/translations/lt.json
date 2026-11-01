@@ -288,5 +288,87 @@
         "all_non_essential": "🟡 Įtraukta - perrašyti: Neesminė"
       }
     }
+  },
+  "triggers": {
+    "offline": {
+      "name": "Objektas atsijungė",
+      "description": "Stebimas objektas tapo nepasiekiamas arba nustojo atsakyti.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    },
+    "recovered": {
+      "name": "Objektas atsikūrė",
+      "description": "Stebimas objektas vėl prisijungė po atsijungimo.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    },
+    "low_battery": {
+      "name": "Baterija nukrito žemai",
+      "description": "Stebimo objekto baterija nukrito iki žemo baterijos lygio ribos arba žemiau jos.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    },
+    "battery_ok": {
+      "name": "Baterija atsistatė",
+      "description": "Stebimo objekto baterija vėl pakilo virš žemo baterijos lygio ribos.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    },
+    "stale": {
+      "name": "Objektas pasenо",
+      "description": "Stebimas objektas nustojo atsinaujinti per numatytą intervalą.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    },
+    "stale_recovered": {
+      "name": "Objektas nebepasenęs",
+      "description": "Stebimas objektas vėl pradėjo atsinaujinti po pasenimo.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    },
+    "poor_signal": {
+      "name": "Signalas tapo prastas",
+      "description": "Stebimo objekto signalo kokybė nukrito iki prasto lygio.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    },
+    "signal_ok": {
+      "name": "Signalas atsistatė",
+      "description": "Stebimo objekto signalo kokybė grįžo į priimtiną lygį.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Grupė",
+          "description": "Apriboti šį trigerį viena „Entity Availability“ grupe. Palikite tuščią, kad suveiktų bet kuriai grupei."
+        }
+      }
+    }
   }
 }
