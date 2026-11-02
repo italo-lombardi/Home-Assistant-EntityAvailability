@@ -328,53 +328,104 @@ repeater still reports fine. It's surfaced on its own axis (`poor_signal` /
 
 ---
 
-## 8. Combined groups
+## 8. Device names & collapse
+
+Two per-group display settings change how a group's entities are grouped into
+**rows** — the unit a sensor counts and lists.
+
+- **Use device names** (off by default). Off: each row is labelled by the
+  entity's own name. On: rows are labelled by the entity's **device** name
+  (from HA's device registry). Pure labelling — it does not merge anything on
+  its own.
+- **Collapse devices** (off by default; requires *use device names* on — it is
+  a no-op without it). On: entities that belong to the **same device** fold into
+  **one row**. A door sensor and its battery sensor on one physical device show
+  as a single row, counted once, instead of two.
+
+**What "same device" means.** Collapse buckets entities by device, then merges
+within a bucket by **source compatibility**: two entities share a row when their
+(battery sensor, signal sensor) pairs do not conflict — equal on an axis, or one
+side unset (unset = "don't care", merges). Two **distinct** concrete sensors on
+the same axis (e.g. two different battery sensors on one device) stay separate
+rows. A live reading drifting (−70 → −71 dBm) never reshuffles rows — only the
+mapped *sensor*, not its value, decides identity.
+
+**Counts follow rows.** Each axis count (offline, stale, low_battery,
+poor_signal) counts rows, so with collapse on, one physical device with a low
+battery is **one** low_battery — not one per entity on it.
+
+---
+
+## 9. Combined groups
 
 A **combined group** aggregates several individual groups into one entry. It
-fires **only four of the eight events** — **offline, recovered, low_battery,
-battery_ok**. Stale and signal transitions are surfaced **only** by the
-per-group coordinators, never by a combined group.
+fires **all eight events** — the same set an individual group fires (offline,
+recovered, low_battery, battery_ok, stale, stale_recovered, poor_signal,
+signal_ok). An automation written for an individual group works **identically**
+on a combined group; only the `entry_id` it matches on differs.
 
-- Fired once **per combined entry** (not per sensor) by the
-  `CombinedGroupSummarySensor` (`{entry_id}_combined_summary`) in its update
-  callback.
-- The payload `entry_id` is the **combined entry's own** entry_id, and `group`
-  is the combined entry's name.
-- **Diff-based**, not edge-per-entity: each tick the sensor diffs the current
-  offline / low-battery sets against the previous tick — `current − prev` fires
-  `offline`, `prev − current` fires `recovered`, and the battery sets likewise.
-  Each set is **device-collapsed, non-suppressed, essential only** — the same
-  filter the counts use (a suppressed or non-essential entity never enters the
-  diff, so it fires nothing).
+- **Relayed, not re-derived.** The combined group does not re-compute edges. It
+  listens on the bus for the eight events, and whenever a **member** individual
+  group fires one, it re-fires that same event under the **combined entry's own**
+  `entry_id` (and `group` name). The relay runs in the
+  `CombinedGroupSummarySensor` (`{entry_id}_combined_summary`), off the sensor's
+  state path — it fires **iff** a member already fired, adding no event volume.
+- **Per-entity fields pass straight through.** `offline_since`,
+  `downtime_seconds`, `battery_level`, `stale_since`, `signal_level`,
+  `signal_quality` — whatever the member coordinator stamped on the child event
+  is copied verbatim onto the relayed event. No rollup, no loss.
+- **Fleet-aggregate fields are restamped for the whole combined fleet.** The
+  firing category's `{cat}_count` / `{cat}_entities` are recomputed across **all**
+  member groups at fire time — **device-collapsed, non-suppressed, essential
+  only** (the same filter the combined counts use). So `offline_count` on a
+  relayed offline event is the combined fleet's offline count, not the member
+  group's.
 - The payload `entity_id` is the **collapse representative's bare entity_id**
   string (never the internal `row_key`). Collapse applies when the owning group
   has both *use device names* and *collapse devices* on.
 
 **Extra payload key.** Combined payloads carry **`source_groups`** — the sorted
 list of owning individual-group names for that entity — which the per-group
-events do **not** have. Keys verbatim:
+events do **not** have. Beyond `entity_id` / `group` / `entry_id` /
+`source_groups`, each relayed event carries exactly the per-entity and
+`{cat}_count` / `{cat}_entities` fields its individual-group counterpart carries
+(see the §2 table).
 
-- **offline**: `entity_id`, `group`, `entry_id`, `offline_since` (ISO or `null`),
-  `offline_count`, `offline_entities`, `source_groups`.
-- **recovered**: …, `downtime_seconds` (or `null`), `offline_count`,
-  `offline_entities`, `source_groups`.
-- **low_battery** / **battery_ok**: …, `battery_level` (or `null`),
-  `low_battery_count`, `low_battery_entities`, `source_groups`.
-
-`offline_since` / `downtime_seconds` / `battery_level` may be `null` if the
-coordinator has not yet recorded the underlying value — a combined event still
-fires with the field null rather than being dropped. Guard before
-`as_datetime()`.
+`offline_since` / `downtime_seconds` / `battery_level` / `stale_since` /
+`signal_level` may be `null` if the member coordinator did not record the
+underlying value — a combined event still fires with the field null rather than
+being dropped. Guard before `as_datetime()`.
 
 **Double-fire.** A combined group fires its own events *and* each constituent
 individual group fires its own. To react only to the combined view, scope on the
 combined entry's `entry_id` (the named-trigger **Group** picker, or a
 `config_entry_id` on the trigger) or on the combined group name.
 
-**Stale and signal triggers cannot be scoped to a combined group.** A combined
-group fires only `offline`, `recovered`, `low_battery`, and `battery_ok`. The
-`stale`, `stale_recovered`, `poor_signal`, and `signal_ok` events are emitted
-exclusively by the per-group coordinators and always carry an *individual*
-group's `entry_id`. A named trigger for one of those four events scoped to a
-*combined* entry's `config_entry_id` therefore never matches and never fires —
-scope stale/signal triggers to the underlying individual group instead.
+**Collapse across member groups.** A combined group has no collapse setting of
+its own — it inherits each member group's. A device folds to **one combined
+row** only when **every** member group that monitors it has collapse on *and* their battery/signal mappings for it are compatible. If any owning member
+group has collapse off, that group's view of the device stays its **own row**,
+and the device is counted once per surviving row.
+
+So the same physical device monitored by two member groups appears as:
+
+- **both groups collapse on, compatible mappings** → one row, counted once;
+- **both on but mappings conflict** (e.g. two different battery sensors) → one
+  row per distinct mapping;
+- **either group collapse off** → that group keeps a separate row — a device in
+  an Alpha (collapse on) and a Beta (collapse off) is two rows, so e.g. one low
+  battery on it counts **2** in the combined summary.
+
+The combined count mirrors each member group's own collapse choice rather than
+imposing one — a member group that opted out of collapse shows the same
+un-collapsed rows inside combined that it shows on its own summary.
+
+**Compatible mappings.** Two member groups' mappings for one device are
+*compatible* when, on each axis (battery sensor, signal sensor) independently,
+they name the **same** sensor **or** at least one leaves that axis **unset**.
+An unset axis is a wildcard — it merges with anything, so a group that maps only
+the battery and a group that maps battery + signal still fold to one row (the
+merged row takes the concrete sensor from whichever group set it). They conflict
+only when both name a **different concrete** sensor on the same axis — e.g. two
+distinct battery sensors on the device — which keeps them as separate rows so
+neither reading is hidden.

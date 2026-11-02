@@ -119,6 +119,12 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC133 a config_entry_id from another integration is rejected the same way (domain check;
         skipped when no non-EA config entry is present)
 
+  Combined all-8-events relay (EC136-EC137 — companion to EC24 offline):
+  EC136 combined group relays the per-group STALE event under its own entry_id (source_groups +
+        stale_count); proves a second event family past offline flows through the generic relay
+  EC137 combined group relays the per-group POOR_SIGNAL event under its own entry_id (source_groups
+        + poor_signal_count); third family — rides the EC51 signal mapping, skips if none stored
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -236,8 +242,10 @@ def gs_safe(eid):
         raise
 
 
-def ss(eid, state, attrs):
-    return api("POST", f"/api/states/{eid}", {"state": state, "attributes": attrs})
+def ss(eid, state, attrs=None):
+    return api(
+        "POST", f"/api/states/{eid}", {"state": state, "attributes": attrs or {}}
+    )
 
 
 def wait(seconds=45):
@@ -613,7 +621,7 @@ def setup_battery(ctx):
             "signal_enabled": ctx.get("signal_enabled", False),
         },
     )
-    if r2.get("step_id") == "battery_mapping":
+    if r2.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
         r3 = api(
             "POST",
             f"/api/config/config_entries/options/flow/{fid}",
@@ -685,6 +693,41 @@ def reload_entry(ctx):
     # Coordinator needs a full tick to re-init after the reload (same settle the
     # options-flow reload uses elsewhere, L1658).
     wait(15)
+
+
+def _combined_owner(member_entry_id: str) -> tuple[str, bool]:
+    """Return (combined_entry_id, owns) for a combined group that includes member_entry_id.
+
+    Reads combined_groups member lists from config storage (the REST entry
+    endpoint omits entry.data). owns is False when no combined group contains
+    the member — the combined relay would then never fire for that member, so
+    the caller skips rather than false-failing.
+    """
+    import subprocess
+
+    try:
+        raw = subprocess.check_output(
+            [
+                "python3",
+                "-c",
+                """
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+out = []
+for e in cfg['data']['entries']:
+    if e['domain'] == 'entity_availability':
+        out.append((e['entry_id'], e['data'].get('combined_groups', [])))
+print(json.dumps(out))
+""",
+            ],
+            text=True,
+        )
+        for cid, members in json.loads(raw.strip() or "[]"):
+            if member_entry_id in members:
+                return cid, True
+    except Exception:
+        pass
+    return "", False
 
 
 def _discover_ne_group(filter_str: str) -> dict | None:
@@ -1012,6 +1055,58 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                 # EC25+ proceed (cycling off→on may briefly trigger offline).
                 ne_restore()
                 wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0")
+
+    # EC136: combined group relays the per-group STALE event under its own
+    # entry_id — proves the all-8-events relay (not just offline/battery) works
+    # end-to-end through a combined group. Mirrors EC24's offline check on stale.
+    if ec_enabled(136):
+        print(
+            "\n=== EC136: combined group relays stale event with source_groups ===",
+            flush=True,
+        )
+        threshold = ne_ctx["staleness_threshold"]
+        combined_entry_id, combined_owns = _combined_owner(ne_ctx["entry_id"])
+        if threshold == 0:
+            print("  EC136: skipped (staleness_threshold=0 for this group)", flush=True)
+        elif not _WS_AVAILABLE:
+            print("  EC136: skipped (websocket-client not installed)", flush=True)
+        elif not (combined_entry_id and combined_owns):
+            print("  EC136: skipped (no combined group owns this group)", flush=True)
+        elif not essential_entities:
+            print("  EC136: skipped (no essential entities)", flush=True)
+        else:
+            # capture_events runs trigger_fn then collects; _wait_stale blocks until
+            # the entity is stale, so the combined stale event fires during capture.
+            stale_events = capture_events(
+                "entity_availability_stale",
+                lambda: _wait_stale("EC136"),
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
+            )
+            combined_stale = [
+                e for e in stale_events if e.get("entry_id") == combined_entry_id
+            ]
+            chk(
+                "EC136 combined stale event captured",
+                len(combined_stale) > 0,
+                True,
+                f"combined_entry_id={combined_entry_id} total_events={len(stale_events)}",
+            )
+            if combined_stale:
+                ev = combined_stale[0]
+                chk(
+                    "EC136 combined stale source_groups is non-empty list",
+                    isinstance(ev.get("source_groups"), list)
+                    and len(ev.get("source_groups", [])) > 0,
+                    True,
+                    f"source_groups={ev.get('source_groups')}",
+                )
+                chk(
+                    "EC136 combined stale stale_count is int",
+                    isinstance(ev.get("stale_count"), int),
+                    True,
+                    f"stale_count={ev.get('stale_count')}",
+                )
+            restore_and_wait(ne_ctx)
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
@@ -1684,7 +1779,11 @@ def run_all():
     # ECs with a DEDICATED later pass — excluded from pass 1 so we don't run
     # them on Alpha just to self-skip (perf), and so EC36 (needs a non-essential
     # tier Alpha lacks) doesn't hard-fail here rather than in its both-tiers pass.
-    ne_ecs = set(range(25, 43)) | {115, 116}  # EC25-42 + NE all_offline → pass 2
+    ne_ecs = set(range(25, 43)) | {
+        115,
+        116,
+        136,
+    }  # EC25-42 + NE all_offline + EC136 stale relay → pass 2
     collapse_ecs = {86, 87, 88, 89, 117}  # → pass 3
     # 1) The broad slice an essential-mapped-battery + signal + combined group
     #    satisfies: core, battery-count family, signal, combined, collapse-attr,
@@ -1883,16 +1982,18 @@ def run_checks(ctx):
             "0",
         )
         if combined_prefix:
+            # kitchen_1 splits into 2 rows (Alpha vs Beta divergent signal_map,
+            # both collapse OFF) → each low battery counts per surviving row → 2.
             low_battery_val = wait_for(
                 lambda: (
                     gs(f"{combined_prefix}_combined_summary")
                     .get("attributes", {})
                     .get("low_battery")
                 ),
-                1,
+                2,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-            chk("EC4 combined low_battery=1", low_battery_val, 1)
+            chk("EC4 combined low_battery=2 (split rows)", low_battery_val, 2)
             chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
 
         # ------------------------------------------------------------------
@@ -1945,6 +2046,18 @@ def run_checks(ctx):
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")
+            # Both split rows must settle offline before reading low_battery:
+            # the two member coords debounce independently, so offline==1 can
+            # fire while one stale row still reports low_battery. Gate on it.
+            wait_for(
+                lambda: str(
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("low_battery")
+                ),
+                "0",
+            )
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC5 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
 
         # ------------------------------------------------------------------
@@ -2026,14 +2139,14 @@ def run_checks(ctx):
                 },
             )
             chk(
-                "EC7 combined low_battery=base+1",
+                "EC7 combined low_battery=base+2 (split rows)",
                 wait_for(
                     lambda: int(
                         gs(f"{combined_prefix}_low_battery_count").get("state", "0")
                     ),
-                    b_clb + 1,
+                    b_clb + 2,
                 ),
-                b_clb + 1,
+                b_clb + 2,
                 f"(base={b_clb})",
             )
             chk(
@@ -2061,14 +2174,14 @@ def run_checks(ctx):
                 f"(base={b_clb})",
             )
             chk(
-                "EC8 combined offline=base+1",
+                "EC8 combined offline=base+2 (split rows)",
                 wait_for(
                     lambda: int(
                         gs(f"{combined_prefix}_offline_count").get("state", "0")
                     ),
-                    b_coff + 1,
+                    b_coff + 2,
                 ),
-                b_coff + 1,
+                b_coff + 2,
                 f"(base={b_coff})",
             )
         else:
@@ -2985,7 +3098,7 @@ def run_checks(ctx):
     # EC25-EC35: Non-Essential entity tier
     # Requires EA_SMOKE_NE_GROUP to point at a group with NE entities configured.
     # ------------------------------------------------------------------
-    ne_ecs = set(range(25, 43)) | {115, 116}
+    ne_ecs = set(range(25, 43)) | {115, 116, 136}
     run_ne = bool(NE_GROUP_FILTER) and (not EC_FILTER or ne_ecs & EC_FILTER)
 
     if run_ne:
@@ -3156,8 +3269,10 @@ def run_checks(ctx):
                 "signal_enabled": True,
             },
         )
-        # Navigate past battery_mapping if present — preserve existing mappings
-        if r2.get("step_id") == "battery_mapping":
+        # Navigate past battery_mapping if present — preserve existing mappings.
+        # Both the "battery_mapping" (new entities) and "battery_mapping_no_new"
+        # (all already mapped) variants take the same battery_entity_map submit.
+        if r2.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
             bmap_input = {}
             if ctx.get("mapped_battery_entity") and ctx.get("mapped_battery_sensor"):
                 bmap_input[ctx["mapped_battery_entity"]] = ctx["mapped_battery_sensor"]
@@ -3280,7 +3395,7 @@ for e in cfg['data']['entries']:
                     "signal_enabled": True,
                 },
             )
-            if r2.get("step_id") == "battery_mapping":
+            if r2.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
                 r2 = api("POST", f"/api/config/config_entries/options/flow/{fid}", {})
             if r2.get("step_id") == "signal_mapping":
                 schema = r2.get("data_schema", [])
@@ -3361,6 +3476,114 @@ for e in cfg['data']['entries']:
             )
         except Exception as e:
             chk("EC53 diagnostics endpoint reachable", False, True, str(e))
+
+    # EC137: combined group relays the per-group POOR_SIGNAL event under its own
+    # entry_id — the third event family (after EC24 offline, EC136 stale) proven
+    # end-to-end through the generic relay. Rides the signal mapping EC51 stored:
+    # reads it fresh, drives the mapped sensor below its "ok" tier, captures the
+    # combined poor_signal event filtered to the combined entry_id.
+    if ec_enabled(137):
+        print(
+            "\n=== EC137: combined group relays poor_signal event with source_groups ===",
+            flush=True,
+        )
+        # "ok" threshold per network type (const.SIGNAL_NETWORK_TYPES). A reading
+        # one unit below "ok" is always "poor", both dBm and LQI/% scales.
+        _OK = {
+            "5g": -100,
+            "bluetooth": -85,
+            "generic": -80,
+            "lorawan": -115,
+            "lte": -90,
+            "percentage": 40,
+            "thread": -85,
+            "wifi": -80,
+            "zigbee_lqi": 51,
+            "zigbee_rssi": -85,
+            "zwave": -85,
+        }
+        combined_entry_id, combined_owns = _combined_owner(ctx["entry_id"])
+        # Read the stored signal map fresh (EC51 writes it on create_entry).
+        smap = {}
+        try:
+            import subprocess as _sp
+
+            raw = _sp.check_output(
+                [
+                    "python3",
+                    "-c",
+                    f"""
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+for e in cfg['data']['entries']:
+    if e['entry_id'] == {ctx["entry_id"]!r}:
+        print(json.dumps(e['data'].get('signal_entity_map', {{}})))
+""",
+                ],
+                text=True,
+            )
+            smap = json.loads(raw.strip() or "{}")
+        except Exception:
+            smap = {}
+        # Pick the first mapped sensor with a known network type.
+        mapped = next(
+            (
+                (ent, m.get("sensor"), m.get("network_type"))
+                for ent, m in smap.items()
+                if m.get("sensor") and m.get("network_type") in _OK
+            ),
+            None,
+        )
+        if not _WS_AVAILABLE:
+            print("  EC137: skipped (websocket-client not installed)", flush=True)
+        elif not (combined_entry_id and combined_owns):
+            print("  EC137: skipped (no combined group owns this group)", flush=True)
+        elif not mapped:
+            print(
+                "  EC137: skipped (no signal mapping stored — EC51 did not run)",
+                flush=True,
+            )
+        else:
+            _ent, _sensor, _net = mapped
+            poor_val = _OK[_net] - 1  # one unit below "ok" → always "poor"
+            # Force a firmly-"good" baseline first so the poor set is a real
+            # transition (edge-triggered event). Without this, a prior aborted
+            # run can leave the sensor already poor → no transition → no event.
+            # higher numeric = greener on every scale here (good >= ok), so
+            # ok + 100 is always "good".
+            ss(_sensor, str(_OK[_net] + 100))
+            wait(WAIT_FOR_TIMEOUT)
+            signal_events = capture_events(
+                "entity_availability_poor_signal",
+                lambda: ss(_sensor, str(poor_val)),
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
+            )
+            combined_signal = [
+                e for e in signal_events if e.get("entry_id") == combined_entry_id
+            ]
+            chk(
+                "EC137 combined poor_signal event captured",
+                len(combined_signal) > 0,
+                True,
+                f"combined_entry_id={combined_entry_id} sensor={_sensor} "
+                f"net={_net} poor_val={poor_val} total_events={len(signal_events)}",
+            )
+            if combined_signal:
+                ev = combined_signal[0]
+                chk(
+                    "EC137 combined poor_signal source_groups is non-empty list",
+                    isinstance(ev.get("source_groups"), list)
+                    and len(ev.get("source_groups", [])) > 0,
+                    True,
+                    f"source_groups={ev.get('source_groups')}",
+                )
+                chk(
+                    "EC137 combined poor_signal poor_signal_count is int",
+                    isinstance(ev.get("poor_signal_count"), int),
+                    True,
+                    f"poor_signal_count={ev.get('poor_signal_count')}",
+                )
+            restore_and_wait(ctx)
 
     # EC54: group_summary new explicit attrs (essential count, stale/poor_signal counts)
     if ec_enabled(54):

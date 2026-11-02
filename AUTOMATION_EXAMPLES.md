@@ -74,7 +74,7 @@ The integration fires eight events on the Home Assistant event bus at each trans
 {{ as_local(as_datetime(trigger.event.data.offline_since | default(none))) if trigger.event.data.offline_since else "unknown" }}
 ```
 
-**Combined groups fire 4 events** (`offline`, `recovered`, `low_battery`, `battery_ok`) **with the same payload shape plus `source_groups`** — one event per affected entity. Stale and signal events are only fired by individual groups.
+**Combined groups fire all 8 events** — the same set an individual group fires — **with the same payload shape plus `source_groups`**, one event per affected entity. A combined group relays each member group's events under its own `entry_id`, so an automation written for an individual group works identically on a combined one; only the `entry_id` differs. The fleet-aggregate fields (`{cat}_count`, `{cat}_entities`) are recomputed across the whole combined fleet; per-entity fields pass through unchanged.
 
 ---
 
@@ -572,7 +572,7 @@ automation:
 
 ## Combined groups
 
-**Combined groups fire 4 events** (`offline`, `recovered`, `low_battery`, `battery_ok`) **with the same payload shape plus `source_groups`** — one event per affected entity. Stale and signal events are only fired by individual groups. An automation written for an individual group works unchanged on a combined group for these four event types; just change the `group` name in the trigger filter.
+**Combined groups fire all 8 events** — the same set an individual group fires — **with the same payload shape plus `source_groups`**, one event per affected entity. A combined group relays each member group's events under its own `entry_id`, so an automation written for an individual group works identically on a combined one; only the `entry_id` differs. The fleet-aggregate fields (`{cat}_count`, `{cat}_entities`) are recomputed across the whole combined fleet; per-entity fields pass through unchanged.
 
 **Avoiding double-fires:** combined groups fire their own event *and* each constituent home group fires its own. To respond only to the combined group, filter on `entry_id` (Settings → Integrations → entry ID in URL) or on the combined group name.
 

@@ -566,7 +566,7 @@ The integration fires events on the Home Assistant event bus when a monitored en
 
 `offline_count` and `offline_entities` reflect the group's offline state at the moment of the event. For `entity_availability_offline` the newly-offline entity is included; for `entity_availability_recovered` it is already excluded. The same snapshot rule applies to all paired events (`low_battery`/`battery_ok`, `stale`/`stale_recovered`, `poor_signal`/`signal_ok`). `offline_since` is always set for individual group events; for combined groups it may be `null` — guard with `if trigger.event.data.offline_since` before using `as_datetime()`.
 
-**Combined groups** fire `offline`, `recovered`, `low_battery`, and `battery_ok` events with the same payload plus `source_groups`. Stale and signal events are only fired by individual groups.
+**Combined groups** fire all eight events — the same set an individual group fires — with the same payload plus `source_groups`. A combined group relays each member group's events under its own `entry_id`, so an automation written for an individual group works identically on a combined one.
 
 **`source_groups` (combined groups only):** a list of the home group names that own the entity. For most entities this is a one-element list (e.g. `["Switches"]`); entities shared across multiple home groups list all names. Use it to include the originating group in notifications:
 

@@ -7,7 +7,7 @@ import logging
 import re
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
@@ -31,7 +31,11 @@ from .const import (
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
     EVENT_OFFLINE,
+    EVENT_POOR_SIGNAL,
     EVENT_RECOVERED,
+    EVENT_SIGNAL_OK,
+    EVENT_STALE,
+    EVENT_STALE_RECOVERED,
     NE_OVERRIDE_ALL_ESSENTIAL,
     NE_OVERRIDE_ALL_NON_ESSENTIAL,
     NE_OVERRIDE_KEEP,
@@ -50,6 +54,22 @@ from .write_dedup import WriteDedupMixin
 _LOGGER = logging.getLogger(__name__)
 
 MAX_STATE_LENGTH = 255
+
+# Bus event → count-category for the combined relay. All eight per-group events
+# are relayed; the falling-edge events reuse their rising-edge category's set
+# (the flipped entity is already excluded by set membership on the fresh
+# snapshot). The category drives which fleet {cat}_count / {cat}_entities fields
+# the relay restamps.
+_RELAY_EVENT_CATS = {
+    EVENT_OFFLINE: "offline",
+    EVENT_RECOVERED: "offline",
+    EVENT_LOW_BATTERY: "low_battery",
+    EVENT_BATTERY_OK: "low_battery",
+    EVENT_STALE: "stale",
+    EVENT_STALE_RECOVERED: "stale",
+    EVENT_POOR_SIGNAL: "poor_signal",
+    EVENT_SIGNAL_OK: "poor_signal",
+}
 
 
 def _apply_ne_override(d: DeviceState, mode: str) -> DeviceState:
@@ -533,175 +553,160 @@ class CombinedGroupSensor(CombinedSensorBase):
             f"sensor.entity_availability_combined_{self._group_slug}_combined_summary"
         )
         self._attr_translation_key = "combined_summary"
-        self._prev_offline_set: frozenset[str] = frozenset()
-        self._prev_low_battery_set: frozenset[str] = frozenset()
-        self._prev_source_group_map: dict[str, list[str]] = {}
+        self._unsub_bus: list[Callable[[], None]] = []
 
     def _make_update_callback(self) -> Callable[[], None]:
-        """Return event-aware coordinator update callback."""
+        """Return the coordinator update callback — state write only.
+
+        Combined events are NOT fired from here. They are relayed from the
+        per-group coordinators' bus events in ``_relay_event`` (registered in
+        ``async_added_to_hass``), so the fire path never touches sensor state.
+        """
 
         @callback
         def _on_update() -> None:
-            coords = self._active_coordinators()
-            # Late-joining coordinators are auto-subscribed by _active_coordinators;
-            # if one joins between priming and this first tick its entities appear in
-            # current but not prev, which may fire a spurious OFFLINE event.
-            current = self._current_offline_set(coords)
-            prev = self._prev_offline_set
-            self._prev_offline_set = current
-
-            current_lb = self._current_low_battery_set(coords)
-            prev_lb = self._prev_low_battery_set
-            self._prev_low_battery_set = current_lb
-
-            if current != prev or current_lb != prev_lb:
-                device_map = self._build_device_map(coords)
-                # Build source_group_map: eid → sorted list of group names.
-                # Sorted for deterministic order regardless of coordinator subscription order.
-                current_source_group_map: dict[str, list[str]] = {}
-                for coord in coords:
-                    for eid in coord.device_states:
-                        current_source_group_map.setdefault(eid, []).append(
-                            coord.group_name
-                        )
-                for eid, groups in current_source_group_map.items():
-                    current_source_group_map[eid] = sorted(groups)
-                # Merge prev → current so RECOVERED/BATTERY_OK events for entities
-                # whose coordinator was removed between ticks still carry group names.
-                # Prune to entities in any active or transitioning set to prevent
-                # unbounded growth — entities gone from all sets on this tick are dropped.
-                still_relevant = current | prev | current_lb | prev_lb
-                source_group_map = {
-                    **{
-                        k: v
-                        for k, v in self._prev_source_group_map.items()
-                        if k in still_relevant
-                    },
-                    **current_source_group_map,
-                }
-                self._prev_source_group_map = {
-                    k: v
-                    for k, v in source_group_map.items()
-                    if k in (current | current_lb | prev | prev_lb)
-                }
-                group_name = self._entry.data.get(CONF_GROUP_NAME, "")
-                entry_id = self._entry.entry_id
-
-                if current != prev:
-                    offline_list = sorted(current)
-                    offline_count = len(current)
-                    for eid in sorted(current - prev):
-                        d = device_map.get(eid)
-                        self.hass.bus.async_fire(
-                            EVENT_OFFLINE,
-                            {
-                                "entity_id": eid,
-                                "group": group_name,
-                                "entry_id": entry_id,
-                                "offline_since": d.offline_since.isoformat()
-                                if d and d.offline_since
-                                else None,
-                                "offline_count": offline_count,
-                                "offline_entities": offline_list,
-                                "source_groups": source_group_map.get(eid, []),
-                            },
-                        )
-                    for eid in sorted(prev - current):
-                        # d may be None if the coordinator that owned this entity was
-                        # removed between ticks; fire the event with null downtime rather
-                        # than silently dropping it.
-                        d = device_map.get(eid)
-                        self.hass.bus.async_fire(
-                            EVENT_RECOVERED,
-                            {
-                                "entity_id": eid,
-                                "group": group_name,
-                                "entry_id": entry_id,
-                                "downtime_seconds": d.last_downtime_seconds
-                                if d
-                                else None,
-                                "offline_count": offline_count,
-                                "offline_entities": offline_list,
-                                "source_groups": source_group_map.get(eid, []),
-                            },
-                        )
-
-                if current_lb != prev_lb:
-                    low_battery_list = sorted(current_lb)
-                    low_battery_count = len(current_lb)
-                    for eid in sorted(current_lb - prev_lb):
-                        d = device_map.get(eid)
-                        self.hass.bus.async_fire(
-                            EVENT_LOW_BATTERY,
-                            {
-                                "entity_id": eid,
-                                "group": group_name,
-                                "entry_id": entry_id,
-                                "battery_level": d.battery_level if d else None,
-                                "low_battery_count": low_battery_count,
-                                "low_battery_entities": low_battery_list,
-                                "source_groups": source_group_map.get(eid, []),
-                            },
-                        )
-                    for eid in sorted(prev_lb - current_lb):
-                        d = device_map.get(eid)
-                        self.hass.bus.async_fire(
-                            EVENT_BATTERY_OK,
-                            {
-                                "entity_id": eid,
-                                "group": group_name,
-                                "entry_id": entry_id,
-                                "battery_level": d.battery_level if d else None,
-                                "low_battery_count": low_battery_count,
-                                "low_battery_entities": low_battery_list,
-                                "source_groups": source_group_map.get(eid, []),
-                            },
-                        )
-
             if self._ea_should_write():
                 self.async_write_ha_state()
 
         return _on_update
 
-    def _current_offline_set(
-        self, coords: list[EntityAvailabilityCoordinator]
-    ) -> frozenset[str]:
-        """Return deduplicated set of offline, non-suppressed, essential entity IDs."""
-        merged, rep_of, _ = self._device_map_cached(coords)
-        return frozenset(
-            merged[rk].entity_id
-            for rk in self._collapsed_match(
-                merged,
-                rep_of,
-                lambda d: (
-                    d.is_offline and not d.is_suppressed and not d.is_non_essential
-                ),
-            )
-        )
+    # Predicate per count category — device-collapsed, non-suppressed, essential
+    # only. low_battery is NOT gated on is_offline here (the event-set semantics):
+    # the attribute build at the poor_signal/battery block IS offline-gated — that
+    # is deliberately a different number and stays as is.
+    _RELAY_PREDICATES: ClassVar[dict] = {
+        "offline": lambda d: d.is_offline,
+        "stale": lambda d: d.is_stale,
+        "low_battery": lambda d: d.is_low_battery,
+        "poor_signal": lambda d: d.signal_quality == "poor",
+    }
 
-    def _current_low_battery_set(
-        self, coords: list[EntityAvailabilityCoordinator]
-    ) -> frozenset[str]:
-        """Return deduplicated set of low-battery, non-suppressed, essential entity IDs."""
-        merged, rep_of, _ = self._device_map_cached(coords)
-        return frozenset(
+    def _relay_fleet_snapshot(
+        self, flipped_entity_id: str, cat: str
+    ) -> tuple[int, list[str], list[str], list[str]]:
+        """Fresh per-event fleet recompute. Returns (count, sorted entities,
+        source_groups, owner_entry_ids) for flipped_entity_id. Local only — never
+        touches state. ``owner_entry_ids`` is the sorted entry_ids of the currently
+        active member coordinators that own flipped_entity_id — the relay gates its
+        fire on being the first of these, so an entity shared across N member groups
+        relays exactly once (see ``_relay``).
+
+        Reads coord.device_states directly via ``_device_map_of`` (NOT the memoized
+        ``_device_map_cached``). The memo is keyed on (entry_ids, per-coord
+        collapse_generation), and a coordinator bumps its generation only AFTER it
+        fires (coordinator.py fire → generation bump). A bus event lands mid-sweep,
+        BEFORE the bump, so the memo is still keyed on the pre-bump generation: a
+        cached read would return the map built before this transition — stale by the
+        very entity that just flipped. Evicting the shared memo here would be worse:
+        it would repopulate ``_dm_cache`` under that same pre-bump key, so the
+        sensor's own state read (native_value/extra_state_attributes) would then hit
+        the relay's throwaway map instead of its own — corrupting the state count
+        (combined low_battery read 0/1/2 nondeterministically). So bypass the memo
+        entirely: build a private map, leave ``_dm_cache``/``_dm_cache_key`` alone.
+        """
+        base = cat if cat in self._RELAY_PREDICATES else None
+        if base is None:  # pragma: no cover — relay only passes the 4 base cats
+            raise ValueError(f"_relay_fleet_snapshot: unknown cat {cat!r}")
+        predicate = self._RELAY_PREDICATES[base]
+
+        coords = self._active_coordinators()
+        # Private, uncached build off the live device_states — never read or write
+        # the shared sensor-state memo (_dm_cache/_dm_cache_key).
+        merged, rep_of, _ = self._device_map_of(coords)
+        entities = sorted(
             merged[rk].entity_id
             for rk in self._collapsed_match(
                 merged,
                 rep_of,
                 lambda d: (
-                    d.is_low_battery and not d.is_suppressed and not d.is_non_essential
+                    predicate(d) and not d.is_suppressed and not d.is_non_essential
                 ),
             )
         )
+        # source_groups for the flipped entity: bare-entity_id → owning group names,
+        # straight from device_states across all coords (NOT _dm_rk_groups, which
+        # keys on collapsed row_key). Mirrors the retired _on_update build.
+        # owner_entry_ids walks the SAME active-coords set but keys on entry_id
+        # (stable/unique — group names can collide) for the single-fire gate.
+        owners = [coord for coord in coords if flipped_entity_id in coord.device_states]
+        groups = sorted(coord.group_name for coord in owners)
+        owner_entry_ids = sorted(coord.entry.entry_id for coord in owners)
+        return len(entities), entities, groups, owner_entry_ids
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        # Prime both prev sets after super() subscribes so _active_coordinators()
-        # returns the full list — prevents spurious events on first tick.
-        coords = self._active_coordinators()
-        self._prev_offline_set = self._current_offline_set(coords)
-        self._prev_low_battery_set = self._current_low_battery_set(coords)
+        # Relay the per-group coordinators' bus events as combined events. Each of
+        # the eight events fired by a member group is re-fired under THIS combined
+        # entry's entry_id, with the fleet-aggregate fields (count/entities) and
+        # source_groups restamped for the whole combined fleet. Per-entity edge
+        # fields (offline_since, battery_level, stale_since, signal_level, …) pass
+        # straight through from the child payload — the coordinator already stamped
+        # them pre-fire, so the relay never re-derives them (no lossy rollup).
+        #
+        # Firing from the bus listener — NOT the coordinator update callback — keeps
+        # the fire path entirely off sensor state: the relay reads the incoming
+        # payload + a local fleet snapshot, fires, and discards. Nothing it computes
+        # is stashed where native_value/attributes/state would see it, so the relay
+        # is write-amp-neutral (it fires iff a member group already fired).
+        for event_name, cat in _RELAY_EVENT_CATS.items():
+            self._unsub_bus.append(
+                self.hass.bus.async_listen(
+                    event_name, self._make_relay_listener(event_name, cat)
+                )
+            )
+
+    async def async_will_remove_from_hass(self) -> None:
+        for unsub in self._unsub_bus:
+            unsub()
+        self._unsub_bus.clear()
+        await super().async_will_remove_from_hass()
+
+    def _make_relay_listener(self, event_name: str, cat: str) -> Callable[[Any], None]:
+        """Return a bus listener that re-fires `event_name` under this combined entry."""
+        member_ids = set(self._combined_entry_ids)
+
+        @callback
+        def _relay(event: Any) -> None:
+            src = event.data
+            src_entry_id = src.get("entry_id")
+            # Only relay events from THIS combined group's member groups.
+            if src_entry_id not in member_ids:
+                return
+            # Nesting guard — never relay another combined group's event.
+            # ponytail: guard is belt-and-suspenders — picker already excludes
+            # combined (config_flow.py 250/909); keeps relay correct if that regresses.
+            src_coord = self.hass.data.get(DOMAIN, {}).get(src_entry_id)
+            if src_coord is None or not isinstance(
+                src_coord, EntityAvailabilityCoordinator
+            ):
+                return
+
+            entity_id = src.get("entity_id")
+            count, entities, source_groups, owner_entry_ids = (
+                self._relay_fleet_snapshot(entity_id, cat)
+            )
+            # Single-fire gate: an entity shared across N member groups makes all N
+            # coordinators fire their own child event for it; without this, the relay
+            # would re-fire the combined event N times for one transition. Relay only
+            # from the first active owner (min entry_id) so exactly one combined event
+            # fires. owner_entry_ids is over CURRENTLY-ACTIVE owners, so if the primary
+            # owner's coordinator is unloaded a surviving sibling becomes first and X
+            # still relays. Empty (entity gone from all device_states mid-sweep) → the
+            # src owner is no longer first → drop; the fleet snapshot already excludes it.
+            if not owner_entry_ids or src_entry_id != owner_entry_ids[0]:
+                return
+            # Passthrough every per-entity field from the child payload, then
+            # override identity (group/entry_id → this combined entry) and the
+            # fleet-aggregate fields (child carried its own scoped count).
+            payload = dict(src)
+            payload["group"] = self._entry.data.get(CONF_GROUP_NAME, "")
+            payload["entry_id"] = self._entry.entry_id
+            payload[f"{cat}_count"] = count
+            payload[f"{cat}_entities"] = entities
+            payload["source_groups"] = source_groups
+            self.hass.bus.async_fire(event_name, payload)
+
+        return _relay
 
     @property
     def native_value(self) -> int:
