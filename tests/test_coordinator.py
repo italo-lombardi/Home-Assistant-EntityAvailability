@@ -1699,10 +1699,14 @@ async def test_battery_detection_from_own_state_device_class(
     assert device_a.battery_level == 72
 
 
-async def test_battery_detection_device_class_takes_priority_over_map(
+async def test_battery_map_takes_priority_over_device_class(
     mock_hass: HomeAssistant, mock_config_data
 ) -> None:
-    """device_class=battery own-state detection takes priority over battery map."""
+    """Explicit battery map wins over an entity's own device_class=battery state.
+
+    The user owns the mapping field, so a configured mapping is authoritative even
+    when the monitored entity reports its own battery via device_class=battery.
+    """
     hass = mock_hass
     hass.states.async_set(
         "binary_sensor.device_a",
@@ -1720,8 +1724,8 @@ async def test_battery_detection_device_class_takes_priority_over_map(
         domain=DOMAIN,
         title="Test Group",
         data=config,
-        entry_id="test_entry_dc_priority",
-        unique_id=f"{DOMAIN}_test_dc_priority",
+        entry_id="test_entry_map_priority",
+        unique_id=f"{DOMAIN}_test_map_priority",
     )
 
     with patch.object(
@@ -1732,7 +1736,7 @@ async def test_battery_detection_device_class_takes_priority_over_map(
         await coord._async_update_data()
 
     device_a = coord.device_states["binary_sensor.device_a"]
-    assert device_a.battery_level == 55
+    assert device_a.battery_level == 10
 
 
 # ---------------------------------------------------------------------------
@@ -6482,6 +6486,26 @@ def test_get_battery_source_device_class_unavailable_is_sticky(
     )
     coord = _source_coord(mock_hass, mock_config_data, "bs_blip", {})
     assert coord._get_battery_source("sensor.own_bat") == "sensor.own_bat"
+
+
+def test_get_battery_source_map_beats_own_device_class(mock_hass, mock_config_data):
+    """Explicit map wins over own device_class=battery — source mirrors the value.
+
+    The entity reports its own battery (device_class=battery) AND is mapped to a
+    different sensor. The map must win for the SOURCE too, in lockstep with
+    _get_battery_level, so provenance names the sensor the value actually came from.
+    """
+    from custom_components.entity_availability.const import CONF_BATTERY_ENTITY_MAP
+
+    mock_hass.states.async_set("sensor.own_bat", "55", {"device_class": "battery"})
+    mock_hass.states.async_set("sensor.mapped_bat", "10")
+    coord = _source_coord(
+        mock_hass,
+        mock_config_data,
+        "bs_map_wins",
+        {CONF_BATTERY_ENTITY_MAP: {"sensor.own_bat": "sensor.mapped_bat"}},
+    )
+    assert coord._get_battery_source("sensor.own_bat") == "sensor.mapped_bat"
 
 
 def test_get_battery_source_registry_sibling(mock_hass, mock_config_data):

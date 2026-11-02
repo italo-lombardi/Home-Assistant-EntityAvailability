@@ -1223,21 +1223,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
     def _get_battery_level(self, entity_id: str) -> int | None:
         """Get battery level for an entity using configured mapping or auto-detection."""
-        state = self.hass.states.get(entity_id)
-        if (
-            state
-            and state.attributes.get("device_class") == "battery"
-            and state.state not in ("unavailable", "unknown", None)
-        ):
-            level = self._parse_battery_state(state.state)
-            _LOGGER.debug(
-                "[%s] Battery for %s via own state (device_class=battery): %s%%",
-                self.group_name,
-                entity_id,
-                level,
-            )
-            return level
-
+        # Explicit mapping wins over own-state: the user owns this field, so a
+        # configured mapping (even an entity mapped to itself) is authoritative.
+        # An unmapped entity falls through to the own-state device_class=battery
+        # branch below.
         battery_map = self.entry.data.get(CONF_BATTERY_ENTITY_MAP)
         if battery_map is not None and entity_id in battery_map:
             mapped = battery_map[entity_id]
@@ -1260,8 +1249,22 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 return level
             return None
 
-        # Auto-detection fallback: no map or entity not in map
         state = self.hass.states.get(entity_id)
+        if (
+            state
+            and state.attributes.get("device_class") == "battery"
+            and state.state not in ("unavailable", "unknown", None)
+        ):
+            level = self._parse_battery_state(state.state)
+            _LOGGER.debug(
+                "[%s] Battery for %s via own state (device_class=battery): %s%%",
+                self.group_name,
+                entity_id,
+                level,
+            )
+            return level
+
+        # Auto-detection fallback: no map or entity not in map
         if state and state.attributes:
             # `is not None`, not `or`: a real 0% reading (dead battery) is falsy and
             # must NOT fall through to a sibling/guessed sensor (that would silently
@@ -1384,8 +1387,8 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
         Mirrors _get_battery_level's precedence branch-for-branch so the source always
         matches the value's origin (drift between the two would resurface the wrong-merge
-        bug this prevents): own device_class=battery state → own id; explicit map → the
-        mapped sensor; own battery_level/battery attribute → own id; a sibling
+        bug this prevents): explicit map → the mapped sensor; own device_class=battery
+        state → own id; own battery_level/battery attribute → own id; a sibling
         device_class=battery entity on the same device → that sibling; the guessed
         ``sensor.<slug>_battery`` entity → that guess. None means "no known source" and
         acts as a wildcard in the collapse meet — so two DISTINCT batteries on one device
@@ -1404,11 +1407,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         row identity stays stable and never flaps.
         """
         state = self.hass.states.get(entity_id)
-        if state and state.attributes.get("device_class") == "battery":
-            return entity_id
         battery_map = self.entry.data.get(CONF_BATTERY_ENTITY_MAP)
         if battery_map is not None and entity_id in battery_map:
             return battery_map[entity_id] or None
+        if state and state.attributes.get("device_class") == "battery":
+            return entity_id
         if (
             state
             and state.attributes

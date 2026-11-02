@@ -9,10 +9,12 @@ All notable changes to this project will be documented in this file.
 - **Optional group scoping on named triggers** — each named trigger has an optional **Group** field (an Entity Availability config-entry picker, covering both classic and combined groups). Leave it blank and the trigger fires for any group (unchanged behavior); pick a group and the trigger fires only for that config entry, matched directly against the event's `entry_id`. Field label localized across all 29 locales. Unscoped triggers store no `options` block, keeping `automations.yaml` clean. Additive and non-breaking — unset scoping is identical to global firing.
 
 ### Changed
+- **Explicit battery mapping now takes precedence over an entity's own battery reading.** A battery sensor you mapped to an entity (via `battery_entity_map`) now always wins, even when that entity reports its own battery through a `device_class: battery` state. Previously the entity's own reading was consulted first and a mapping only applied when the entity had no own battery state. Map an entity to itself to keep reading its own level, or to an empty value to skip it. Collapse provenance (`battery_source`) is reordered in lockstep so the reported source always matches where the value came from.
 - **Minimum Home Assistant version is now 2025.11.0** (`hacs.json` floor raised from 2024.1.0). The Trigger platform's `async_attach_runner` / `async_validate_config` surface the named triggers rely on landed in HA Core 2025.11; 91.6% of installs already run ≥2025.11 per HA analytics. No code path other than the new triggers requires it.
 
 ### Tests
 - Unit `test_trigger.py`: `async_get_triggers` exposes all 8 slugs; attaching a trigger and firing its event forwards the raw `event.data`, description, and context to the action.
+- Unit `test_coordinator.py`: explicit battery map wins over an entity's own `device_class: battery` state for both the value (`_get_battery_level`) and the source (`_get_battery_source`), in lockstep.
 - Live-verified on HA 2026.12.0.dev0: the 8 triggers appear in the editor and the relay forwards the payload.
 
 ## [0.6.2] - 2026-10-21

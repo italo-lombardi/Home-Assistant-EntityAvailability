@@ -160,6 +160,8 @@ Auto-detection checks battery sensors linked to the same device in Home Assistan
 
 Battery sensors that report `low` (text) are supported in addition to numeric percentages. **Binary sensors** (`binary_sensor.*`) are also supported — `on` = low battery, `off` = normal (e.g. `binary_sensor.device_battery_low`).
 
+A mapping you set always wins over an entity's own battery reading — even when the entity could report its own battery via a `device_class: battery` state. Map an entity to itself to read its own level, or leave it empty to skip it.
+
 ![Step 5: Battery Entity Mapping](assets/04_battery_entity_mapping.png)
 
 ### Step 6: Signal Strength Mapping (when signal monitoring is enabled)
