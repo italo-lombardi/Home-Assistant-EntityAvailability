@@ -178,13 +178,15 @@ order, to the first that yields a value:
 
 A text reading of `"low"` counts as 0 %; any other text is read as a number.
 
-**Auto-filled suggestions in the UI.** When you add or edit a group, the
+**Auto-filled suggestions in the UI.** When you **add** a group, the
 battery-mapping screen pre-fills each entity's box with its best auto-detected
-guess (the same `sensor.<entity>_battery` / attribute detection above). These
-are **suggestions only** — nothing is mapped until you save. Whatever sits in
-the box on save becomes the real mapping, so clear a box to leave an entity
-unmapped, or correct a wrong guess before saving. A guess you keep is your
-mapping; it's your responsibility to confirm it.
+guess (the same `sensor.<entity>_battery` / attribute detection above). When you
+**edit** a group, your saved choices are restored as-is — a box you left empty
+stays empty, a sensor you picked stays picked; only entities you have just added
+get a fresh guess. Either way these are **suggestions only** — nothing is mapped
+until you save. Whatever sits in the box on save becomes the real mapping, so
+clear a box to leave an entity unmapped, or correct a wrong guess before saving.
+A guess you keep is your mapping; it's your responsibility to confirm it.
 
 **Retain-last-known.** If a fresh read returns `None` (a Zigbee/MQTT/RTL-SDR
 battery often reports `unknown` for a poll while still online), the device keeps
