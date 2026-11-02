@@ -198,6 +198,11 @@ EC_FILTER: set[int] = {
     int(x) for x in os.environ.get("EA_SMOKE_EC", "").split(",") if x.strip().isdigit()
 }
 WAIT_FOR_TIMEOUT = 45 if FAST else 60
+# coordinator.py blocks the first offline flip for STARTUP_GRACE_PERIOD (60s)
+# after a hass restart. A smoke run started inside that window sees offline_count
+# stuck at 0 until grace elapses, then flip. Offline asserts that can run during
+# grace must out-wait it: grace + margin for the flip to settle.
+OFFLINE_GRACE_TIMEOUT = 75
 
 
 def ec_enabled(n: int) -> bool:
@@ -2123,6 +2128,7 @@ def run_checks(ctx):
             wait_for(
                 lambda: gs(f"{prefix}_offline_count").get("state"),
                 "1",
+                timeout=OFFLINE_GRACE_TIMEOUT,
             ),
             "1",
         )
@@ -2134,6 +2140,7 @@ def run_checks(ctx):
                     .get("offline")
                 ),
                 1,
+                timeout=OFFLINE_GRACE_TIMEOUT,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
@@ -2227,6 +2234,7 @@ def run_checks(ctx):
             wait_for(
                 lambda: gs(f"{prefix}_offline_count").get("state"),
                 "1",
+                timeout=OFFLINE_GRACE_TIMEOUT,
             ),
             "1",
         )
@@ -2258,6 +2266,7 @@ def run_checks(ctx):
                     .get("offline")
                 ),
                 1,
+                timeout=OFFLINE_GRACE_TIMEOUT,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")

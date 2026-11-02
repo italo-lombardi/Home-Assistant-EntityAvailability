@@ -380,6 +380,13 @@ on a combined group; only the `entry_id` it matches on differs.
   only** (the same filter the combined counts use). So `offline_count` on a
   relayed offline event is the combined fleet's offline count, not the member
   group's.
+  - *Caveat — relayed `low_battery_count` is not offline-gated.* The relayed
+    `{cat}_count` follows the raw category set (essential, non-suppressed,
+    device-collapsed). The `combined_summary` **`low_battery` attribute** is
+    additionally offline-gated — a low+offline entity counts as offline there,
+    not low_battery (no double-count; EC5/EC8). So on a `low_battery` event the
+    relayed `low_battery_count` can exceed the `combined_summary.low_battery`
+    attribute by the number of entities that are both low and offline.
 - The payload `entity_id` is the **collapse representative's bare entity_id**
   string (never the internal `row_key`). Collapse applies when the owning group
   has both *use device names* and *collapse devices* on.
