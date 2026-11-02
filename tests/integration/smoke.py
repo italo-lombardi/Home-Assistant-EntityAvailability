@@ -2204,18 +2204,24 @@ def run_checks(ctx):
             "0",
         )
         if combined_prefix:
-            # kitchen_1 splits into 2 rows (Alpha vs Beta divergent signal_map,
-            # both collapse OFF) → each low battery counts per surviving row → 2.
+            # kitchen_1 is shared across Alpha+Beta with divergent signal_map, so
+            # _device_map_of splits it into 2 DISPLAY rows — but the headline
+            # low_battery COUNT dedups by entity_id (_eids), so one low-battery
+            # device counts ONCE. (Pre-fix the raw row count leaked 2.)
             low_battery_val = wait_for(
                 lambda: (
                     gs(f"{combined_prefix}_combined_summary")
                     .get("attributes", {})
                     .get("low_battery")
                 ),
-                2,
+                1,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-            chk("EC4 combined low_battery=2 (split rows)", low_battery_val, 2)
+            chk(
+                "EC4 combined low_battery=1 (deduped across split rows)",
+                low_battery_val,
+                1,
+            )
             chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
 
         # ------------------------------------------------------------------
@@ -2363,15 +2369,33 @@ def run_checks(ctx):
                 },
             )
             chk(
-                "EC7 combined low_battery=base+2 (split rows)",
+                "EC7 combined low_battery=base+1 (shared entity deduped across split rows)",
                 wait_for(
                     lambda: int(
                         gs(f"{combined_prefix}_low_battery_count").get("state", "0")
                     ),
-                    b_clb + 2,
+                    b_clb + 1,
                 ),
-                b_clb + 2,
+                b_clb + 1,
                 f"(base={b_clb})",
+            )
+            # Count-vs-display asymmetry guard: the shared entity collapsed to ONE in
+            # the count above, but its DISPLAY row split (divergent per-group config)
+            # must survive — row_entity_ids keys only split rows (eid::entry_id) and
+            # maps each back to its bare entity_id. If a future refactor re-inflated
+            # the count (dropping the _eids/_collapsed_match_count dedup) or silently
+            # re-collapsed the display rows, one of these two sides breaks and this
+            # fails. Locks the deliberate count=1 / display=2 split for kitchen_1.
+            _c7_rids = (
+                gs(f"{combined_prefix}_combined_summary")
+                .get("attributes", {})
+                .get("row_entity_ids", {})
+            )
+            chk(
+                "EC7 shared entity display row still split (count-vs-display asymmetry held)",
+                any("::" in k and v == battery_entity for k, v in _c7_rids.items()),
+                True,
+                f"(row_entity_ids={_c7_rids})",
             )
             chk(
                 "EC7 combined offline unchanged",
@@ -2398,14 +2422,14 @@ def run_checks(ctx):
                 f"(base={b_clb})",
             )
             chk(
-                "EC8 combined offline=base+2 (split rows)",
+                "EC8 combined offline=base+1 (shared entity deduped across split rows)",
                 wait_for(
                     lambda: int(
                         gs(f"{combined_prefix}_offline_count").get("state", "0")
                     ),
-                    b_coff + 2,
+                    b_coff + 1,
                 ),
-                b_coff + 2,
+                b_coff + 1,
                 f"(base={b_coff})",
             )
         else:
