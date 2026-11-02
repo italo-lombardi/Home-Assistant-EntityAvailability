@@ -8,7 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 from homeassistant.const import STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_capture_events,
+)
 
 from custom_components.entity_availability.combined_sensor import (
     MAX_STATE_LENGTH,
@@ -44,6 +47,10 @@ from custom_components.entity_availability.const import (
     ENTRY_TYPE_GROUP,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
+    EVENT_POOR_SIGNAL,
+    EVENT_SIGNAL_OK,
+    EVENT_STALE,
+    EVENT_STALE_RECOVERED,
 )
 from custom_components.entity_availability.coordinator import (
     EntityAvailabilityCoordinator,
@@ -1111,548 +1118,483 @@ class TestCombinedGroupSensor:
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         assert sensor.state_class is None
 
-    def _setup_event_sensor(self, mock_hass, combined_entry, coordinators):
-        """Return (sensor, fired_cbs) with write stubbed and listeners captured."""
+    def _setup_relay_sensor(self, mock_hass, combined_entry, coordinators):
+        """Register the combined sensor on the bus; return the sensor.
+
+        Shared by both halves of the relay test block. Populates hass.data with
+        the REAL member coordinators (the relay's nesting guard checks they are
+        EntityAvailabilityCoordinator instances), stubs the state write, and
+        registers the eight bus listeners via async_added_to_hass.
+        """
         mock_hass.data[DOMAIN] = {
             "entry_a": coordinators[0],
             "entry_b": coordinators[1],
         }
         sensor = self._sensor(mock_hass, combined_entry, coordinators)
         sensor.async_write_ha_state = lambda: None
-        fired_cbs = []
-
-        def _fake_add_listener(cb):
-            fired_cbs.append(cb)
-            return lambda: None
-
+        # The base sensor subscribes to each coordinator; a real listener arms the
+        # coordinator's refresh timer and lingers past teardown. The relay path
+        # fires off the bus, not these callbacks, so stub them to no-op unsubs.
         for coord in coordinators:
-            coord.async_add_listener = _fake_add_listener
-        return sensor, fired_cbs
+            coord.async_add_listener = lambda cb, ctx=None: lambda: None
+        return sensor
 
-    async def test_fires_offline_event_when_entity_goes_offline(
+    @staticmethod
+    def _fire_group_event(hass, event_name, entry_id, entity_id, **extra):
+        """Fire a per-group bus event the way a member coordinator would.
+
+        entry_id = the firing member group's entry_id (→ relay filter matches it
+        against the combined group's member set). Per-entity edge fields (battery_level,
+        offline_since, stale_since, signal_level, …) go in via **extra and pass straight
+        through the relay. The combined sensor re-fires the same event_name under its
+        own entry_id — capture both and select by entry_id.
+        """
+        data = {"entity_id": entity_id, "group": "src", "entry_id": entry_id, **extra}
+        hass.bus.async_fire(event_name, data)
+
+    async def test_relay_offline_event_when_entity_goes_offline(
         self, mock_hass, combined_entry, coordinators
     ):
-        """entity_availability_offline fires when offline set grows."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """A member group's offline event is re-fired under the combined entry_id."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        # Override primed state to simulate a2 just going offline (was online before)
-        sensor._prev_offline_set = frozenset()
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+
+        # a2 is offline in fixture; group A fires offline for it.
+        self._fire_group_event(
+            mock_hass,
+            "entity_availability_offline",
+            "entry_a",
+            "binary_sensor.a2",
+            offline_since="2026-01-01T12:00:00+00:00",
         )
-
-        # a2 is offline in fixture; prev=empty → current={a2}: fires OFFLINE
-        fired_cbs[0]()
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
-        data = events[0].data
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
         assert data["entity_id"] == "binary_sensor.a2"
         assert data["group"] == "Combined"
-        assert data["entry_id"] == "combined_1"
         assert "binary_sensor.a2" in data["offline_entities"]
         assert data["offline_count"] == 1
+        # per-entity edge field passes straight through
+        assert data["offline_since"] == "2026-01-01T12:00:00+00:00"
 
-    async def test_offline_event_carries_source_groups(
+    async def test_relay_offline_carries_source_groups(
         self, mock_hass, combined_entry, coordinators
     ):
         """source_groups lists the group_name(s) of coordinators owning the entity."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        sensor._prev_offline_set = frozenset()
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_a", "binary_sensor.a2"
         )
-
-        fired_cbs[0]()
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
         # a2 lives in coordinator_a (title "Group A")
-        assert events[0].data["source_groups"] == ["Group A"]
+        assert combined[0].data["source_groups"] == ["Group A"]
 
-    async def test_source_groups_lists_all_owning_coordinators(
+    async def test_relay_source_groups_lists_all_owning_coordinators(
         self, mock_hass, combined_entry, coordinators
     ):
         """When two coordinators own the same entity, source_groups lists both."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        sensor._prev_offline_set = frozenset()
 
-        # b1 is now owned by both coordinators and offline in both
+        # b1 owned by both coordinators and offline in both.
         coordinators[0]._device_states["binary_sensor.b1"] = DeviceState(
             entity_id="binary_sensor.b1", is_offline=True
         )
         coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
-        # Only care about b1 here — drop the pre-existing offline a2
         coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_a", "binary_sensor.b1"
         )
-
-        fired_cbs[0]()
         await mock_hass.async_block_till_done()
 
-        b1_events = [e for e in events if e.data["entity_id"] == "binary_sensor.b1"]
-        assert len(b1_events) == 1
-        assert b1_events[0].data["source_groups"] == sorted(["Group A", "Group B"])
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        assert combined[0].data["source_groups"] == sorted(["Group A", "Group B"])
 
-    async def test_recovered_event_carries_source_groups(
+    async def test_relay_shared_entity_fires_once_when_both_owners_fire(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """An entity owned by two member groups relays exactly ONCE.
+
+        Both coordinators fire their own child event for the shared entity (that is
+        how the per-group coordinators work — each owns its own device_states copy).
+        The old diff-set design dedup'd via frozenset membership; the relay must
+        reproduce single-fire via the owner gate (relay only from min active owner's
+        entry_id). Without the gate this fires twice → duplicate automations.
+        """
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+
+        # b1 owned + offline in BOTH coordinators; drop the pre-existing a2 offline.
+        coordinators[0]._device_states["binary_sensor.b1"] = DeviceState(
+            entity_id="binary_sensor.b1", is_offline=True
+        )
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        # BOTH owners fire for the shared entity, as the real coordinators would.
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_a", "binary_sensor.b1"
+        )
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_b", "binary_sensor.b1"
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1, f"shared entity must relay once, got {len(combined)}"
+        # The surviving fire is from the first active owner (min entry_id = entry_a),
+        # but still lists both owning groups.
+        assert combined[0].data["entity_id"] == "binary_sensor.b1"
+        assert combined[0].data["source_groups"] == sorted(["Group A", "Group B"])
+
+    async def test_relay_shared_entity_relays_when_only_sibling_owner_fires(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """If the primary (min entry_id) owner is unloaded, a surviving sibling relays.
+
+        Gate is over CURRENTLY-ACTIVE owners — if entry_a is gone from hass.data,
+        entry_b becomes the first active owner and its event must still relay (else
+        the shared entity's event would be silently swallowed).
+        """
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+
+        # b1 owned + offline in both, but entry_a's coordinator is unloaded.
+        coordinators[0]._device_states["binary_sensor.b1"] = DeviceState(
+            entity_id="binary_sensor.b1", is_offline=True
+        )
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+        del mock_hass.data[DOMAIN]["entry_a"]
+
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        # Only the surviving sibling fires (entry_a is gone).
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_b", "binary_sensor.b1"
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1, "surviving sibling owner must still relay"
+        assert combined[0].data["entity_id"] == "binary_sensor.b1"
+        # Only Group B is active now.
+        assert combined[0].data["source_groups"] == ["Group B"]
+
+    async def test_relay_shared_entity_relays_when_min_owner_suppressed(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Shared entity suppressed in the MIN-id owner still relays via the sibling.
+
+        A member coordinator does NOT fire a child event for a suppressed entity
+        (coordinator.py: `if device.is_suppressed: ... continue` before every
+        pending_events.append). But suppress does not remove the entity from the
+        coord's device_states, so a plain membership walk would elect the suppressed
+        min-id owner (entry_a) for the single-fire gate — and the gate would then
+        reject entry_b's event, the only one actually fired → ZERO combined events
+        while the fleet count still shows the entity offline. The gate must be built
+        from the same predicate the count uses (essential AND unsuppressed) — not
+        the raw fire set. Suppress gates firing AND the count; NE does NOT gate
+        firing (an NE device still fires) but IS dropped from the count, so the gate
+        excludes NE too, to stay aligned with the count rather than the fire set.
+        """
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+
+        # b1 owned by both; SUPPRESSED in entry_a (min id, never fires), active
+        # + offline in entry_b (fires). Drop the pre-existing a2 offline.
+        coordinators[0]._device_states["binary_sensor.b1"] = DeviceState(
+            entity_id="binary_sensor.b1", is_offline=True, is_suppressed=True
+        )
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        # Only entry_b fires — entry_a is suppressed for b1, so its coordinator
+        # emits no child event for this transition (mirrors the real coordinator).
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_b", "binary_sensor.b1"
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1, (
+            "suppressed min-id owner must not swallow the sibling's event "
+            f"(got {len(combined)} combined events)"
+        )
+        assert combined[0].data["entity_id"] == "binary_sensor.b1"
+        # Count reflects the unsuppressed owner's view: b1 is offline.
+        assert combined[0].data["offline_count"] >= 1
+
+    async def test_relay_recovered_carries_source_groups(
         self, mock_hass, combined_entry, coordinators
     ):
         """RECOVERED event includes source_groups for the recovered entity."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_recovered", lambda e: events.append(e)
-        )
-
+        # a2 back online — recovered fires.
         coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
-        fired_cbs[0]()
+
+        events = async_capture_events(mock_hass, "entity_availability_recovered")
+        self._fire_group_event(
+            mock_hass,
+            "entity_availability_recovered",
+            "entry_a",
+            "binary_sensor.a2",
+            downtime_seconds=42,
+        )
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
-        assert events[0].data["source_groups"] == ["Group A"]
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        assert combined[0].data["source_groups"] == ["Group A"]
 
-    async def test_source_groups_preserved_when_coordinator_removed_before_recovery(
+    async def test_relay_recovered_event_when_entity_recovers(
         self, mock_hass, combined_entry, coordinators
     ):
-        """source_groups on RECOVERED uses _prev_source_group_map when coordinator is gone."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """recovered re-fire: flipped entity excluded from the fleet snapshot."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-
-        # Tick 1: a2 goes offline — _prev_source_group_map is populated with Group A
-        coordinators[0]._device_states["binary_sensor.a2"].is_offline = True
-        sensor._prev_offline_set = frozenset()
-        fired_cbs[0]()
-        await mock_hass.async_block_till_done()
-        assert "binary_sensor.a2" in sensor._prev_source_group_map
-
-        # Coordinator 0 "removed" — evict from hass.data so _active_coordinators skips it
-        del mock_hass.data["entity_availability"][coordinators[0].entry.entry_id]
-
-        # Tick 2: coordinator 0 is gone so a2 is invisible to the combined sensor.
-        # current becomes empty; prev still has a2 → diff fires RECOVERED.
-        # source_groups must come from _prev_source_group_map (not current coords).
-        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_recovered", lambda e: events.append(e)
-        )
-        fired_cbs[1]()
-        await mock_hass.async_block_till_done()
-
-        recovered = [e for e in events if e.data["entity_id"] == "binary_sensor.a2"]
-        assert len(recovered) == 1
-        assert recovered[0].data["source_groups"] == ["Group A"]
-
-    async def test_source_groups_not_pruned_while_entity_stays_offline(
-        self, mock_hass, combined_entry, coordinators
-    ):
-        """source_groups survives intermediate ticks while entity remains offline.
-
-        Regression: pruning to current | current_lb dropped entries for entities
-        already offline (not newly offline) when a different entity triggered the
-        if-branch on a later tick.
-        """
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        await sensor.async_added_to_hass()
-        sensor._prev_offline_set = frozenset()
-
-        # Tick 1: a2 goes offline via coordinator 0 ("Group A")
-        coordinators[0]._device_states["binary_sensor.a2"].is_offline = True
-        fired_cbs[0]()
-        await mock_hass.async_block_till_done()
-        assert "binary_sensor.a2" in sensor._prev_source_group_map
-
-        # Coordinator 0 removed
-        del mock_hass.data["entity_availability"][coordinators[0].entry.entry_id]
-
-        # Tick 2: unrelated entity b1 goes offline via coordinator 1 ("Group B").
-        # a2 is in prev but not in current (coordinator gone) — RECOVERED fires for a2.
-        # _prev_source_group_map must retain a2 → ["Group A"] even though a2 ∉ current
-        # on this tick (it's in prev, which is included in the pruning window).
-        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_recovered", lambda e: events.append(e)
-        )
-        fired_cbs[1]()
-        await mock_hass.async_block_till_done()
-
-        # a2 recovers (drops from prev→current diff) on this same tick
-        recovered = [e for e in events if e.data["entity_id"] == "binary_sensor.a2"]
-        assert len(recovered) == 1
-        assert recovered[0].data["source_groups"] == ["Group A"]
-
-    async def test_fires_recovered_event_when_offline_set_shrinks(
-        self, mock_hass, combined_entry, coordinators
-    ):
-        """entity_availability_recovered fires when offline set shrinks."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        await sensor.async_added_to_hass()
-        # Override primed state: treat a2 as previously known offline
-        sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
-
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_recovered", lambda e: events.append(e)
-        )
 
         coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
-        fired_cbs[0]()
+
+        events = async_capture_events(mock_hass, "entity_availability_recovered")
+        self._fire_group_event(
+            mock_hass,
+            "entity_availability_recovered",
+            "entry_a",
+            "binary_sensor.a2",
+            downtime_seconds=42,
+        )
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
-        data = events[0].data
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
         assert data["entity_id"] == "binary_sensor.a2"
         assert data["offline_count"] == 0
         assert data["offline_entities"] == []
+        assert data["downtime_seconds"] == 42
 
-    async def test_no_event_when_offline_set_unchanged(
+    async def test_relay_ignores_non_member_group(
         self, mock_hass, combined_entry, coordinators
     ):
-        """No event fires when coordinator updates but offline set is identical."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """An event from a group NOT in the combined member set is not re-fired."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        # a2 offline in fixture; primed to {a2} — set unchanged, no events expected
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        # entry_stranger is not a member of combined_1.
+        self._fire_group_event(
+            mock_hass,
+            "entity_availability_offline",
+            "entry_stranger",
+            "binary_sensor.x",
         )
-        mock_hass.bus.async_listen(
-            "entity_availability_recovered", lambda e: events.append(e)
-        )
-
-        fired_cbs[0]()
         await mock_hass.async_block_till_done()
 
-        assert events == []
+        assert [e for e in events if e.data["entry_id"] == "combined_1"] == []
 
-    async def test_no_double_fire_across_two_member_coordinators(
+    async def test_relay_nesting_guard_skips_missing_coordinator(
         self, mock_hass, combined_entry, coordinators
     ):
-        """Two different member coordinators updating with same net result fire once."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        await sensor.async_added_to_hass()
-        # Override primed state to empty to simulate a2 just going offline
-        sensor._prev_offline_set = frozenset()
+        """A member entry_id with no real coordinator in hass.data is not relayed.
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
-        )
-
-        # coordinator_a fires → empty → {a2}: event fires
-        fired_cbs[0]()
-        # coordinator_b fires → {a2} → {a2}: no change, no second event
-        fired_cbs[1]()
-        await mock_hass.async_block_till_done()
-
-        assert len(events) == 1
-
-    async def test_fires_both_events_on_entity_swap(
-        self, mock_hass, combined_entry, coordinators
-    ):
-        """Both offline and recovered fire when one entity goes offline and another recovers simultaneously."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        await sensor.async_added_to_hass()
-        # Override primed state: a2 was offline, b1 was online
-        sensor._prev_offline_set = frozenset(["binary_sensor.a2"])
-
-        offline_events = []
-        recovered_events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: offline_events.append(e)
-        )
-        mock_hass.bus.async_listen(
-            "entity_availability_recovered", lambda e: recovered_events.append(e)
-        )
-
-        # a2 comes back online, b1 goes offline — net swap
-        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
-        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
-
-        fired_cbs[0]()
-        await mock_hass.async_block_till_done()
-
-        assert len(offline_events) == 1
-        assert len(recovered_events) == 1
-        assert offline_events[0].data["entity_id"] == "binary_sensor.b1"
-        assert offline_events[0].data["offline_entities"] == ["binary_sensor.b1"]
-        assert recovered_events[0].data["entity_id"] == "binary_sensor.a2"
-        assert recovered_events[0].data["offline_count"] == 1
-
-    async def test_no_spurious_event_on_startup_for_pre_existing_offline(
-        self, mock_hass, combined_entry, coordinators
-    ):
-        """No event fires on first callback tick when offline entity was already offline before subscribe.
-
-        _prev_offline_set is primed from current state after subscribing, so a
-        pre-existing offline entity does not trigger a spurious OFFLINE event.
+        Belt-and-suspenders nesting guard: the member must resolve to an
+        EntityAvailabilityCoordinator. A combined (or stale) entry would not.
         """
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        # a2 is already offline in fixture before async_added_to_hass
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
+        # entry_a is a member but its coordinator is gone from hass.data.
+        del mock_hass.data[DOMAIN]["entry_a"]
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_a", "binary_sensor.a2"
         )
-        mock_hass.bus.async_listen(
-            "entity_availability_recovered", lambda e: events.append(e)
-        )
-
-        # First callback — offline set hasn't changed since priming
-        fired_cbs[0]()
         await mock_hass.async_block_till_done()
 
-        assert events == [], (
-            "Spurious event fired for pre-existing offline entity on startup"
-        )
+        assert [e for e in events if e.data["entry_id"] == "combined_1"] == []
 
-    async def test_fan_out_two_entities_offline_simultaneously(
+    async def test_relay_fan_out_two_entities_offline(
         self, mock_hass, combined_entry, coordinators
     ):
-        """Two entities going offline in one tick fires two separate events."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        await sensor.async_added_to_hass()
-        sensor._prev_offline_set = frozenset()
+        """Two member groups each firing offline → two combined re-fires.
 
-        # Make b1 also offline so both a2 and b1 are newly offline
+        Relay re-fires once per child event (no collapse across children); each
+        carries the same whole-fleet snapshot.
+        """
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+
+        # a2 already offline; make b1 offline too so the fleet snapshot = {a2, b1}.
         coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_a", "binary_sensor.a2"
         )
-
-        fired_cbs[0]()
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_b", "binary_sensor.b1"
+        )
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 2
-        entity_ids = {e.data["entity_id"] for e in events}
-        assert entity_ids == {"binary_sensor.a2", "binary_sensor.b1"}
-        # Each event carries the same aggregate snapshot
-        for e in events:
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 2
+        assert {e.data["entity_id"] for e in combined} == {
+            "binary_sensor.a2",
+            "binary_sensor.b1",
+        }
+        for e in combined:
             assert e.data["offline_count"] == 2
             assert set(e.data["offline_entities"]) == {
                 "binary_sensor.a2",
                 "binary_sensor.b1",
             }
 
-    async def test_combined_event_payload_matches_individual_group_shape(
+    async def test_relay_offline_payload_matches_individual_group_shape(
         self, mock_hass, combined_entry, coordinators
     ):
-        """Combined offline event has entity_id, group, entry_id, offline_count, offline_entities."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """Combined offline event has entity_id, group, entry_id, counts, source_groups."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        sensor._prev_offline_set = frozenset()
 
-        events = []
-        mock_hass.bus.async_listen(
-            "entity_availability_offline", lambda e: events.append(e)
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        self._fire_group_event(
+            mock_hass,
+            "entity_availability_offline",
+            "entry_a",
+            "binary_sensor.a2",
+            offline_since="2026-01-01T12:00:00+00:00",
         )
-
-        fired_cbs[0]()
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
-        data = events[0].data
-        # Same fields as individual group events — values not just keys
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
         assert data["entity_id"] == "binary_sensor.a2"
         assert data["group"] == "Combined"
         assert data["entry_id"] == "combined_1"
         assert data["offline_count"] == 1
         assert "binary_sensor.a2" in data["offline_entities"]
-        # offline_since must be a non-None ISO string (fixture sets it)
-        assert data["offline_since"] is not None
+        assert data["offline_since"] == "2026-01-01T12:00:00+00:00"
         assert isinstance(data["offline_since"], str)
         assert data["source_groups"] == ["Group A"]
 
-    async def test_fires_low_battery_event_when_entity_goes_low(
+    async def test_relay_low_battery_event_when_entity_goes_low(
         self, mock_hass, combined_entry, coordinators
     ):
-        """entity_availability_low_battery fires when low-battery set grows."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """A member group's low_battery event is re-fired under the combined entry_id."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        sensor._prev_low_battery_set = frozenset()
-
-        events = []
-        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
-
+        # live state drives the fleet count; payload battery_level passes through
         coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
-        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 8
-        fired_cbs[0]()
+
+        events = async_capture_events(mock_hass, EVENT_LOW_BATTERY)
+        self._fire_group_event(
+            mock_hass, EVENT_LOW_BATTERY, "entry_a", "binary_sensor.a1", battery_level=8
+        )
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
-        data = events[0].data
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
         assert data["entity_id"] == "binary_sensor.a1"
         assert data["group"] == "Combined"
-        assert data["entry_id"] == "combined_1"
         assert data["battery_level"] == 8
         assert data["low_battery_count"] == 1
         assert "binary_sensor.a1" in data["low_battery_entities"]
         assert data["source_groups"] == ["Group A"]
 
-    async def test_fires_battery_ok_event_when_entity_recovers(
+    async def test_relay_battery_ok_event_when_entity_recovers(
         self, mock_hass, combined_entry, coordinators
     ):
-        """entity_availability_battery_ok fires when low-battery set shrinks."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """battery_ok falling edge: recovered entity excluded, count reflects remaining."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        sensor._prev_low_battery_set = frozenset(["binary_sensor.a1"])
-
-        events = []
-        mock_hass.bus.async_listen(EVENT_BATTERY_OK, lambda e: events.append(e))
-
-        # a1 no longer low battery
         coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = False
-        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 75
-        fired_cbs[0]()
+
+        events = async_capture_events(mock_hass, EVENT_BATTERY_OK)
+        self._fire_group_event(
+            mock_hass, EVENT_BATTERY_OK, "entry_a", "binary_sensor.a1", battery_level=75
+        )
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
-        data = events[0].data
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
         assert data["entity_id"] == "binary_sensor.a1"
         assert data["battery_level"] == 75
         assert data["low_battery_count"] == 0
         assert data["low_battery_entities"] == []
         assert data["source_groups"] == ["Group A"]
 
-    async def test_no_low_battery_event_when_set_unchanged(
+    async def test_relay_fan_out_two_entities_low_battery(
         self, mock_hass, combined_entry, coordinators
     ):
-        """No event fires when low-battery set is identical across ticks."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """Two child groups each fire low_battery → two combined re-fires, count=2 both."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
         coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
-        # Prime to current state — set unchanged
-        sensor._prev_low_battery_set = frozenset(["binary_sensor.a1"])
-
-        events = []
-        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
-        mock_hass.bus.async_listen(EVENT_BATTERY_OK, lambda e: events.append(e))
-
-        fired_cbs[0]()
-        await mock_hass.async_block_till_done()
-
-        assert events == []
-
-    async def test_no_spurious_low_battery_event_on_startup(
-        self, mock_hass, combined_entry, coordinators
-    ):
-        """No event fires on first tick when low-battery entity was already low before subscribe."""
-        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        await sensor.async_added_to_hass()
-
-        events = []
-        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
-
-        fired_cbs[0]()
-        await mock_hass.async_block_till_done()
-
-        assert events == [], "Spurious low-battery event fired for pre-existing state"
-
-    async def test_fan_out_two_entities_low_battery_simultaneously(
-        self, mock_hass, combined_entry, coordinators
-    ):
-        """Two entities going low in one tick fire two separate events."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
-        await sensor.async_added_to_hass()
-        sensor._prev_low_battery_set = frozenset()
-
-        coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
-        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 5
         coordinators[1]._device_states["binary_sensor.b1"].is_low_battery = True
-        coordinators[1]._device_states["binary_sensor.b1"].battery_level = 9
 
-        events = []
-        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
-
-        fired_cbs[0]()
+        events = async_capture_events(mock_hass, EVENT_LOW_BATTERY)
+        self._fire_group_event(
+            mock_hass, EVENT_LOW_BATTERY, "entry_a", "binary_sensor.a1", battery_level=5
+        )
+        self._fire_group_event(
+            mock_hass, EVENT_LOW_BATTERY, "entry_b", "binary_sensor.b1", battery_level=9
+        )
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 2
-        entity_ids = {e.data["entity_id"] for e in events}
-        assert entity_ids == {"binary_sensor.a1", "binary_sensor.b1"}
-        for e in events:
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 2
+        assert {e.data["entity_id"] for e in combined} == {
+            "binary_sensor.a1",
+            "binary_sensor.b1",
+        }
+        for e in combined:
             assert e.data["low_battery_count"] == 2
             assert set(e.data["low_battery_entities"]) == {
                 "binary_sensor.a1",
                 "binary_sensor.b1",
             }
 
-    async def test_low_battery_payload_matches_offline_shape(
+    async def test_relay_low_battery_payload_shape(
         self, mock_hass, combined_entry, coordinators
     ):
-        """Low-battery event has entity_id, group, entry_id, battery_level, low_battery_count, low_battery_entities."""
-        sensor, fired_cbs = self._setup_event_sensor(
-            mock_hass, combined_entry, coordinators
-        )
+        """Re-fired low_battery payload carries the full combined key set."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
         await sensor.async_added_to_hass()
-        sensor._prev_low_battery_set = frozenset()
-
         coordinators[0]._device_states["binary_sensor.a1"].is_low_battery = True
-        coordinators[0]._device_states["binary_sensor.a1"].battery_level = 12
 
-        events = []
-        mock_hass.bus.async_listen(EVENT_LOW_BATTERY, lambda e: events.append(e))
-
-        fired_cbs[0]()
+        events = async_capture_events(mock_hass, EVENT_LOW_BATTERY)
+        self._fire_group_event(
+            mock_hass,
+            EVENT_LOW_BATTERY,
+            "entry_a",
+            "binary_sensor.a1",
+            battery_level=12,
+        )
         await mock_hass.async_block_till_done()
 
-        assert len(events) == 1
-        data = events[0].data
-        assert set(data.keys()) >= {
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        assert set(combined[0].data.keys()) >= {
             "entity_id",
             "group",
             "entry_id",
@@ -1661,6 +1603,116 @@ class TestCombinedGroupSensor:
             "low_battery_entities",
             "source_groups",
         }
+
+    async def test_relay_stale_event_when_entity_goes_stale(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """NEW combined event: stale is re-fired under the combined entry_id.
+
+        Combined never fired stale pre-unify (only per-group coordinators did);
+        the relay path now surfaces it with a device-collapsed fleet snapshot.
+        """
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+        coordinators[0]._device_states["binary_sensor.a1"].is_stale = True
+
+        events = async_capture_events(mock_hass, EVENT_STALE)
+        self._fire_group_event(
+            mock_hass,
+            EVENT_STALE,
+            "entry_a",
+            "binary_sensor.a1",
+            stale_since="2026-11-02T00:00:00+00:00",
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
+        assert data["entity_id"] == "binary_sensor.a1"
+        assert data["group"] == "Combined"
+        assert data["stale_since"] == "2026-11-02T00:00:00+00:00"
+        assert data["stale_count"] == 1
+        assert "binary_sensor.a1" in data["stale_entities"]
+        assert data["source_groups"] == ["Group A"]
+
+    async def test_relay_stale_recovered_excludes_recovered(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """stale_recovered falling edge: recovered entity excluded, count = remaining."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+        coordinators[0]._device_states["binary_sensor.a1"].is_stale = False
+
+        events = async_capture_events(mock_hass, EVENT_STALE_RECOVERED)
+        self._fire_group_event(
+            mock_hass,
+            EVENT_STALE_RECOVERED,
+            "entry_a",
+            "binary_sensor.a1",
+            stale_since="2026-11-02T00:00:00+00:00",
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
+        assert data["stale_count"] == 0
+        assert data["stale_entities"] == []
+        assert data["source_groups"] == ["Group A"]
+
+    async def test_relay_poor_signal_event(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """NEW combined event: poor_signal re-fired; count from signal_quality=='poor'."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+        coordinators[0]._device_states["binary_sensor.a1"].signal_quality = "poor"
+
+        events = async_capture_events(mock_hass, EVENT_POOR_SIGNAL)
+        self._fire_group_event(
+            mock_hass,
+            EVENT_POOR_SIGNAL,
+            "entry_a",
+            "binary_sensor.a1",
+            signal_level=-95,
+            signal_quality="poor",
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
+        assert data["entity_id"] == "binary_sensor.a1"
+        assert data["signal_level"] == -95
+        assert data["poor_signal_count"] == 1
+        assert "binary_sensor.a1" in data["poor_signal_entities"]
+        assert data["source_groups"] == ["Group A"]
+
+    async def test_relay_signal_ok_excludes_recovered(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """signal_ok falling edge: recovered entity excluded (quality no longer 'poor')."""
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+        coordinators[0]._device_states["binary_sensor.a1"].signal_quality = "ok"
+
+        events = async_capture_events(mock_hass, EVENT_SIGNAL_OK)
+        self._fire_group_event(
+            mock_hass,
+            EVENT_SIGNAL_OK,
+            "entry_a",
+            "binary_sensor.a1",
+            signal_level=-70,
+            signal_quality="ok",
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1
+        data = combined[0].data
+        assert data["poor_signal_count"] == 0
+        assert data["poor_signal_entities"] == []
 
     def test_unrecorded_attributes_covers_all_per_entity_keys(self):
         """All large per-entity keys must be excluded from recorder."""

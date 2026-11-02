@@ -119,6 +119,12 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC133 a config_entry_id from another integration is rejected the same way (domain check;
         skipped when no non-EA config entry is present)
 
+  Combined all-8-events relay (EC136-EC137 — companion to EC24 offline):
+  EC136 combined group relays the per-group STALE event under its own entry_id (source_groups +
+        stale_count); proves a second event family past offline flows through the generic relay
+  EC137 combined group relays the per-group POOR_SIGNAL event under its own entry_id (source_groups
+        + poor_signal_count); third family — rides the EC51 signal mapping, skips if none stored
+
   Device-collapse (EC72-EC76 — PR#81):
   EC72 diagnostics config exposes collapse_devices; derive collapse_active
   EC73 group_summary entities_collapsed attr present and is a list
@@ -192,6 +198,11 @@ EC_FILTER: set[int] = {
     int(x) for x in os.environ.get("EA_SMOKE_EC", "").split(",") if x.strip().isdigit()
 }
 WAIT_FOR_TIMEOUT = 45 if FAST else 60
+# coordinator.py blocks the first offline flip for STARTUP_GRACE_PERIOD (60s)
+# after a hass restart. A smoke run started inside that window sees offline_count
+# stuck at 0 until grace elapses, then flip. Offline asserts that can run during
+# grace must out-wait it: grace + margin for the flip to settle.
+OFFLINE_GRACE_TIMEOUT = 75
 
 
 def ec_enabled(n: int) -> bool:
@@ -236,8 +247,10 @@ def gs_safe(eid):
         raise
 
 
-def ss(eid, state, attrs):
-    return api("POST", f"/api/states/{eid}", {"state": state, "attributes": attrs})
+def ss(eid, state, attrs=None):
+    return api(
+        "POST", f"/api/states/{eid}", {"state": state, "attributes": attrs or {}}
+    )
 
 
 def wait(seconds=45):
@@ -450,7 +463,7 @@ def discover(group_filter=None):
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 f"""
 import json
@@ -479,7 +492,7 @@ for e in cfg['data']['entries']:
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 """
 import json
@@ -613,7 +626,7 @@ def setup_battery(ctx):
             "signal_enabled": ctx.get("signal_enabled", False),
         },
     )
-    if r2.get("step_id") == "battery_mapping":
+    if r2.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
         r3 = api(
             "POST",
             f"/api/config/config_entries/options/flow/{fid}",
@@ -687,6 +700,209 @@ def reload_entry(ctx):
     wait(15)
 
 
+def _combined_owner(member_entry_id: str) -> tuple[str, bool]:
+    """Return (combined_entry_id, owns) for a combined group that includes member_entry_id.
+
+    Reads combined_groups member lists from config storage (the REST entry
+    endpoint omits entry.data). owns is False when no combined group contains
+    the member — the combined relay would then never fire for that member, so
+    the caller skips rather than false-failing.
+    """
+    import subprocess
+
+    try:
+        raw = subprocess.check_output(
+            [
+                sys.executable,
+                "-c",
+                """
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+out = []
+for e in cfg['data']['entries']:
+    if e['domain'] == 'entity_availability':
+        out.append((e['entry_id'], e['data'].get('combined_groups', [])))
+print(json.dumps(out))
+""",
+            ],
+            text=True,
+        )
+        for cid, members in json.loads(raw.strip() or "[]"):
+            if member_entry_id in members:
+                return cid, True
+    except Exception:
+        pass
+    return "", False
+
+
+def _provision_stale_fixture() -> dict | None:
+    """Create a deterministic stale-relay fixture via the config-entries init flow.
+
+    EC136 needs a combined group that owns a member group with
+    staleness_threshold>0 whose essential entity is NON-LIVE (so it ages past
+    the threshold on its own). The only pre-existing threshold>0 group ('ita')
+    has LIVE feed essentials that re-stamp last_updated unpredictably, making the
+    stale onset nondeterministic. Rather than depend on devcontainer topology,
+    the harness provisions its own fixture over the smoke-controlled template
+    sensor ``sensor.ea_test_kitchen_1`` (driven by an input_boolean, re-evaluated
+    only on that boolean's change — idle => ages deterministically).
+
+    Builds: a group 'EA Stale Fixture' (essential=[ea_test_kitchen_1],
+    staleness_threshold=1 min) + a combined 'EA Stale Combined' owning it plus an
+    existing group (combined requires >=2 LOADED members). Returns a dict with
+    group_entry_id / combined_entry_id / stale_entity / prefix / threshold, or
+    None if provisioning fails (EC136 then skips, not fails). Caller must call
+    _teardown_stale_fixture() to delete both entries.
+    """
+    stale_entity = "sensor.ea_test_kitchen_1"
+    group_name = "EA Stale Fixture"
+    combined_name = "EA Stale Combined"
+    threshold_min = 1
+
+    # Reuse a prior fixture if it is still around (idempotent across reruns).
+    entries = api("GET", "/api/config/config_entries/entry")
+    existing = {
+        e.get("title"): e.get("entry_id")
+        for e in entries
+        if e.get("domain") == "entity_availability"
+    }
+    group_eid = existing.get(group_name)
+    combined_eid = existing.get(combined_name)
+
+    def _h(path, body=None):
+        return api("POST", path, body)
+
+    try:
+        if not group_eid:
+            r = _h(
+                "/api/config/config_entries/flow",
+                {"handler": "entity_availability"},
+            )
+            fid = r["flow_id"]
+            # user -> group -> monitoring -> advanced -> create_entry
+            _h(f"/api/config/config_entries/flow/{fid}", {"entry_type": "group"})
+            _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {"group_name": group_name, "entities": [stale_entity]},
+            )
+            _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {
+                    "bad_states": ["unavailable", "unknown"],
+                    "cooldown": 0,
+                    "staleness_threshold": threshold_min,
+                    "staleness_use_last_updated": False,
+                },
+            )
+            r_adv = _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {
+                    "battery_threshold": 0,
+                    "signal_enabled": False,
+                    "availability_windows": ["today", "7d"],
+                    "recovery_window": 5,
+                    "use_device_names": False,
+                    "collapse_devices": False,
+                },
+            )
+            if r_adv.get("type") != "create_entry":
+                api("DELETE", f"/api/config/config_entries/flow/{fid}")
+                print(
+                    f"  stale-fixture: group create did not finish "
+                    f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                    flush=True,
+                )
+                return None
+            group_eid = r_adv["result"]["entry_id"]
+
+        # Pick a second, already-LOADED group to satisfy the combined's >=2
+        # member requirement. Any group works — the relay only fires for the
+        # member that actually emits a stale event (our fixture group).
+        entries = api("GET", "/api/config/config_entries/entry")
+        second = next(
+            (
+                e
+                for e in entries
+                if e.get("domain") == "entity_availability"
+                and e.get("entry_id") != group_eid
+                and e.get("title") not in (combined_name,)
+                and e.get("state") == "loaded"
+            ),
+            None,
+        )
+        if not second:
+            print("  stale-fixture: no second group for combined", flush=True)
+            return None
+
+        if not combined_eid:
+            r = _h(
+                "/api/config/config_entries/flow",
+                {"handler": "entity_availability"},
+            )
+            fid = r["flow_id"]
+            r_u = _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {"entry_type": "combined_group"},  # ENTRY_TYPE_COMBINED const value
+            )
+            # The combined step keys fields by GROUP TITLE; map title->override.
+            eid_title_map = json.loads(
+                r_u.get("description_placeholders", {}).get("eid_title_map", "{}")
+            )
+            title_of = {eid: title for eid, title in eid_title_map.items()}
+            submit = {"combined_name": combined_name}
+            for eid in (group_eid, second["entry_id"]):
+                title = title_of.get(eid)
+                if title:
+                    submit[title] = "keep"
+            r_c = _h(f"/api/config/config_entries/flow/{fid}", submit)
+            if r_c.get("type") != "create_entry":
+                api("DELETE", f"/api/config/config_entries/flow/{fid}")
+                print(
+                    f"  stale-fixture: combined create did not finish "
+                    f"(type={r_c.get('type')} step={r_c.get('step_id')})",
+                    flush=True,
+                )
+                return None
+            combined_eid = r_c["result"]["entry_id"]
+
+        # Resolve the fixture group's sensor prefix (for stale_count polling).
+        wait(3)
+        prefix = None
+        for s in api("GET", "/api/states"):
+            eid = s["entity_id"]
+            if "entity_availability" in eid and eid.endswith("_group_summary"):
+                fn = s.get("attributes", {}).get("friendly_name", "")
+                if group_name.lower() in fn.lower():
+                    prefix = eid.replace("_group_summary", "")
+                    break
+        if not prefix:
+            print("  stale-fixture: group sensor prefix not found", flush=True)
+            return None
+
+        return {
+            "group_entry_id": group_eid,
+            "combined_entry_id": combined_eid,
+            "stale_entity": stale_entity,
+            "prefix": prefix,
+            "threshold": threshold_min,
+        }
+    except Exception as exc:  # provisioning is best-effort
+        print(f"  stale-fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _teardown_stale_fixture(fix: dict) -> None:
+    """Delete the combined then the group entry created by _provision_stale_fixture."""
+    for key in ("combined_entry_id", "group_entry_id"):
+        eid = fix.get(key)
+        if not eid:
+            continue
+        try:
+            api("DELETE", f"/api/config/config_entries/entry/{eid}")
+        except Exception:  # teardown is best-effort
+            pass
+
+
 def _discover_ne_group(filter_str: str) -> dict | None:
     """Discover a group that has non_essential_entities configured."""
     import subprocess
@@ -714,7 +930,7 @@ def _discover_ne_group(filter_str: str) -> dict | None:
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 f"""
 import json
@@ -766,6 +982,15 @@ for e in cfg['data']['entries']:
         "staleness_threshold": data.get("staleness_threshold", 0),
         "battery_threshold": data.get("battery_threshold", 0),
         "battery_entity_map": data.get("battery_entity_map", {}),
+        # restore_all reads these on every restore_and_wait(ne_ctx); derive them
+        # from the group's battery_entity_map (same as the core-group discovery)
+        # so an ne-suite restore does not KeyError when the group has no mapping.
+        "mapped_battery_entity": next(
+            (k for k, v in data.get("battery_entity_map", {}).items() if v), None
+        ),
+        "mapped_battery_sensor": next(
+            (v for v in data.get("battery_entity_map", {}).values() if v), None
+        ),
     }
 
 
@@ -1012,6 +1237,96 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                 # EC25+ proceed (cycling off→on may briefly trigger offline).
                 ne_restore()
                 wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "0")
+
+    # EC136: combined group relays the per-group STALE event under its own
+    # entry_id — proves the all-8-events relay (not just offline/battery) works
+    # end-to-end through a combined group. Mirrors EC24's offline check on stale.
+    #
+    # Self-provisions a deterministic fixture rather than depending on the
+    # discovered ne-group: a stale event can only be induced by letting an
+    # essential entity's last_updated age past the threshold, and the only
+    # pre-existing threshold>0 group has LIVE feed essentials that re-stamp
+    # last_updated unpredictably (nondeterministic onset). The fixture's
+    # essential is a smoke-controlled template sensor that idles → ages reliably.
+    if ec_enabled(136):
+        print(
+            "\n=== EC136: combined group relays stale event with source_groups ===",
+            flush=True,
+        )
+        if not _WS_AVAILABLE:
+            print("  EC136: skipped (websocket-client not installed)", flush=True)
+        else:
+            fix = _provision_stale_fixture()
+            if not fix:
+                print(
+                    "  EC136: skipped (could not provision stale fixture)", flush=True
+                )
+            else:
+                combined_entry_id = fix["combined_entry_id"]
+                fix_prefix = fix["prefix"]
+                threshold = fix["threshold"]
+                # Freshen the fixture's essential so its age starts near 0, then
+                # leave it idle. The template sensor re-evaluates only when its
+                # driving input_boolean changes, so toggle the boolean on (one
+                # genuine template render stamps last_updated now) and then touch
+                # nothing — the sensor ages straight past the threshold.
+                api(
+                    "POST",
+                    "/api/services/input_boolean/turn_off",
+                    {"entity_id": "input_boolean.ea_ctrl_kitchen_1"},
+                )
+                time.sleep(2)
+                api(
+                    "POST",
+                    "/api/services/input_boolean/turn_on",
+                    {"entity_id": "input_boolean.ea_ctrl_kitchen_1"},
+                )
+                time.sleep(2)
+
+                def _wait_fix_stale() -> None:
+                    deadline = time.time() + (threshold + 2) * 60
+                    while time.time() < deadline:
+                        val = gs(f"{fix_prefix}_stale_count").get("state", "0")
+                        try:
+                            if int(val or 0) > 0:
+                                return
+                        except (TypeError, ValueError):
+                            pass
+                        time.sleep(10)
+
+                # Capture window MUST outlast the full stale onset (threshold+2 min)
+                # or the socket closes before the event fires (total_events=0).
+                stale_timeout = (threshold + 2) * 60
+                stale_events = capture_events(
+                    "entity_availability_stale",
+                    _wait_fix_stale,
+                    timeout=stale_timeout + 30,
+                )
+                combined_stale = [
+                    e for e in stale_events if e.get("entry_id") == combined_entry_id
+                ]
+                chk(
+                    "EC136 combined stale event captured",
+                    len(combined_stale) > 0,
+                    True,
+                    f"combined_entry_id={combined_entry_id} total_events={len(stale_events)}",
+                )
+                if combined_stale:
+                    ev = combined_stale[0]
+                    chk(
+                        "EC136 combined stale source_groups is non-empty list",
+                        isinstance(ev.get("source_groups"), list)
+                        and len(ev.get("source_groups", [])) > 0,
+                        True,
+                        f"source_groups={ev.get('source_groups')}",
+                    )
+                    chk(
+                        "EC136 combined stale stale_count is int",
+                        isinstance(ev.get("stale_count"), int),
+                        True,
+                        f"stale_count={ev.get('stale_count')}",
+                    )
+                _teardown_stale_fixture(fix)
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
@@ -1573,7 +1888,7 @@ def _discover_group_capabilities():
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 """
 import json
@@ -1684,7 +1999,11 @@ def run_all():
     # ECs with a DEDICATED later pass — excluded from pass 1 so we don't run
     # them on Alpha just to self-skip (perf), and so EC36 (needs a non-essential
     # tier Alpha lacks) doesn't hard-fail here rather than in its both-tiers pass.
-    ne_ecs = set(range(25, 43)) | {115, 116}  # EC25-42 + NE all_offline → pass 2
+    ne_ecs = set(range(25, 43)) | {
+        115,
+        116,
+        136,
+    }  # EC25-42 + NE all_offline + EC136 stale relay → pass 2
     collapse_ecs = {86, 87, 88, 89, 117}  # → pass 3
     # 1) The broad slice an essential-mapped-battery + signal + combined group
     #    satisfies: core, battery-count family, signal, combined, collapse-attr,
@@ -1809,6 +2128,7 @@ def run_checks(ctx):
             wait_for(
                 lambda: gs(f"{prefix}_offline_count").get("state"),
                 "1",
+                timeout=OFFLINE_GRACE_TIMEOUT,
             ),
             "1",
         )
@@ -1820,6 +2140,7 @@ def run_checks(ctx):
                     .get("offline")
                 ),
                 1,
+                timeout=OFFLINE_GRACE_TIMEOUT,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
@@ -1883,16 +2204,18 @@ def run_checks(ctx):
             "0",
         )
         if combined_prefix:
+            # kitchen_1 splits into 2 rows (Alpha vs Beta divergent signal_map,
+            # both collapse OFF) → each low battery counts per surviving row → 2.
             low_battery_val = wait_for(
                 lambda: (
                     gs(f"{combined_prefix}_combined_summary")
                     .get("attributes", {})
                     .get("low_battery")
                 ),
-                1,
+                2,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-            chk("EC4 combined low_battery=1", low_battery_val, 1)
+            chk("EC4 combined low_battery=2 (split rows)", low_battery_val, 2)
             chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
 
         # ------------------------------------------------------------------
@@ -1911,6 +2234,7 @@ def run_checks(ctx):
             wait_for(
                 lambda: gs(f"{prefix}_offline_count").get("state"),
                 "1",
+                timeout=OFFLINE_GRACE_TIMEOUT,
             ),
             "1",
         )
@@ -1942,9 +2266,22 @@ def run_checks(ctx):
                     .get("offline")
                 ),
                 1,
+                timeout=OFFLINE_GRACE_TIMEOUT,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")
+            # Both split rows must settle offline before reading low_battery:
+            # the two member coords debounce independently, so offline==1 can
+            # fire while one stale row still reports low_battery. Gate on it.
+            wait_for(
+                lambda: str(
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("low_battery")
+                ),
+                "0",
+            )
+            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
             chk("EC5 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
 
         # ------------------------------------------------------------------
@@ -2026,14 +2363,14 @@ def run_checks(ctx):
                 },
             )
             chk(
-                "EC7 combined low_battery=base+1",
+                "EC7 combined low_battery=base+2 (split rows)",
                 wait_for(
                     lambda: int(
                         gs(f"{combined_prefix}_low_battery_count").get("state", "0")
                     ),
-                    b_clb + 1,
+                    b_clb + 2,
                 ),
-                b_clb + 1,
+                b_clb + 2,
                 f"(base={b_clb})",
             )
             chk(
@@ -2061,14 +2398,14 @@ def run_checks(ctx):
                 f"(base={b_clb})",
             )
             chk(
-                "EC8 combined offline=base+1",
+                "EC8 combined offline=base+2 (split rows)",
                 wait_for(
                     lambda: int(
                         gs(f"{combined_prefix}_offline_count").get("state", "0")
                     ),
-                    b_coff + 1,
+                    b_coff + 2,
                 ),
-                b_coff + 1,
+                b_coff + 2,
                 f"(base={b_coff})",
             )
         else:
@@ -2092,7 +2429,7 @@ def run_checks(ctx):
         )
         try:
             raw = subprocess.check_output(
-                ["python3", "-c", _ec9_script],
+                [sys.executable, "-c", _ec9_script],
                 text=True,
             ).strip()
             cleared_entities = json.loads(raw)
@@ -2478,6 +2815,7 @@ def run_checks(ctx):
                 after_offline = wait_for(
                     lambda: int(gs(c_offline_eid).get("state", "0")),
                     baseline + 1,
+                    timeout=OFFLINE_GRACE_TIMEOUT,
                 )
                 chk(
                     "EC16 combined offline_count rises when member entity goes offline",
@@ -2985,7 +3323,7 @@ def run_checks(ctx):
     # EC25-EC35: Non-Essential entity tier
     # Requires EA_SMOKE_NE_GROUP to point at a group with NE entities configured.
     # ------------------------------------------------------------------
-    ne_ecs = set(range(25, 43)) | {115, 116}
+    ne_ecs = set(range(25, 43)) | {115, 116, 136}
     run_ne = bool(NE_GROUP_FILTER) and (not EC_FILTER or ne_ecs & EC_FILTER)
 
     if run_ne:
@@ -3156,8 +3494,10 @@ def run_checks(ctx):
                 "signal_enabled": True,
             },
         )
-        # Navigate past battery_mapping if present — preserve existing mappings
-        if r2.get("step_id") == "battery_mapping":
+        # Navigate past battery_mapping if present — preserve existing mappings.
+        # Both the "battery_mapping" (new entities) and "battery_mapping_no_new"
+        # (all already mapped) variants take the same battery_entity_map submit.
+        if r2.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
             bmap_input = {}
             if ctx.get("mapped_battery_entity") and ctx.get("mapped_battery_sensor"):
                 bmap_input[ctx["mapped_battery_entity"]] = ctx["mapped_battery_sensor"]
@@ -3190,7 +3530,7 @@ def run_checks(ctx):
                 try:
                     raw = _sp.check_output(
                         [
-                            "python3",
+                            sys.executable,
                             "-c",
                             f"""
 import json
@@ -3280,7 +3620,7 @@ for e in cfg['data']['entries']:
                     "signal_enabled": True,
                 },
             )
-            if r2.get("step_id") == "battery_mapping":
+            if r2.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
                 r2 = api("POST", f"/api/config/config_entries/options/flow/{fid}", {})
             if r2.get("step_id") == "signal_mapping":
                 schema = r2.get("data_schema", [])
@@ -3361,6 +3701,114 @@ for e in cfg['data']['entries']:
             )
         except Exception as e:
             chk("EC53 diagnostics endpoint reachable", False, True, str(e))
+
+    # EC137: combined group relays the per-group POOR_SIGNAL event under its own
+    # entry_id — the third event family (after EC24 offline, EC136 stale) proven
+    # end-to-end through the generic relay. Rides the signal mapping EC51 stored:
+    # reads it fresh, drives the mapped sensor below its "ok" tier, captures the
+    # combined poor_signal event filtered to the combined entry_id.
+    if ec_enabled(137):
+        print(
+            "\n=== EC137: combined group relays poor_signal event with source_groups ===",
+            flush=True,
+        )
+        # "ok" threshold per network type (const.SIGNAL_NETWORK_TYPES). A reading
+        # one unit below "ok" is always "poor", both dBm and LQI/% scales.
+        _OK = {
+            "5g": -100,
+            "bluetooth": -85,
+            "generic": -80,
+            "lorawan": -115,
+            "lte": -90,
+            "percentage": 40,
+            "thread": -85,
+            "wifi": -80,
+            "zigbee_lqi": 51,
+            "zigbee_rssi": -85,
+            "zwave": -85,
+        }
+        combined_entry_id, combined_owns = _combined_owner(ctx["entry_id"])
+        # Read the stored signal map fresh (EC51 writes it on create_entry).
+        smap = {}
+        try:
+            import subprocess as _sp
+
+            raw = _sp.check_output(
+                [
+                    sys.executable,
+                    "-c",
+                    f"""
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+for e in cfg['data']['entries']:
+    if e['entry_id'] == {ctx["entry_id"]!r}:
+        print(json.dumps(e['data'].get('signal_entity_map', {{}})))
+""",
+                ],
+                text=True,
+            )
+            smap = json.loads(raw.strip() or "{}")
+        except Exception:
+            smap = {}
+        # Pick the first mapped sensor with a known network type.
+        mapped = next(
+            (
+                (ent, m.get("sensor"), m.get("network_type"))
+                for ent, m in smap.items()
+                if m.get("sensor") and m.get("network_type") in _OK
+            ),
+            None,
+        )
+        if not _WS_AVAILABLE:
+            print("  EC137: skipped (websocket-client not installed)", flush=True)
+        elif not (combined_entry_id and combined_owns):
+            print("  EC137: skipped (no combined group owns this group)", flush=True)
+        elif not mapped:
+            print(
+                "  EC137: skipped (no signal mapping stored — EC51 did not run)",
+                flush=True,
+            )
+        else:
+            _ent, _sensor, _net = mapped
+            poor_val = _OK[_net] - 1  # one unit below "ok" → always "poor"
+            # Force a firmly-"good" baseline first so the poor set is a real
+            # transition (edge-triggered event). Without this, a prior aborted
+            # run can leave the sensor already poor → no transition → no event.
+            # higher numeric = greener on every scale here (good >= ok), so
+            # ok + 100 is always "good".
+            ss(_sensor, str(_OK[_net] + 100))
+            wait(WAIT_FOR_TIMEOUT)
+            signal_events = capture_events(
+                "entity_availability_poor_signal",
+                lambda: ss(_sensor, str(poor_val)),
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
+            )
+            combined_signal = [
+                e for e in signal_events if e.get("entry_id") == combined_entry_id
+            ]
+            chk(
+                "EC137 combined poor_signal event captured",
+                len(combined_signal) > 0,
+                True,
+                f"combined_entry_id={combined_entry_id} sensor={_sensor} "
+                f"net={_net} poor_val={poor_val} total_events={len(signal_events)}",
+            )
+            if combined_signal:
+                ev = combined_signal[0]
+                chk(
+                    "EC137 combined poor_signal source_groups is non-empty list",
+                    isinstance(ev.get("source_groups"), list)
+                    and len(ev.get("source_groups", [])) > 0,
+                    True,
+                    f"source_groups={ev.get('source_groups')}",
+                )
+                chk(
+                    "EC137 combined poor_signal poor_signal_count is int",
+                    isinstance(ev.get("poor_signal_count"), int),
+                    True,
+                    f"poor_signal_count={ev.get('poor_signal_count')}",
+                )
+            restore_and_wait(ctx)
 
     # EC54: group_summary new explicit attrs (essential count, stale/poor_signal counts)
     if ec_enabled(54):
@@ -4709,7 +5157,7 @@ for e in cfg['data']['entries']:
             try:
                 raw = subprocess.check_output(
                     [
-                        "python3",
+                        sys.executable,
                         "-c",
                         (
                             "import json;"
@@ -4950,7 +5398,11 @@ for e in cfg['data']['entries']:
                     # the combined) rather than a blind sleep — a coalesced
                     # refresh (PR#97) can land after a fixed sleep on a cold
                     # devcontainer, which would false-FAIL the positive control.
-                    wait_for(lambda: non_rep_ne_86 in _combined_ne_offline(), True)
+                    wait_for(
+                        lambda: non_rep_ne_86 in _combined_ne_offline(),
+                        True,
+                        timeout=OFFLINE_GRACE_TIMEOUT,
+                    )
                     u1_88 = gs(summary_eid_86).get("last_updated")
                     chk(
                         "EC88 combined_summary last_updated advances on real "
@@ -5373,7 +5825,7 @@ for e in cfg['data']['entries']:
                     )
                     return g.get("non_essential_offline", -1)
 
-                wait_for(_grp_ne_offline, 1, timeout=60)
+                wait_for(_grp_ne_offline, 1, timeout=OFFLINE_GRACE_TIMEOUT)
                 summary = gs_safe(f"{combined_prefix}_combined_summary")
                 attrs = (summary or {}).get("attributes", {})
                 groups = attrs.get("groups", {})
