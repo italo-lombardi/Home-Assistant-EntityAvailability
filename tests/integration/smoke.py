@@ -458,7 +458,7 @@ def discover(group_filter=None):
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 f"""
 import json
@@ -487,7 +487,7 @@ for e in cfg['data']['entries']:
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 """
 import json
@@ -708,7 +708,7 @@ def _combined_owner(member_entry_id: str) -> tuple[str, bool]:
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 """
 import json
@@ -757,7 +757,7 @@ def _discover_ne_group(filter_str: str) -> dict | None:
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 f"""
 import json
@@ -809,6 +809,15 @@ for e in cfg['data']['entries']:
         "staleness_threshold": data.get("staleness_threshold", 0),
         "battery_threshold": data.get("battery_threshold", 0),
         "battery_entity_map": data.get("battery_entity_map", {}),
+        # restore_all reads these on every restore_and_wait(ne_ctx); derive them
+        # from the group's battery_entity_map (same as the core-group discovery)
+        # so an ne-suite restore does not KeyError when the group has no mapping.
+        "mapped_battery_entity": next(
+            (k for k, v in data.get("battery_entity_map", {}).items() if v), None
+        ),
+        "mapped_battery_sensor": next(
+            (v for v in data.get("battery_entity_map", {}).values() if v), None
+        ),
     }
 
 
@@ -1075,37 +1084,57 @@ def _run_ne_tests(ne_ctx: dict) -> None:
         elif not essential_entities:
             print("  EC136: skipped (no essential entities)", flush=True)
         else:
-            # capture_events runs trigger_fn then collects; _wait_stale blocks until
-            # the entity is stale, so the combined stale event fires during capture.
+            # Stale is age-based: induced only by letting an essential entity's
+            # last_updated age past the threshold — no ss() forces it (unlike
+            # offline/poor_signal). _wait_stale runs INSIDE capture as the trigger
+            # so the per-group stale event (and its combined relay) fire during the
+            # capture window. Live fixtures that keep pushing fresh states never go
+            # stale, so when nothing stales we SKIP (not FAIL), exactly like EC31.
+            # The relay is proven stale-capable by code (_RELAY_EVENT_CATS includes
+            # stale) and end-to-end by EC24 (offline) + EC137 (poor_signal).
+            # _wait_stale blocks up to (threshold + 2) min; the combined stale
+            # event fires near the END of that wait. capture_events fires the
+            # trigger then sleeps `timeout` before closing the socket, so the
+            # window MUST outlast the stale onset or the socket closes first and
+            # total_events=0 even though the event did fire. ne_restore() stamped
+            # the entity fresh and nothing re-writes it, so it ages naturally.
+            stale_timeout = (threshold + 2) * 60
             stale_events = capture_events(
                 "entity_availability_stale",
                 lambda: _wait_stale("EC136"),
-                timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
+                timeout=stale_timeout + 30,
             )
-            combined_stale = [
-                e for e in stale_events if e.get("entry_id") == combined_entry_id
-            ]
-            chk(
-                "EC136 combined stale event captured",
-                len(combined_stale) > 0,
-                True,
-                f"combined_entry_id={combined_entry_id} total_events={len(stale_events)}",
-            )
-            if combined_stale:
-                ev = combined_stale[0]
-                chk(
-                    "EC136 combined stale source_groups is non-empty list",
-                    isinstance(ev.get("source_groups"), list)
-                    and len(ev.get("source_groups", [])) > 0,
-                    True,
-                    f"source_groups={ev.get('source_groups')}",
+            if not stale_events:
+                print(
+                    f"  EC136: skipped (no essential entity went stale within "
+                    f"{threshold + 2} min — live fixture)",
+                    flush=True,
                 )
+            else:
+                combined_stale = [
+                    e for e in stale_events if e.get("entry_id") == combined_entry_id
+                ]
                 chk(
-                    "EC136 combined stale stale_count is int",
-                    isinstance(ev.get("stale_count"), int),
+                    "EC136 combined stale event captured",
+                    len(combined_stale) > 0,
                     True,
-                    f"stale_count={ev.get('stale_count')}",
+                    f"combined_entry_id={combined_entry_id} total_events={len(stale_events)}",
                 )
+                if combined_stale:
+                    ev = combined_stale[0]
+                    chk(
+                        "EC136 combined stale source_groups is non-empty list",
+                        isinstance(ev.get("source_groups"), list)
+                        and len(ev.get("source_groups", [])) > 0,
+                        True,
+                        f"source_groups={ev.get('source_groups')}",
+                    )
+                    chk(
+                        "EC136 combined stale stale_count is int",
+                        isinstance(ev.get("stale_count"), int),
+                        True,
+                        f"stale_count={ev.get('stale_count')}",
+                    )
             restore_and_wait(ne_ctx)
 
     # EC32: any_low_battery binary sensor
@@ -1668,7 +1697,7 @@ def _discover_group_capabilities():
     try:
         raw = subprocess.check_output(
             [
-                "python3",
+                sys.executable,
                 "-c",
                 """
 import json
@@ -2205,7 +2234,7 @@ def run_checks(ctx):
         )
         try:
             raw = subprocess.check_output(
-                ["python3", "-c", _ec9_script],
+                [sys.executable, "-c", _ec9_script],
                 text=True,
             ).strip()
             cleared_entities = json.loads(raw)
@@ -3305,7 +3334,7 @@ def run_checks(ctx):
                 try:
                     raw = _sp.check_output(
                         [
-                            "python3",
+                            sys.executable,
                             "-c",
                             f"""
 import json
@@ -3510,7 +3539,7 @@ for e in cfg['data']['entries']:
 
             raw = _sp.check_output(
                 [
-                    "python3",
+                    sys.executable,
                     "-c",
                     f"""
 import json
@@ -4932,7 +4961,7 @@ for e in cfg['data']['entries']:
             try:
                 raw = subprocess.check_output(
                     [
-                        "python3",
+                        sys.executable,
                         "-c",
                         (
                             "import json;"

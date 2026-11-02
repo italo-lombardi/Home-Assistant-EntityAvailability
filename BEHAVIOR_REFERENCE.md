@@ -368,7 +368,7 @@ on a combined group; only the `entry_id` it matches on differs.
   listens on the bus for the eight events, and whenever a **member** individual
   group fires one, it re-fires that same event under the **combined entry's own**
   `entry_id` (and `group` name). The relay runs in the
-  `CombinedGroupSummarySensor` (`{entry_id}_combined_summary`), off the sensor's
+  `CombinedGroupSensor` (`{entry_id}_combined_summary`), off the sensor's
   state path — it fires **iff** a member already fired, adding no event volume.
 - **Per-entity fields pass straight through.** `offline_since`,
   `downtime_seconds`, `battery_level`, `stale_since`, `signal_level`,
