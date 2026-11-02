@@ -343,6 +343,9 @@ per-group coordinators, never by a combined group.
 - **Diff-based**, not edge-per-entity: each tick the sensor diffs the current
   offline / low-battery sets against the previous tick — `current − prev` fires
   `offline`, `prev − current` fires `recovered`, and the battery sets likewise.
+  Each set is **device-collapsed, non-suppressed, essential only** — the same
+  filter the counts use (a suppressed or non-essential entity never enters the
+  diff, so it fires nothing).
 - The payload `entity_id` is the **collapse representative's bare entity_id**
   string (never the internal `row_key`). Collapse applies when the owning group
   has both *use device names* and *collapse devices* on.

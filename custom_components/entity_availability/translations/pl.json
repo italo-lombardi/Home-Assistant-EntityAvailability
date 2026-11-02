@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Mapowanie czujnika baterii",
-        "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low'). Nowo dodane, z sugerowanym czujnikiem baterii: {new_entities}."
+        "description": "Potwierdź lub zmień czujnik baterii dla każdej monitorowanej encji. Pozostaw puste dla encji bez baterii. Obsługuje stany numeryczne (%) i tekstowe ('low').\n\nNowo dodane w tej sesji (sprawdź ich przypisanie baterii):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Mapowanie siły sygnału",

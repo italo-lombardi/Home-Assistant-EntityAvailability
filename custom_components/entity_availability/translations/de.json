@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Batterie-Entitätszuordnung",
-        "description": "Bestätigen oder ändern Sie den Batteriesensor für jede überwachte Entität. Leer lassen für Entitäten ohne Batterien. Unterstützt numerische (%) und Textzustände ('niedrig'). Neu hinzugefügt, mit vorgeschlagenem Batteriesensor: {new_entities}."
+        "description": "Bestätigen oder ändern Sie den Batteriesensor für jede überwachte Entität. Leer lassen für Entitäten ohne Batterien. Unterstützt numerische (%) und Textzustände ('niedrig').\n\nNeu hinzugefügt in dieser Sitzung (Batteriezuordnung prüfen):\n{new_entities}"
       },
       "battery_mapping_no_new": {
         "title": "Batterie-Entitätszuordnung",

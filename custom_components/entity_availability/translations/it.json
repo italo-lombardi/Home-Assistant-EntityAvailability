@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Mappatura sensore batteria",
-        "description": "Conferma o modifica il sensore batteria per ogni entità monitorata. Lascia vuoto per entità senza batteria. Supporta stati numerici (%) e testuali ('low'). Appena aggiunti, con un sensore della batteria suggerito: {new_entities}."
+        "description": "Conferma o modifica il sensore batteria per ogni entità monitorata. Lascia vuoto per entità senza batteria. Supporta stati numerici (%) e testuali ('low').\n\nAggiunti di recente in questa sessione (controlla la loro associazione batteria):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Mappatura della potenza del segnale",

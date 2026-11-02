@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Mapatge d'entitats de bateria",
-        "description": "Confirmeu o canvieu el sensor de bateria per a cada entitat supervisada. Deixeu-lo buit per a entitats sense bateria. Admet estats numèrics (%) i de text ('baix'). Nous afegits, amb un sensor de bateria suggerit: {new_entities}."
+        "description": "Confirmeu o canvieu el sensor de bateria per a cada entitat supervisada. Deixeu-lo buit per a entitats sense bateria. Admet estats numèrics (%) i de text ('baix').\n\nAfegits recentment en aquesta sessió (reviseu-ne l'assignació de bateria):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Assignació de la intensitat del senyal",

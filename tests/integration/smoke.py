@@ -66,6 +66,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
        entity in the startup grace window is not wiped; clear is gated on confirmed-offline)
   EC134 0.7.0: explicit battery map wins over the entity's own device_class=battery reading —
        entity exposes own-state 55, mapped sensor reads 10, coordinator reports 10 (map-wins)
+  EC135 PR#125: options battery_mapping names unmapped (new-this-session) entities in
+       description_placeholders.new_entities + step_id battery_mapping; all-mapped → battery_mapping_no_new
   EC91 PR#106: availability_today recorded value is stable across polls (no write-amp sawtooth)
   EC92 PR#106: availability_today shows a value immediately (not unknown) — startup fallback
   EC93 PR#109: mtbf per_device present in live state but excluded from recorder — per-device
@@ -506,6 +508,12 @@ print(json.dumps(out))
         ),
         None,
     )
+    # True only when a combined group actually lists THIS group as a member.
+    # The ECs that drive this group's entity offline and assert the combined
+    # reflects it are only valid when that membership holds — otherwise the
+    # fallback combined below legitimately reports nothing and the asserts
+    # would false-FAIL. Those ECs gate on ctx["combined_owns_group"].
+    combined_owns_group = owning is not None
     if owning is None:
         # fall back to any combined entry (single-combined setups / API-only)
         owning = next(
@@ -548,6 +556,7 @@ print(json.dumps(out))
         "mapped_battery_sensor": mapped_battery_sensor,
         "combined_prefix": combined_prefix,
         "combined_entry_id": combined["entry_id"] if combined else "",
+        "combined_owns_group": combined_owns_group,
     }
 
 
@@ -2458,7 +2467,7 @@ def run_checks(ctx):
             flush=True,
         )
         restore_and_wait(ctx)
-        if combined_prefix:
+        if combined_prefix and ctx["combined_owns_group"]:
             target = ctx["entities"][0]
             c_offline_eid = f"{combined_prefix}_offline_count"
             baseline = int(gs(c_offline_eid).get("state", "0"))
@@ -2525,7 +2534,10 @@ def run_checks(ctx):
                     f"sensor={c_offline_eid} baseline={baseline} after_recovery={after_recovery}",
                 )
         else:
-            print("  EC16-EC18: skipped (no combined group found)", flush=True)
+            print(
+                "  EC16-EC18: skipped (no combined group owns this group)",
+                flush=True,
+            )
 
     # ------------------------------------------------------------------
     if ec_enabled(19) or ec_enabled(20) or ec_enabled(21):
@@ -2617,18 +2629,25 @@ def run_checks(ctx):
                             ev.get("entity_id"),
                             target,
                         )
-                    chk(
-                        "EC20 combined offline event captured for target",
-                        ev_combined is not None,
-                        True,
-                        f"target={target} events={offline_events}",
-                    )
-                    if ev_combined is not None:
+                    if ctx["combined_owns_group"]:
                         chk(
-                            "EC20 combined offline event source_groups is a list",
-                            isinstance(ev_combined.get("source_groups"), list),
+                            "EC20 combined offline event captured for target",
+                            ev_combined is not None,
                             True,
-                            f"source_groups={ev_combined.get('source_groups')!r}",
+                            f"target={target} events={offline_events}",
+                        )
+                        if ev_combined is not None:
+                            chk(
+                                "EC20 combined offline event source_groups is a list",
+                                isinstance(ev_combined.get("source_groups"), list),
+                                True,
+                                f"source_groups={ev_combined.get('source_groups')!r}",
+                            )
+                    else:
+                        print(
+                            "  EC20 combined offline event: skipped "
+                            "(no combined group owns this group)",
+                            flush=True,
                         )
 
             if ec_enabled(21):
@@ -2648,12 +2667,19 @@ def run_checks(ctx):
                     True,
                     f"target={target} individual={i_entities}",
                 )
-                chk(
-                    "EC21 combined offline_entities contains the offline entity",
-                    target in c_entities,
-                    True,
-                    f"target={target} combined={c_entities}",
-                )
+                if ctx["combined_owns_group"]:
+                    chk(
+                        "EC21 combined offline_entities contains the offline entity",
+                        target in c_entities,
+                        True,
+                        f"target={target} combined={c_entities}",
+                    )
+                else:
+                    print(
+                        "  EC21 combined offline_entities: skipped "
+                        "(no combined group owns this group)",
+                        flush=True,
+                    )
 
                 if _WS_AVAILABLE:
                     # Additive: capture the recovery event payload and assert shape.
@@ -2693,18 +2719,25 @@ def run_checks(ctx):
                             ev.get("entity_id"),
                             target,
                         )
-                    chk(
-                        "EC21 combined recovered event captured for target",
-                        ev_combined is not None,
-                        True,
-                        f"target={target} events={recovered_events}",
-                    )
-                    if ev_combined is not None:
+                    if ctx["combined_owns_group"]:
                         chk(
-                            "EC21 combined recovered event source_groups is a list",
-                            isinstance(ev_combined.get("source_groups"), list),
+                            "EC21 combined recovered event captured for target",
+                            ev_combined is not None,
                             True,
-                            f"source_groups={ev_combined.get('source_groups')!r}",
+                            f"target={target} events={recovered_events}",
+                        )
+                        if ev_combined is not None:
+                            chk(
+                                "EC21 combined recovered event source_groups is a list",
+                                isinstance(ev_combined.get("source_groups"), list),
+                                True,
+                                f"source_groups={ev_combined.get('source_groups')!r}",
+                            )
+                    else:
+                        print(
+                            "  EC21 combined recovered event: skipped "
+                            "(no combined group owns this group)",
+                            flush=True,
                         )
 
                 restore_and_wait(ctx)
@@ -2842,12 +2875,18 @@ def run_checks(ctx):
                     f"source_groups={ev.get('source_groups')}",
                 )
             else:
-                chk(
-                    "EC24 combined offline event captured",
-                    False,
-                    True,
-                    f"combined_entry_id={combined_entry_id} total_events={len(events)}",
-                )
+                if ctx["combined_owns_group"]:
+                    chk(
+                        "EC24 combined offline event captured",
+                        False,
+                        True,
+                        f"combined_entry_id={combined_entry_id} total_events={len(events)}",
+                    )
+                else:
+                    print(
+                        "  EC24: skipped (no combined group owns this group)",
+                        flush=True,
+                    )
             restore_and_wait(ctx)
         else:
             print(
@@ -3457,22 +3496,41 @@ for e in cfg['data']['entries']:
             ),
             "75",
         )
-        # Make entity unavailable (battery sensor stays at 75)
-        ss(battery_entity, "unavailable", {"friendly_name": "test"})
-        wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "1")
-        retained = (
+        # Precondition: the mapped battery sensor must be one we can actually
+        # drive to 75. When --all lands on a group whose battery_entity_map
+        # points at a sensor we don't own (e.g. a binary_sensor reporting its
+        # own device_class=battery state), setting 75 never lands and the
+        # retain assert below would false-FAIL on a stale value. Skip instead.
+        pre = str(
             gs(f"{prefix}_group_summary")
             .get("attributes", {})
             .get("battery_levels", {})
             .get(battery_entity)
         )
-        chk(
-            "EC59 battery_level retained when entity offline",
-            retained,
-            75,
-            f"battery_entity={battery_entity} retained={retained}",
-        )
-        restore_and_wait(ctx)
+        if pre != "75":
+            print(
+                f"  EC59: skipped (mapped battery sensor not drivable to 75; "
+                f"battery_entity={battery_entity} read={pre})",
+                flush=True,
+            )
+            restore_and_wait(ctx)
+        else:
+            # Make entity unavailable (battery sensor stays at 75)
+            ss(battery_entity, "unavailable", {"friendly_name": "test"})
+            wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "1")
+            retained = (
+                gs(f"{prefix}_group_summary")
+                .get("attributes", {})
+                .get("battery_levels", {})
+                .get(battery_entity)
+            )
+            chk(
+                "EC59 battery_level retained when entity offline",
+                retained,
+                75,
+                f"battery_entity={battery_entity} retained={retained}",
+            )
+            restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     # EC134: explicit battery mapping wins over the entity's OWN device_class=
@@ -3528,6 +3586,125 @@ for e in cfg['data']['entries']:
             f"battery_entity={battery_entity} mapped={battery_sensor}",
         )
         restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC135: options battery-mapping new-entity hint (PR#125). The options
+    # battery_mapping step names entities with NO saved mapping (new this edit
+    # session) in description_placeholders["new_entities"], and uses step_id
+    # "battery_mapping" (sentence variant). When every tracked entity is already
+    # mapped it uses "battery_mapping_no_new" with no placeholder. We open the
+    # options flow, submit the main step, and inspect the battery_mapping form —
+    # then DELETE the flow (abort) so the live entry's map is never mutated.
+    # Pure config_flow/i18n feature; the live guard is the step_id + placeholder,
+    # not a coordinator reading.
+    # ------------------------------------------------------------------
+    if ec_enabled(135):
+        print(
+            "\n=== EC135: options battery-mapping new-entity hint (PR#125) ===",
+            flush=True,
+        )
+        battery_map = {}
+        try:
+            raw = api("GET", f"/api/diagnostics/config_entry/{ctx['entry_id']}")
+            battery_map = (
+                raw.get("data", {}).get("entities", {}).get("battery_entity_map", {})
+            ) or {}
+        except Exception:
+            battery_map = {}
+
+        def _open_battery_step(entities_list):
+            """Open options, submit main step, return the battery-mapping form
+            response. Caller must DELETE the returned flow_id to abort."""
+            rr = api(
+                "POST",
+                "/api/config/config_entries/options/flow",
+                {"handler": ctx["entry_id"]},
+            )
+            fidd = rr["flow_id"]
+            rr2 = api(
+                "POST",
+                f"/api/config/config_entries/options/flow/{fidd}",
+                {
+                    "entities": entities_list,
+                    "bad_states": ["unavailable", "unknown"],
+                    "cooldown": 0,
+                    "staleness_threshold": 0,
+                    "battery_threshold": ctx["battery_threshold"],
+                    "availability_windows": ["today", "7d"],
+                    "use_device_names": False,
+                    "staleness_use_last_updated": False,
+                    "signal_enabled": ctx.get("signal_enabled", False),
+                },
+            )
+            return fidd, rr2
+
+        # --- Probe 1: the entry's real entities. "new" = entity NOT a key in the
+        # saved map (config_flow uses key presence, not truthiness; "" is a key →
+        # not new). Observe whichever branch the real state produces.
+        new_ents = [e for e in ctx["entities"] if e not in battery_map]
+        fid, r2 = _open_battery_step(ctx["entities"])
+        step_id = r2.get("step_id")
+        placeholders = r2.get("description_placeholders") or {}
+        if new_ents:
+            chk(
+                "EC135 new entities → step_id battery_mapping (sentence variant)",
+                step_id,
+                "battery_mapping",
+                f"new_ents={new_ents}",
+            )
+            sample = new_ents[0]
+            sample_name = (
+                gs(sample).get("attributes", {}).get("friendly_name") or sample
+            )
+            listed = placeholders.get("new_entities", "")
+            chk(
+                "EC135 new entity named in description_placeholders.new_entities",
+                sample_name in listed or sample in listed,
+                True,
+                f"sample={sample} name={sample_name!r} listed={listed!r}",
+            )
+        else:
+            chk(
+                "EC135 all mapped → step_id battery_mapping_no_new",
+                step_id,
+                "battery_mapping_no_new",
+                "",
+            )
+            chk(
+                "EC135 no-new variant carries no new_entities placeholder",
+                placeholders.get("new_entities"),
+                None,
+                f"placeholders={placeholders!r}",
+            )
+        api("DELETE", f"/api/config/config_entries/options/flow/{fid}")
+
+        # --- Probe 2: force the SENTENCE variant deterministically by submitting
+        # the entity list PLUS one synthetic entity that is not in the saved map.
+        # config_flow computes new = (submitted entities) - (saved map keys), so
+        # the synthetic is "new" regardless of the group's real mapping state.
+        # Give it a live state + friendly_name so it passes the entity selector
+        # and is named by friendly_name in the hint. Flow is DELETEd (aborted) →
+        # the synthetic is never persisted to the entry.
+        synth = f"binary_sensor.ea_smoke_ec135_new_{ctx['prefix'].split('.')[-1]}"
+        ss(synth, "on", {"friendly_name": "EC135 New Entity"})
+        fid2, r2b = _open_battery_step([*ctx["entities"], synth])
+        step_id2 = r2b.get("step_id")
+        placeholders2 = r2b.get("description_placeholders") or {}
+        chk(
+            "EC135 synthetic-new entity → step_id battery_mapping (sentence variant)",
+            step_id2,
+            "battery_mapping",
+            f"synth={synth}",
+        )
+        chk(
+            "EC135 synthetic-new entity named in new_entities placeholder",
+            "EC135 New Entity" in placeholders2.get("new_entities", ""),
+            True,
+            f"listed={placeholders2.get('new_entities')!r}",
+        )
+        # Abort — never mutate the live entry (synthetic entity not persisted).
+        api("DELETE", f"/api/config/config_entries/options/flow/{fid2}")
+        ss(synth, "unavailable", {"friendly_name": "EC135 New Entity"})
 
     # ------------------------------------------------------------------
     # EC90: dead-device clear path (0.5.4) — battery READING gone AND entity
@@ -3855,31 +4032,42 @@ for e in cfg['data']['entries']:
                 f"status_color={c_attrs.get('status_color')}",
             )
             # Make one entity offline → status should flip to offline/red
-            target = ctx["entities"][0]
-            ss(target, "unavailable", {"friendly_name": "smoke test device"})
-            wait_for(
-                lambda: (
-                    gs(f"{combined_prefix}_combined_summary")
-                    .get("attributes", {})
-                    .get("status")
-                ),
-                "offline",
-            )
-            c_attrs2 = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-            chk(
-                "EC66 combined status=offline when entity down",
-                c_attrs2.get("status"),
-                "offline",
-                f"status={c_attrs2.get('status')}",
-            )
-            chk(
-                "EC66 combined status_color=red when entity down",
-                c_attrs2.get("status_color"),
-                "red",
-                f"status_color={c_attrs2.get('status_color')}",
-            )
-            restore_and_wait(ctx)
-            c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
+            if ctx["combined_owns_group"]:
+                target = ctx["entities"][0]
+                ss(target, "unavailable", {"friendly_name": "smoke test device"})
+                wait_for(
+                    lambda: (
+                        gs(f"{combined_prefix}_combined_summary")
+                        .get("attributes", {})
+                        .get("status")
+                    ),
+                    "offline",
+                )
+                c_attrs2 = gs(f"{combined_prefix}_combined_summary").get(
+                    "attributes", {}
+                )
+                chk(
+                    "EC66 combined status=offline when entity down",
+                    c_attrs2.get("status"),
+                    "offline",
+                    f"status={c_attrs2.get('status')}",
+                )
+                chk(
+                    "EC66 combined status_color=red when entity down",
+                    c_attrs2.get("status_color"),
+                    "red",
+                    f"status_color={c_attrs2.get('status_color')}",
+                )
+                restore_and_wait(ctx)
+                c_attrs = gs(f"{combined_prefix}_combined_summary").get(
+                    "attributes", {}
+                )
+            else:
+                print(
+                    "  EC66 status-flip-on-offline: skipped "
+                    "(no combined group owns this group)",
+                    flush=True,
+                )
 
         if ec_enabled(67):
             chk(

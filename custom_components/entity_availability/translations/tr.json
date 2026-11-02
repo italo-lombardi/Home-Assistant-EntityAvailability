@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Pil Varlığı Eşleme",
-        "description": "İzlenen her varlık için pil sensörünü onaylayın veya değiştirin. Pili olmayan varlıklar için boş bırakın. Sayısal (%) ve metin durumlarını ('düşük') destekler. Yeni eklenenler, önerilen pil sensörü ile: {new_entities}."
+        "description": "İzlenen her varlık için pil sensörünü onaylayın veya değiştirin. Pili olmayan varlıklar için boş bırakın. Sayısal (%) ve metin durumlarını ('düşük') destekler.\n\nBu oturumda yeni eklendi (pil eşlemelerini gözden geçirin):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Sinyal Gücü Eşleştirmesi",

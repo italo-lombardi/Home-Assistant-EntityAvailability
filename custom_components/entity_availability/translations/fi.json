@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Akkuentiteetin yhdistäminen",
-        "description": "Vahvista tai muuta akkuanturi kullekin seurattavalle entiteetille. Jätä tyhjäksi entiteeteille, joissa ei ole akkua. Tukee numeerisia (%) ja tekstimuotoisia tiloja ('matala'). Äskettäin lisätyt, ehdotetulla akkuanturilla: {new_entities}."
+        "description": "Vahvista tai muuta akkuanturi kullekin seurattavalle entiteetille. Jätä tyhjäksi entiteeteille, joissa ei ole akkua. Tukee numeerisia (%) ja tekstimuotoisia tiloja ('matala').\n\nTässä istunnossa juuri lisätyt (tarkista niiden akkumääritys):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Signaalivoimakkuuden kartoitus",

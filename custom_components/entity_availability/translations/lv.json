@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Akumulatora entitāšu kartēšana",
-        "description": "Apstipriniet vai mainiet akumulatora sensoru katrai uzraugāmajai entitātei. Atstājiet tukšu entitātēm bez akumulatora. Atbalsta skaitliskos (%) un teksta stāvokļus ('low'). Jauni pievienotie, ar ieteikto baterijas sensoru: {new_entities}."
+        "description": "Apstipriniet vai mainiet akumulatora sensoru katrai uzraugāmajai entitātei. Atstājiet tukšu entitātēm bez akumulatora. Atbalsta skaitliskos (%) un teksta stāvokļus ('low').\n\nŠajā sesijā tikko pievienots (pārskatiet to akumulatora piešķīrumu):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Signāla stipruma kartēšana",
