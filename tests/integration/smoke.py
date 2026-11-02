@@ -2815,6 +2815,7 @@ def run_checks(ctx):
                 after_offline = wait_for(
                     lambda: int(gs(c_offline_eid).get("state", "0")),
                     baseline + 1,
+                    timeout=OFFLINE_GRACE_TIMEOUT,
                 )
                 chk(
                     "EC16 combined offline_count rises when member entity goes offline",
@@ -5397,7 +5398,11 @@ for e in cfg['data']['entries']:
                     # the combined) rather than a blind sleep — a coalesced
                     # refresh (PR#97) can land after a fixed sleep on a cold
                     # devcontainer, which would false-FAIL the positive control.
-                    wait_for(lambda: non_rep_ne_86 in _combined_ne_offline(), True)
+                    wait_for(
+                        lambda: non_rep_ne_86 in _combined_ne_offline(),
+                        True,
+                        timeout=OFFLINE_GRACE_TIMEOUT,
+                    )
                     u1_88 = gs(summary_eid_86).get("last_updated")
                     chk(
                         "EC88 combined_summary last_updated advances on real "
@@ -5820,7 +5825,7 @@ for e in cfg['data']['entries']:
                     )
                     return g.get("non_essential_offline", -1)
 
-                wait_for(_grp_ne_offline, 1, timeout=60)
+                wait_for(_grp_ne_offline, 1, timeout=OFFLINE_GRACE_TIMEOUT)
                 summary = gs_safe(f"{combined_prefix}_combined_summary")
                 attrs = (summary or {}).get("attributes", {})
                 groups = attrs.get("groups", {})
