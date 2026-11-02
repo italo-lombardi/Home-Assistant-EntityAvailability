@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Mapovanie senzora batérie",
-        "description": "Potvrďte alebo zmeňte senzor batérie pre každú sledovanú entitu. Ponechajte prázdne pre entity bez batérie. Podporuje číselné (%) aj textové stavy ('low'). Novo pridané, s navrhovaným senzorom batérie: {new_entities}."
+        "description": "Potvrďte alebo zmeňte senzor batérie pre každú sledovanú entitu. Ponechajte prázdne pre entity bez batérie. Podporuje číselné (%) aj textové stavy ('low').\n\nNovo pridané v tejto relácii (skontrolujte ich priradenie batérie):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Mapovanie sily signálu",

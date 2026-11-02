@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Batterientitetsmappning",
-        "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low'). Nyligen tillagda, med en föreslagen batterisensor: {new_entities}."
+        "description": "Bekräfta eller ändra batterisensorn för varje övervakad entitet. Lämna tomt för entiteter utan batterier. Stöder numeriska (%) och texttillstånd ('low').\n\nNyligen tillagda i den här sessionen (granska deras batterikoppling):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Mappning av signalstyrka",

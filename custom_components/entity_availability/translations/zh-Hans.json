@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "电池实体映射",
-        "description": "确认或更改每个被监控实体的电池传感器。没有电池的实体请留空。支持数字（%）和文本状态（「low」）。 新添加的，带建议的电池传感器：{new_entities}。"
+        "description": "确认或更改每个被监控实体的电池传感器。没有电池的实体请留空。支持数字（%）和文本状态（「low」）。\n\n本次会话中新添加（请检查其电池映射）：\n{new_entities}"
       },
       "signal_mapping": {
         "title": "信号强度映射",

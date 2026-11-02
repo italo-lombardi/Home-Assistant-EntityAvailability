@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Batterientitetstilordning",
-        "description": "Bekreft eller endre batterisensoren for hver overvåkede entitet. La stå tom for entiteter uten batterier. Støtter numeriske (%) og teksttilstander ('low'). Nylig lagt til, med en foreslått batterisensor: {new_entities}."
+        "description": "Bekreft eller endre batterisensoren for hver overvåkede entitet. La stå tom for entiteter uten batterier. Støtter numeriske (%) og teksttilstander ('low').\n\nNylig lagt til i denne økten (gjennomgå batteritilordningen deres):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Tilordning av signalstyrke",

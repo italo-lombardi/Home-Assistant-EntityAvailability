@@ -2200,8 +2200,8 @@ async def test_options_flow_new_entities_listed_in_description(
     """New (unmapped) entities are named in the battery_mapping description.
 
     One saved mapping + one brand-new entity: the new one is listed in
-    description_placeholders (by friendly_name), the saved one is not, and the
-    sentence-carrying step_id is used.
+    description_placeholders (by full entity_id, one per markdown line), the
+    saved one is not, and the sentence-carrying step_id is used.
     """
     entry = MockConfigEntry(
         version=1,
@@ -2228,7 +2228,9 @@ async def test_options_flow_new_entities_listed_in_description(
     )
 
     placeholders = result["description_placeholders"]
-    assert "Hallway Sensor" in placeholders["new_entities"]
+    # New entity listed by full entity_id on its own markdown line; the saved
+    # one is absent. entity_id (not friendly_name) keeps the domain prefix.
+    assert "- binary_sensor.device_b" in placeholders["new_entities"]
     assert "binary_sensor.device_a" not in placeholders["new_entities"]
 
 

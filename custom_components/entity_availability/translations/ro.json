@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Mapare entități baterie",
-        "description": "Confirmați sau modificați senzorul de baterie pentru fiecare entitate monitorizată. Lăsați gol pentru entitățile fără baterie. Acceptă stări numerice (%) și text ('low'). Nou adăugate, cu un senzor de baterie sugerat: {new_entities}."
+        "description": "Confirmați sau modificați senzorul de baterie pentru fiecare entitate monitorizată. Lăsați gol pentru entitățile fără baterie. Acceptă stări numerice (%) și text ('low').\n\nAdăugate recent în această sesiune (verificați asocierea bateriei lor):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "„Mapare putere semnal\"",

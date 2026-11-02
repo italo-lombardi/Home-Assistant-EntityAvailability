@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Mapiranje entiteta baterije",
-        "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba'). Novo dodani, s predloženim senzorom baterije: {new_entities}."
+        "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba').\n\nNedavno dodano u ovoj sesiji (pregledajte njihovo dodjeljivanje baterije):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Mapiranje jačine signala",

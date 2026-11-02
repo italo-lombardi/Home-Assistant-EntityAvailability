@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Batterijsensor-toewijzing",
-        "description": "Bevestig of wijzig de batterijsensor voor elke bewaakte entiteit. Laat leeg voor entiteiten zonder batterij. Ondersteunt numerieke (%) en tekststatussen ('low'). Nieuw toegevoegd, met een voorgestelde batterijsensor: {new_entities}."
+        "description": "Bevestig of wijzig de batterijsensor voor elke bewaakte entiteit. Laat leeg voor entiteiten zonder batterij. Ondersteunt numerieke (%) en tekststatussen ('low').\n\nNieuw toegevoegd in deze sessie (controleer hun batterijtoewijzing):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Signaalsterkte-toewijzing",

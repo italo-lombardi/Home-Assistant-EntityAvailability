@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Asignación de entidades de batería",
-        "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo'). Añadidos recientemente, con un sensor de batería sugerido: {new_entities}."
+        "description": "Confirme o cambie el sensor de batería para cada entidad supervisada. Deje vacío para entidades sin batería. Admite estados numéricos (%) y de texto ('bajo').\n\nAñadidos recientemente en esta sesión (revisa su asignación de batería):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Mapeo de Intensidad de Señal",

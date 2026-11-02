@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "電池實體對應",
-        "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。 新增的，帶建議的電池感測器：{new_entities}。"
+        "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。\n\n本次工作階段中新增（請檢查其電池對應）：\n{new_entities}"
       },
       "signal_mapping": {
         "title": "訊號強度對應",

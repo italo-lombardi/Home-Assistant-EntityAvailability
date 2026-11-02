@@ -129,7 +129,7 @@
             },
             "battery_mapping": {
                 "title": "Battery Entity Mapping",
-                "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low'). Newly added, with a suggested battery sensor: {new_entities}."
+                "description": "Confirm or change the battery sensor for each monitored entity. Leave empty for entities without batteries. Supports numeric (%) and text states ('low').\n\nNewly added this session (review their battery mapping):\n{new_entities}"
             },
             "battery_mapping_no_new": {
                 "title": "Battery Entity Mapping",

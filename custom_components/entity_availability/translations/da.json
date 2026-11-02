@@ -130,7 +130,7 @@
       },
       "battery_mapping": {
         "title": "Batterientitetstilknytning",
-        "description": "Bekræft eller ændr batterisensoren for hver overvåget entitet. Lad stå tom for entiteter uden batterier. Understøtter numeriske (%) og teksttilstande ('low'). Nyligt tilføjede, med en foreslået batterisensor: {new_entities}."
+        "description": "Bekræft eller ændr batterisensoren for hver overvåget entitet. Lad stå tom for entiteter uden batterier. Understøtter numeriske (%) og teksttilstande ('low').\n\nNyligt tilføjet i denne session (gennemgå deres batteritilknytning):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Signalstyrke-mapping",

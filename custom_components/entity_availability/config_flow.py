@@ -781,20 +781,15 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
             )
 
-        # Entities with no saved mapping are new this edit session: their box
-        # carries a fresh auto-detected suggestion rather than a restored choice.
+        # Entities with no saved mapping were added during this edit session.
         # ha-form can't highlight rows, so name them in the step description. The
-        # whole sentence is localized (two description keys): when new entities
+        # lead-in sentence is localized (two description keys): when new entities
         # exist use battery_mapping (sentence + {new_entities} list), else
-        # battery_mapping_no_new (no sentence, no placeholder).
+        # battery_mapping_no_new (no sentence, no placeholder). Each entity is
+        # listed by full entity_id on its own markdown line.
         new_entities = [e for e in entities if e not in existing_map]
         if new_entities:
-            names = ", ".join(
-                (s.attributes.get("friendly_name") or e)
-                if (s := self.hass.states.get(e))
-                else e
-                for e in new_entities
-            )
+            names = "\n".join(f"- {e}" for e in new_entities)
             return self.async_show_form(
                 step_id="battery_mapping",
                 data_schema=vol.Schema(schema_dict),

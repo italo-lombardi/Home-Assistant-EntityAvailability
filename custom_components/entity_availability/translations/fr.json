@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Association des entités de batterie",
-        "description": "Confirmez ou modifiez le capteur de batterie pour chaque entité surveillée. Laissez vide pour les entités sans batterie. Prend en charge les états numériques (%) et textuels ('faible'). Nouvellement ajoutés, avec un capteur de batterie suggéré : {new_entities}."
+        "description": "Confirmez ou modifiez le capteur de batterie pour chaque entité surveillée. Laissez vide pour les entités sans batterie. Prend en charge les états numériques (%) et textuels ('faible').\n\nAjoutés récemment lors de cette session (vérifiez leur association de batterie) :\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Mappage de la force du signal",

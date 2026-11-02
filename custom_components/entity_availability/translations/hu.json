@@ -129,7 +129,7 @@
       },
       "battery_mapping": {
         "title": "Akkumulátor-entitás hozzárendelés",
-        "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat. Újonnan hozzáadva, javasolt akkumulátorérzékelővel: {new_entities}."
+        "description": "Erősítse meg vagy módosítsa az akkumulátorszenzort az egyes figyelt entitásokhoz. Hagyja üresen az akkumulátor nélküli entitásoknál. Numerikus (%) és szöveges ('low') állapotokat is támogat.\n\nEbben a munkamenetben újonnan hozzáadva (ellenőrizze az akkumulátor-hozzárendelésüket):\n{new_entities}"
       },
       "signal_mapping": {
         "title": "Jelerősség-leképezés",
