@@ -178,15 +178,22 @@ order, to the first that yields a value:
 
 A text reading of `"low"` counts as 0 %; any other text is read as a number.
 
-**Auto-filled suggestions in the UI.** When you **add** a group, the
-battery-mapping screen pre-fills each entity's box with its best auto-detected
-guess (the same `sensor.<entity>_battery` / attribute detection above). When you
-**edit** a group, your saved choices are restored as-is — a box you left empty
-stays empty, a sensor you picked stays picked; only entities you have just added
-get a fresh guess. Either way these are **suggestions only** — nothing is mapped
-until you save. Whatever sits in the box on save becomes the real mapping, so
-clear a box to leave an entity unmapped, or correct a wrong guess before saving.
-A guess you keep is your mapping; it's your responsibility to confirm it.
+**Auto-filled suggestions in the UI.** The mapping screen suggests a battery
+**sensor to map** — a narrower search than the runtime read above, because a
+suggestion has to be an actual entity you could point the row at. It looks for
+two things only: a battery sibling on the same device, then a
+`sensor.<entity>_battery` companion. The own-state (device class `battery`) and
+own-attribute sources have **no separate sensor** to pre-fill — so auto-fill
+cannot suggest them, but you can leave the box **empty** and the runtime read
+still finds them (steps 2–3 above).
+
+When you **add** a group, each entity's box is pre-filled with that guess. When
+you **edit** a group, your saved choices are restored as-is — a box you left
+empty stays empty, a sensor you picked stays picked; only entities you have just
+added get a fresh guess. Either way these are **suggestions only** — nothing is
+mapped until you save. Whatever sits in the box on save becomes the real mapping,
+so clear a box to leave an entity unmapped, or correct a wrong guess before
+saving. A guess you keep is your mapping; it's your responsibility to confirm it.
 
 **Retain-last-known.** If a fresh read returns `None` (a Zigbee/MQTT/RTL-SDR
 battery often reports `unknown` for a poll while still online), the device keeps

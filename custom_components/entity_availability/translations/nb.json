@@ -129,11 +129,15 @@
       },
       "battery_mapping": {
         "title": "Batterientitetstilordning",
-        "description": "Bekreft eller endre batterisensoren for hver overvåkede entitet. La stå tom for entiteter uten batterier. Støtter numeriske (%) og teksttilstander ('low')."
+        "description": "Bekreft eller endre batterisensoren for hver overvåkede entitet. La stå tom for entiteter uten batterier. Støtter numeriske (%) og teksttilstander ('low'). Nylig lagt til, med en foreslått batterisensor: {new_entities}."
       },
       "signal_mapping": {
         "title": "Tilordning av signalstyrke",
         "description": "For hver entity, velg eventuelt en signalsensor og velg nettverkstype. La sensoren stå tom for å hoppe over.\n\nTerskler (god / ok / dårlig):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (høyere er bedre)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+      },
+      "battery_mapping_no_new": {
+        "title": "Batterientitetstilordning",
+        "description": "Bekreft eller endre batterisensoren for hver overvåkede entitet. La stå tom for entiteter uten batterier. Støtter numeriske (%) og teksttilstander ('low')."
       }
     },
     "error": {
