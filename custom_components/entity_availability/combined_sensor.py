@@ -626,11 +626,36 @@ class CombinedGroupSensor(CombinedSensorBase):
         # source_groups for the flipped entity: bare-entity_id → owning group names,
         # straight from device_states across all coords (NOT _dm_rk_groups, which
         # keys on collapsed row_key). Mirrors the retired _on_update build.
-        # owner_entry_ids walks the SAME active-coords set but keys on entry_id
-        # (stable/unique — group names can collide) for the single-fire gate.
         owners = [coord for coord in coords if flipped_entity_id in coord.device_states]
         groups = sorted(coord.group_name for coord in owners)
-        owner_entry_ids = sorted(coord.entry.entry_id for coord in owners)
+        # Single-fire gate owners: build from the SAME predicate the combined
+        # count/entities use (essential AND unsuppressed — see predicate above),
+        # NOT from the raw fire set. Why the distinction matters:
+        #   - Suppressed: a coordinator skips firing a child event for a suppressed
+        #     entity (coordinator.py:696 `if device.is_suppressed: ... continue`
+        #     before every pending_events.append). So excluding suppressed from the
+        #     gate matches both the fire path and the count.
+        #   - Non-essential: NE does NOT gate firing — an NE device flows past 696
+        #     and DOES hit pending_events.append (is_non_essential is set but never
+        #     `continue`s). We still exclude it here so the gate stays aligned with
+        #     the COUNT: if the gate included NE, an all-NE entity (count==0, since
+        #     the count predicate drops NE) would elect a firing NE owner and relay
+        #     a spurious count==0 combined event. Aligning to the count predicate —
+        #     not the fire set — guarantees owner_entry_ids[0] is a coord whose
+        #     relayed event carries count>=1.
+        # device_states membership is NOT gated (a suppressed entity stays in the
+        # coord's device_states), so a plain membership walk would elect a min-id
+        # owner that never fires, and the gate (src != owner_entry_ids[0]) would
+        # reject the sibling that DID fire → zero combined events for a real
+        # transition.
+        firing_owners = [
+            coord
+            for coord in owners
+            if (d := coord.device_states.get(flipped_entity_id)) is not None
+            and not d.is_suppressed
+            and not d.is_non_essential
+        ]
+        owner_entry_ids = sorted(coord.entry.entry_id for coord in firing_owners)
         return len(entities), entities, groups, owner_entry_ids
 
     async def async_added_to_hass(self) -> None:

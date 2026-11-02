@@ -1294,6 +1294,51 @@ class TestCombinedGroupSensor:
         # Only Group B is active now.
         assert combined[0].data["source_groups"] == ["Group B"]
 
+    async def test_relay_shared_entity_relays_when_min_owner_suppressed(
+        self, mock_hass, combined_entry, coordinators
+    ):
+        """Shared entity suppressed in the MIN-id owner still relays via the sibling.
+
+        A member coordinator does NOT fire a child event for a suppressed entity
+        (coordinator.py: `if device.is_suppressed: ... continue` before every
+        pending_events.append). But suppress does not remove the entity from the
+        coord's device_states, so a plain membership walk would elect the suppressed
+        min-id owner (entry_a) for the single-fire gate — and the gate would then
+        reject entry_b's event, the only one actually fired → ZERO combined events
+        while the fleet count still shows the entity offline. The gate must be built
+        from the same predicate the count uses (essential AND unsuppressed) — not
+        the raw fire set. Suppress gates firing AND the count; NE does NOT gate
+        firing (an NE device still fires) but IS dropped from the count, so the gate
+        excludes NE too, to stay aligned with the count rather than the fire set.
+        """
+        sensor = self._setup_relay_sensor(mock_hass, combined_entry, coordinators)
+        await sensor.async_added_to_hass()
+
+        # b1 owned by both; SUPPRESSED in entry_a (min id, never fires), active
+        # + offline in entry_b (fires). Drop the pre-existing a2 offline.
+        coordinators[0]._device_states["binary_sensor.b1"] = DeviceState(
+            entity_id="binary_sensor.b1", is_offline=True, is_suppressed=True
+        )
+        coordinators[1]._device_states["binary_sensor.b1"].is_offline = True
+        coordinators[0]._device_states["binary_sensor.a2"].is_offline = False
+
+        events = async_capture_events(mock_hass, "entity_availability_offline")
+        # Only entry_b fires — entry_a is suppressed for b1, so its coordinator
+        # emits no child event for this transition (mirrors the real coordinator).
+        self._fire_group_event(
+            mock_hass, "entity_availability_offline", "entry_b", "binary_sensor.b1"
+        )
+        await mock_hass.async_block_till_done()
+
+        combined = [e for e in events if e.data["entry_id"] == "combined_1"]
+        assert len(combined) == 1, (
+            "suppressed min-id owner must not swallow the sibling's event "
+            f"(got {len(combined)} combined events)"
+        )
+        assert combined[0].data["entity_id"] == "binary_sensor.b1"
+        # Count reflects the unsuppressed owner's view: b1 is offline.
+        assert combined[0].data["offline_count"] >= 1
+
     async def test_relay_recovered_carries_source_groups(
         self, mock_hass, combined_entry, coordinators
     ):
