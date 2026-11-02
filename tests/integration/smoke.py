@@ -64,6 +64,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
        (dead device) — no stale % survives; the no-spurious-battery_ok guard is unit-tested
   EC94 #111: battery level survives a reload (restored device_states + transiently-unavailable
        entity in the startup grace window is not wiped; clear is gated on confirmed-offline)
+  EC134 0.7.0: explicit battery map wins over the entity's own device_class=battery reading —
+       entity exposes own-state 55, mapped sensor reads 10, coordinator reports 10 (map-wins)
   EC91 PR#106: availability_today recorded value is stable across polls (no write-amp sawtooth)
   EC92 PR#106: availability_today shows a value immediately (not unknown) — startup fallback
   EC93 PR#109: mtbf per_device present in live state but excluded from recorder — per-device
@@ -3469,6 +3471,61 @@ for e in cfg['data']['entries']:
             retained,
             75,
             f"battery_entity={battery_entity} retained={retained}",
+        )
+        restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC134: explicit battery mapping wins over the entity's OWN device_class=
+    # battery reading (0.7.0 map-wins precedence). mapped_battery_entity is a
+    # battery_map key → mapped_battery_sensor. We make the tracked entity ALSO
+    # expose its own device_class=battery state at a DISTINCT value and give the
+    # mapped sensor the real value; the coordinator must report the MAPPED value
+    # (the user owns the field), never the own-state reading. Pre-reorder
+    # (own-state checked first) this would have surfaced the own-state value and
+    # the chk would read 55 — regression signal for the map-above-own-state move
+    # in _get_battery_level.
+    # ------------------------------------------------------------------
+    if ec_enabled(134) and battery_entity and battery_sensor:
+        print(
+            "\n=== EC134: explicit battery map wins over own device_class state ===",
+            flush=True,
+        )
+        restore_and_wait(ctx)
+        # Tracked entity exposes its OWN battery reading (55) as a device_class=
+        # battery state — the own-state branch would source this if it ran first.
+        ss(
+            battery_entity,
+            "55",
+            {
+                "friendly_name": "test",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        # The MAPPED companion sensor reports the authoritative value (10).
+        ss(
+            battery_sensor,
+            "10",
+            {
+                "friendly_name": "Test Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        got = wait_for(
+            lambda: (
+                gs(f"{prefix}_group_summary")
+                .get("attributes", {})
+                .get("battery_levels", {})
+                .get(battery_entity)
+            ),
+            10,
+        )
+        chk(
+            "EC134 coordinator reports MAPPED value (10), not own-state (55)",
+            got,
+            10,
+            f"battery_entity={battery_entity} mapped={battery_sensor}",
         )
         restore_and_wait(ctx)
 
