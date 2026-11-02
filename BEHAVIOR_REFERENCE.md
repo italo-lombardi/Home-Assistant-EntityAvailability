@@ -155,14 +155,21 @@ immediately.
 Battery monitoring is **on by default** — `battery_threshold` is **20 %** (set
 it to 0 to switch battery off entirely).
 
-**Where the level is read from** — the first of these that yields a value wins:
+**Where the level is read from.** Every entity you track gets a battery-mapping
+row when you set the group up, so in practice the mapping is what's read:
 
-1. **The entity itself**, if it's a battery entity (device class `battery`) and
+1. **The mapping you set** (`battery_entity_map`) — always wins, even when the
+   entity could report its own battery. A row pointing at a sensor reads that
+   sensor (an on/off sensor reads `on` as empty (0 %) and `off` as full (100 %);
+   any other uses its numeric reading). Map an entity to **itself** to read its
+   own level. A row left **empty** means "this one has no battery" and skips it.
+
+If an entity somehow has no mapping row at all — only an imported or hand-edited
+config can reach this, never the normal UI — the integration falls back, in
+order, to the first that yields a value:
+
+2. **The entity itself**, if it's a battery entity (device class `battery`) and
    currently reachable.
-2. **A battery sensor you mapped to it** (`battery_entity_map`). Mapping an
-   entity to an empty value means "this one has no battery" and skips it. A
-   mapped on/off sensor reads `on` as empty (0 %) and `off` as full (100 %);
-   any other mapped sensor uses its numeric reading.
 3. **Auto-detected** from the entity's own attributes — a `battery_level` or
    `battery` attribute (a real 0 % counts; only a genuinely absent attribute is
    skipped).
@@ -170,6 +177,14 @@ it to 0 to switch battery off entirely).
 5. **A guessed companion** named `sensor.<entity>_battery`.
 
 A text reading of `"low"` counts as 0 %; any other text is read as a number.
+
+**Auto-filled suggestions in the UI.** When you add or edit a group, the
+battery-mapping screen pre-fills each entity's box with its best auto-detected
+guess (the same `sensor.<entity>_battery` / attribute detection above). These
+are **suggestions only** — nothing is mapped until you save. Whatever sits in
+the box on save becomes the real mapping, so clear a box to leave an entity
+unmapped, or correct a wrong guess before saving. A guess you keep is your
+mapping; it's your responsibility to confirm it.
 
 **Retain-last-known.** If a fresh read returns `None` (a Zigbee/MQTT/RTL-SDR
 battery often reports `unknown` for a poll while still online), the device keeps
