@@ -2,3 +2,6 @@
 # pytest-asyncio, pytest-cov, etc. Pinning them directly causes unsatisfiable
 # dependabot bumps (pytest==9.0.3 is hard-pinned upstream).
 pytest-homeassistant-custom-component>=0.13.356
+# Match CI's ruff exactly (validate.yml) so local check/format can't pass on a
+# different version — a homebrew/pip ruff drift otherwise ships lint CI rejects.
+ruff==0.16.1

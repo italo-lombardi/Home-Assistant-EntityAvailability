@@ -2037,9 +2037,10 @@ async def test_options_flow_existing_map_default_skips_detect(
         },
     )
 
-    # Should reach battery_mapping without calling _detect_battery_entity
+    # Should reach the no-new battery_mapping step (the only entity is already
+    # mapped → not new) without calling _detect_battery_entity
     assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "battery_mapping"
+    assert result["step_id"] == "battery_mapping_no_new"
 
 
 async def test_options_flow_no_guessed_state_returns_empty(
@@ -2101,7 +2102,9 @@ def _schema_marker(data_schema, key: str):
     raise AssertionError(f"{key} missing from schema: {list(data_schema.schema)}")
 
 
-async def _open_battery_mapping(hass: HomeAssistant, entry, entities: list[str]):
+async def _open_battery_mapping(
+    hass: HomeAssistant, entry, entities: list[str], expected_step="battery_mapping"
+):
     """Run the options init step for *entry* and return the battery_mapping form."""
     with patch(
         "custom_components.entity_availability.async_setup_entry",
@@ -2122,7 +2125,7 @@ async def _open_battery_mapping(hass: HomeAssistant, entry, entities: list[str])
             CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
         },
     )
-    assert result["step_id"] == "battery_mapping"
+    assert result["step_id"] == expected_step
     return result
 
 
@@ -2146,7 +2149,9 @@ async def test_options_flow_cleared_battery_map_not_repopulated(
     entry.add_to_hass(hass)
     hass.states.async_set("sensor.device_a_battery", "77")
 
-    result = await _open_battery_mapping(hass, entry, ["binary_sensor.device_a"])
+    result = await _open_battery_mapping(
+        hass, entry, ["binary_sensor.device_a"], expected_step="battery_mapping_no_new"
+    )
 
     marker = _schema_marker(result["data_schema"], "binary_sensor.device_a")
     assert not (marker.description or {}).get("suggested_value")
@@ -2186,6 +2191,76 @@ async def test_options_flow_entity_absent_from_map_is_detected(
 
     cleared = _schema_marker(result["data_schema"], "binary_sensor.device_a")
     assert not (cleared.description or {}).get("suggested_value")
+
+
+async def test_options_flow_new_entities_listed_in_description(
+    hass: HomeAssistant,
+    mock_config_data,
+) -> None:
+    """New (unmapped) entities are named in the battery_mapping description.
+
+    One saved mapping + one brand-new entity: the new one is listed in
+    description_placeholders (by friendly_name), the saved one is not, and the
+    sentence-carrying step_id is used.
+    """
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data={
+            **mock_config_data,
+            CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_BATTERY_ENTITY_MAP: {
+                "binary_sensor.device_a": "sensor.device_a_battery"
+            },
+        },
+        entry_id="test_new_entities_desc",
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set(
+        "binary_sensor.device_b", "on", {"friendly_name": "Hallway Sensor"}
+    )
+    hass.states.async_set("sensor.device_b_battery", "88")
+
+    result = await _open_battery_mapping(
+        hass, entry, ["binary_sensor.device_a", "binary_sensor.device_b"]
+    )
+
+    placeholders = result["description_placeholders"]
+    assert "Hallway Sensor" in placeholders["new_entities"]
+    assert "binary_sensor.device_a" not in placeholders["new_entities"]
+
+
+async def test_options_flow_no_new_entities_uses_no_new_step(
+    hass: HomeAssistant,
+    mock_config_data,
+) -> None:
+    """All entities already mapped → no-new step variant, no placeholder."""
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data={
+            **mock_config_data,
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_BATTERY_THRESHOLD: 20,
+            CONF_BATTERY_ENTITY_MAP: {
+                "binary_sensor.device_a": "sensor.device_a_battery"
+            },
+        },
+        entry_id="test_no_new_entities_step",
+    )
+    entry.add_to_hass(hass)
+
+    result = await _open_battery_mapping(
+        hass,
+        entry,
+        ["binary_sensor.device_a"],
+        expected_step="battery_mapping_no_new",
+    )
+
+    assert not (result.get("description_placeholders") or {}).get("new_entities")
 
 
 # ---------------------------------------------------------------------------

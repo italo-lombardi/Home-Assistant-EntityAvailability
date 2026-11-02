@@ -129,11 +129,15 @@
       },
       "battery_mapping": {
         "title": "電池實體對應",
-        "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。"
+        "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。 新增的，帶建議的電池感測器：{new_entities}。"
       },
       "signal_mapping": {
         "title": "訊號強度對應",
         "description": "對於每個實體，可選擇性地選取一個訊號感測器並選擇網路類型。將感測器留空以略過。\\n\\n門檻值（良好 / 尚可 / 差）：\\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\\n• Percentage: ≥ 70% / ≥ 40% / < 40%\\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (越高越好)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+      },
+      "battery_mapping_no_new": {
+        "title": "電池實體對應",
+        "description": "確認或變更每個受監控實體的電池感測器。沒有電池的實體請留空。支援數字（%）和文字狀態（「low」）。"
       }
     },
     "error": {

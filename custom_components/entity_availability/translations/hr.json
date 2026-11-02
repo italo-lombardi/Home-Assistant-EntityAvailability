@@ -129,11 +129,15 @@
       },
       "battery_mapping": {
         "title": "Mapiranje entiteta baterije",
-        "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba')."
+        "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba'). Novo dodani, s predloženim senzorom baterije: {new_entities}."
       },
       "signal_mapping": {
         "title": "Mapiranje jačine signala",
         "description": "Za svaki entitet, po potrebi odaberite senzor signala i odaberite vrstu mreže. Ostavite senzor praznim za preskakanje.\n\nPragovi (dobro / u redu / loše):\n• 5G: ≥ −80 dBm / ≥ −100 dBm / < −100 dBm\n• Bluetooth: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Generic/RSSI: ≥ −60 dBm / ≥ −80 dBm / < −80 dBm\n• LoRaWAN: ≥ −100 dBm / ≥ −115 dBm / < −115 dBm\n• LTE/4G: ≥ −80 dBm / ≥ −90 dBm / < −90 dBm\n• Percentage: ≥ 70% / ≥ 40% / < 40%\n• Thread: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Wi-Fi: ≥ −67 dBm / ≥ −80 dBm / < −80 dBm\n• Z-Wave: ≥ −70 dBm / ≥ −85 dBm / < −85 dBm\n• Zigbee (LQI): ≥ 201 / ≥ 51 / < 51 (veće je bolje)\n• Zigbee (RSSI/dBm): ≥ −70 dBm / ≥ −85 dBm / < −85 dBm"
+      },
+      "battery_mapping_no_new": {
+        "title": "Mapiranje entiteta baterije",
+        "description": "Potvrdite ili promijenite senzor baterije za svaki praćeni entitet. Ostavite prazno za entitete bez baterija. Podržava numerička (%) i tekstualna stanja ('slaba')."
       }
     },
     "error": {

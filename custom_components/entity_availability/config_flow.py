@@ -781,10 +781,40 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 selector.EntitySelectorConfig(domain=["sensor", "binary_sensor"])
             )
 
+        # Entities with no saved mapping are new this edit session: their box
+        # carries a fresh auto-detected suggestion rather than a restored choice.
+        # ha-form can't highlight rows, so name them in the step description. The
+        # whole sentence is localized (two description keys): when new entities
+        # exist use battery_mapping (sentence + {new_entities} list), else
+        # battery_mapping_no_new (no sentence, no placeholder).
+        new_entities = [e for e in entities if e not in existing_map]
+        if new_entities:
+            names = ", ".join(
+                (s.attributes.get("friendly_name") or e)
+                if (s := self.hass.states.get(e))
+                else e
+                for e in new_entities
+            )
+            return self.async_show_form(
+                step_id="battery_mapping",
+                data_schema=vol.Schema(schema_dict),
+                description_placeholders={"new_entities": names},
+            )
+
         return self.async_show_form(
-            step_id="battery_mapping",
+            step_id="battery_mapping_no_new",
             data_schema=vol.Schema(schema_dict),
         )
+
+    async def async_step_battery_mapping_no_new(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Submit alias for the no-new-entities battery-mapping form.
+
+        HA routes a form submit back to async_step_<step_id>, so the no-new
+        variant needs a handler; it shares the single battery_mapping logic.
+        """
+        return await self.async_step_battery_mapping(user_input)
 
     async def async_step_signal_mapping(
         self, user_input: dict[str, Any] | None = None
