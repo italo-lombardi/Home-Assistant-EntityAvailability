@@ -730,6 +730,174 @@ print(json.dumps(out))
     return "", False
 
 
+def _provision_stale_fixture() -> dict | None:
+    """Create a deterministic stale-relay fixture via the config-entries init flow.
+
+    EC136 needs a combined group that owns a member group with
+    staleness_threshold>0 whose essential entity is NON-LIVE (so it ages past
+    the threshold on its own). The only pre-existing threshold>0 group ('ita')
+    has LIVE feed essentials that re-stamp last_updated unpredictably, making the
+    stale onset nondeterministic. Rather than depend on devcontainer topology,
+    the harness provisions its own fixture over the smoke-controlled template
+    sensor ``sensor.ea_test_kitchen_1`` (driven by an input_boolean, re-evaluated
+    only on that boolean's change — idle => ages deterministically).
+
+    Builds: a group 'EA Stale Fixture' (essential=[ea_test_kitchen_1],
+    staleness_threshold=1 min) + a combined 'EA Stale Combined' owning it plus an
+    existing group (combined requires >=2 LOADED members). Returns a dict with
+    group_entry_id / combined_entry_id / stale_entity / prefix / threshold, or
+    None if provisioning fails (EC136 then skips, not fails). Caller must call
+    _teardown_stale_fixture() to delete both entries.
+    """
+    stale_entity = "sensor.ea_test_kitchen_1"
+    group_name = "EA Stale Fixture"
+    combined_name = "EA Stale Combined"
+    threshold_min = 1
+
+    # Reuse a prior fixture if it is still around (idempotent across reruns).
+    entries = api("GET", "/api/config/config_entries/entry")
+    existing = {
+        e.get("title"): e.get("entry_id")
+        for e in entries
+        if e.get("domain") == "entity_availability"
+    }
+    group_eid = existing.get(group_name)
+    combined_eid = existing.get(combined_name)
+
+    def _h(path, body=None):
+        return api("POST", path, body)
+
+    try:
+        if not group_eid:
+            r = _h(
+                "/api/config/config_entries/flow",
+                {"handler": "entity_availability"},
+            )
+            fid = r["flow_id"]
+            # user -> group -> monitoring -> advanced -> create_entry
+            _h(f"/api/config/config_entries/flow/{fid}", {"entry_type": "group"})
+            _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {"group_name": group_name, "entities": [stale_entity]},
+            )
+            _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {
+                    "bad_states": ["unavailable", "unknown"],
+                    "cooldown": 0,
+                    "staleness_threshold": threshold_min,
+                    "staleness_use_last_updated": False,
+                },
+            )
+            r_adv = _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {
+                    "battery_threshold": 0,
+                    "signal_enabled": False,
+                    "availability_windows": ["today", "7d"],
+                    "recovery_window": 5,
+                    "use_device_names": False,
+                    "collapse_devices": False,
+                },
+            )
+            if r_adv.get("type") != "create_entry":
+                api("DELETE", f"/api/config/config_entries/flow/{fid}")
+                print(
+                    f"  stale-fixture: group create did not finish "
+                    f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                    flush=True,
+                )
+                return None
+            group_eid = r_adv["result"]["entry_id"]
+
+        # Pick a second, already-LOADED group to satisfy the combined's >=2
+        # member requirement. Any group works — the relay only fires for the
+        # member that actually emits a stale event (our fixture group).
+        entries = api("GET", "/api/config/config_entries/entry")
+        second = next(
+            (
+                e
+                for e in entries
+                if e.get("domain") == "entity_availability"
+                and e.get("entry_id") != group_eid
+                and e.get("title") not in (combined_name,)
+                and e.get("state") == "loaded"
+            ),
+            None,
+        )
+        if not second:
+            print("  stale-fixture: no second group for combined", flush=True)
+            return None
+
+        if not combined_eid:
+            r = _h(
+                "/api/config/config_entries/flow",
+                {"handler": "entity_availability"},
+            )
+            fid = r["flow_id"]
+            r_u = _h(
+                f"/api/config/config_entries/flow/{fid}",
+                {"entry_type": "combined_group"},  # ENTRY_TYPE_COMBINED const value
+            )
+            # The combined step keys fields by GROUP TITLE; map title->override.
+            eid_title_map = json.loads(
+                r_u.get("description_placeholders", {}).get("eid_title_map", "{}")
+            )
+            title_of = {eid: title for eid, title in eid_title_map.items()}
+            submit = {"combined_name": combined_name}
+            for eid in (group_eid, second["entry_id"]):
+                title = title_of.get(eid)
+                if title:
+                    submit[title] = "keep"
+            r_c = _h(f"/api/config/config_entries/flow/{fid}", submit)
+            if r_c.get("type") != "create_entry":
+                api("DELETE", f"/api/config/config_entries/flow/{fid}")
+                print(
+                    f"  stale-fixture: combined create did not finish "
+                    f"(type={r_c.get('type')} step={r_c.get('step_id')})",
+                    flush=True,
+                )
+                return None
+            combined_eid = r_c["result"]["entry_id"]
+
+        # Resolve the fixture group's sensor prefix (for stale_count polling).
+        wait(3)
+        prefix = None
+        for s in api("GET", "/api/states"):
+            eid = s["entity_id"]
+            if "entity_availability" in eid and eid.endswith("_group_summary"):
+                fn = s.get("attributes", {}).get("friendly_name", "")
+                if group_name.lower() in fn.lower():
+                    prefix = eid.replace("_group_summary", "")
+                    break
+        if not prefix:
+            print("  stale-fixture: group sensor prefix not found", flush=True)
+            return None
+
+        return {
+            "group_entry_id": group_eid,
+            "combined_entry_id": combined_eid,
+            "stale_entity": stale_entity,
+            "prefix": prefix,
+            "threshold": threshold_min,
+        }
+    except Exception as exc:  # provisioning is best-effort
+        print(f"  stale-fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _teardown_stale_fixture(fix: dict) -> None:
+    """Delete the combined then the group entry created by _provision_stale_fixture."""
+    for key in ("combined_entry_id", "group_entry_id"):
+        eid = fix.get(key)
+        if not eid:
+            continue
+        try:
+            api("DELETE", f"/api/config/config_entries/entry/{eid}")
+        except Exception:  # teardown is best-effort
+            pass
+
+
 def _discover_ne_group(filter_str: str) -> dict | None:
     """Discover a group that has non_essential_entities configured."""
     import subprocess
@@ -1068,49 +1236,67 @@ def _run_ne_tests(ne_ctx: dict) -> None:
     # EC136: combined group relays the per-group STALE event under its own
     # entry_id — proves the all-8-events relay (not just offline/battery) works
     # end-to-end through a combined group. Mirrors EC24's offline check on stale.
+    #
+    # Self-provisions a deterministic fixture rather than depending on the
+    # discovered ne-group: a stale event can only be induced by letting an
+    # essential entity's last_updated age past the threshold, and the only
+    # pre-existing threshold>0 group has LIVE feed essentials that re-stamp
+    # last_updated unpredictably (nondeterministic onset). The fixture's
+    # essential is a smoke-controlled template sensor that idles → ages reliably.
     if ec_enabled(136):
         print(
             "\n=== EC136: combined group relays stale event with source_groups ===",
             flush=True,
         )
-        threshold = ne_ctx["staleness_threshold"]
-        combined_entry_id, combined_owns = _combined_owner(ne_ctx["entry_id"])
-        if threshold == 0:
-            print("  EC136: skipped (staleness_threshold=0 for this group)", flush=True)
-        elif not _WS_AVAILABLE:
+        if not _WS_AVAILABLE:
             print("  EC136: skipped (websocket-client not installed)", flush=True)
-        elif not (combined_entry_id and combined_owns):
-            print("  EC136: skipped (no combined group owns this group)", flush=True)
-        elif not essential_entities:
-            print("  EC136: skipped (no essential entities)", flush=True)
         else:
-            # Stale is age-based: induced only by letting an essential entity's
-            # last_updated age past the threshold — no ss() forces it (unlike
-            # offline/poor_signal). _wait_stale runs INSIDE capture as the trigger
-            # so the per-group stale event (and its combined relay) fire during the
-            # capture window. Live fixtures that keep pushing fresh states never go
-            # stale, so when nothing stales we SKIP (not FAIL), exactly like EC31.
-            # The relay is proven stale-capable by code (_RELAY_EVENT_CATS includes
-            # stale) and end-to-end by EC24 (offline) + EC137 (poor_signal).
-            # _wait_stale blocks up to (threshold + 2) min; the combined stale
-            # event fires near the END of that wait. capture_events fires the
-            # trigger then sleeps `timeout` before closing the socket, so the
-            # window MUST outlast the stale onset or the socket closes first and
-            # total_events=0 even though the event did fire. ne_restore() stamped
-            # the entity fresh and nothing re-writes it, so it ages naturally.
-            stale_timeout = (threshold + 2) * 60
-            stale_events = capture_events(
-                "entity_availability_stale",
-                lambda: _wait_stale("EC136"),
-                timeout=stale_timeout + 30,
-            )
-            if not stale_events:
+            fix = _provision_stale_fixture()
+            if not fix:
                 print(
-                    f"  EC136: skipped (no essential entity went stale within "
-                    f"{threshold + 2} min — live fixture)",
-                    flush=True,
+                    "  EC136: skipped (could not provision stale fixture)", flush=True
                 )
             else:
+                combined_entry_id = fix["combined_entry_id"]
+                fix_prefix = fix["prefix"]
+                threshold = fix["threshold"]
+                # Freshen the fixture's essential so its age starts near 0, then
+                # leave it idle. The template sensor re-evaluates only when its
+                # driving input_boolean changes, so toggle the boolean on (one
+                # genuine template render stamps last_updated now) and then touch
+                # nothing — the sensor ages straight past the threshold.
+                api(
+                    "POST",
+                    "/api/services/input_boolean/turn_off",
+                    {"entity_id": "input_boolean.ea_ctrl_kitchen_1"},
+                )
+                time.sleep(2)
+                api(
+                    "POST",
+                    "/api/services/input_boolean/turn_on",
+                    {"entity_id": "input_boolean.ea_ctrl_kitchen_1"},
+                )
+                time.sleep(2)
+
+                def _wait_fix_stale() -> None:
+                    deadline = time.time() + (threshold + 2) * 60
+                    while time.time() < deadline:
+                        val = gs(f"{fix_prefix}_stale_count").get("state", "0")
+                        try:
+                            if int(val or 0) > 0:
+                                return
+                        except (TypeError, ValueError):
+                            pass
+                        time.sleep(10)
+
+                # Capture window MUST outlast the full stale onset (threshold+2 min)
+                # or the socket closes before the event fires (total_events=0).
+                stale_timeout = (threshold + 2) * 60
+                stale_events = capture_events(
+                    "entity_availability_stale",
+                    _wait_fix_stale,
+                    timeout=stale_timeout + 30,
+                )
                 combined_stale = [
                     e for e in stale_events if e.get("entry_id") == combined_entry_id
                 ]
@@ -1135,7 +1321,7 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                         True,
                         f"stale_count={ev.get('stale_count')}",
                     )
-            restore_and_wait(ne_ctx)
+                _teardown_stale_fixture(fix)
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
