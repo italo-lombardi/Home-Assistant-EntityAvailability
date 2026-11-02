@@ -184,10 +184,16 @@ suggestion has to be an actual entity you could point the row at. It looks for
 two things only: a battery sibling on the same device, then a
 `sensor.<entity>_battery` companion. The own-state (device class `battery`) and
 own-attribute sources have **no separate sensor** to pre-fill — so auto-fill
-cannot suggest them, but you can leave the box **empty** and the runtime read
-still finds them (steps 2–3 above).
+cannot suggest them. For those, map the entity to **itself** (step 1 then reads
+its own state/attributes): leaving the box empty does **not** fall back to
+steps 2–3, because the UI writes a row for every tracked entity and an empty row
+means "no battery" (step 1 returns skip). The runtime fallback chain (steps 2–5)
+is reached only by an entity with **no row at all** — an imported or hand-edited
+config, never the normal UI.
 
-When you **add** a group, each entity's box is pre-filled with that guess. When
+When you **add** a group, each entity's box is pre-filled with that guess when
+one is found (a battery sibling or `sensor.<entity>_battery` companion); when
+neither exists the guess is empty and the box starts blank. When
 you **edit** a group, your saved choices are restored as-is — a box you left
 empty stays empty, a sensor you picked stays picked; only entities you have just
 added get a fresh guess. Either way these are **suggestions only** — nothing is
@@ -201,8 +207,19 @@ its last-known level — the retain is **not** gated on the device being offline
 so an HA-restart transient-unavailable does not wipe a restored level (issue
 #111).
 
-**Hysteresis (3 %).** Once low, an entity stays flagged until its level clears
-the threshold by `BATTERY_HYSTERESIS = 3` %:
+**Hysteresis (3 %).** A battery hovering right at the threshold would otherwise
+flip the flag on and off every poll as its reading jitters (20 → 19 → 21 → 20…).
+To stop that, the flag uses **two different cutoffs** depending on the state it's
+already in — a 3 % dead-band between them:
+
+- **Not flagged yet** → goes low the moment the level drops **below** the
+  threshold (`level < threshold`).
+- **Already flagged** → stays low until the level climbs back to **threshold +
+  `BATTERY_HYSTERESIS` (3 %)** or higher. A reading anywhere in the band
+  (threshold up to threshold + 3) keeps the existing low flag.
+
+So with the default 20 % threshold: the flag trips at 19 %, but the battery must
+reach **23 %** to clear it. A reading bouncing around 20–22 % won't flip it.
 
 ```
 battery_low = threshold > 0 AND battery_level is not None AND battery_level < threshold
@@ -211,8 +228,15 @@ if device.is_low_battery AND battery_level is not None
    AND battery_level < threshold + 3:  battery_low = True
 ```
 
-So a reading sitting on the boundary won't flip the flag (and the count) on and
-off each poll.
+| level | was low? | now low? | why |
+|---|---|---|---|
+| 19 | no | **yes** | 19 < 20 (trips) |
+| 21 | yes | **yes** | 21 < 23, in band → stays low |
+| 23 | yes | **no** | 23 ≥ 23 → clears |
+| 21 | no | no | 21 not < 20 → stays clear |
+
+The `battery_level is not None` guard on both lines skips the comparison when
+there's no reading (a dead or unknown battery reads `None`, not a number).
 
 **The frozen-flag guard — why a dead battery doesn't fire `battery_ok`.**
 `battery_ok` fires on the falling edge **only when `device.battery_level is not
@@ -262,11 +286,25 @@ the only tier that feeds a recorded count.**
 Only **poor ↔ non-poor** transitions fire; moving between "ok" and "good" fires
 nothing.
 
-Network types (and good/ok thresholds): 5G (−80/−100), Bluetooth (−70/−85),
-Generic/RSSI (−60/−80), LoRaWAN (−100/−115), LTE/4G (−80/−90), Percentage
-(70/40, higher-is-better), Thread (−70/−85), Wi-Fi (−67/−80), Zigbee LQI
-(201/51, higher-is-better), Zigbee RSSI (−70/−85), Z-Wave (−70/−85). Default is
-Generic.
+Network types and their `good` / `ok` thresholds (from
+`SIGNAL_NETWORK_TYPES` in `const.py`). `higher_is_better` is `False` for dBm
+scales (a reading `>= good` is green) and `True` for LQI / percentage scales:
+
+| Network type | Unit | good | ok | higher_is_better |
+|---|---|---|---|---|
+| 5G | dBm | −80 | −100 | no |
+| Bluetooth | dBm | −70 | −85 | no |
+| Generic/RSSI | dBm | −60 | −80 | no |
+| LoRaWAN | dBm | −100 | −115 | no |
+| LTE/4G | dBm | −80 | −90 | no |
+| Percentage | % | 70 | 40 | **yes** |
+| Thread | dBm | −70 | −85 | no |
+| Wi-Fi | dBm | −67 | −80 | no |
+| Zigbee (LQI) | LQI | 201 | 51 | **yes** |
+| Zigbee (RSSI/dBm) | dBm | −70 | −85 | no |
+| Z-Wave | dBm | −70 | −85 | no |
+
+Default is **Generic/RSSI**.
 
 ---
 
@@ -278,8 +316,15 @@ device.is_degraded = (NOT device.is_offline) AND (battery_low OR is_stale)
 
 An entity is **degraded** only while it is **not** offline — offline supersedes
 degraded. A low-battery or stale entity that then goes offline is reported as
-offline, not degraded. (Poor signal is tracked on its own axis and is not part
-of `is_degraded`.)
+offline, not degraded.
+
+Poor signal is **not** part of `is_degraded`, even though it too is an opt-in
+axis (so is stale — opt-in is not the reason). `is_degraded` captures the
+entity's **own** health: its power dying (`battery_low`) or its data frozen
+(`is_stale`). Poor signal is a property of the **link** between Home Assistant
+and the device, not the device's own condition — a healthy sensor behind a weak
+repeater still reports fine. It's surfaced on its own axis (`poor_signal` /
+`signal_ok`) instead.
 
 ---
 
