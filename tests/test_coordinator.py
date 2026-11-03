@@ -28,6 +28,7 @@ from custom_components.entity_availability.const import (
     STARTUP_GRACE_PERIOD,
 )
 from custom_components.entity_availability.coordinator import (
+    SAVE_MIN_INTERVAL,
     EntityAvailabilityCoordinator,
 )
 
@@ -1049,20 +1050,15 @@ async def test_async_shutdown_cancels_refresh_timer(
 async def test_async_update_data_save_error_logs_warning(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """When _async_save_storage raises, a warning is logged and _update_count resets."""
+    """When _async_save_storage raises, a warning is logged (no crash, retries next tick)."""
     hass = mock_hass
-
-    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
 
     with patch.object(
         EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
     ) as mock_save:
         coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord._last_update = None
-        await coord._async_update_data()
-
-        # Prime the counter so the next update triggers the save path
-        coord._update_count = _SAVE_INTERVAL_UPDATES - 1
+        # First tick (_last_save is None) hits the save path; make it raise.
         mock_save.side_effect = RuntimeError("disk full")
 
         with patch(
@@ -1071,7 +1067,8 @@ async def test_async_update_data_save_error_logs_warning(
             await coord._async_update_data()
 
         mock_logger.warning.assert_called_once()
-        assert coord._update_count == 0
+        # Save failed, so _last_save was never stamped — still None, retries next tick.
+        assert coord._last_save is None
 
 
 async def test_device_state_persistence_prevents_restart_retrigger(
@@ -1170,16 +1167,23 @@ async def test_offline_since_equals_cooldown_start(
     )
 
 
-async def test_periodic_save_triggers_after_10_updates(
+async def test_periodic_save_wall_clock_gate(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """Storage is saved every _SAVE_INTERVAL_UPDATES (10) update cycles."""
+    """Storage saves at most once per SAVE_MIN_INTERVAL (wall-clock), not per tick.
+
+    First dirty tick saves immediately (seeds _last_save); further ticks within
+    the interval do NOT save; a tick past the interval saves again.
+    """
     hass = mock_hass
 
     save_calls = []
 
-    async def counting_save(self_inner=None):
+    async def counting_save(self_inner):
+        # Mirror the real method's stamp so the gate can advance.
         save_calls.append(True)
+        self_inner._last_save = datetime.now(timezone.utc)
+        self_inner._dirty = False
 
     with patch.object(
         EntityAvailabilityCoordinator,
@@ -1189,15 +1193,21 @@ async def test_periodic_save_triggers_after_10_updates(
         coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord._last_update = None
 
-        # Run 9 updates — should not save yet
-        for _ in range(9):
-            await coord._async_update_data()
-        assert len(save_calls) == 0, "save should not fire before 10 updates"
-
-        # 10th update — should trigger save and reset counter
+        # First tick: _last_save is None -> saves immediately (seed).
         await coord._async_update_data()
-        assert len(save_calls) == 1, "save should fire on 10th update"
-        assert coord._update_count == 0, "_update_count should reset after save"
+        assert len(save_calls) == 1, "first dirty tick should save (seed)"
+
+        # Several more ticks within the interval -> no further save.
+        for _ in range(5):
+            await coord._async_update_data()
+        assert len(save_calls) == 1, "ticks within SAVE_MIN_INTERVAL must not save"
+
+        # Backdate _last_save beyond the interval -> next tick saves.
+        coord._last_save = datetime.now(timezone.utc) - timedelta(
+            seconds=SAVE_MIN_INTERVAL + 1
+        )
+        await coord._async_update_data()
+        assert len(save_calls) == 2, "a tick past SAVE_MIN_INTERVAL should save"
 
 
 async def test_shutdown_save_only_when_dirty(
@@ -2861,13 +2871,11 @@ def test_setup_state_listeners_no_existing_unsub(
 # ---------------------------------------------------------------------------
 
 
-async def test_update_count_below_save_threshold_does_not_save(
+async def test_update_within_interval_does_not_save(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """Storage is NOT saved when _update_count is below _SAVE_INTERVAL_UPDATES."""
+    """Storage is NOT saved when the last save was within SAVE_MIN_INTERVAL."""
     hass = mock_hass
-
-    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
 
     save_calls = []
 
@@ -2881,11 +2889,10 @@ async def test_update_count_below_save_threshold_does_not_save(
     ):
         coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord._last_update = None
-        # Set count just below threshold
-        coord._update_count = _SAVE_INTERVAL_UPDATES - 2
+        # Pretend we saved just now -> the gate must not fire on this tick.
+        coord._last_save = datetime.now(timezone.utc)
         await coord._async_update_data()
 
-    # count incremented to threshold-1 — no save triggered
     assert len(save_calls) == 0
 
 
@@ -3119,16 +3126,11 @@ async def test_save_storage_all_entities_saved(
 # ---------------------------------------------------------------------------
 
 
-async def test_update_data_save_triggered_on_threshold(
+async def test_update_data_save_triggered_past_interval(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """Storage save triggered when _update_count reaches _SAVE_INTERVAL_UPDATES.
-
-    Covers: 479->483 (threshold reached → save called — success path, no exception).
-    """
+    """Storage save triggered when the last save was longer ago than SAVE_MIN_INTERVAL."""
     hass = mock_hass
-
-    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
 
     save_calls = []
 
@@ -3142,11 +3144,12 @@ async def test_update_data_save_triggered_on_threshold(
     ):
         coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord._last_update = None
-        # Pre-fill count to one below threshold
-        coord._update_count = _SAVE_INTERVAL_UPDATES - 1
+        # Last save is older than the interval -> this tick must save.
+        coord._last_save = datetime.now(timezone.utc) - timedelta(
+            seconds=SAVE_MIN_INTERVAL + 1
+        )
         await coord._async_update_data()
 
-    # threshold reached → save was called
     assert len(save_calls) == 1
 
 
@@ -3327,27 +3330,22 @@ async def test_cooldown_elapsed_device_already_offline_no_transition(
 # ---------------------------------------------------------------------------
 
 
-async def test_update_data_save_triggered_success_path(
+async def test_update_data_save_triggered_first_tick_seed(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """Save triggered on threshold — no exception, _update_count resets to 0.
-
-    Covers: 479->483 (threshold reached → save → no exception → count reset).
-    """
+    """First dirty tick saves immediately (seeds _last_save) — success path."""
     hass = mock_hass
-
-    from custom_components.entity_availability.coordinator import _SAVE_INTERVAL_UPDATES
 
     with patch.object(
         EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
     ) as mock_save:
         coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord._last_update = None
-        coord._update_count = _SAVE_INTERVAL_UPDATES - 1
+        # _last_save starts None -> first tick must save.
+        assert coord._last_save is None
         await coord._async_update_data()
 
     mock_save.assert_called()
-    assert coord._update_count == 0
 
 
 # ---------------------------------------------------------------------------

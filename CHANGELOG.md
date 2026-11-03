@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Large groups could freeze Home Assistant periodically.** On a group with many monitored entities, every save re-serialized the entire 7-day bucket history for every entity on the event loop, blocking it for seconds at a time. Retention is now bounded to the selected window (above) and oversized history is pruned immediately on load (not only on the next save), so the file — and the per-save cost — shrink right away instead of after one more full-size save.
+- **Availability data now persists at most once every 5 minutes, regardless of activity.** The save interval was gated on a coordinator-update *count* (every 10 updates), but a busy group fires an update on every monitored-entity state change as well as the 30 s poll — so a chatty group saved roughly every 40 s instead of the intended ~5 min, multiplying the per-save cost. Saves are now gated on wall-clock time: at most one save per 5 minutes no matter how active the group is. Quiet groups are unaffected (they already saved about every 5 min); the final state is still flushed on shutdown/reload so nothing is lost.
 - **The card now shows the 24h availability column.** The Lovelace card's window list did not include the new `24h` window, so a group with 24h selected showed no 24h availability figure. Added it (between Today and 3 Days); `CARD_VERSION` bumped to 0.7.1.
 
 ### Notes
