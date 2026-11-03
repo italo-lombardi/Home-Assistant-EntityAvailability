@@ -22,7 +22,7 @@ Monitor entity availability in Home Assistant. Track offline entities, availabil
 - **Combined groups** -- merge multiple groups into a single aggregate sensor set for cross-group automations (offline count, low battery, any-offline binary sensor)
 - **Configurable bad states** -- define which states count as offline (`unavailable`, `unknown`, or custom)
 - **Cooldown timer** -- ignore brief blips before marking an entity offline
-- **Availability % sensors** -- track uptime over today, 3-day, 5-day, and 7-day windows
+- **Availability % sensors** -- track uptime over today (calendar day), 24-hour, 3-day, 5-day, and 7-day windows
 - **Reliability sensors (MTBF + MTTR)** -- flag devices that keep flaking out: separate diagnostic sensors for how *often* each device breaks (MTBF) and how *long* each outage lasts (MTTR), so a genuinely flaky device is distinguishable from one that had a single long outage at the same uptime %
 - **Bus events + named triggers** -- fires `offline` / `recovered` / `low_battery` / `battery_ok` / `stale` / `stale_recovered` / `poor_signal` / `signal_ok` events on the HA event bus, each also exposed as a UI-discoverable named automation trigger (optionally scoped to a single group)
 - **Battery monitoring** -- auto-detect or manually map battery entities; supports numeric (%) and text states (`low`)
@@ -426,7 +426,11 @@ automation:
 
 ## How Availability % Works
 
-Availability sensors show what percentage of the time your entities were online during a given window (today, 3 days, 7 days, etc.).
+Availability sensors show what percentage of the time your entities were online during a given window (today, 24 hours, 3 days, 7 days, etc.).
+
+The available windows are **today** (the current calendar day, from local midnight), **24h** (a rolling 24-hour lookback), and **3d / 5d / 7d** (rolling multi-day lookbacks). `today` and `7d` are selected by default; the others, including `24h`, are opt-in in the group's configuration.
+
+> **Note:** `today` measures the current **calendar day** (since local midnight), not a trailing 24 hours. If you want a rolling 24-hour figure, enable the **24h** window.
 
 The integration samples each entity's state in the background. If online, that time counts toward its availability. If offline, it doesn't.
 
@@ -815,7 +819,7 @@ A: Two things can cause this. First, try **Settings → Companion App → Debug 
 A: No. Entity Availability uses its own `.storage` file for tracking history. This keeps your database lean. The storage file for each group is automatically deleted when you remove the config entry, and any orphaned files from older versions are cleaned up on the next HA startup.
 
 **Q: Why are availability sensors showing "unavailable" after installation?**
-A: This is normal. Availability sensors need time to collect data before they can report a percentage. For "today" they need at least one 5-minute data point; for longer windows (3d, 7d) they need at least 10% of expected data. They will populate automatically as the integration runs.
+A: This is normal. Availability sensors need time to collect data before they can report a percentage. For "today" and "24h" they need at least one 5-minute data point; for longer windows (3d, 5d, 7d) they need at least 10% of expected data. They will populate automatically as the integration runs.
 
 **Q: What happens after a Home Assistant restart?**
 A: Historical availability data is stored in `.storage` and survives restarts. The integration resumes tracking immediately. Offline alerts are suppressed for the first 60 seconds after startup to avoid false-positive notifications for entities that are already offline before HA finishes loading.
