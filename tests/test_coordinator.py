@@ -7109,3 +7109,139 @@ async def test_build_loop_suppressed_sibling_carries_source_and_merges(mock_hass
 
     rep = collapse_representatives(hass, coord.device_states)
     assert len(set(rep.values())) == 1
+
+
+# ---------------------------------------------------------------------------
+# Retention: _retention_seconds math + save-path window/orphan filtering
+# ---------------------------------------------------------------------------
+
+
+def _entry_with_windows(mock_config_data, windows):
+    """MockConfigEntry whose availability_windows is `windows`."""
+    from custom_components.entity_availability.const import (
+        CONF_AVAILABILITY_WINDOWS,
+        DOMAIN,
+    )
+
+    data = dict(mock_config_data)
+    data[CONF_AVAILABILITY_WINDOWS] = windows
+    return MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Test Group",
+        data=data,
+        entry_id="test_entry_id",
+        unique_id=f"{DOMAIN}_test_group",
+    )
+
+
+def _make_coord(hass, entry):
+    """Construct a coordinator with load/save patched out (unit-level)."""
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+    ):
+        return EntityAvailabilityCoordinator(hass, entry)
+
+
+class TestRetentionSeconds:
+    """_retention_seconds = longest selected window (today=25h) + 15min margin."""
+
+    def test_empty_windows_zero(self, hass: HomeAssistant, mock_config_data) -> None:
+        coord = _make_coord(hass, _entry_with_windows(mock_config_data, []))
+        assert coord._retention_seconds() == 0
+
+    def test_today_only_is_25h_plus_margin(
+        self, hass: HomeAssistant, mock_config_data
+    ) -> None:
+        from custom_components.entity_availability.const import BUCKET_INTERVAL
+
+        coord = _make_coord(hass, _entry_with_windows(mock_config_data, ["today"]))
+        assert coord._retention_seconds() == 25 * 3600 + BUCKET_INTERVAL * 3
+
+    def test_24h_only_is_24h_plus_margin(
+        self, hass: HomeAssistant, mock_config_data
+    ) -> None:
+        from custom_components.entity_availability.const import BUCKET_INTERVAL
+
+        coord = _make_coord(hass, _entry_with_windows(mock_config_data, ["24h"]))
+        assert coord._retention_seconds() == 24 * 3600 + BUCKET_INTERVAL * 3
+
+    def test_today_plus_7d_takes_7d(
+        self, hass: HomeAssistant, mock_config_data
+    ) -> None:
+        from custom_components.entity_availability.const import BUCKET_INTERVAL
+
+        coord = _make_coord(
+            hass, _entry_with_windows(mock_config_data, ["today", "7d"])
+        )
+        # 7d (168h) dominates today (25h)
+        assert coord._retention_seconds() == 168 * 3600 + BUCKET_INTERVAL * 3
+
+    def test_today_dominates_24h(self, hass: HomeAssistant, mock_config_data) -> None:
+        # today (25h retention) > 24h (24h) when both selected
+        from custom_components.entity_availability.const import BUCKET_INTERVAL
+
+        coord = _make_coord(
+            hass, _entry_with_windows(mock_config_data, ["today", "24h"])
+        )
+        assert coord._retention_seconds() == 25 * 3600 + BUCKET_INTERVAL * 3
+
+
+class TestSaveRetentionFiltering:
+    """_async_save_storage persists only in-window buckets of monitored entities."""
+
+    async def test_save_excludes_out_of_window_and_orphans(
+        self, hass: HomeAssistant, mock_config_data
+    ) -> None:
+        from custom_components.entity_availability.const import BUCKET_INTERVAL
+
+        # today+7d -> retain 7d + margin
+        entry = _entry_with_windows(mock_config_data, ["today", "7d"])
+        coord = _make_coord(hass, entry)
+
+        now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        store = coord._availability_storage
+        monitored = coord._entities[0]  # a real monitored entity
+        # in-window bucket (recent) + out-of-window bucket (10 days back)
+        store.record_online(monitored, float(BUCKET_INTERVAL), now)
+        store.record_online(monitored, float(BUCKET_INTERVAL), now - timedelta(days=10))
+        # orphan entity not in _entities
+        store.record_online("binary_sensor.orphan", float(BUCKET_INTERVAL), now)
+
+        coord._store = MagicMock()
+        coord._store.async_save = AsyncMock()
+
+        with freeze_time(now):
+            await coord._async_save_storage()
+
+        saved = coord._store.async_save.await_args.args[0]["availability"]
+        # orphan dropped entirely
+        assert "binary_sensor.orphan" not in saved
+        # monitored kept, but only the in-window bucket (10d-old pruned)
+        assert monitored in saved
+        assert len(saved[monitored]) == 1
+
+    async def test_empty_windows_persist_no_buckets(
+        self, hass: HomeAssistant, mock_config_data
+    ) -> None:
+        from custom_components.entity_availability.const import BUCKET_INTERVAL
+
+        entry = _entry_with_windows(mock_config_data, [])
+        coord = _make_coord(hass, entry)
+        now = datetime(2024, 6, 15, 12, 0, 0, tzinfo=timezone.utc)
+        coord._availability_storage.record_online(
+            coord._entities[0], float(BUCKET_INTERVAL), now
+        )
+        coord._store = MagicMock()
+        coord._store.async_save = AsyncMock()
+        with freeze_time(now):
+            await coord._async_save_storage()
+        saved = coord._store.async_save.await_args.args[0]["availability"]
+        assert saved == {}
+        # and RAM pruned to nothing too (retention 0 clears)
+        assert coord._availability_storage._buckets == {}

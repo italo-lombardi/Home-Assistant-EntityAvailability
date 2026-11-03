@@ -141,7 +141,7 @@ SIGNAL_NETWORK_TYPES: dict[str, dict[str, int | str | bool]] = {
         "higher_is_better": False,
     },
 }
-AVAILABLE_WINDOWS = ["today", "3d", "5d", "7d"]
+AVAILABLE_WINDOWS = ["today", "24h", "3d", "5d", "7d"]
 
 # Storage
 STORAGE_VERSION = 1

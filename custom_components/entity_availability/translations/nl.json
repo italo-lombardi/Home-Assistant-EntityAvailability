@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Beschikbaarheid (vandaag)"
       },
+      "availability_24h": {
+        "name": "Beschikbaarheid (laatste 24 uur)"
+      },
       "availability_3d": {
         "name": "Beschikbaarheid (3 dagen)"
       },

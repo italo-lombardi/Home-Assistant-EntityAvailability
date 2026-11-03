@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "가용성(오늘)"
       },
+      "availability_24h": {
+        "name": "가용성(최근 24시간)"
+      },
       "availability_3d": {
         "name": "가용성(3일)"
       },

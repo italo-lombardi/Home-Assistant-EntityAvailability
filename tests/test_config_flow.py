@@ -3579,3 +3579,55 @@ async def test_combined_options_flow_updates_unique_id_on_rename(
             },
         )
     assert result2["type"] == FlowResultType.CREATE_ENTRY
+
+
+# ---------------------------------------------------------------------------
+# 24h window: offered in the picker, unticked by default, selectable
+# ---------------------------------------------------------------------------
+
+
+def test_available_windows_includes_24h() -> None:
+    """24h is offered in the window picker, in order after today."""
+    from custom_components.entity_availability.const import AVAILABLE_WINDOWS
+
+    assert AVAILABLE_WINDOWS == ["today", "24h", "3d", "5d", "7d"]
+
+
+def test_24h_not_in_default_windows() -> None:
+    """24h is unticked by default — existing users keep today+7d, no migration."""
+    from custom_components.entity_availability.const import (
+        AVAILABLE_WINDOWS,
+        DEFAULT_AVAILABILITY_WINDOWS,
+    )
+
+    assert DEFAULT_AVAILABILITY_WINDOWS == ["today", "7d"]
+    assert "24h" not in DEFAULT_AVAILABILITY_WINDOWS
+    assert "24h" in AVAILABLE_WINDOWS
+
+
+async def test_options_flow_accepts_24h_window(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Options flow round-trips a 24h-only window selection."""
+    mock_config_entry.add_to_hass(hass)
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(mock_config_entry.entry_id)
+        await hass.async_block_till_done()
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_ENTITIES: ["binary_sensor.device_a", "binary_sensor.device_b"],
+            CONF_BAD_STATES: ["unavailable"],
+            CONF_COOLDOWN: 90,
+            CONF_STALENESS_THRESHOLD: 15,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: ["24h"],
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert mock_config_entry.data[CONF_AVAILABILITY_WINDOWS] == ["24h"]

@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Disponibilidad (Hoy)"
       },
+      "availability_24h": {
+        "name": "Disponibilidad (Últimas 24 h)"
+      },
       "availability_3d": {
         "name": "Disponibilidad (3 días)"
       },

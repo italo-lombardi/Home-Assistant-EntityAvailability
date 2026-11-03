@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Доступность (сегодня)"
       },
+      "availability_24h": {
+        "name": "Доступность (последние 24 ч.)"
+      },
       "availability_3d": {
         "name": "Доступность (3 дня)"
       },

@@ -72,6 +72,8 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC92 PR#106: availability_today shows a value immediately (not unknown) — startup fallback
   EC93 PR#109: mtbf per_device present in live state but excluded from recorder — per-device
        mtbf_hours drift alone does not rewrite the sensor (no last_updated sawtooth)
+  EC139 v0.7.1: availability_today reads a value (calendar-day / local-midnight path wired)
+  EC140 v0.7.1: selecting the new 24h window creates a working sensor (guards UnboundLocalError)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -6432,6 +6434,112 @@ for e in cfg['data']['entries']:
                     f"foreign_id={foreign_id} err={err}",
                 )
                 _delete_probe()
+
+    # ------------------------------------------------------------------
+    # EC139-EC141: 0.7.1 availability-window changes (calendar today, new 24h
+    # window, retention bounded to selected window). Live wiring guards on top of
+    # the unit coverage in test_storage.py / test_coordinator.py.
+    # ------------------------------------------------------------------
+    if ec_enabled(139):
+        # EC139: calendar "today" sensor reads a value live (not unknown). The
+        # today branch now uses dt_util.start_of_local_day; this proves the
+        # local-midnight path is wired and produces a number on a real HA.
+        print(
+            "\n=== EC139: availability_today (calendar day) reads a value ===",
+            flush=True,
+        )
+        state_139 = gs(f"{prefix}_availability_today").get("state")
+        chk(
+            "EC139 availability_today is numeric (calendar-day path wired)",
+            state_139 not in (None, "unknown", "unavailable"),
+            True,
+            f"state={state_139!r}",
+        )
+
+    if ec_enabled(140):
+        # EC140: the new "24h" rolling window. Default windows are today+7d, so no
+        # 24h sensor exists yet. Add "24h" via the options flow (which reloads the
+        # coordinator), assert the sensor appears AND returns a value — the live
+        # regression guard for the window_hours UnboundLocalError that crashed every
+        # 24h read with data (it would read unknown/unavailable). Restore after.
+        print(
+            "\n=== EC140: new 24h window sensor appears and reads a value ===",
+            flush=True,
+        )
+        avail_24h = f"{prefix}_availability_24h"
+        base_windows = ["today", "7d"]
+        try:
+            r = api(
+                "POST",
+                "/api/config/config_entries/options/flow",
+                {"handler": ctx["entry_id"]},
+            )
+            fid = r["flow_id"]
+            api(
+                "POST",
+                f"/api/config/config_entries/options/flow/{fid}",
+                {
+                    "entities": ctx["entities"],
+                    "non_essential_entities": [],
+                    "bad_states": ["unavailable", "unknown"],
+                    "cooldown": 0,
+                    "staleness_threshold": 0,
+                    "staleness_use_last_updated": False,
+                    "battery_threshold": 0,
+                    "signal_enabled": ctx.get("signal_enabled", False),
+                    "availability_windows": ["today", "24h", "7d"],
+                    "recovery_window": 5,
+                    "use_device_names": False,
+                    "collapse_devices": False,
+                },
+            )
+            # reload + first refresh + one bucket of recording
+            wait(45)
+            st = gs_safe(avail_24h)
+            present = st is not None
+            value = (st or {}).get("state")
+            chk(
+                "EC140 availability_24h sensor exists after selecting 24h window",
+                present,
+                True,
+                f"eid={avail_24h}",
+            )
+            chk(
+                "EC140 availability_24h reads a value (no UnboundLocalError crash)",
+                present and value not in (None, "unknown", "unavailable"),
+                True,
+                f"state={value!r}",
+            )
+        finally:
+            # Restore the original window selection no matter what.
+            try:
+                r = api(
+                    "POST",
+                    "/api/config/config_entries/options/flow",
+                    {"handler": ctx["entry_id"]},
+                )
+                fid = r["flow_id"]
+                api(
+                    "POST",
+                    f"/api/config/config_entries/options/flow/{fid}",
+                    {
+                        "entities": ctx["entities"],
+                        "non_essential_entities": [],
+                        "bad_states": ["unavailable", "unknown"],
+                        "cooldown": 0,
+                        "staleness_threshold": 0,
+                        "staleness_use_last_updated": False,
+                        "battery_threshold": 0,
+                        "signal_enabled": ctx.get("signal_enabled", False),
+                        "availability_windows": base_windows,
+                        "recovery_window": 5,
+                        "use_device_names": False,
+                        "collapse_devices": False,
+                    },
+                )
+                wait(20)
+            except Exception as e:
+                print(f"  EC140 WARN: failed to restore windows: {e}", flush=True)
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed

@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Kullanılabilirlik (Bugün)"
       },
+      "availability_24h": {
+        "name": "Kullanılabilirlik (Son 24 Saat)"
+      },
       "availability_3d": {
         "name": "Kullanılabilirlik (3 Gün)"
       },
