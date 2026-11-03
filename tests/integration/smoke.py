@@ -4692,11 +4692,17 @@ for e in cfg['data']['entries']:
             flush=True,
         )
         mtbf_eid = f"{prefix}_mtbf"
-        mtbf = gs(mtbf_eid)
-        if mtbf.get("state") in (None, "unknown", "unavailable"):
+        # gs_safe (not gs): MTBF is disabled by default, so on a group whose MTBF
+        # entity was first registered after that change it is absent from
+        # /api/states (404). Treat absent — like a present-but-valueless entity —
+        # as SKIP: EC93 only exercises MTBF when the sensor is enabled + has a
+        # completed offline event. Enable the MTBF entity to run this check.
+        mtbf = gs_safe(mtbf_eid)
+        if mtbf is None or mtbf.get("state") in (None, "unknown", "unavailable"):
+            state_93 = None if mtbf is None else mtbf.get("state")
             print(
-                f"  EC93 SKIPPED: {mtbf_eid} has no value yet "
-                f"(state={mtbf.get('state')!r} — needs a completed offline event)",
+                f"  EC93 SKIPPED: {mtbf_eid} not live "
+                f"(disabled-by-default or no value yet; state={state_93!r})",
                 flush=True,
             )
         else:
