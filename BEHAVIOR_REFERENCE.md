@@ -279,28 +279,35 @@ hovering at the edge doesn't flip poor/ok each poll. The good/ok boundary is
 **not** de-jittered — it's display-only and feeds no recorded count. **"poor" is
 the only tier that feeds a recorded count.**
 
-**Debounce (2) at the poor↔non-poor boundary.** Hysteresis handles a reading
-*resting* on the edge; it does nothing against a big swing (RSSI oscillating
-−86 ↔ −70 every poll clears the ±3 dead-band in both directions). So the
+**Debounce (wall-clock) at the poor↔non-poor boundary.** Hysteresis handles a
+reading *resting* on the edge; it does nothing against a big swing (RSSI
+oscillating −86 ↔ −70 clears the ±3 dead-band in both directions). So the
 committed quality is gated by `_commit_signal`: a crossing of the poor
-boundary must persist `SIGNAL_DEBOUNCE_POLLS = 2` consecutive polls before
-`signal_quality` moves. `_classify_signal` stays a pure per-poll classifier;
-`_commit_signal` owns the pending state (`signal_pending_poor` /
-`signal_pending_count` on `DeviceState`, both transient — storage serializes
-buckets only, never `DeviceState`). Mechanics:
+boundary must persist `SIGNAL_DEBOUNCE_SECONDS = 60` of **wall-clock time**
+before `signal_quality` moves. The gate is time-based, **not** a refresh
+count, and this matters: refreshes are state-change driven (`_handle_state_change`
+coalesces every push), so a chatty Zigbee/MQTT sensor pushing `_linkquality`
+every few seconds fires many refreshes per second — a poll-count debounce
+would clear in moments for it while working fine for a 30s-polled Z-Wave
+sensor. Measuring elapsed real time is immune to push rate: both sensor kinds
+need the same genuine duration before an edge fires. `_classify_signal` stays
+a pure per-refresh classifier; `_commit_signal` owns the pending state
+(`signal_pending_poor` / `signal_pending_since` on `DeviceState`, both
+transient — storage serializes buckets only, never `DeviceState`). Mechanics:
 
-- First poll that disagrees with the committed tier across the poor boundary
-  arms the pending direction (count = 1) and **holds** the committed value.
-- A same-direction confirm reaching the threshold commits the new tier and
-  clears pending.
-- A reversal before commit (the flap case) re-arms the other direction at
-  count = 1 — the oscillation never commits.
+- First refresh that disagrees with the committed tier across the poor boundary
+  stamps `signal_pending_since = now` and **holds** the committed value.
+- A later refresh, same direction, once `now - signal_pending_since ≥
+  SIGNAL_DEBOUNCE_SECONDS`, commits the new tier and clears pending — no matter
+  how many refreshes landed in between.
+- A reversal before commit (the flap case) re-stamps the other direction — the
+  oscillation never accumulates the duration, so it never commits.
 - good↔ok moves are **not** a poor-boundary cross and commit instantly (no
   debounce), as before.
 
 The gate sits at the single commit point, so **display tier, the poor recorded
 count, and both edge events all move off the same `signal_quality`** — they
-cannot diverge. The cost is a `SIGNAL_DEBOUNCE_POLLS`-poll (default 60 s) lag
+cannot diverge. The cost is a `SIGNAL_DEBOUNCE_SECONDS` (default 60 s) lag
 before a *genuine* transition commits. This mirrors the offline cooldown,
 where an event fires only once the entity is still offline after the window —
 a debounced edge is intended behavior, not a dropped one.

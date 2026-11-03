@@ -37,12 +37,15 @@ class DeviceState:
     signal_source: str | None = None
     # transition tracker for EVENT_POOR_SIGNAL / EVENT_SIGNAL_OK
     prev_signal_poor: bool = False
-    # Debounce state for the poor↔non-poor boundary (Option A). Transient like
+    # Debounce state for the poor↔non-poor boundary (wall-clock). Transient like
     # signal_source — never persisted (storage serializes buckets only, never
-    # DeviceState). None pending_poor = no pending cross; count = consecutive
-    # polls the candidate has disagreed with the committed quality.
+    # DeviceState). signal_pending_poor = the candidate side of an in-flight
+    # crossing (None = no crossing pending); signal_pending_since = when that
+    # crossing was first seen. The crossing commits once it has persisted
+    # SIGNAL_DEBOUNCE_SECONDS of real time, independent of how many refreshes
+    # (push- or poll-driven) land in between.
     signal_pending_poor: bool | None = None
-    signal_pending_count: int = 0
+    signal_pending_since: datetime | None = None
     recently_offline_at: datetime | None = None
     # Reliability counters (all-time, event-driven — feed MTBF/MTTR).
     monitored_since: datetime | None = None
