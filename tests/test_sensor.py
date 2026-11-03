@@ -2772,6 +2772,13 @@ class TestMTBFSensor:
         )
         assert sensor.state_class is None
 
+    def test_disabled_by_default(self, mock_coordinator):
+        """MTBF is an advanced metric — off by default in the entity registry."""
+        sensor = MTBFSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.entity_registry_enabled_default is False
+
     def test_native_value_none_without_events(self, mock_coordinator):
         """No offline events → native_value None."""
         sensor = MTBFSensor(
@@ -2910,6 +2917,13 @@ class TestMTTRSensor:
             mock_coordinator, "Test Group", "test_group", "test_entry_id"
         )
         assert sensor.state_class is None
+
+    def test_disabled_by_default(self, mock_coordinator):
+        """MTTR is an advanced metric — off by default in the entity registry."""
+        sensor = MTTRSensor(
+            mock_coordinator, "Test Group", "test_group", "test_entry_id"
+        )
+        assert sensor.entity_registry_enabled_default is False
 
     def test_native_value_none_without_events(self, mock_coordinator):
         sensor = MTTRSensor(

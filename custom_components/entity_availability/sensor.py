@@ -821,6 +821,12 @@ class MTBFSensor(DedupCoordinatorSensor):
     _attr_native_unit_of_measurement = "h"
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # Advanced reliability metric — off by default to keep a new group's entity
+    # list focused on the core offline/battery/availability sensors. Enable it in
+    # the entity settings if you want MTBF tracking. Existing entities keep their
+    # current enabled state (the registry remembers); this only affects newly
+    # registered ones.
+    _attr_entity_registry_enabled_default = False
     # No state_class: MTBF changes only on offline/recovery events, not on a
     # fixed cadence — see GroupSummarySensor.
     _attr_has_entity_name = True
@@ -895,6 +901,10 @@ class MTTRSensor(DedupCoordinatorSensor):
     _attr_native_unit_of_measurement = "min"
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    # Advanced reliability metric — off by default (see MTBFSensor). Enable it in
+    # the entity settings to track mean outage length. Only affects newly
+    # registered entities; existing ones keep their current enabled state.
+    _attr_entity_registry_enabled_default = False
     # No state_class: changes only on recovery events — see GroupSummarySensor.
     _attr_has_entity_name = True
 
