@@ -4,7 +4,7 @@
  * Keep CARD_VERSION in sync with manifest.json "version".
  */
 
-const CARD_VERSION = "0.7.0";
+const CARD_VERSION = "0.7.1";
 
 console.info(
   `%c ENTITY-AVAILABILITY-CARD %c v${CARD_VERSION} %c — github.com/italo-lombardi `,
@@ -57,6 +57,7 @@ const css = LitElement.prototype.css || (() => {
 
 const AVAILABILITY_WINDOWS = [
   { key: "today", label: "Today" },
+  { key: "24h", label: "24h" },
   { key: "3d", label: "3 Days" },
   { key: "5d", label: "5 Days" },
   { key: "7d", label: "7 Days" },

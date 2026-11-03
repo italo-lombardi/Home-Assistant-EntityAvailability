@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Large groups could freeze Home Assistant periodically.** On a group with many monitored entities, every save re-serialized the entire 7-day bucket history for every entity on the event loop, blocking it for seconds at a time. Retention is now bounded to the selected window (above) and oversized history is pruned immediately on load (not only on the next save), so the file — and the per-save cost — shrink right away instead of after one more full-size save.
+- **The card now shows the 24h availability column.** The Lovelace card's window list did not include the new `24h` window, so a group with 24h selected showed no 24h availability figure. Added it (between Today and 3 Days); `CARD_VERSION` bumped to 0.7.1.
 
 ### Notes
 - **Narrowing a window discards history beyond the new retention; widening later does not recover it.** Switching a group from, say, `7d` to `today` drops buckets older than the new retention on the next save; re-selecting `7d` later starts retaining a week again from that point but cannot restore what was dropped.
