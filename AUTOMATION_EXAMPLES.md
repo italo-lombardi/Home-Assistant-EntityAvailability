@@ -10,6 +10,8 @@ Ready-to-adapt automations for every feature. Replace `security_devices` with yo
 
 **HA 2025.11+.** The cleanest way to react to availability events. Every one of the eight events is a **named trigger** in the automation editor's *Triggers* tab — pick it by name, no event-string typing — each with an optional **Group** picker (classic or combined) that scopes to a single config entry:
 
+![Named Triggers](assets/13_named_triggers.png)
+
 ```yaml
 triggers:
   - trigger: entity_availability.offline

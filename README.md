@@ -600,6 +600,8 @@ automation:
 
 Every bus event is also exposed as a **named trigger** in the automation editor's *Triggers* tab (HA 2025.11+), so you can wire them from the UI without hand-typing the raw event string. The eight triggers map one-to-one to the events above:
 
+![Named Triggers](assets/13_named_triggers.png)
+
 | Trigger | Event |
 |---------|-------|
 | Entity went offline | `entity_availability_offline` |
