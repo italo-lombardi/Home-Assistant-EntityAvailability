@@ -1146,6 +1146,37 @@ def _provision_signal_fixture():
         return None
 
 
+def _provision_shared_fixture(shared_entity):
+    """EC12 (group-scoped suppress): provision a SECOND group that monitors the
+    same entity as the pass-1 target, so EC12's sibling-discovery finds a group
+    sharing an entity. Without a sharing sibling EC12 can only skip (group-scoped
+    suppression is unobservable with one group). `shared_entity` is the pass-1
+    target's entity[0] (the one EC12 suppresses in Alpha and checks stays
+    unsuppressed in Beta). No battery/signal/NE → the capability router never
+    routes a pass here; it exists purely to be the sibling.
+    """
+    group_name = _FIX_PREFIX + "Shared"
+    if not shared_entity:
+        return None
+    try:
+        existing = _ea_entries_by_title().get(group_name)
+        if existing:
+            return {"group_entry_id": existing, "entity": shared_entity}
+        fid, r_adv = _create_group(group_name, [shared_entity])
+        if r_adv.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  shared fixture: create did not finish "
+                f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {"group_entry_id": r_adv["result"]["entry_id"], "entity": shared_entity}
+    except Exception as exc:  # best-effort
+        print(f"  shared fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
 def _provision_both_tiers_fixture():
     """EC32 (+ NE tier EC25-42): a both-tiers group (essential + non-essential
     entities) whose ESSENTIAL entity has a NUMERIC mapped battery (threshold>0,
@@ -2378,6 +2409,10 @@ def run_all():
     numbatt = _provision_numeric_battery_fixture()
     _provision_signal_fixture()
     _provision_both_tiers_fixture()
+    # EC12 needs a 2nd group sharing an entity with the pass-1 target. Point the
+    # shared sibling at the numeric-battery fixture's entity[0] (the pass-1 target's
+    # entities[0], which EC12 suppresses) so EC12's sibling-discovery finds it.
+    _provision_shared_fixture(numbatt.get("entity") if numbatt else None)
     # Combined owns the numeric-battery group (the ess_batt target the combined-
     # relay ECs route to) so EC16-24/66 find a combined owner instead of skipping.
     _provision_combined_fixture(numbatt.get("group_entry_id") if numbatt else None)
@@ -2475,10 +2510,13 @@ def _run_all_passes():
     # battery-COUNT family (EC4/22/23/65) only needs low/not-low, so it stays in
     # pass 1 on any essential-mapped-battery group.
     battery_level_ecs = {59, 90}
-    # Signal ECs that need the signal fixture specifically: EC50 (any_poor_signal
-    # reachable) + EC52 (_last_seen suffix strip). Other signal ECs (47-49, 51)
-    # work on any signal group and ride pass 1.
-    signal_ecs = {50, 52}
+    # Signal ECs that need a signal-mapped group: EC50 (any_poor_signal reachable),
+    # EC52 (_last_seen suffix strip), EC47 (poor_signal_count reachable), EC51
+    # (signal_entity_map round-trip). The pass-1 target (EA Fix Numeric Battery)
+    # has NO signal map, so 47 skipped + 51 FAILED there — route all four to the
+    # signal fixture (EA Fix Signal) instead. EC48/49 read attrs any group exposes
+    # and stay in pass 1.
+    signal_ecs = {47, 50, 51, 52}
     # 1) The broad slice an essential-mapped-battery + signal + combined group
     #    satisfies: core, battery-count family, signal, combined, collapse-attr,
     #    recorder, EC12/EC82 (which have NO dedicated pass). Everything EXCEPT
@@ -2509,7 +2547,8 @@ def _run_all_passes():
     # 4) Battery-LEVEL ECs on a NUMERIC-battery group (drive-to-value).
     if numeric_batt:
         passes.append(("battery-level", numeric_batt, "", battery_level_ecs))
-    # 5) Signal ECs needing the signal fixture (_last_seen + any_poor_signal).
+    # 5) Signal ECs needing the signal fixture (_last_seen + any_poor_signal +
+    #    poor_signal_count + signal_entity_map round-trip).
     if signal_grp:
         passes.append(("signal-fixture", signal_grp, "", signal_ecs))
 
@@ -2526,7 +2565,7 @@ def _run_all_passes():
     if not collapse_grp:
         dark.append("collapse fixture (EC86,87,88,89,117): no collapse-active group")
     if not signal_grp:
-        dark.append("signal ECs (EC50,52): no signal group")
+        dark.append("signal ECs (EC47,50,51,52): no signal group")
     for d in dark:
         print(f"  DARK (will not run): {d}", flush=True)
 
