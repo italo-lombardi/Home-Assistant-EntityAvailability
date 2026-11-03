@@ -38,8 +38,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC19 PR#53: combined config entry has non-empty entry_id (event payload source)
   EC20 PR#53: individual group offline_count sensor rises when entity in combined group goes offline
   EC21 PR#53: individual and combined offline_entities sensors both reflect the offline entity
-  EC22 PR#54: entity_availability_low_battery event fires when battery drops below threshold
-  EC23 PR#54: entity_availability_battery_ok event fires when battery recovers above threshold
+  EC22 PR#54: low_battery_count rises when battery drops below threshold (sensor
+       transition proxy — NOT the bus event)
+  EC23 PR#54: low_battery_count clears when battery recovers above threshold (sensor
+       transition proxy; the REAL entity_availability_battery_ok bus event is EC144)
   EC24 combined offline event carries source_groups list (websocket; skipped if websocket-client absent)
 
   EC43 group_summary battery_enabled matches battery_threshold config
@@ -3712,7 +3714,8 @@ def run_checks(ctx):
     if ec_enabled(22) and battery_sensor and battery_entity:
         restore_and_wait(ctx)
         print(
-            "\n=== EC22: entity_availability_low_battery event proxy (sensor transition) ===",
+            "\n=== EC22: low_battery_count rises on battery drop "
+            "(sensor transition — not the bus event) ===",
             flush=True,
         )
         baseline = gs(f"{prefix}_low_battery_count").get("state", "0")
@@ -3730,7 +3733,7 @@ def run_checks(ctx):
             str(int(baseline) + 1),
         )
         chk(
-            "EC22 low_battery_count rose (low_battery event fired)",
+            "EC22 low_battery_count rose on battery drop (sensor only)",
             after,
             str(int(baseline) + 1),
             f"baseline={baseline} after={after}",
@@ -3760,7 +3763,8 @@ def run_checks(ctx):
                 "1",
             )
         print(
-            "\n=== EC23: entity_availability_battery_ok event proxy (sensor transition) ===",
+            "\n=== EC23: low_battery_count clears on battery recovery "
+            "(sensor transition — the REAL battery_ok bus event is EC144) ===",
             flush=True,
         )
         high_val = "90"
@@ -3778,7 +3782,7 @@ def run_checks(ctx):
             "0",
         )
         chk(
-            "EC23 low_battery_count dropped to 0 (battery_ok event fired)",
+            "EC23 low_battery_count dropped to 0 on battery recovery (sensor only)",
             after_ok,
             "0",
             f"after={after_ok}",
