@@ -165,6 +165,7 @@ Pass --skip-setup or set EA_SMOKE_SKIP_SETUP=1 to skip battery mapping setup and
 """
 
 import argparse
+import base64
 import itertools
 import json
 import os
@@ -212,6 +213,33 @@ def ec_enabled(n: int) -> bool:
 if not TOKEN:
     sys.exit(
         "Error: set EA_SMOKE_TOKEN to a valid HA access token.\nSee tests/integration/README.md for instructions."
+    )
+
+
+def _token_seconds_left(tok: str) -> int | None:
+    """Seconds until the JWT's `exp`, or None if unreadable.
+
+    Reads the `exp` claim from the token payload WITHOUT verifying the
+    signature — this is a freshness pre-check, not an auth decision (HA still
+    verifies on every request). An expired token otherwise sails through the
+    whole suite and only fails at teardown's restore_all with a 401, masking
+    green asserts behind SMOKE_EXIT=1.
+    """
+    try:
+        payload = tok.split(".")[1]
+        payload += "=" * (-len(payload) % 4)  # restore base64url padding
+        exp = json.loads(base64.urlsafe_b64decode(payload)).get("exp")
+        return int(exp - time.time()) if exp else None
+    except Exception:
+        return None
+
+
+_tok_left = _token_seconds_left(TOKEN)
+if _tok_left is not None and _tok_left < 1800:
+    sys.exit(
+        f"Error: EA_SMOKE_TOKEN expires in {_tok_left}s (< 30min) — re-mint before "
+        "running so teardown's restore_all does not 401 mid-run and mask results. "
+        "See tests/integration/README.md to mint a fresh long-lived token."
     )
 
 # ---------------------------------------------------------------------------
@@ -641,17 +669,35 @@ def setup_battery(ctx):
 
 
 def restore_all(ctx):
+    # Teardown must never mask green asserts: a 401 here (token expired mid-run)
+    # or any transient API error should log and continue to a clean exit, not
+    # raise out of main() and force SMOKE_EXIT=1 over an auth failure unrelated
+    # to the checks. Best-effort restore.
+    def _safe(fn, what):
+        try:
+            fn()
+        except Exception as e:
+            print(
+                f"  restore_all: {what} failed ({e}); continuing teardown", flush=True
+            )
+
     for eid in ctx["entities"]:
-        ss(eid, "on", {"friendly_name": eid.split(".")[-1]})
+        _safe(
+            lambda eid=eid: ss(eid, "on", {"friendly_name": eid.split(".")[-1]}),
+            f"restore {eid}",
+        )
     if ctx["mapped_battery_sensor"]:
-        ss(
-            ctx["mapped_battery_sensor"],
-            "90",
-            {
-                "friendly_name": "Test Battery",
-                "device_class": "battery",
-                "unit_of_measurement": "%",
-            },
+        _safe(
+            lambda: ss(
+                ctx["mapped_battery_sensor"],
+                "90",
+                {
+                    "friendly_name": "Test Battery",
+                    "device_class": "battery",
+                    "unit_of_measurement": "%",
+                },
+            ),
+            "restore battery sensor",
         )
     try:
         api(
@@ -2121,6 +2167,34 @@ def run_checks(ctx):
 
     # ------------------------------------------------------------------
     if _run_setup_chain:
+        # Combined offline baseline: the combined may aggregate SIBLING member
+        # groups whose real entities are genuinely unavailable (orphaned/dead
+        # source) — a non-zero constant we cannot durably clear. The smoke only
+        # mutates its OWN group's entity, so judge the combined by DELTA from
+        # this baseline (base+1 on offline, base+0 on clear), exactly as EC7/8
+        # already do. The group-level sensors stay absolute: the group smoke
+        # targets is clean, only the combined aggregate carries the sibling dirt.
+        c_off_base = 0
+        if combined_prefix:
+            c_off_base = int(
+                gs(f"{combined_prefix}_combined_summary")
+                .get("attributes", {})
+                .get("offline", 0)
+                or 0
+            )
+            if c_off_base:
+                _dirty = (
+                    gs(f"{combined_prefix}_combined_summary")
+                    .get("attributes", {})
+                    .get("offline_entities", [])
+                )
+                print(
+                    f"  NOTE: combined offline baseline={c_off_base} from sibling "
+                    f"member(s) with genuinely-unavailable real entities "
+                    f"(dead/orphaned source, cannot durably reset): {_dirty}. "
+                    f"Combined-offline ECs judged by DELTA from this baseline.",
+                    flush=True,
+                )
         print("=== EC1: entity unavailable → offline_count increments ===", flush=True)
         ss(ctx["entities"][0], "unavailable", {"friendly_name": "test"})
         chk(
@@ -2139,11 +2213,16 @@ def run_checks(ctx):
                     .get("attributes", {})
                     .get("offline")
                 ),
-                1,
+                c_off_base + 1,
                 timeout=OFFLINE_GRACE_TIMEOUT,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-            chk("EC1 combined offline=1", str(c_attrs.get("offline")), "1")
+            chk(
+                "EC1 combined offline=base+1",
+                int(c_attrs.get("offline", 0) or 0),
+                c_off_base + 1,
+                f"(base={c_off_base})",
+            )
             chk("EC1 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
         restore_and_wait(ctx)
 
@@ -2222,7 +2301,12 @@ def run_checks(ctx):
                 low_battery_val,
                 1,
             )
-            chk("EC4 combined offline=0", str(c_attrs.get("offline")), "0")
+            chk(
+                "EC4 combined offline=base",
+                int(c_attrs.get("offline", 0) or 0),
+                c_off_base,
+                f"(base={c_off_base})",
+            )
 
         # ------------------------------------------------------------------
         print(
@@ -2271,11 +2355,16 @@ def run_checks(ctx):
                     .get("attributes", {})
                     .get("offline")
                 ),
-                1,
+                c_off_base + 1,
                 timeout=OFFLINE_GRACE_TIMEOUT,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-            chk("EC5 combined offline=1", str(c_attrs.get("offline")), "1")
+            chk(
+                "EC5 combined offline=base+1",
+                int(c_attrs.get("offline", 0) or 0),
+                c_off_base + 1,
+                f"(base={c_off_base})",
+            )
             # Both split rows must settle offline before reading low_battery:
             # the two member coords debounce independently, so offline==1 can
             # fire while one stale row still reports low_battery. Gate on it.
@@ -2330,7 +2419,8 @@ def run_checks(ctx):
                     .get("attributes", {})
                     .get("offline")
                 ),
-                0,
+                c_off_base,
+                timeout=OFFLINE_GRACE_TIMEOUT,
             )
             wait_for(
                 lambda: (
@@ -2347,8 +2437,36 @@ def run_checks(ctx):
                 0,
             )
             c_attrs = gs(f"{combined_prefix}_combined_summary").get("attributes", {})
-            chk("EC6 combined offline=0", str(c_attrs.get("offline")), "0")
+            chk(
+                "EC6 combined offline=base",
+                int(c_attrs.get("offline", 0) or 0),
+                c_off_base,
+                f"(base={c_off_base})",
+            )
             chk("EC6 combined low_battery=0", str(c_attrs.get("low_battery")), "0")
+
+            # Baseline-STABLE guard: all smoke mutations are now cleared (EC6 is a
+            # full restore), so a fresh re-read of combined offline MUST equal the
+            # EC1-captured baseline. Delta-judging (base±1) accepts whatever `base`
+            # was at EC1; if the baseline itself DRIFTED mid-run — a real regression
+            # that shifts the combined count independent of the smoke's own entity —
+            # every delta assert still passes against the stale base and the bug
+            # ships silently. This re-read distinguishes accepted real-world dirt
+            # (stable across the run) from genuine fixture/code rot (drifts).
+            c_off_now = int(
+                gs(f"{combined_prefix}_combined_summary")
+                .get("attributes", {})
+                .get("offline", 0)
+                or 0
+            )
+            chk(
+                "combined offline baseline STABLE across run (no mid-run drift)",
+                c_off_now,
+                c_off_base,
+                f"EC1 base={c_off_base} now={c_off_now} — drift here means the "
+                f"combined count shifted independent of smoke's own entity "
+                f"(real regression, not accepted real-world dirt)",
+            )
 
         # ------------------------------------------------------------------
         if combined_prefix:
@@ -3795,18 +3913,39 @@ for e in cfg['data']['entries']:
         else:
             _ent, _sensor, _net = mapped
             poor_val = _OK[_net] - 1  # one unit below "ok" → always "poor"
+
             # Force a firmly-"good" baseline first so the poor set is a real
             # transition (edge-triggered event). Without this, a prior aborted
             # run can leave the sensor already poor → no transition → no event.
             # higher numeric = greener on every scale here (good >= ok), so
             # ok + 100 is always "good".
+            #
+            # DEBOUNCE-AWARE (SIGNAL_DEBOUNCE_POLLS=2): the member group only
+            # commits poor_signal after N consecutive polls (~2×SCAN_INTERVAL),
+            # and the combined relay cannot fire until that member commit lands.
+            # So (1) settle the member's poor_signal count to 0 first (a committed
+            # poor from a prior run needs the good re-cross to debounce back over N
+            # polls — a single wait() misses it, leaving a stale baseline that never
+            # transitions), then (2) hold poor across a window spanning >=2 polls
+            # (120s, matching EC138), not 90s which can clip the Nth-poll commit.
+            def _ec137_member_poor():
+                return (
+                    gs(f"{prefix}_group_summary")
+                    .get("attributes", {})
+                    .get("poor_signal", 0)
+                )
+
             ss(_sensor, str(_OK[_net] + 100))
-            wait(WAIT_FOR_TIMEOUT)
+            wait_for(_ec137_member_poor, 0, timeout=max(WAIT_FOR_TIMEOUT * 2, 120))
             signal_events = capture_events(
                 "entity_availability_poor_signal",
                 lambda: ss(_sensor, str(poor_val)),
-                timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 120),
             )
+            # Confirm the MEMBER committed poor before judging the combined relay:
+            # if the member never crossed, got=0 on the combined is a settle miss,
+            # not a relay bug. This separates the two failure modes in the trace.
+            member_committed = wait_for(_ec137_member_poor, 1, timeout=WAIT_FOR_TIMEOUT)
             combined_signal = [
                 e for e in signal_events if e.get("entry_id") == combined_entry_id
             ]
@@ -3815,7 +3954,9 @@ for e in cfg['data']['entries']:
                 len(combined_signal) > 0,
                 True,
                 f"combined_entry_id={combined_entry_id} sensor={_sensor} "
-                f"net={_net} poor_val={poor_val} total_events={len(signal_events)}",
+                f"net={_net} poor_val={poor_val} total_events={len(signal_events)} "
+                f"member_poor_committed={member_committed} "
+                f"(member=0 → settle miss not relay bug; member=1 + combined=0 → real relay bug)",
             )
             if combined_signal:
                 ev = combined_signal[0]
