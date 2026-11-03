@@ -596,6 +596,17 @@ class TestToDictRetention:
         assert "sensor.keep" in out
         assert "sensor.orphan" not in out
 
+    def test_monitored_but_all_buckets_out_of_window_omitted(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # monitored entity whose ONLY buckets fall outside retention -> kept list
+        # empty -> entity omitted from the file (no dead empty-list key).
+        storage.record_online(
+            "sensor.a", float(BUCKET_INTERVAL), now - timedelta(hours=48)
+        )
+        out = storage.to_dict(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+        assert out == {}
+
 
 class TestPrune:
     """prune mirrors the to_dict filter, mutating _buckets in place."""
@@ -617,6 +628,17 @@ class TestPrune:
         storage.prune(now, _WIDE_RETENTION, ["sensor.keep"])
         assert "sensor.keep" in storage._buckets
         assert "sensor.orphan" not in storage._buckets
+
+    def test_prune_drops_monitored_entity_with_no_in_window_buckets(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # monitored entity whose buckets all fall outside retention -> kept empty
+        # -> key deleted, not held as an empty list.
+        storage.record_online(
+            "sensor.a", float(BUCKET_INTERVAL), now - timedelta(hours=48)
+        )
+        storage.prune(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+        assert "sensor.a" not in storage._buckets
 
     def test_prune_empty_retention_clears_all(
         self, storage: AvailabilityStorage, now: datetime

@@ -481,8 +481,8 @@ Source of truth: `custom_components/entity_availability/storage.py`
 
 **Windows.** Availability is reported per selected window as a percentage, backed
 by 5-minute buckets of online seconds. Selectable windows: `today`, `24h`, `3d`,
-`5d`, `7d` (default selection `today` + `7d`). Each selected window creates one `sensor.*_availability_<window>`;
-selecting none creates no availability sensor.
+`5d`, `7d` (default selection `today` + `7d`). Each selected window creates one
+`sensor.*_availability_<window>`; selecting none creates no availability sensor.
 
 **`today` is a calendar day, not a rolling 24 h.** `today` is read from **local
 midnight** (HA's configured timezone, via `dt_util.start_of_local_day`, converted

@@ -181,7 +181,7 @@
         "name": "Beschikbaarheid (vandaag)"
       },
       "availability_24h": {
-        "name": "Beschikbaarheid (laatste 24 uur)"
+        "name": "Beschikbaarheid (24 uur)"
       },
       "availability_3d": {
         "name": "Beschikbaarheid (3 dagen)"

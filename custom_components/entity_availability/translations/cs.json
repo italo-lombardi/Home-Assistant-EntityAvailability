@@ -181,7 +181,7 @@
         "name": "Dostupnost (dnes)"
       },
       "availability_24h": {
-        "name": "Dostupnost (posledních 24 h)"
+        "name": "Dostupnost (24 hodin)"
       },
       "availability_3d": {
         "name": "Dostupnost (3 dny)"

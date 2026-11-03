@@ -181,7 +181,7 @@
         "name": "Disponibilitate (azi)"
       },
       "availability_24h": {
-        "name": "Disponibilitate (ultimele 24 h)"
+        "name": "Disponibilitate (24 ore)"
       },
       "availability_3d": {
         "name": "Disponibilitate (3 zile)"

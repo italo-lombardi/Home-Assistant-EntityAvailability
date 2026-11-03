@@ -181,7 +181,7 @@
         "name": "Disponibilidade (Hoje)"
       },
       "availability_24h": {
-        "name": "Disponibilidade (Últimas 24 h)"
+        "name": "Disponibilidade (24 Horas)"
       },
       "availability_3d": {
         "name": "Disponibilidade (3 Dias)"

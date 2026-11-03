@@ -182,7 +182,7 @@
         "name": "Tilgængelighed (i dag)"
       },
       "availability_24h": {
-        "name": "Tilgængelighed (seneste 24 t)"
+        "name": "Tilgængelighed (24 timer)"
       },
       "availability_3d": {
         "name": "Tilgængelighed (3 dage)"

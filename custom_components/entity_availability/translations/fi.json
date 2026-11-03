@@ -181,7 +181,7 @@
         "name": "Saatavuus (Tänään)"
       },
       "availability_24h": {
-        "name": "Saatavuus (Viimeiset 24 t)"
+        "name": "Saatavuus (24 tuntia)"
       },
       "availability_3d": {
         "name": "Saatavuus (3 päivää)"
