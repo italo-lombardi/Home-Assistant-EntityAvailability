@@ -226,8 +226,8 @@ For example, a group named "Security Devices" produces the slug `security_device
 | `sensor..._availability_3d` | Sensor | Group availability % over 3 days | Per-entity availability breakdown |
 | `sensor..._availability_5d` | Sensor | Group availability % over 5 days | Per-entity availability breakdown |
 | `sensor..._availability_7d` | Sensor | Group availability % over 7 days | Per-entity availability breakdown |
-| `sensor..._mtbf` | Sensor (Diagnostic) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `offline_events`) |
-| `sensor..._mttr` | Sensor (Diagnostic) | Group mean MTTR in minutes (mean time to recovery / average outage length) | `total_offline_events`, `per_device` (`mttr_minutes`, `offline_events`) |
+| `sensor..._mtbf` | Sensor (Diagnostic, disabled by default) | Group mean MTBF in hours (mean time between failures) | `total_offline_events`, `per_device` (`mtbf_hours`, `offline_events`) |
+| `sensor..._mttr` | Sensor (Diagnostic, disabled by default) | Group mean MTTR in minutes (mean time to recovery / average outage length) | `total_offline_events`, `per_device` (`mttr_minutes`, `offline_events`) |
 | `binary_sensor..._any_offline` | Binary Sensor (Problem) | ON when at least one essential entity is offline | `offline_entities`, `offline_count` |
 | `binary_sensor..._all_offline` | Binary Sensor (Problem) | ON when **every** monitored essential entity is offline (OFF on a partial outage; OFF when the group is empty) | `monitored_count`, `offline_count` |
 | `binary_sensor..._any_low_battery` | Binary Sensor (Battery) | ON when at least one essential entity has low battery | `low_battery_entities`, `low_battery_count` |
@@ -334,7 +334,7 @@ The availability % sensor tells you *how much* total downtime a group had. It do
 - **How often do devices break?** → **MTBF** (Mean Time Between Failures) — the `Mean Time Between Failures` sensor (`sensor..._mtbf`), in hours.
 - **How long is each break?** → **MTTR** (Mean Time To Recovery) — the `Mean Time To Recovery` sensor (`sensor..._mttr`), in minutes.
 
-Both are **diagnostic** entities (grouped under the device's Diagnostic section, kept off the main dashboard) with `device_class: duration`, so Home Assistant renders them as durations and lets you convert units in the UI.
+Both are **diagnostic** entities (grouped under the device's Diagnostic section, kept off the main dashboard) with `device_class: duration`, so Home Assistant renders them as durations and lets you convert units in the UI. They are **disabled by default** — enable the `_mtbf` / `_mttr` entity from its settings if you want reliability tracking (existing installs that already have them enabled are unaffected).
 
 **Why it matters — two devices can look identical on %, but be very different:**
 
