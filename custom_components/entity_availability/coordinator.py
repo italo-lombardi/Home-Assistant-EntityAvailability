@@ -458,9 +458,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
         Bounds RAM, on-disk file, and per-save serialize cost to what the selected
         windows can actually read. 0 when no window is selected (persist nothing).
-        The same value feeds to_dict (save), prune (save + load), so RAM is never
-        trimmed tighter than the file — a widen-after-narrow (which reloads from the
-        file) can only ever recover what the file retained, never less.
+        The same value feeds the save snapshot and prune (save + load), so RAM is
+        never trimmed tighter than the file — a widen-after-narrow (which reloads from
+        the file) can only ever recover what the file retained, never less.
         """
         windows = self.entry.data.get(
             CONF_AVAILABILITY_WINDOWS, DEFAULT_AVAILABILITY_WINDOWS
@@ -513,19 +513,32 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     else None,
                 }
         # Bound RAM + disk to the longest selected window, drop orphan entities.
-        # Same now + retention for prune (RAM) and to_dict (disk) so they never diverge.
+        # Same now + retention for prune (RAM) and the snapshot (disk) so they never
+        # diverge. prune() MUTATES _buckets so it must stay on the loop; snapshot()
+        # then freezes the pruned buckets BY VALUE into a detached structure, and the
+        # expensive isoformat/dict build (encode_snapshot) runs in the EXECUTOR so it
+        # never blocks the event loop (the ~1M-bucket build was a multi-second freeze
+        # on large groups — the JSON encode + disk write were already off-loop).
         now = dt_util.utcnow()
         retention_seconds = self._retention_seconds()
         self._availability_storage.prune(now, retention_seconds, self._entities)
+        frozen = self._availability_storage.snapshot(
+            now, retention_seconds, self._entities
+        )
+        # Capture `suppressed` BEFORE the executor await too, so all three persisted
+        # fields (availability / device_states / suppressed) reflect the SAME instant
+        # — a suppress/unsuppress firing during the encode must not skew the save.
+        suppressed_data = {
+            entity_id: until.isoformat() if until else None
+            for entity_id, until in self._suppressed.items()
+            if entity_id in self._entities
+        }
+        availability = await self.hass.async_add_executor_job(
+            AvailabilityStorage.encode_snapshot, frozen
+        )
         data = {
-            "availability": self._availability_storage.to_dict(
-                now, retention_seconds, self._entities
-            ),
-            "suppressed": {
-                entity_id: until.isoformat() if until else None
-                for entity_id, until in self._suppressed.items()
-                if entity_id in self._entities
-            },
+            "availability": availability,
+            "suppressed": suppressed_data,
             "device_states": device_states_data,
         }
         _LOGGER.debug(

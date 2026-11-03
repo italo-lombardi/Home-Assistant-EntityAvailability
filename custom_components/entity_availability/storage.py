@@ -182,33 +182,72 @@ class AvailabilityStorage:
     def to_dict(
         self, now: datetime, retention_seconds: float, entity_ids: Iterable[str]
     ) -> dict[str, Any]:
-        """Serialize to dict for storage.
+        """Serialize to dict for storage (synchronous — builds on the caller's thread).
+
+        Equivalent to ``encode_snapshot(self.snapshot(...))``. Kept for callers/tests
+        that want the whole build in one call. The coordinator's save path instead
+        calls ``snapshot`` on the event loop and ``encode_snapshot`` in the executor
+        so the expensive isoformat/dict build does not block the loop (see
+        ``coordinator._async_save_storage``).
 
         Only buckets within ``retention_seconds`` of ``now``, for entities still in
-        ``entity_ids``, are serialized. retention_seconds <= 0 serializes nothing
-        (no availability windows selected). This bounds the on-save serialize cost
-        and the on-disk file to the longest selected window and drops orphan buckets
-        left by entities no longer monitored.
+        ``entity_ids``, are serialized. retention_seconds <= 0 serializes nothing.
+        """
+        return self.encode_snapshot(self.snapshot(now, retention_seconds, entity_ids))
+
+    def snapshot(
+        self, now: datetime, retention_seconds: float, entity_ids: Iterable[str]
+    ) -> dict[str, list[tuple[datetime, float]]]:
+        """Freeze the in-window buckets into a detached, executor-safe structure.
+
+        MUST run on the event loop. Captures ``online_seconds`` BY VALUE (not by
+        reference): ``record_online`` mutates the current bucket's ``online_seconds``
+        in place every tick, so a shallow copy of the lists would let the executor
+        read a still-climbing value. We read the float here, under the loop, so the
+        returned structure never aliases any live bucket — ``encode_snapshot`` can
+        then run in the executor with no race against ``_buckets``.
+
+        ``interval_start`` is immutable after construction, so capturing its
+        reference is safe.
         """
         if retention_seconds <= 0:
             return {}
         monitored = set(entity_ids)
         cutoff = now - timedelta(seconds=retention_seconds)
-        result: dict[str, Any] = {}
+        frozen: dict[str, list[tuple[datetime, float]]] = {}
         for entity_id, buckets in self._buckets.items():
             if entity_id not in monitored:
                 continue
-            kept = [
-                {
-                    "s": b.interval_start.isoformat(),
-                    "o": round(b.online_seconds, 1),
-                }
+            # Capture (interval_start, online_seconds) BY VALUE. Python floats are
+            # immutable and record_online does `online_seconds += ...` which REBINDS
+            # the attribute to a NEW float — it never mutates the object captured
+            # here — so a bare reference capture already freezes the value. round()
+            # is NOT needed for the freeze; it is deferred to encode_snapshot so the
+            # ~1M-float rounding runs off-loop with the isoformat build, not here.
+            rows = [
+                (b.interval_start, b.online_seconds)
                 for b in buckets
                 if b.interval_start >= cutoff
             ]
-            if kept:  # skip monitored-but-dataless entities — keep the file minimal
-                result[entity_id] = kept
-        return result
+            if rows:  # skip monitored-but-dataless entities — keep the file minimal
+                frozen[entity_id] = rows
+        return frozen
+
+    @staticmethod
+    def encode_snapshot(
+        frozen: dict[str, list[tuple[datetime, float]]],
+    ) -> dict[str, Any]:
+        """Build the on-disk dict from a ``snapshot``. Executor-safe (no ``self``).
+
+        This is the expensive part — ``isoformat`` + ``round`` + dict construction
+        per bucket — and it touches only ``frozen`` (which the event loop never
+        mutates), so it runs via ``async_add_executor_job`` off the loop. Output is
+        byte-identical to the former on-loop ``to_dict`` ({"s": iso, "o": round}).
+        """
+        return {
+            entity_id: [{"s": s.isoformat(), "o": round(o, 1)} for (s, o) in rows]
+            for entity_id, rows in frozen.items()
+        }
 
     def prune(
         self, now: datetime, retention_seconds: float, entity_ids: Iterable[str]

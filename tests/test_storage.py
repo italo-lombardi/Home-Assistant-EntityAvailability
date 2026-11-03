@@ -660,6 +660,71 @@ class TestPrune:
         assert len(storage._buckets["sensor.a"]) == len(persisted["sensor.a"])
 
 
+class TestSnapshotOffload:
+    """snapshot() (on-loop, value-freeze) + encode_snapshot() (executor-safe).
+
+    The save path builds the on-disk availability dict off the event loop:
+    snapshot() freezes buckets BY VALUE on the loop, encode_snapshot() does the
+    expensive isoformat/dict build in the executor. to_dict == their composition.
+    """
+
+    def test_snapshot_encode_equals_old_to_dict(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # encode_snapshot(snapshot(...)) must be byte-identical to to_dict(...),
+        # including the empty / retention<=0 cases.
+        _fill_online(storage, "sensor.a", now - timedelta(hours=20), 12)
+        _fill_online(storage, "sensor.b", now - timedelta(hours=10), 6)
+        ids = ["sensor.a", "sensor.b"]
+        ret = 24 * 3600 + _MARGIN
+        combined = AvailabilityStorage.encode_snapshot(storage.snapshot(now, ret, ids))
+        assert combined == storage.to_dict(now, ret, ids)
+        # empty / no-window cases
+        assert storage.snapshot(now, 0, ids) == {}
+        assert AvailabilityStorage.encode_snapshot({}) == {}
+        assert storage.to_dict(now, 0, ids) == {}
+
+    def test_snapshot_freezes_by_value(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # RACE GUARD: online_seconds is mutated in place by record_online every
+        # tick. snapshot must capture the float BY VALUE so the executor never reads
+        # a climbing value. Mutate a bucket AFTER snapshot -> frozen is unchanged.
+        storage.record_online("sensor.a", 100.0, now)
+        frozen = storage.snapshot(now, _WIDE_RETENTION, ["sensor.a"])
+        captured = frozen["sensor.a"][0][1]  # (interval_start, online_seconds)
+        # mutate the live bucket's online_seconds after the snapshot
+        storage._buckets["sensor.a"][0].online_seconds += 123.0
+        assert frozen["sensor.a"][0][1] == captured  # frozen value did not move
+        # and it reflects the value AT snapshot time (100.0), not 223.0 — proving the
+        # capture is by value (snapshot stores the raw float; encode_snapshot rounds)
+        assert captured == 100.0
+
+    def test_encode_snapshot_is_static_and_pure(self) -> None:
+        # encode_snapshot is a @staticmethod: callable without an instance, touches
+        # only its argument (executor-safe — no self / no _buckets access).
+        # Uses an UNROUNDED online_seconds (272.46) and asserts the output is rounded
+        # to 1 decimal (272.5) — this PINS the round() that moved into encode_snapshot,
+        # so a future drop or wrong-ndigits is caught (a whole-number input would not).
+        frozen = {
+            "sensor.x": [(datetime(2026, 11, 3, 18, 0, tzinfo=timezone.utc), 272.46)]
+        }
+        out = AvailabilityStorage.encode_snapshot(frozen)
+        assert out == {"sensor.x": [{"s": "2026-11-03T18:00:00+00:00", "o": 272.5}]}
+
+    def test_snapshot_no_buckets_handles_cleanly(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # monitored entity with no in-window buckets -> omitted (no empty key),
+        # mirroring to_dict's drop-empty behavior.
+        storage.record_online(
+            "sensor.a", float(BUCKET_INTERVAL), now - timedelta(hours=48)
+        )
+        frozen = storage.snapshot(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+        assert frozen == {}
+        assert AvailabilityStorage.encode_snapshot(frozen) == {}
+
+
 class TestWindow24h:
     """New rolling 24h window: fixed now-24h lookback, min_required=1 (OLD-today)."""
 
