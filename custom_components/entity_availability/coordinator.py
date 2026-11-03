@@ -458,9 +458,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
         Bounds RAM, on-disk file, and per-save serialize cost to what the selected
         windows can actually read. 0 when no window is selected (persist nothing).
-        The same value feeds to_dict (save), prune (save + load), so RAM is never
-        trimmed tighter than the file — a widen-after-narrow (which reloads from the
-        file) can only ever recover what the file retained, never less.
+        The same value feeds the save snapshot and prune (save + load), so RAM is
+        never trimmed tighter than the file — a widen-after-narrow (which reloads from
+        the file) can only ever recover what the file retained, never less.
         """
         windows = self.entry.data.get(
             CONF_AVAILABILITY_WINDOWS, DEFAULT_AVAILABILITY_WINDOWS

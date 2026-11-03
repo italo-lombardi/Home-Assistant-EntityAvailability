@@ -218,8 +218,14 @@ class AvailabilityStorage:
         for entity_id, buckets in self._buckets.items():
             if entity_id not in monitored:
                 continue
+            # Capture (interval_start, online_seconds) BY VALUE. Python floats are
+            # immutable and record_online does `online_seconds += ...` which REBINDS
+            # the attribute to a NEW float — it never mutates the object captured
+            # here — so a bare reference capture already freezes the value. round()
+            # is NOT needed for the freeze; it is deferred to encode_snapshot so the
+            # ~1M-float rounding runs off-loop with the isoformat build, not here.
             rows = [
-                (b.interval_start, round(b.online_seconds, 1))
+                (b.interval_start, b.online_seconds)
                 for b in buckets
                 if b.interval_start >= cutoff
             ]
@@ -233,12 +239,13 @@ class AvailabilityStorage:
     ) -> dict[str, Any]:
         """Build the on-disk dict from a ``snapshot``. Executor-safe (no ``self``).
 
-        This is the expensive part (``isoformat`` + dict construction per bucket);
-        it touches only ``frozen``, which the event loop never mutates, so it is safe
-        to run via ``async_add_executor_job``.
+        This is the expensive part — ``isoformat`` + ``round`` + dict construction
+        per bucket — and it touches only ``frozen`` (which the event loop never
+        mutates), so it runs via ``async_add_executor_job`` off the loop. Output is
+        byte-identical to the former on-loop ``to_dict`` ({"s": iso, "o": round}).
         """
         return {
-            entity_id: [{"s": s.isoformat(), "o": o} for (s, o) in rows]
+            entity_id: [{"s": s.isoformat(), "o": round(o, 1)} for (s, o) in rows]
             for entity_id, rows in frozen.items()
         }
 

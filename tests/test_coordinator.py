@@ -2240,12 +2240,12 @@ async def test_save_storage_encodes_availability_via_executor(
 async def test_save_storage_captures_all_fields_pre_await(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """availability / device_states / suppressed are a single-instant image.
+    """suppressed is captured BEFORE the executor await — a mid-encode change is excluded.
 
-    The encode runs in the executor (an await); suppressed + device_states must be
-    captured BEFORE that await so a mid-encode suppress/unsuppress can't skew the
-    save. Guards the skew fix against a future refactor that reads self._suppressed
-    after the await.
+    The encode runs via an await (executor hop). This injects a suppress mutation
+    DURING that await and asserts the persisted `suppressed` reflects the PRE-await
+    state, not the mid-encode change — proving the single-instant capture and
+    guarding the skew fix against a refactor that reads self._suppressed post-await.
     """
     hass = mock_hass
     coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
@@ -2256,14 +2256,25 @@ async def test_save_storage_captures_all_fields_pre_await(
     now = datetime.now(timezone.utc)
     eid = coord._entities[0]
     coord._availability_storage.record_online(eid, 300.0, now)
-    coord._suppressed[eid] = now + timedelta(hours=1)
+    pre_until = now + timedelta(hours=1)
+    coord._suppressed[eid] = pre_until  # state at save time
 
-    await coord._async_save_storage()
+    # Replace the executor hop with one that mutates _suppressed WHILE "encoding"
+    # (simulating a suppress firing mid-save). If suppressed were read after the
+    # await, this later state would leak into the save.
+    real_exec = hass.async_add_executor_job
+
+    async def _exec_then_mutate(func, *args):
+        coord._suppressed["sensor.injected_mid_encode"] = now + timedelta(hours=9)
+        return await real_exec(func, *args)
+
+    with patch.object(hass, "async_add_executor_job", side_effect=_exec_then_mutate):
+        await coord._async_save_storage()
 
     saved = coord._store.async_save.call_args[0][0]
-    # All three persisted fields reflect the one save instant: the suppressed entry
-    # and the availability bucket for the SAME entity both made it into this save.
+    # Pre-await state persisted; the mid-encode injection did NOT leak in.
     assert eid in saved["suppressed"]
+    assert "sensor.injected_mid_encode" not in saved["suppressed"]
     assert eid in saved["availability"]
 
 

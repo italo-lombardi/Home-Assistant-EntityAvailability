@@ -696,7 +696,8 @@ class TestSnapshotOffload:
         # mutate the live bucket's online_seconds after the snapshot
         storage._buckets["sensor.a"][0].online_seconds += 123.0
         assert frozen["sensor.a"][0][1] == captured  # frozen value did not move
-        # and it reflects the value AT snapshot time (100.0, rounded), not 223.0
+        # and it reflects the value AT snapshot time (100.0), not 223.0 — proving the
+        # capture is by value (snapshot stores the raw float; encode_snapshot rounds)
         assert captured == 100.0
 
     def test_encode_snapshot_is_static_and_pure(self) -> None:
