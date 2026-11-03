@@ -77,8 +77,11 @@ _LOGGER = logging.getLogger(__name__)
 # by the cooldown setting, so debounce only needs to batch burst events.
 _STATE_CHANGE_DEBOUNCE = 0.5  # seconds
 
-# Save storage every N updates (5 min = 10 updates at 30s interval)
-_SAVE_INTERVAL_UPDATES = 10
+# Persist availability data at most once per this interval (wall-clock). The
+# coordinator ticks on every 30s poll AND on every debounced state-change
+# refresh, so gating on a tick COUNT made a busy group save every ~40s. Gating
+# on elapsed time makes the save rate a pure ceiling, independent of activity.
+SAVE_MIN_INTERVAL = 300  # seconds (5 min)
 
 
 class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData]):
@@ -136,7 +139,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._refresh_again: bool = False
         self._device_states: dict[str, DeviceState] = {}
         self._suppressed: dict[str, datetime | None] = {}
-        self._update_count: int = 0
+        self._last_save: datetime | None = None
         self._dirty: bool = False
         # Memoized entity_id -> representative entity_id map for device-collapse.
         # Rebuilt once per _async_update_data tick (registry + battery/signal churn
@@ -477,7 +480,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             # last_changed is non-None for all active entities after any real
             # state-change event, so this guard includes most monitored devices
             # (broader than pre-PR which only saved offline/low-battery devices).
-            # Saves are periodic (_SAVE_INTERVAL_UPDATES) — not per-event.
+            # Saves are periodic (SAVE_MIN_INTERVAL, wall-clock) — not per-event.
             if (
                 device.is_offline
                 or device.cooldown_start is not None
@@ -534,6 +537,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         await self._store.async_save(data)
         self._dirty = False
+        self._last_save = now
 
     @callback
     def _setup_state_listeners(self) -> None:
@@ -1073,19 +1077,22 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     )
                 device.prev_signal_poor = signal_poor
 
-        # Mark as dirty; save periodically (every ~5 min)
+        # Mark dirty; persist at most once per SAVE_MIN_INTERVAL (wall-clock).
+        # Gating on elapsed time, not a tick count, keeps the save rate a pure
+        # ceiling regardless of how many state-change refreshes a busy group
+        # fires. First dirty tick (_last_save is None) saves immediately to seed.
         self._dirty = True
-        self._update_count += 1
-        if self._update_count >= _SAVE_INTERVAL_UPDATES:
+        if (
+            self._last_save is None
+            or (now - self._last_save).total_seconds() >= SAVE_MIN_INTERVAL
+        ):
             try:
                 await self._async_save_storage()
             except Exception:  # noqa: BLE001
                 _LOGGER.warning(
-                    "[%s] Failed to save storage — will retry next interval",
+                    "[%s] Failed to save storage — will retry next tick",
                     self.group_name,
                 )
-            finally:
-                self._update_count = 0
 
         # Stamp per-category count/entities once per touched category, then fire.
         # Each list reflects FINAL device_states (all transitions in this sweep
