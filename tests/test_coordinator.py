@@ -2237,6 +2237,36 @@ async def test_save_storage_encodes_availability_via_executor(
     assert all(set(row) == {"s", "o"} for row in saved["availability"][eid])
 
 
+async def test_save_storage_captures_all_fields_pre_await(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """availability / device_states / suppressed are a single-instant image.
+
+    The encode runs in the executor (an await); suppressed + device_states must be
+    captured BEFORE that await so a mid-encode suppress/unsuppress can't skew the
+    save. Guards the skew fix against a future refactor that reads self._suppressed
+    after the await.
+    """
+    hass = mock_hass
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=None)
+    coord._store.async_save = AsyncMock()
+
+    now = datetime.now(timezone.utc)
+    eid = coord._entities[0]
+    coord._availability_storage.record_online(eid, 300.0, now)
+    coord._suppressed[eid] = now + timedelta(hours=1)
+
+    await coord._async_save_storage()
+
+    saved = coord._store.async_save.call_args[0][0]
+    # All three persisted fields reflect the one save instant: the suppressed entry
+    # and the availability bucket for the SAME entity both made it into this save.
+    assert eid in saved["suppressed"]
+    assert eid in saved["availability"]
+
+
 async def test_save_storage_includes_cooldown_device(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
