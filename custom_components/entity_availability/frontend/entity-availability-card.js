@@ -57,7 +57,7 @@ const css = LitElement.prototype.css || (() => {
 
 const AVAILABILITY_WINDOWS = [
   { key: "today", label: "Today" },
-  { key: "24h", label: "24h" },
+  { key: "24h", label: "24 Hours" },
   { key: "3d", label: "3 Days" },
   { key: "5d", label: "5 Days" },
   { key: "7d", label: "7 Days" },
@@ -1624,6 +1624,7 @@ class EntityAvailabilityCard extends LitElement {
       `sensor.${prefix}_offline_entities`,
       `sensor.${prefix}_low_battery`,
       `sensor.${prefix}_availability_today`,
+      `sensor.${prefix}_availability_24h`,
       `sensor.${prefix}_availability_3d`,
       `sensor.${prefix}_availability_5d`,
       `sensor.${prefix}_availability_7d`,

@@ -9,7 +9,7 @@ Monitor entity availability across your Home Assistant setup. Track offline enti
 - **Non-Essential entity tier** — mark entities as non-essential when creating or editing a group. They appear on the card but are excluded from all KPIs and alerts. Perfect for devices expected to be offline (TV in standby, seasonal sensor) without needing a separate group. Enable the `show_non_essential_stats` card option to see their status on the dashboard.
 - Configurable bad states — define which states count as offline (`unavailable`, `unknown`, or custom)
 - Cooldown timer — ignore brief blips before marking an entity offline
-- Availability % sensors — track uptime over today, 3-day, 5-day, and 7-day windows (5-minute buckets)
+- Availability % sensors — track uptime over today (calendar day), 24-hour, 3-day, 5-day, and 7-day windows (5-minute buckets)
 - Battery monitoring with entity mapping — auto-detects battery sensors, user confirms/overrides per entity
 - Low Battery Count sensor — numeric count for easy automation triggers
 - Battery entities that report `low` (text) are supported in addition to numeric percentages
