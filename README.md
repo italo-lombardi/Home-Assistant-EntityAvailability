@@ -568,7 +568,7 @@ The integration fires events on the Home Assistant event bus when a monitored en
 
 **Combined groups** fire all eight events — the same set an individual group fires — with the same payload plus `source_groups`. A combined group relays each member group's events under its own `entry_id`, so an automation written for an individual group works identically on a combined one.
 
-The `poor_signal`/`signal_ok` pair debounces: a poor↔non-poor crossing must persist two consecutive polls (≈60 s) before `signal_quality` commits and the event fires, so a sensor whose RSSI swings across the poor threshold each poll does not spam these events.
+The `poor_signal`/`signal_ok` pair debounces: a poor↔non-poor crossing must persist for 60 seconds of wall-clock time before `signal_quality` commits and the event fires, so a sensor whose signal flaps across the poor threshold does not spam these events. The gate is time-based (not a poll count), so it works the same for a fast-pushing Zigbee/MQTT sensor and a slow-polled Z-Wave one.
 
 **`source_groups` (combined groups only):** a list of the home group names that own the entity. For most entities this is a one-element list (e.g. `["Switches"]`); entities shared across multiple home groups list all names. Use it to include the originating group in notifications:
 

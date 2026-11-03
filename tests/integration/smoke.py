@@ -3920,14 +3920,14 @@ for e in cfg['data']['entries']:
             # higher numeric = greener on every scale here (good >= ok), so
             # ok + 100 is always "good".
             #
-            # DEBOUNCE-AWARE (SIGNAL_DEBOUNCE_POLLS=2): the member group only
-            # commits poor_signal after N consecutive polls (~2×SCAN_INTERVAL),
+            # DEBOUNCE-AWARE (SIGNAL_DEBOUNCE_SECONDS=60): the member group only
+            # commits poor_signal after the crossing persists 60 wall-clock seconds,
             # and the combined relay cannot fire until that member commit lands.
             # So (1) settle the member's poor_signal count to 0 first (a committed
-            # poor from a prior run needs the good re-cross to debounce back over N
-            # polls — a single wait() misses it, leaving a stale baseline that never
-            # transitions), then (2) hold poor across a window spanning >=2 polls
-            # (120s, matching EC138), not 90s which can clip the Nth-poll commit.
+            # poor from a prior run needs the good re-cross to debounce back over the
+            # threshold — a single wait() misses it, leaving a stale baseline that never
+            # transitions), then (2) hold poor across a window spanning the threshold
+            # (120s, matching EC138), not 90s which can clip the commit.
             def _ec137_member_poor():
                 return (
                     gs(f"{prefix}_group_summary")
@@ -3975,16 +3975,18 @@ for e in cfg['data']['entries']:
                 )
             restore_and_wait(ctx)
 
-    # EC138: signal-quality DEBOUNCE (SIGNAL_DEBOUNCE_POLLS=2). A poor-boundary
-    # crossing must persist N consecutive polls before signal_quality commits — kills
-    # big-swing RSSI flap spamming poor_signal events + the poor_signal_count attr.
-    # EC138 proves the commit+fire-once path on real polls. The complementary
-    # flap→0-fire proof is NOT a live EC: a 30s real-poll cannot deterministically
-    # show "exactly one poll sees poor" without racing on tick phase. That ground
-    # truth lives in tests/test_coordinator.py test_commit_signal_debounce cases 6
-    # (reversal: poor armed then reverts before N → commits good, never fires) + 7
-    # (flap: alternating poor/good never reaches N), which drive _commit_signal
-    # directly with zero poll-race.
+    # EC138: signal-quality DEBOUNCE (SIGNAL_DEBOUNCE_SECONDS=60). A poor-boundary
+    # crossing must persist that many wall-clock seconds before signal_quality commits
+    # — kills RSSI flap spamming poor_signal events + the poor_signal_count attr. The
+    # gate is wall-clock (not a poll/refresh count) so it is immune to sensor push rate.
+    # EC138 proves the commit+fire-once path: hold poor past the window → fires once.
+    # The complementary flap→0-fire proof is NOT a live EC (a short poor blip clearing
+    # before the window cannot be timed deterministically against live refreshes). That
+    # ground truth lives in tests/test_coordinator.py test_commit_signal_debounce cases
+    # 6 (reversal: poor armed then reverts before the threshold → commits good, never
+    # fires), 7 (flap: edges seconds apart never hold the threshold), and 5b (push storm:
+    # many refreshes inside the window never shortcut the wall clock) — all driving
+    # _commit_signal directly with explicit time, zero refresh-race.
     # Shared setup: locate a mapped group signal sensor + its "ok" threshold, like EC137.
     if ec_enabled(138):
         _OK = {
@@ -4036,8 +4038,8 @@ for e in cfg['data']['entries']:
             a = gs(f"{prefix}_group_summary").get("attributes", {})
             return a.get("poor_signal", 0)
 
-        # EC138: SUSTAINED poor over N=2 polls → poor_signal fires EXACTLY ONCE on the
-        # Nth poll, signal_quality commits "poor", poor_signal count goes +1.
+        # EC138: SUSTAINED poor past the debounce window → poor_signal fires EXACTLY
+        # ONCE when signal_quality commits "poor", poor_signal count goes +1.
         if ec_enabled(138):
             print(
                 "\n=== EC138: sustained poor commits after N polls, fires once ===",
@@ -4070,8 +4072,9 @@ for e in cfg['data']['entries']:
                     f"sensor={_sensor} base_count={base_count} "
                     "(dirty start — a committed poor did not clear; cannot test a clean transition)",
                 )
-                # Hold poor across a window spanning >=2 polls (SCAN_INTERVAL=30).
-                # The event must arrive exactly once, on the Nth (2nd) poll commit.
+                # Hold poor across a window spanning the debounce threshold
+                # (SIGNAL_DEBOUNCE_SECONDS=60). The event must arrive exactly once,
+                # when the crossing commits after persisting that long.
                 events = capture_events(
                     "entity_availability_poor_signal",
                     lambda: ss(_sensor, str(poor_val)),

@@ -264,7 +264,7 @@ automation:
 
 ## Signal quality events
 
-Signal events fire when an entity's signal quality transitions between tiers. Only poor ↔ non-poor transitions fire events — transitions between "ok" and "good" do not. A crossing must persist two consecutive polls (≈60 s) before it commits, so a signal flapping across the poor boundary each poll won't spam these events.
+Signal events fire when an entity's signal quality transitions between tiers. Only poor ↔ non-poor transitions fire events — transitions between "ok" and "good" do not. A crossing must persist for 60 seconds of wall-clock time before it commits, so a signal flapping across the poor boundary won't spam these events (time-based, so it works regardless of how fast the sensor reports).
 
 | Event | Fired when | Key data |
 |-------|-----------|----------|

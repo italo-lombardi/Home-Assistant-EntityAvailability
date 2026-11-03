@@ -52,7 +52,7 @@ from .const import (
     EVENT_STALE,
     EVENT_STALE_RECOVERED,
     SCAN_INTERVAL,
-    SIGNAL_DEBOUNCE_POLLS,
+    SIGNAL_DEBOUNCE_SECONDS,
     SIGNAL_HYSTERESIS,
     SIGNAL_NETWORK_TYPES,
     STALENESS_HYSTERESIS,
@@ -747,12 +747,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     candidate = self._classify_signal(
                         entity_id, fresh_signal, device.signal_quality
                     )
-                    device.signal_quality = self._commit_signal(device, candidate)
+                    device.signal_quality = self._commit_signal(device, candidate, now)
                 else:
                     # Sensor unavailable: no quality shown, and any in-flight debounce
                     # is abandoned (a cross can't persist across a None gap).
                     device.signal_pending_poor = None
-                    device.signal_pending_count = 0
+                    device.signal_pending_since = None
                     device.signal_quality = None
 
             # Seed on first encounter; real updates come from _handle_state_change.
@@ -1488,45 +1488,58 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         return "poor"
 
     def _commit_signal(
-        self, device: DeviceState, candidate: SignalQuality
+        self, device: DeviceState, candidate: SignalQuality, now: datetime
     ) -> SignalQuality:
-        """Debounce the poor<->non-poor boundary (Option A); return the quality to commit.
+        """Debounce the poor<->non-poor boundary (wall-clock); return the quality to commit.
 
         candidate is the raw _classify_signal output (classify + hysteresis already
         applied). A crossing of the poor<->non-poor boundary must persist for
-        SIGNAL_DEBOUNCE_POLLS consecutive polls before it commits — a big-swing RSSI
-        flap never reaches that count and is held at the committed value, killing the
-        poor-signal count/event spam. good<->ok moves and the None seed commit instantly
-        (good/ok feeds no recorded count). Debounce stacks AFTER hysteresis: while a
-        cross is held, device.signal_quality stays at prev, so the next poll's hysteresis
-        still applies — both mechanisms resist leaving 'poor'.
+        SIGNAL_DEBOUNCE_SECONDS of REAL TIME before it commits — a flapping RSSI
+        never holds that long and is kept at the committed value, killing the
+        poor-signal count/event spam. Wall-clock, not a refresh count: refreshes are
+        state-change driven (_handle_state_change coalesces every push), so a chatty
+        push sensor fires many refreshes per second and a poll-count debounce would
+        clear in moments. Measuring elapsed time is immune to push rate — a 30s-polled
+        sensor and a push-every-2s sensor both need the same real duration.
+
+        good<->ok moves and the None seed commit instantly (good/ok feeds no recorded
+        count). Debounce stacks AFTER hysteresis: while a cross is held,
+        device.signal_quality stays at prev, so the next refresh's hysteresis still
+        applies — both mechanisms resist leaving 'poor'.
         """
         prev = device.signal_quality
         # Seed: first classify after None commits instantly, no pending.
         if prev is None:
             device.signal_pending_poor = None
-            device.signal_pending_count = 0
+            device.signal_pending_since = None
             return candidate
         candidate_poor = candidate == "poor"
         committed_poor = prev == "poor"
         # No poor-boundary cross (incl. good<->ok): commit instantly, reset pending.
         if candidate_poor == committed_poor:
             device.signal_pending_poor = None
-            device.signal_pending_count = 0
+            device.signal_pending_since = None
             return candidate
-        # Poor-boundary cross. New direction (first disagreeing poll, or a reversal of an
-        # in-flight pending) restarts the count and holds the committed value.
+        # Poor-boundary cross. New direction (first disagreeing refresh, or a reversal
+        # of an in-flight pending) stamps the start time and holds the committed value.
         if device.signal_pending_poor != candidate_poor:
             device.signal_pending_poor = candidate_poor
-            device.signal_pending_count = 1
+            device.signal_pending_since = now
             return prev
-        # Same pending direction persists — count toward the commit threshold.
-        device.signal_pending_count += 1
-        if device.signal_pending_count >= SIGNAL_DEBOUNCE_POLLS:
+        # Same pending direction persists — commit once it has held long enough.
+        elapsed = (now - device.signal_pending_since).total_seconds()
+        # Clock moved backward (NTP correction, restart) since the crossing was
+        # stamped → elapsed is negative. Re-stamp and keep holding rather than let a
+        # bad clock either strand the pending forever or (if it later jumps forward)
+        # shortcut the wait. The crossing simply restarts its window from here.
+        if elapsed < 0:
+            device.signal_pending_since = now
+            return prev
+        if elapsed >= SIGNAL_DEBOUNCE_SECONDS:
             device.signal_pending_poor = None
-            device.signal_pending_count = 0
+            device.signal_pending_since = None
             return candidate
-        return prev  # pragma: no cover — interior hold, reachable only at SIGNAL_DEBOUNCE_POLLS>=3; N=2 commits at poll 2
+        return prev
 
     def _poor_signal_entity_ids(self) -> list[str]:
         """Return poor-signal, non-suppressed, essential entity_ids (device-collapsed when active)."""
