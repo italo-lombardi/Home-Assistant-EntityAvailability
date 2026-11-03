@@ -510,8 +510,21 @@ for e in cfg['data']['entries']:
         )
         data = json.loads(raw.strip())
         bmap = data.get("battery_entity_map", {})
-        mapped_battery_sensor = next((v for v in bmap.values() if v), None)
-        mapped_battery_entity = next((k for k, v in bmap.items() if v), None)
+
+        # Prefer a mapped battery whose live state is NUMERIC — EC59/90 drive the
+        # sensor to a value, which a binary_sensor battery (0/1) can't satisfy.
+        # Fall back to the first mapped battery when none is numeric.
+        def _num_state(eid):
+            try:
+                float((api("GET", f"/api/states/{eid}") or {}).get("state"))
+                return True
+            except (TypeError, ValueError, Exception):
+                return False
+
+        mapped_pairs = [(k, v) for k, v in bmap.items() if v]
+        numeric_pair = next((p for p in mapped_pairs if _num_state(p[1])), None)
+        chosen = numeric_pair or (mapped_pairs[0] if mapped_pairs else (None, None))
+        mapped_battery_entity, mapped_battery_sensor = chosen
     except Exception:
         mapped_battery_sensor = None
         mapped_battery_entity = None
@@ -951,6 +964,331 @@ def _teardown_stale_fixture(fix: dict) -> None:
         try:
             api("DELETE", f"/api/config/config_entries/entry/{eid}")
         except Exception:  # teardown is best-effort
+            pass
+
+
+# ---------------------------------------------------------------------------
+# Self-provisioned --all fixtures: create the group shapes the capability
+# router needs so no EC family goes DARK/skipped on a bare dev instance. Each
+# builder is idempotent (reuse by title if already present) and best-effort
+# (returns None on failure → the family just skips, never hard-fails setup).
+# All titles start "EA Fix " and helper entities are sensor.ea_fix_* so
+# _teardown_smoke_fixtures can clean by prefix even after a mid-run crash.
+# ---------------------------------------------------------------------------
+
+_FIX_PREFIX = "EA Fix "
+
+
+def _ea_entries_by_title() -> dict:
+    """title -> entry_id for all entity_availability config entries."""
+    return {
+        e.get("title"): e.get("entry_id")
+        for e in api("GET", "/api/config/config_entries/entry")
+        if e.get("domain") == "entity_availability"
+    }
+
+
+def _create_group(
+    group_name,
+    entities,
+    *,
+    battery_threshold=0,
+    signal_enabled=False,
+    non_essential=None,
+):
+    """Drive the config-entries flow user->group->monitoring->advanced to create a
+    group. Returns entry_id or None. Stops before battery/signal mapping — caller
+    submits those via the returned flow_id (still open) when needed.
+    """
+    r = api(
+        "POST", "/api/config/config_entries/flow", {"handler": "entity_availability"}
+    )
+    fid = r["flow_id"]
+    api("POST", f"/api/config/config_entries/flow/{fid}", {"entry_type": "group"})
+    group_body = {"group_name": group_name, "entities": entities}
+    if non_essential:
+        group_body["non_essential_entities"] = non_essential
+    api("POST", f"/api/config/config_entries/flow/{fid}", group_body)
+    api(
+        "POST",
+        f"/api/config/config_entries/flow/{fid}",
+        {
+            "bad_states": ["unavailable", "unknown"],
+            "cooldown": 0,
+            "staleness_threshold": 0,
+            "staleness_use_last_updated": False,
+        },
+    )
+    r_adv = api(
+        "POST",
+        f"/api/config/config_entries/flow/{fid}",
+        {
+            "battery_threshold": battery_threshold,
+            "signal_enabled": signal_enabled,
+            "availability_windows": ["today", "7d"],
+            "recovery_window": 5,
+            "use_device_names": False,
+            "collapse_devices": False,
+        },
+    )
+    return fid, r_adv
+
+
+def _provision_numeric_battery_fixture():
+    """EC59 + pass-1 target: a group with a NUMERIC settable mapped battery
+    (drivable to 75) AND >=2 monitored entities. This group is the ess_batt
+    target for the broad pass 1, which includes ECs that address a SECOND entity
+    (e.g. EC11 suppress_indefinitely uses entities[1]) — so it must not be a
+    single-entity group or those ECs IndexError.
+    """
+    group_name = _FIX_PREFIX + "Numeric Battery"
+    entity = "sensor.ea_fix_numbatt_device"
+    entity2 = "sensor.ea_fix_numbatt_device2"
+    battery = "sensor.ea_fix_numbatt_level"
+    try:
+        # helper entities (idempotent: ss is set-state, safe to repeat)
+        ss(entity, "on", {"friendly_name": "EA Fix NumBatt Device"})
+        ss(entity2, "on", {"friendly_name": "EA Fix NumBatt Device 2"})
+        ss(
+            battery,
+            "90",
+            {
+                "friendly_name": "EA Fix NumBatt Level",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        existing = _ea_entries_by_title().get(group_name)
+        if existing:
+            return {"group_entry_id": existing, "battery": battery, "entity": entity}
+        fid, r_adv = _create_group(group_name, [entity, entity2], battery_threshold=20)
+        # battery_threshold>0 -> battery_mapping step: map entity -> numeric sensor
+        # (entity2 left unmapped — it only needs to exist so entities[1] resolves).
+        if r_adv.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
+            r_map = api(
+                "POST", f"/api/config/config_entries/flow/{fid}", {entity: battery}
+            )
+            if r_map.get("step_id") == "signal_mapping":
+                r_map = api("POST", f"/api/config/config_entries/flow/{fid}", {})
+            r_adv = r_map
+        if r_adv.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  numeric-battery fixture: create did not finish "
+                f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {
+            "group_entry_id": r_adv["result"]["entry_id"],
+            "battery": battery,
+            "entity": entity,
+        }
+    except Exception as exc:  # best-effort
+        print(f"  numeric-battery fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _provision_signal_fixture():
+    """EC50 + EC52: a signal_enabled group monitoring a *_last_seen entity with a
+    mapped signal sensor + network type. Covers both the signal family (EC50 needs
+    signal_enabled + a reachable any_poor_signal sensor) and the _last_seen suffix
+    strip (EC52 needs a monitored entity ending in _last_seen).
+    """
+    group_name = _FIX_PREFIX + "Signal"
+    # entity_id ends in _last_seen so EC52's suffix-strip detection fires
+    entity = "sensor.ea_fix_signal_last_seen"
+    signal_sensor = "sensor.ea_fix_signal_linkquality"
+    try:
+        ss(entity, "on", {"friendly_name": "EA Fix Signal Device"})
+        ss(
+            signal_sensor,
+            "200",
+            {"friendly_name": "EA Fix Signal LQI", "unit_of_measurement": "lqi"},
+        )
+        existing = _ea_entries_by_title().get(group_name)
+        if existing:
+            return {
+                "group_entry_id": existing,
+                "entity": entity,
+                "signal_sensor": signal_sensor,
+            }
+        fid, r_adv = _create_group(group_name, [entity], signal_enabled=True)
+        # signal_enabled=True -> after advanced, a signal_mapping step. Map the
+        # entity to the signal sensor with an explicit network type. Keys:
+        # {entity: sensor} and {entity}#network: <type>.
+        step = r_adv.get("step_id")
+        # battery step may appear first (threshold 0 -> skipped, but be defensive)
+        if step in ("battery_mapping", "battery_mapping_no_new"):
+            r_adv = api("POST", f"/api/config/config_entries/flow/{fid}", {})
+            step = r_adv.get("step_id")
+        if step == "signal_mapping":
+            r_adv = api(
+                "POST",
+                f"/api/config/config_entries/flow/{fid}",
+                {entity: signal_sensor, f"{entity}#network": "zigbee_lqi"},
+            )
+        if r_adv.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  signal fixture: create did not finish "
+                f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {
+            "group_entry_id": r_adv["result"]["entry_id"],
+            "entity": entity,
+            "signal_sensor": signal_sensor,
+        }
+    except Exception as exc:  # best-effort
+        print(f"  signal fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _provision_both_tiers_fixture():
+    """EC32 (+ NE tier EC25-42): a both-tiers group (essential + non-essential
+    entities) whose ESSENTIAL entity has a NUMERIC mapped battery (threshold>0,
+    drivable low) so EC32 can drive essential any_low_battery on/off.
+    """
+    group_name = _FIX_PREFIX + "Both Tiers"
+    ess = "sensor.ea_fix_bt_essential"
+    ne = "sensor.ea_fix_bt_nonessential"
+    battery = "sensor.ea_fix_bt_battery"
+    try:
+        ss(ess, "on", {"friendly_name": "EA Fix BT Essential"})
+        ss(ne, "on", {"friendly_name": "EA Fix BT NonEssential"})
+        ss(
+            battery,
+            "90",
+            {
+                "friendly_name": "EA Fix BT Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
+        existing = _ea_entries_by_title().get(group_name)
+        if existing:
+            return {
+                "group_entry_id": existing,
+                "essential": ess,
+                "non_essential": ne,
+                "battery": battery,
+            }
+        # both tiers: `entities` is ESSENTIAL-only, `non_essential` is the NE set;
+        # they MUST be disjoint (the group step rejects overlap as duplicate).
+        fid, r_adv = _create_group(
+            group_name, [ess], battery_threshold=20, non_essential=[ne]
+        )
+        # threshold>0 -> battery_mapping: map the ESSENTIAL entity -> numeric battery
+        if r_adv.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
+            r_map = api(
+                "POST", f"/api/config/config_entries/flow/{fid}", {ess: battery}
+            )
+            if r_map.get("step_id") == "signal_mapping":
+                r_map = api("POST", f"/api/config/config_entries/flow/{fid}", {})
+            r_adv = r_map
+        if r_adv.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  both-tiers fixture: create did not finish "
+                f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {
+            "group_entry_id": r_adv["result"]["entry_id"],
+            "essential": ess,
+            "non_essential": ne,
+            "battery": battery,
+        }
+    except Exception as exc:  # best-effort
+        print(f"  both-tiers fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _provision_combined_fixture(member_entry_id):
+    """EC16-18/20/21/24/66: a combined group OWNING the given member group (plus a
+    second loaded group — combined requires >=2 members). The combined-relay ECs
+    run against the member group; discover() then finds it owned by this combined
+    and the relay checks fire instead of skipping. member_entry_id = the group the
+    relay ECs route to (the ess_batt target = EA Fix Numeric Battery).
+    """
+    combined_name = _FIX_PREFIX + "Combined"
+    if not member_entry_id:
+        return None
+    try:
+        existing = _ea_entries_by_title().get(combined_name)
+        if existing:
+            return {"combined_entry_id": existing}
+        entries = api("GET", "/api/config/config_entries/entry")
+        # a second LOADED, non-combined group to satisfy the >=2 member rule
+        second = next(
+            (
+                e
+                for e in entries
+                if e.get("domain") == "entity_availability"
+                and e.get("entry_id") != member_entry_id
+                and "combined" not in (e.get("title") or "").lower()
+                and e.get("state") == "loaded"
+            ),
+            None,
+        )
+        if not second:
+            print("  combined fixture: no second group for combined", flush=True)
+            return None
+        r = api(
+            "POST",
+            "/api/config/config_entries/flow",
+            {"handler": "entity_availability"},
+        )
+        fid = r["flow_id"]
+        r_u = api(
+            "POST",
+            f"/api/config/config_entries/flow/{fid}",
+            {"entry_type": "combined_group"},
+        )
+        # combined step keys overrides by GROUP TITLE; map entry_id->title.
+        eid_title_map = json.loads(
+            r_u.get("description_placeholders", {}).get("eid_title_map", "{}")
+        )
+        title_of = {eid: title for eid, title in eid_title_map.items()}
+        submit = {"combined_name": combined_name}
+        for eid in (member_entry_id, second["entry_id"]):
+            title = title_of.get(eid)
+            if title:
+                submit[title] = "keep"
+        r_c = api("POST", f"/api/config/config_entries/flow/{fid}", submit)
+        if r_c.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  combined fixture: create did not finish "
+                f"(type={r_c.get('type')} step={r_c.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {"combined_entry_id": r_c["result"]["entry_id"]}
+    except Exception as exc:  # best-effort
+        print(f"  combined fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _teardown_smoke_fixtures() -> None:
+    """Delete every EA Fix * config entry (combined first, then groups) — robust
+    to a prior mid-run crash since it cleans by title prefix, not a passed handle.
+    """
+    entries = [
+        e
+        for e in api("GET", "/api/config/config_entries/entry")
+        if e.get("domain") == "entity_availability"
+        and (e.get("title") or "").startswith(_FIX_PREFIX)
+    ]
+    # combined entries first (they reference group members)
+    entries.sort(key=lambda e: 0 if "combined" in (e.get("title") or "").lower() else 1)
+    for e in entries:
+        try:
+            api("DELETE", f"/api/config/config_entries/entry/{e['entry_id']}")
+        except Exception:  # best-effort teardown
             pass
 
 
@@ -1931,6 +2269,7 @@ def _discover_group_capabilities():
     """
     states = api("GET", "/api/states")
     summaries = [s for s in states if s["entity_id"].endswith("_group_summary")]
+    state_by_eid = {s["entity_id"]: s for s in states}
     entries = api("GET", "/api/config/config_entries/entry")
 
     # One .storage read for every group's entities / NE list / battery map.
@@ -1987,6 +2326,20 @@ print(json.dumps(out))
         # essential mapped battery = a battery_map key with a non-empty value
         # whose key is NOT in the NE set (low_battery_count is essential-only).
         ess_mapped = [k for k, v in bmap.items() if v and k not in ne_set]
+
+        # numeric mapped battery = an essential mapped battery sensor whose LIVE
+        # state parses as a number — the battery-LEVEL ECs (EC59/90) drive it to a
+        # value, which a binary_sensor battery (0/1 state) can't satisfy.
+        def _is_num(x):
+            try:
+                float(x)
+                return True
+            except (TypeError, ValueError):
+                return False
+
+        numeric_battery = any(
+            _is_num((state_by_eid.get(bmap[k]) or {}).get("state")) for k in ess_mapped
+        )
         caps[title] = {
             "battery": bool(a.get("battery_enabled")),
             "signal": bool(a.get("signal_enabled")),
@@ -1997,6 +2350,7 @@ print(json.dumps(out))
                 < len(a.get("entities") or [])
             ),
             "essential_mapped_battery": bool(ess_mapped),
+            "numeric_battery": numeric_battery,
             "both_tiers": bool(ne_set) and any(x not in ne_set for x in ents),
         }
     return caps
@@ -2018,6 +2372,37 @@ def run_all():
     if not SKIP_SETUP:
         sys.exit("--all requires --skip-setup (per-group battery setup is not looped)")
 
+    # Self-provision the fixture shapes the capability router needs so no family
+    # goes DARK on a bare dev instance. Idempotent; torn down in the finally.
+    print("=== --all: provisioning smoke fixtures ===", flush=True)
+    numbatt = _provision_numeric_battery_fixture()
+    _provision_signal_fixture()
+    _provision_both_tiers_fixture()
+    # Combined owns the numeric-battery group (the ess_batt target the combined-
+    # relay ECs route to) so EC16-24/66 find a combined owner instead of skipping.
+    _provision_combined_fixture(numbatt.get("group_entry_id") if numbatt else None)
+    wait(8)  # let the new groups' entries load + their group_summary register
+    # Deterministically wait until the combined's membership is visible in
+    # .storage — the config-entry write is debounced, and discover() reads the
+    # owner from .storage. Without this, a slow flush makes discover() miss the
+    # EA Fix Combined ownership and fall back to an arbitrary combined, breaking
+    # the relay ECs (EC24 asserts against the owning combined's entry_id).
+    member = numbatt.get("group_entry_id") if numbatt else None
+    if member:
+        wait_for(
+            lambda: _combined_owner(member)[1],  # owns == True
+            True,
+            timeout=WAIT_FOR_TIMEOUT,
+        )
+
+    try:
+        _run_all_passes()
+    finally:
+        print("\n=== --all: tearing down smoke fixtures ===", flush=True)
+        _teardown_smoke_fixtures()
+
+
+def _run_all_passes():
     caps = _discover_group_capabilities()
     if not caps:
         sys.exit("--all: no entity_availability group_summary sensors found")
@@ -2034,14 +2419,43 @@ def run_all():
         print(
             f"  {t}: battery={c['battery']} signal={c['signal']} ne={c['ne']} "
             f"collapse={c['collapse']} ess_mapped_batt={c['essential_mapped_battery']} "
-            f"both_tiers={c['both_tiers']}",
+            f"numeric_batt={c['numeric_battery']} both_tiers={c['both_tiers']}",
             flush=True,
         )
 
     # Family → (EC set, capability predicate). None target = DARK.
-    ess_batt = best(lambda c: c["essential_mapped_battery"])
-    signal_grp = best(lambda c: c["signal"])
-    both_tiers = best(lambda c: c["both_tiers"])
+    # Prefer the EA Fix Numeric Battery fixture for the pass-1 (ess_batt) target:
+    # it has an essential mapped battery AND is owned by the EA Fix Combined group,
+    # so the combined-relay ECs (EC16-24/66) in pass 1 find a combined owner via
+    # discover() instead of skipping. Fall back to any essential-mapped-battery
+    # group if the fixture is absent.
+    _fix_numeric_grp = _FIX_PREFIX + "Numeric Battery"
+    ess_batt = (
+        _fix_numeric_grp
+        if _fix_numeric_grp in caps
+        else best(lambda c: c["essential_mapped_battery"])
+    )
+    # Battery-LEVEL ECs need an OWNED, settable numeric battery (driven to 75).
+    # The EA Fix fixture guarantees that; a pre-existing group may report
+    # numeric_battery from a derived/template sensor we can't actually drive
+    # (e.g. a proximity zone reading "1"). Prefer the fixture; fall back to any
+    # numeric-battery group only if the fixture is absent.
+    _fix_numeric = _FIX_PREFIX + "Numeric Battery"
+    numeric_batt = (
+        _fix_numeric if _fix_numeric in caps else best(lambda c: c["numeric_battery"])
+    )
+    # Signal family (EC50 needs signal_enabled + reachable any_poor_signal) AND the
+    # _last_seen suffix-strip (EC52 needs a monitored *_last_seen entity). The EA Fix
+    # Signal fixture guarantees both; prefer it, fall back to any signal group (which
+    # may lack a _last_seen entity → EC52 would still skip there).
+    _fix_signal = _FIX_PREFIX + "Signal"
+    signal_grp = _fix_signal if _fix_signal in caps else best(lambda c: c["signal"])
+    # Both-tiers target for the NE pass. EC32 needs an ESSENTIAL entity with a
+    # mapped battery in a both-tiers group; prefer the EA Fix Both Tiers fixture
+    # (guarantees essential_mapped_battery), else any both-tiers group (EC32 may
+    # still skip there if no essential has a mapped battery).
+    _fix_bt = _FIX_PREFIX + "Both Tiers"
+    both_tiers = _fix_bt if _fix_bt in caps else best(lambda c: c["both_tiers"])
     collapse_grp = best(lambda c: c["collapse"])
 
     # A pass = (label, target, ne_group, ec_filter set). ec_filter None = all
@@ -2056,14 +2470,26 @@ def run_all():
         136,
     }  # EC25-42 + NE all_offline + EC136 stale relay → pass 2
     collapse_ecs = {86, 87, 88, 89, 117}  # → pass 3
+    # battery-LEVEL ECs need a NUMERIC mapped battery (drive-to-value), not just
+    # any essential mapped battery — route them to a numeric-battery group. The
+    # battery-COUNT family (EC4/22/23/65) only needs low/not-low, so it stays in
+    # pass 1 on any essential-mapped-battery group.
+    battery_level_ecs = {59, 90}
+    # Signal ECs that need the signal fixture specifically: EC50 (any_poor_signal
+    # reachable) + EC52 (_last_seen suffix strip). Other signal ECs (47-49, 51)
+    # work on any signal group and ride pass 1.
+    signal_ecs = {50, 52}
     # 1) The broad slice an essential-mapped-battery + signal + combined group
     #    satisfies: core, battery-count family, signal, combined, collapse-attr,
     #    recorder, EC12/EC82 (which have NO dedicated pass). Everything EXCEPT
-    #    the NE tier and the collapse fixture, which their own passes own.
+    #    the NE tier, the collapse fixture, and battery-level, which own passes.
     pass1_ecs = {
         n
         for n in list(range(1, 93)) + [113, 114]
-        if n not in ne_ecs and n not in collapse_ecs
+        if n not in ne_ecs
+        and n not in collapse_ecs
+        and n not in battery_level_ecs
+        and n not in signal_ecs
     }
     if ess_batt:
         passes.append(
@@ -2080,6 +2506,12 @@ def run_all():
     # 3) Collapse fixture ECs on a collapse-active group.
     if collapse_grp:
         passes.append(("collapse-fixture", collapse_grp, "", collapse_ecs))
+    # 4) Battery-LEVEL ECs on a NUMERIC-battery group (drive-to-value).
+    if numeric_batt:
+        passes.append(("battery-level", numeric_batt, "", battery_level_ecs))
+    # 5) Signal ECs needing the signal fixture (_last_seen + any_poor_signal).
+    if signal_grp:
+        passes.append(("signal-fixture", signal_grp, "", signal_ecs))
 
     # DARK report: a family whose target is missing.
     dark = []
@@ -2087,12 +2519,14 @@ def run_all():
         dark.append(
             "battery-count family (EC4,22,23,65): no essential-mapped-battery group"
         )
+    if not numeric_batt:
+        dark.append("battery-level ECs (EC59,90): no numeric-battery group")
     if not both_tiers:
         dark.append("NE-tier + EC36 (EC25-42): no both-tiers group")
     if not collapse_grp:
         dark.append("collapse fixture (EC86,87,88,89,117): no collapse-active group")
     if not signal_grp:
-        dark.append("signal ECs (EC47-52): no signal group")
+        dark.append("signal ECs (EC50,52): no signal group")
     for d in dark:
         print(f"  DARK (will not run): {d}", flush=True)
 
@@ -3322,19 +3756,16 @@ def run_checks(ctx):
         )
         restore_and_wait(ctx)
         target = ctx["entities"][0]
-        entries = api("GET", "/api/config/config_entries/entry")
-        combined_entry = next(
-            (
-                e
-                for e in entries
-                if e["domain"] == "entity_availability"
-                and "combined" in e["title"].lower()
-            ),
-            None,
-        )
-        combined_entry_id = combined_entry["entry_id"] if combined_entry else ""
-
-        if _WS_AVAILABLE and combined_entry_id:
+        # Do NOT guess the owning combined by "first combined-titled entry" (that
+        # picks an arbitrary combined — e.g. a pre-existing one that does NOT own
+        # this group) nor by discover()'s .storage-derived combined_entry_id (the
+        # .storage file is executor-written and lags live config-entry state, so it
+        # can resolve to the wrong/fallback combined). Instead derive the owning
+        # combined from the RELAYED EVENT itself: a combined's offline relay is the
+        # only offline event carrying a non-empty `source_groups`, and that list
+        # names the member group it relayed for. This is the authoritative live
+        # runtime signal — race-free, no .storage dependency.
+        if _WS_AVAILABLE and ctx["combined_owns_group"]:
             events = capture_events(
                 "entity_availability_offline",
                 lambda: ss(
@@ -3342,9 +3773,10 @@ def run_checks(ctx):
                 ),
                 timeout=WAIT_FOR_TIMEOUT,
             )
-            combined_events = [
-                e for e in events if e.get("entry_id") == combined_entry_id
-            ]
+            # The combined relay event(s): identified by carrying source_groups,
+            # NOT by a pre-resolved entry_id. Member-group events have no
+            # source_groups; only the combined's relay does.
+            combined_events = [e for e in events if e.get("source_groups")]
             if combined_events:
                 ev = combined_events[0]
                 chk(
@@ -3360,22 +3792,18 @@ def run_checks(ctx):
                     f"source_groups={ev.get('source_groups')}",
                 )
             else:
-                if ctx["combined_owns_group"]:
-                    chk(
-                        "EC24 combined offline event captured",
-                        False,
-                        True,
-                        f"combined_entry_id={combined_entry_id} total_events={len(events)}",
-                    )
-                else:
-                    print(
-                        "  EC24: skipped (no combined group owns this group)",
-                        flush=True,
-                    )
+                chk(
+                    "EC24 combined offline event captured",
+                    False,
+                    True,
+                    f"combined_owns_group=True but no event carried source_groups; "
+                    f"total_events={len(events)}",
+                )
             restore_and_wait(ctx)
         else:
             print(
-                "  EC24: skipped (websocket-client not installed or no combined entry)",
+                "  EC24: skipped (websocket-client not installed or no combined "
+                "owns this group)",
                 flush=True,
             )
     elif ec_enabled(24):
@@ -3587,7 +4015,11 @@ def run_checks(ctx):
                         flush=True,
                     )
                 else:
-                    bs = gs_safe(f"binary_sensor.{prefix}_any_poor_signal")
+                    # prefix is the sensor.* group prefix; the binary sensor lives
+                    # under binary_sensor.* with the SAME slug — swap the domain
+                    # (not prepend, which would yield binary_sensor.sensor.…).
+                    bsig = prefix.replace("sensor.", "binary_sensor.", 1)
+                    bs = gs_safe(f"{bsig}_any_poor_signal")
                     if bs is None:
                         print(
                             "  EC50: skipped (any_poor_signal sensor not found)",
@@ -4233,6 +4665,19 @@ for e in cfg['data']['entries']:
                 "unit_of_measurement": "%",
             },
         )
+        # battery_levels is a volatile/unrecorded attr stripped from WriteDedup's
+        # comparison (write_dedup.py) — a battery-ONLY change updates the internal
+        # device.battery_level but is dedup'd OUT of the published state, so 75
+        # never surfaces in /api/states on its own (intended #108/#111 write-amp
+        # suppression, not a bug). Taking the entity UNAVAILABLE changes a RECORDED
+        # attr (offline_count) → the write fires and re-publishes battery_levels
+        # with the fresh 75. That offline transition IS this EC's scenario ("battery
+        # retained when entity goes unavailable"), so we drive it ONCE and assert
+        # the published value is the retained 75 — no separate online pre-check
+        # (which a battery-only change can't satisfy).
+        ss(battery_entity, "unavailable", {"friendly_name": "test"})
+        wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "1")
+        # Give the publish a beat to settle, then read the published battery_levels.
         wait_for(
             lambda: str(
                 gs(f"{prefix}_group_summary")
@@ -4241,6 +4686,7 @@ for e in cfg['data']['entries']:
                 .get(battery_entity)
             ),
             "75",
+            timeout=WAIT_FOR_TIMEOUT,
         )
         # Precondition: the mapped battery sensor must be one we can actually
         # drive to 75. When --all lands on a group whose battery_entity_map
@@ -4261,9 +4707,8 @@ for e in cfg['data']['entries']:
             )
             restore_and_wait(ctx)
         else:
-            # Make entity unavailable (battery sensor stays at 75)
-            ss(battery_entity, "unavailable", {"friendly_name": "test"})
-            wait_for(lambda: gs(f"{prefix}_offline_count").get("state"), "1")
+            # Already unavailable with battery driven to 75 and published above —
+            # assert the level is RETAINED (not wiped to None) while offline.
             retained = (
                 gs(f"{prefix}_group_summary")
                 .get("attributes", {})
