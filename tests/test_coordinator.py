@@ -5642,6 +5642,80 @@ async def test_classify_signal_poor_hysteresis(
     assert coord._classify_signal("binary_sensor.device_a", -45, prev="poor") == "good"
 
 
+async def test_commit_signal_debounce(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """_commit_signal debounces the poor<->non-poor boundary (Option A).
+
+    Drives the pure gate directly with a constructed DeviceState: set the committed
+    quality on device.signal_quality, feed a raw candidate, assert the returned commit
+    and the resulting device.signal_pending_* state. No signal_map needed — the gate
+    never touches it.
+    """
+    from custom_components.entity_availability.const import SIGNAL_DEBOUNCE_POLLS
+    from custom_components.entity_availability.models import DeviceState
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+
+    assert SIGNAL_DEBOUNCE_POLLS == 2  # the branches below assume N=2
+
+    def dev(quality, pending=None, count=0):
+        d = DeviceState(entity_id="binary_sensor.device_a")
+        d.signal_quality = quality
+        d.signal_pending_poor = pending
+        d.signal_pending_count = count
+        return d
+
+    # 1. seed: no committed quality yet -> candidate commits instantly, pending reset.
+    d = dev(None)
+    assert coord._commit_signal(d, "poor") == "poor"
+    assert d.signal_pending_poor is None and d.signal_pending_count == 0
+
+    # 2. no-cross good<->ok: neither side is poor -> commit instant (both directions).
+    d = dev("ok")
+    assert coord._commit_signal(d, "good") == "good"
+    assert d.signal_pending_poor is None and d.signal_pending_count == 0
+    d = dev("good")
+    assert coord._commit_signal(d, "ok") == "ok"
+    assert d.signal_pending_poor is None and d.signal_pending_count == 0
+
+    # 3. no-cross poor-stays-poor: both poor -> stays poor, pending reset.
+    d = dev("poor")
+    assert coord._commit_signal(d, "poor") == "poor"
+    assert d.signal_pending_poor is None and d.signal_pending_count == 0
+
+    # 4. new-pending: good committed, poor candidate -> HOLD good, pending armed.
+    d = dev("good")
+    assert coord._commit_signal(d, "poor") == "good"
+    assert d.signal_pending_poor is True and d.signal_pending_count == 1
+
+    # 5. confirm-at-N: two consecutive poor candidates -> 1st holds, 2nd commits poor.
+    d = dev("good")
+    assert coord._commit_signal(d, "poor") == "good"  # poll 1 holds
+    assert d.signal_pending_count == 1
+    assert coord._commit_signal(d, "poor") == "poor"  # poll 2 commits (N=2)
+    assert d.signal_pending_poor is None and d.signal_pending_count == 0
+
+    # 6. reversal (EC6): poor candidate at count=1, then revert to good before N ->
+    #    no-cross branch commits good, pending reset, no stuck state.
+    d = dev("good")
+    assert coord._commit_signal(d, "poor") == "good"  # arm pending=poor, count=1
+    assert d.signal_pending_count == 1
+    assert coord._commit_signal(d, "good") == "good"  # revert: no-cross, commit good
+    assert d.signal_pending_poor is None and d.signal_pending_count == 0
+
+    # 7. flap: alternating poor/good against a committed 'good' never reaches N ->
+    #    stays 'good' throughout, count never exceeds 1 (each reversal restarts it).
+    d = dev("good")
+    for candidate in ("poor", "good", "poor", "good", "poor", "good"):
+        assert coord._commit_signal(d, candidate) == "good"
+        assert d.signal_pending_count <= 1
+    assert d.signal_quality == "good"
+
+
 async def test_classify_signal_zwave_thresholds(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
@@ -5924,8 +5998,20 @@ async def test_bus_events_poor_signal_transition(
     assert device_a.signal_quality == "good"
     assert poor_events == []
 
-    # Drop to poor signal
+    # Drop to poor signal. Debounce holds the poor<->non-poor cross for
+    # SIGNAL_DEBOUNCE_POLLS (2) polls — poll 1 keeps the committed 'good' and fires
+    # NO event (this is the anti-flap guard: a single -85 blip must not fire).
     hass.states.async_set("sensor.device_a_rssi", "-85")
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+    assert device_a.signal_quality == "good"  # poll 1: held, not yet committed
+    assert poor_events == []  # no spurious fire on the first poor poll
+
+    # Poll 2, still -85: the cross persists → commits 'poor' and fires exactly once.
     with patch.object(
         EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
     ):
@@ -5939,8 +6025,18 @@ async def test_bus_events_poor_signal_transition(
     assert poor_events[0].data["signal_quality"] == "poor"
     assert ok_events == []
 
-    # Recover to good signal
+    # Recover to good signal. Leaving 'poor' is also a boundary cross → 2 polls:
+    # poll 1 holds 'poor' + no signal_ok, poll 2 commits 'good' + fires once.
     hass.states.async_set("sensor.device_a_rssi", "-45")
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+
+    assert device_a.signal_quality == "poor"  # poll 1: held
+    assert ok_events == []
+
     with patch.object(
         EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
     ):
@@ -6164,12 +6260,24 @@ async def test_prev_signal_poor_persists_while_suppressed(
         # Suppressed → not in poor_signal_entity_ids, no event
         assert poor_events == []
 
-        # Unsuppress — signal still poor; _prev_signal_poor=False (skipped while suppressed)
-        # so EVENT_POOR_SIGNAL fires on the first post-unsuppress tick
+        # Unsuppress — signal still poor; _prev_signal_poor=False (skipped while
+        # suppressed) so EVENT_POOR_SIGNAL fires once the poor cross is confirmed.
+        # Signal was never classified while suppressed (the suppressed branch
+        # `continue`s before the signal block), so device.signal_quality is still the
+        # seeded 'good' and the debounce sees a fresh good->poor cross: poll 1 holds,
+        # poll 2 commits + fires.
         coord.unsuppress_entity("binary_sensor.device_a")
         await coord._async_update_data()
         await hass.async_block_till_done()
-        # was_poor=False (never updated while suppressed) + signal_poor=True → event fires
+        # Poll 1 post-unsuppress: cross held, no event yet (anti-flap).
+        assert coord.device_states["binary_sensor.device_a"].signal_quality == "good"
+        assert poor_events == []
+
+        # Poll 2, still poor: commits + fires exactly once (was_poor=False while
+        # suppressed + confirmed signal_poor=True → single event, no duplicate).
+        await coord._async_update_data()
+        await hass.async_block_till_done()
+        assert coord.device_states["binary_sensor.device_a"].signal_quality == "poor"
         assert len(poor_events) == 1
         assert poor_events[0].data["entity_id"] == "binary_sensor.device_a"
 

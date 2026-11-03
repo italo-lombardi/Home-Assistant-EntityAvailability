@@ -3834,6 +3834,119 @@ for e in cfg['data']['entries']:
                 )
             restore_and_wait(ctx)
 
+    # EC138: signal-quality DEBOUNCE (SIGNAL_DEBOUNCE_POLLS=2). A poor-boundary
+    # crossing must persist N consecutive polls before signal_quality commits — kills
+    # big-swing RSSI flap spamming poor_signal events + the poor_signal_count attr.
+    # EC138 proves the commit+fire-once path on real polls. The complementary
+    # flap→0-fire proof is NOT a live EC: a 30s real-poll cannot deterministically
+    # show "exactly one poll sees poor" without racing on tick phase. That ground
+    # truth lives in tests/test_coordinator.py test_commit_signal_debounce cases 6
+    # (reversal: poor armed then reverts before N → commits good, never fires) + 7
+    # (flap: alternating poor/good never reaches N), which drive _commit_signal
+    # directly with zero poll-race.
+    # Shared setup: locate a mapped group signal sensor + its "ok" threshold, like EC137.
+    if ec_enabled(138):
+        _OK = {
+            "5g": -100,
+            "bluetooth": -85,
+            "generic": -80,
+            "lorawan": -115,
+            "lte": -90,
+            "percentage": 40,
+            "percent": 40,
+            "thread": -85,
+            "wifi": -80,
+            "zigbee_lqi": 51,
+            "zigbee_rssi": -85,
+            "zwave": -85,
+        }
+        # Read the stored signal map (EC51 writes it on create_entry).
+        _smap = {}
+        try:
+            import subprocess as _sp
+
+            _raw = _sp.check_output(
+                [
+                    sys.executable,
+                    "-c",
+                    f"""
+import json
+cfg = json.load(open('/workspaces/home-assistant-core/config/.storage/core.config_entries'))
+for e in cfg['data']['entries']:
+    if e['entry_id'] == {ctx["entry_id"]!r}:
+        print(json.dumps(e['data'].get('signal_entity_map', {{}})))
+""",
+                ],
+                text=True,
+            )
+            _smap = json.loads(_raw.strip() or "{}")
+        except Exception:
+            _smap = {}
+        _mapped = next(
+            (
+                (ent, m.get("sensor"), m.get("network_type"))
+                for ent, m in _smap.items()
+                if m.get("sensor") and m.get("network_type") in _OK
+            ),
+            None,
+        )
+
+        def _poor_count():
+            a = gs(f"{prefix}_group_summary").get("attributes", {})
+            return a.get("poor_signal", 0)
+
+        # EC138: SUSTAINED poor over N=2 polls → poor_signal fires EXACTLY ONCE on the
+        # Nth poll, signal_quality commits "poor", poor_signal count goes +1.
+        if ec_enabled(138):
+            print(
+                "\n=== EC138: sustained poor commits after N polls, fires once ===",
+                flush=True,
+            )
+            if not _WS_AVAILABLE:
+                print("  EC138: skipped (websocket-client not installed)", flush=True)
+            elif not _mapped:
+                print(
+                    "  EC138: skipped (no signal mapping stored — EC51 did not run)",
+                    flush=True,
+                )
+            else:
+                _ent, _sensor, _net = _mapped
+                poor_val = _OK[_net] - 1  # one unit below "ok" → always "poor"
+                good_val = _OK[_net] + 100  # always firmly "good"
+                # Firmly-good baseline so the poor set is a real transition.
+                ss(_sensor, str(good_val))
+                wait(WAIT_FOR_TIMEOUT)
+                base_count = _poor_count()
+                # Hold poor across a window spanning >=2 polls (SCAN_INTERVAL=30).
+                # The event must arrive exactly once, on the Nth (2nd) poll commit.
+                events = capture_events(
+                    "entity_availability_poor_signal",
+                    lambda: ss(_sensor, str(poor_val)),
+                    timeout=max(WAIT_FOR_TIMEOUT * 2, 120),
+                )
+                mine = [e for e in events if e.get("entry_id") == ctx["entry_id"]]
+                chk(
+                    "EC138 poor_signal fires exactly once after debounce",
+                    len(mine),
+                    1,
+                    f"sensor={_sensor} net={_net} poor_val={poor_val} "
+                    f"total_events={len(events)} mine={len(mine)}",
+                )
+                # After the window, quality must have COMMITTED poor and count +1.
+                committed = wait_for(
+                    _poor_count, base_count + 1, timeout=WAIT_FOR_TIMEOUT
+                )
+                chk(
+                    "EC138 poor_signal count committed +1",
+                    committed,
+                    base_count + 1,
+                    f"base={base_count} after={committed}",
+                )
+                # Restore ONLY the signal sensor (Signal Test group has no battery
+                # sensor, so restore_and_wait's low_battery_count poll 404s).
+                ss(_sensor, str(good_val))
+                wait(WAIT_FOR_TIMEOUT)
+
     # EC54: group_summary new explicit attrs (essential count, stale/poor_signal counts)
     if ec_enabled(54):
         print(

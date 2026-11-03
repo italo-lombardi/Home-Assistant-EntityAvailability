@@ -268,14 +268,42 @@ level >= ok_threshold → "ok"
 otherwise             → "poor"
 ```
 
-Unlike battery, signal has **no retain** — a `None`/non-numeric read this poll
-makes `signal_quality` `None` for the poll, never a stale value.
+A `None`/non-numeric read this poll makes `signal_quality` `None` for the poll
+and clears any in-flight debounce (below), never a stale value. The classified
+quality is otherwise retained only across the debounce window — the committed
+tier holds until a boundary crossing confirms, it is not a persisted value.
 
 **Hysteresis (3) at the poor↔ok boundary only.** When the previous quality was
 `"poor"`, `ok_threshold` is nudged by `SIGNAL_HYSTERESIS = 3` so a reading
 hovering at the edge doesn't flip poor/ok each poll. The good/ok boundary is
 **not** de-jittered — it's display-only and feeds no recorded count. **"poor" is
 the only tier that feeds a recorded count.**
+
+**Debounce (2) at the poor↔non-poor boundary.** Hysteresis handles a reading
+*resting* on the edge; it does nothing against a big swing (RSSI oscillating
+−86 ↔ −70 every poll clears the ±3 dead-band in both directions). So the
+committed quality is gated by `_commit_signal`: a crossing of the poor
+boundary must persist `SIGNAL_DEBOUNCE_POLLS = 2` consecutive polls before
+`signal_quality` moves. `_classify_signal` stays a pure per-poll classifier;
+`_commit_signal` owns the pending state (`signal_pending_poor` /
+`signal_pending_count` on `DeviceState`, both transient — storage serializes
+buckets only, never `DeviceState`). Mechanics:
+
+- First poll that disagrees with the committed tier across the poor boundary
+  arms the pending direction (count = 1) and **holds** the committed value.
+- A same-direction confirm reaching the threshold commits the new tier and
+  clears pending.
+- A reversal before commit (the flap case) re-arms the other direction at
+  count = 1 — the oscillation never commits.
+- good↔ok moves are **not** a poor-boundary cross and commit instantly (no
+  debounce), as before.
+
+The gate sits at the single commit point, so **display tier, the poor recorded
+count, and both edge events all move off the same `signal_quality`** — they
+cannot diverge. The cost is a `SIGNAL_DEBOUNCE_POLLS`-poll (default 60 s) lag
+before a *genuine* transition commits. This mirrors the offline cooldown,
+where an event fires only once the entity is still offline after the window —
+a debounced edge is intended behavior, not a dropped one.
 
 **Edge events** — tracked via `device.prev_signal_poor`, with
 `signal_poor = (signal_quality == "poor")`:
@@ -284,7 +312,9 @@ the only tier that feeds a recorded count.**
 - `signal_ok` fires on the ok edge (`NOT signal_poor AND was_poor`).
 
 Only **poor ↔ non-poor** transitions fire; moving between "ok" and "good" fires
-nothing.
+nothing. Because `signal_quality` is debounce-gated (above), the edge is
+evaluated on the **committed** tier — a crossing fires once, on the poll it
+commits, not on the first swing that proposes it.
 
 Network types and their `good` / `ok` thresholds (from
 `SIGNAL_NETWORK_TYPES` in `const.py`). `higher_is_better` is `False` for dBm

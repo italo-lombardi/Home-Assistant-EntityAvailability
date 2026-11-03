@@ -52,6 +52,7 @@ from .const import (
     EVENT_STALE,
     EVENT_STALE_RECOVERED,
     SCAN_INTERVAL,
+    SIGNAL_DEBOUNCE_POLLS,
     SIGNAL_HYSTERESIS,
     SIGNAL_NETWORK_TYPES,
     STALENESS_HYSTERESIS,
@@ -742,13 +743,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.signal_level = fresh_signal
                 # signal_unit already set above (before the suppressed continue) so it
                 # stays consistent with signal_source for the collapse decision.
-                device.signal_quality = (
-                    self._classify_signal(
+                if fresh_signal is not None:
+                    candidate = self._classify_signal(
                         entity_id, fresh_signal, device.signal_quality
                     )
-                    if fresh_signal is not None
-                    else None
-                )
+                    device.signal_quality = self._commit_signal(device, candidate)
+                else:
+                    # Sensor unavailable: no quality shown, and any in-flight debounce
+                    # is abandoned (a cross can't persist across a None gap).
+                    device.signal_pending_poor = None
+                    device.signal_pending_count = 0
+                    device.signal_quality = None
 
             # Seed on first encounter; real updates come from _handle_state_change.
             if device.last_changed is None and state:
@@ -1465,6 +1470,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         count) every poll. The shift is toward 'ok' on the >= scale for both directions.
         The good/ok boundary is intentionally NOT de-jittered — it feeds no recorded
         count, so a good/ok wobble is display-only, not write amplification.
+
+        This returns the RAW candidate quality (classify + hysteresis). The caller gates
+        it through _commit_signal, which debounces the poor<->non-poor boundary before
+        the result commits to device.signal_quality.
         """
         mapping = self._signal_map.get(entity_id, {})
         nt = mapping.get("network_type", "generic")
@@ -1477,6 +1486,47 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         if level >= ok_threshold:
             return "ok"
         return "poor"
+
+    def _commit_signal(
+        self, device: DeviceState, candidate: SignalQuality
+    ) -> SignalQuality:
+        """Debounce the poor<->non-poor boundary (Option A); return the quality to commit.
+
+        candidate is the raw _classify_signal output (classify + hysteresis already
+        applied). A crossing of the poor<->non-poor boundary must persist for
+        SIGNAL_DEBOUNCE_POLLS consecutive polls before it commits — a big-swing RSSI
+        flap never reaches that count and is held at the committed value, killing the
+        poor-signal count/event spam. good<->ok moves and the None seed commit instantly
+        (good/ok feeds no recorded count). Debounce stacks AFTER hysteresis: while a
+        cross is held, device.signal_quality stays at prev, so the next poll's hysteresis
+        still applies — both mechanisms resist leaving 'poor'.
+        """
+        prev = device.signal_quality
+        # Seed: first classify after None commits instantly, no pending.
+        if prev is None:
+            device.signal_pending_poor = None
+            device.signal_pending_count = 0
+            return candidate
+        candidate_poor = candidate == "poor"
+        committed_poor = prev == "poor"
+        # No poor-boundary cross (incl. good<->ok): commit instantly, reset pending.
+        if candidate_poor == committed_poor:
+            device.signal_pending_poor = None
+            device.signal_pending_count = 0
+            return candidate
+        # Poor-boundary cross. New direction (first disagreeing poll, or a reversal of an
+        # in-flight pending) restarts the count and holds the committed value.
+        if device.signal_pending_poor != candidate_poor:
+            device.signal_pending_poor = candidate_poor
+            device.signal_pending_count = 1
+            return prev
+        # Same pending direction persists — count toward the commit threshold.
+        device.signal_pending_count += 1
+        if device.signal_pending_count >= SIGNAL_DEBOUNCE_POLLS:
+            device.signal_pending_poor = None
+            device.signal_pending_count = 0
+            return candidate
+        return prev  # pragma: no cover — interior hold, reachable only at SIGNAL_DEBOUNCE_POLLS>=3; N=2 commits at poll 2
 
     def _poor_signal_entity_ids(self) -> list[str]:
         """Return poor-signal, non-suppressed, essential entity_ids (device-collapsed when active)."""

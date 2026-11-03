@@ -911,7 +911,8 @@ class TestCombinedSmartDedup:
 
     def test_same_entity_different_bad_states_keeps_separate(self, mock_hass):
         # Same entity_id but group A treats "unavailable" as offline, group B doesn't.
-        # Different bad_states -> separate rows -> counted twice.
+        # Different bad_states -> 2 separate DISPLAY rows (per-group config divergence
+        # preserved), but the headline COUNT dedups to the 1 physical entity.
         _register_entity(mock_hass, "binary_sensor.diff_bs", None)
         d = DeviceState(entity_id="binary_sensor.diff_bs", is_offline=True)
         if mock_hass.config_entries.async_get_entry("grp_bs_a") is None:
@@ -964,11 +965,13 @@ class TestCombinedSmartDedup:
             "combined_bs",
             ["grp_bs_a", "grp_bs_b"],
         )
-        assert count.native_value == 2
+        # Count dedups the shared entity_id across the 2 split rows -> 1 physical entity.
+        assert count.native_value == 1
 
     def test_same_entity_different_use_device_names_keeps_separate(self, mock_hass):
         # Same entity_id: group A has use_device_names=True, group B has False.
-        # Different config -> 2 separate rows in combined view.
+        # Different config -> 2 separate DISPLAY rows, but the COUNT dedups to the 1
+        # physical entity.
         _register_entity(mock_hass, "binary_sensor.udn_diff", None)
         d = DeviceState(entity_id="binary_sensor.udn_diff", is_offline=True)
         coord_a = _make_group_coord(
@@ -991,7 +994,8 @@ class TestCombinedSmartDedup:
             "combined_udn",
             ["grp_udn_a", "grp_udn_b"],
         )
-        assert count.native_value == 2
+        # Count dedups the shared entity_id across the 2 split rows -> 1 physical entity.
+        assert count.native_value == 1
 
 
 class TestOnlineWithSuppressedSibling:

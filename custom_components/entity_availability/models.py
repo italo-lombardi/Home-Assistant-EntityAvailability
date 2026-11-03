@@ -37,6 +37,12 @@ class DeviceState:
     signal_source: str | None = None
     # transition tracker for EVENT_POOR_SIGNAL / EVENT_SIGNAL_OK
     prev_signal_poor: bool = False
+    # Debounce state for the poor↔non-poor boundary (Option A). Transient like
+    # signal_source — never persisted (storage serializes buckets only, never
+    # DeviceState). None pending_poor = no pending cross; count = consecutive
+    # polls the candidate has disagreed with the committed quality.
+    signal_pending_poor: bool | None = None
+    signal_pending_count: int = 0
     recently_offline_at: datetime | None = None
     # Reliability counters (all-time, event-driven — feed MTBF/MTTR).
     monitored_since: datetime | None = None
