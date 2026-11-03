@@ -3914,9 +3914,21 @@ for e in cfg['data']['entries']:
                 poor_val = _OK[_net] - 1  # one unit below "ok" → always "poor"
                 good_val = _OK[_net] + 100  # always firmly "good"
                 # Firmly-good baseline so the poor set is a real transition.
+                # Settle until poor_signal actually reads 0: a committed poor from a
+                # prior run needs the good re-cross to debounce back over N polls, which
+                # a single wait() can miss — leaving base_count>0 and the +1 assert
+                # waiting on a transition that never comes (stale-baseline hang).
                 ss(_sensor, str(good_val))
-                wait(WAIT_FOR_TIMEOUT)
-                base_count = _poor_count()
+                base_count = wait_for(
+                    _poor_count, 0, timeout=max(WAIT_FOR_TIMEOUT * 2, 120)
+                )
+                chk(
+                    "EC138 baseline poor_signal cleared to 0 before sustained-poor set",
+                    base_count,
+                    0,
+                    f"sensor={_sensor} base_count={base_count} "
+                    "(dirty start — a committed poor did not clear; cannot test a clean transition)",
+                )
                 # Hold poor across a window spanning >=2 polls (SCAN_INTERVAL=30).
                 # The event must arrive exactly once, on the Nth (2nd) poll commit.
                 events = capture_events(
