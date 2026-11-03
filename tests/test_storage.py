@@ -703,11 +703,14 @@ class TestSnapshotOffload:
     def test_encode_snapshot_is_static_and_pure(self) -> None:
         # encode_snapshot is a @staticmethod: callable without an instance, touches
         # only its argument (executor-safe — no self / no _buckets access).
+        # Uses an UNROUNDED online_seconds (272.46) and asserts the output is rounded
+        # to 1 decimal (272.5) — this PINS the round() that moved into encode_snapshot,
+        # so a future drop or wrong-ndigits is caught (a whole-number input would not).
         frozen = {
-            "sensor.x": [(datetime(2026, 11, 3, 18, 0, tzinfo=timezone.utc), 272.4)]
+            "sensor.x": [(datetime(2026, 11, 3, 18, 0, tzinfo=timezone.utc), 272.46)]
         }
         out = AvailabilityStorage.encode_snapshot(frozen)
-        assert out == {"sensor.x": [{"s": "2026-11-03T18:00:00+00:00", "o": 272.4}]}
+        assert out == {"sensor.x": [{"s": "2026-11-03T18:00:00+00:00", "o": 272.5}]}
 
     def test_snapshot_no_buckets_handles_cleanly(
         self, storage: AvailabilityStorage, now: datetime

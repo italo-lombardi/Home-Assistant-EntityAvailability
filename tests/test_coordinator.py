@@ -2259,22 +2259,26 @@ async def test_save_storage_captures_all_fields_pre_await(
     pre_until = now + timedelta(hours=1)
     coord._suppressed[eid] = pre_until  # state at save time
 
-    # Replace the executor hop with one that mutates _suppressed WHILE "encoding"
-    # (simulating a suppress firing mid-save). If suppressed were read after the
-    # await, this later state would leak into the save.
+    # During the executor hop, CHANGE the suppress `until` of an ALREADY-MONITORED
+    # entity (eid). If _suppressed were read after the await, the save would persist
+    # this later value. A new unmonitored key would be filtered by `entity_id in
+    # self._entities` regardless of timing (so it proves nothing) — mutating a
+    # monitored entity's value is what actually exercises the pre-vs-post-await read.
+    mid_until = now + timedelta(hours=9)
     real_exec = hass.async_add_executor_job
 
     async def _exec_then_mutate(func, *args):
-        coord._suppressed["sensor.injected_mid_encode"] = now + timedelta(hours=9)
+        coord._suppressed[eid] = mid_until
         return await real_exec(func, *args)
 
     with patch.object(hass, "async_add_executor_job", side_effect=_exec_then_mutate):
         await coord._async_save_storage()
 
     saved = coord._store.async_save.call_args[0][0]
-    # Pre-await state persisted; the mid-encode injection did NOT leak in.
-    assert eid in saved["suppressed"]
-    assert "sensor.injected_mid_encode" not in saved["suppressed"]
+    # The persisted `until` must be the PRE-await value, not the mid-encode mutation
+    # — proving suppressed was captured before the executor hop (single-instant save).
+    assert saved["suppressed"][eid] == pre_until.isoformat()
+    assert saved["suppressed"][eid] != mid_until.isoformat()
     assert eid in saved["availability"]
 
 
