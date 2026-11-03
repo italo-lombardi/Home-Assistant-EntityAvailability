@@ -55,6 +55,7 @@ DEFAULT_COLLAPSE_DEVICES = False
 BATTERY_HYSTERESIS = 3  # percent above threshold to clear a low-battery flag
 STALENESS_HYSTERESIS = 1  # minutes below threshold to clear a stale flag
 SIGNAL_HYSTERESIS = 3  # units toward "ok" to clear a poor-signal flag
+SIGNAL_DEBOUNCE_POLLS = 2  # consecutive polls a poor-boundary crossing must persist before signal_quality commits (kills big-swing RSSI flap)
 
 # Signal strength thresholds per network type.
 # Each entry: {"label": str, "unit": str, "good": int, "ok": int, "higher_is_better": bool}

@@ -407,6 +407,30 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             result.append(rk)
         return result
 
+    @classmethod
+    def _collapsed_match_count(
+        cls,
+        merged: dict[str, Any],
+        rep_of: dict[str, str],
+        predicate: Callable[[Any], bool],
+    ) -> int:
+        """Count matching devices, deduped by entity_id.
+
+        ``_collapsed_match`` collapses by DEVICE (udn ``rep_of``), but a shared
+        entity_id monitored by two member groups with divergent per-group config
+        (e.g. signal_map — see ``_device_map_of``) has no shared udn, so it stays
+        two rows. Those two rows are one physical entity, so the headline COUNT
+        must collapse them to 1 — matching ``combined_summary`` which dedups via
+        ``_eids``. The 2-row split is still correct for DISPLAY lists (each row
+        carries its own per-group interpretation); only the count collapses.
+        """
+        return len(
+            {
+                merged[rk].entity_id
+                for rk in cls._collapsed_match(merged, rep_of, predicate)
+            }
+        )
+
     def _collapsed_recovery_pairs(
         self, predicate: Callable[[EntityAvailabilityCoordinator, Any], bool]
     ) -> list[tuple[EntityAvailabilityCoordinator, Any]]:
@@ -613,14 +637,26 @@ class CombinedGroupSensor(CombinedSensorBase):
         # Private, uncached build off the live device_states — never read or write
         # the shared sensor-state memo (_dm_cache/_dm_cache_key).
         merged, rep_of, _ = self._device_map_of(coords)
-        entities = sorted(
-            merged[rk].entity_id
-            for rk in self._collapsed_match(
-                merged,
-                rep_of,
-                lambda d: (
-                    predicate(d) and not d.is_suppressed and not d.is_non_essential
-                ),
+        # dict.fromkeys dedups by entity_id while preserving sorted order: a shared
+        # entity split into divergent rows (no shared udn — see _device_map_of /
+        # _collapsed_match_count) maps to the same entity_id, so the relayed event's
+        # {cat}_count and {cat}_entities count it ONCE, matching the combined count
+        # sensors. Without this the event payload re-inflates the shared entity (2)
+        # and lists its entity_id twice.
+        entities = list(
+            dict.fromkeys(
+                sorted(
+                    merged[rk].entity_id
+                    for rk in self._collapsed_match(
+                        merged,
+                        rep_of,
+                        lambda d: (
+                            predicate(d)
+                            and not d.is_suppressed
+                            and not d.is_non_essential
+                        ),
+                    )
+                )
             )
         )
         # source_groups for the flipped entity: bare-entity_id → owning group names,
@@ -651,8 +687,13 @@ class CombinedGroupSensor(CombinedSensorBase):
         firing_owners = [
             coord
             for coord in owners
-            if (d := coord.device_states.get(flipped_entity_id)) is not None
-            and not d.is_suppressed
+            if (d_raw := coord.device_states.get(flipped_entity_id)) is not None
+            and not (
+                d := _apply_ne_override(
+                    d_raw,
+                    self._ne_overrides.get(coord.entry.entry_id, NE_OVERRIDE_KEEP),
+                )
+            ).is_suppressed
             and not d.is_non_essential
         ]
         owner_entry_ids = sorted(coord.entry.entry_id for coord in firing_owners)
@@ -908,7 +949,6 @@ class CombinedGroupSensor(CombinedSensorBase):
         raw_entities = list(
             dict.fromkeys(merged_states[rk].entity_id for rk in merged_states)
         )
-        all_entities = collapsed_entities
         offline_entities = _m(
             lambda d: d.is_offline and not d.is_suppressed and not d.is_non_essential
         )
@@ -946,33 +986,48 @@ class CombinedGroupSensor(CombinedSensorBase):
         low_battery_entities_non_essential = _m(
             lambda d: d.is_low_battery and d.is_non_essential and not d.is_suppressed
         )
-        total = len(all_entities)
-        offline = len(offline_entities)
-        low_battery = len(low_battery_entities)
+        # Counts dedup by entity_id via _eids: a shared entity split into
+        # multiple rows (divergent per-group config, e.g. signal_map — see
+        # _device_map_of) must count ONCE, matching the *_entities attrs below
+        # which already _eids(). Without this the count (raw row_keys) and the
+        # attr list (deduped) disagree for the same bucket. The 2-row split is
+        # still correct for DISPLAY (each row carries its own signal reading);
+        # only the headline COUNT collapses.
+        total = len(_eids(list(merged_states)))
+        offline = len(_eids(offline_entities))
+        low_battery = len(_eids(low_battery_entities))
         non_essential_entities = _m(
             lambda d: d.is_non_essential and not d.is_suppressed
         )
         non_essential_suppressed = len(
-            _m(lambda d: d.is_non_essential and d.is_suppressed)
+            _eids(_m(lambda d: d.is_non_essential and d.is_suppressed))
         )
-        non_essential = len(non_essential_entities) + non_essential_suppressed
-        suppressed = len(_m(lambda d: d.is_suppressed and not d.is_non_essential))
+        non_essential = len(_eids(non_essential_entities)) + non_essential_suppressed
+        suppressed = len(
+            _eids(_m(lambda d: d.is_suppressed and not d.is_non_essential))
+        )
         online = len(
-            _m(
-                lambda d: (
-                    not d.is_offline and not d.is_suppressed and not d.is_non_essential
+            _eids(
+                _m(
+                    lambda d: (
+                        not d.is_offline
+                        and not d.is_suppressed
+                        and not d.is_non_essential
+                    )
                 )
             )
         )
-        stale = len(stale_entities)
+        stale = len(_eids(stale_entities))
         non_essential_online = len(
-            _m(
-                lambda d: (
-                    d.is_non_essential and not d.is_offline and not d.is_suppressed
+            _eids(
+                _m(
+                    lambda d: (
+                        d.is_non_essential and not d.is_offline and not d.is_suppressed
+                    )
                 )
             )
         )
-        non_essential_offline = len(offline_entities_non_essential)
+        non_essential_offline = len(_eids(offline_entities_non_essential))
         # Dedup battery_powered by collecting device entity_ids (not battery sensor ids).
         # battery_map keys are device entity_ids; battery_level path is already keyed by eid.
         # Using one set handles mixed-config groups without double-counting.
@@ -999,7 +1054,7 @@ class CombinedGroupSensor(CombinedSensorBase):
             coord.entry.data.get(CONF_STALENESS_THRESHOLD, 0) > 0 for coord in active
         )
         signal_enabled = any(coord._signal_enabled for coord in active)
-        poor_signal_count = len(poor_signal_entities) if signal_enabled else 0
+        poor_signal_count = len(_eids(poor_signal_entities)) if signal_enabled else 0
         display_names: dict[str, str] = {}
         battery_levels: dict[str, Any] = {}
         signal_levels: dict[str, Any] = {}
@@ -1174,14 +1229,10 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
     @property
     def native_value(self) -> int:
         merged, rep_of, _ = self._device_map_cached(self._active_coordinators())
-        return len(
-            self._collapsed_match(
-                merged,
-                rep_of,
-                lambda d: (
-                    d.is_offline and not d.is_suppressed and not d.is_non_essential
-                ),
-            )
+        return self._collapsed_match_count(
+            merged,
+            rep_of,
+            lambda d: d.is_offline and not d.is_suppressed and not d.is_non_essential,
         )
 
     @property
@@ -1194,7 +1245,7 @@ class CombinedOfflineCountSensor(CombinedSensorBase):
         )
         return {
             "entities": [merged[rk].entity_id for rk in offline],
-            "count": len(offline),
+            "count": len({merged[rk].entity_id for rk in offline}),
         }
 
 
@@ -1241,7 +1292,7 @@ class CombinedOfflineEntitiesSensor(CombinedSensorBase):
         )
         return {
             "entities": [merged[rk].entity_id for rk in offline],
-            "count": len(offline),
+            "count": len({merged[rk].entity_id for rk in offline}),
         }
 
 
@@ -1321,17 +1372,15 @@ class CombinedLowBatteryCountSensor(CombinedSensorBase):
     @property
     def native_value(self) -> int:
         merged, rep_of, _ = self._device_map_cached(self._active_coordinators())
-        return len(
-            self._collapsed_match(
-                merged,
-                rep_of,
-                lambda d: (
-                    d.is_low_battery
-                    and not d.is_suppressed
-                    and not d.is_offline
-                    and not d.is_non_essential
-                ),
-            )
+        return self._collapsed_match_count(
+            merged,
+            rep_of,
+            lambda d: (
+                d.is_low_battery
+                and not d.is_suppressed
+                and not d.is_offline
+                and not d.is_non_essential
+            ),
         )
 
 
