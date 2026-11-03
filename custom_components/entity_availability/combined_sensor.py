@@ -687,8 +687,13 @@ class CombinedGroupSensor(CombinedSensorBase):
         firing_owners = [
             coord
             for coord in owners
-            if (d := coord.device_states.get(flipped_entity_id)) is not None
-            and not d.is_suppressed
+            if (d_raw := coord.device_states.get(flipped_entity_id)) is not None
+            and not (
+                d := _apply_ne_override(
+                    d_raw,
+                    self._ne_overrides.get(coord.entry.entry_id, NE_OVERRIDE_KEEP),
+                )
+            ).is_suppressed
             and not d.is_non_essential
         ]
         owner_entry_ids = sorted(coord.entry.entry_id for coord in firing_owners)

@@ -4524,3 +4524,90 @@ class TestApplyNeOverride:
         assert len(merged) == 1, (
             f"Expected 1 merged row, got {len(merged)}: {list(merged)}"
         )
+
+    def test_relay_gate_honors_all_essential_override(self, mock_hass):
+        """Single-fire gate must see the member's NE override, not the raw flag.
+
+        REGRESSION (NE-override × relay, live-only before fix): the count/entities
+        path builds its map via _device_map_of which applies _apply_ne_override, so
+        an ALL_ESSENTIAL override promotes a natively-NE entity INTO the count. The
+        firing-owner gate previously read coord.device_states RAW (is_non_essential
+        True) → elected NO owner → owner_entry_ids empty → a real transition the
+        count acknowledges relayed ZERO combined events. The gate must apply the
+        same override so it elects the firing owner and count stays aligned.
+        """
+        from custom_components.entity_availability.const import (
+            NE_OVERRIDE_ALL_ESSENTIAL,
+        )
+        from custom_components.entity_availability.coordinator import (
+            EntityAvailabilityCoordinator,
+        )
+        from custom_components.entity_availability.models import DeviceState
+
+        entry_a = _make_group_entry("ea", "A", ["sensor.ne_x"])
+        combined = _make_combined_entry("ec", "C", ["ea"])
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            # Natively NE and offline — the exact divergence condition.
+            coord_a._device_states = {
+                "sensor.ne_x": DeviceState(
+                    entity_id="sensor.ne_x", is_non_essential=True, is_offline=True
+                )
+            }
+        mock_hass.data[DOMAIN] = {"ea": coord_a}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "C", "c", ["ea"], {"ea": NE_OVERRIDE_ALL_ESSENTIAL}
+        )
+
+        count, entities, _, owner_entry_ids = sensor._relay_fleet_snapshot(
+            "sensor.ne_x", "offline"
+        )
+        # Override promotes ne_x to essential: count sees it AND the gate elects ea.
+        assert count == 1, f"override-promoted entity must be counted, got {count}"
+        assert entities == ["sensor.ne_x"]
+        assert owner_entry_ids == ["ea"], (
+            f"gate must elect the firing owner under ALL_ESSENTIAL, "
+            f"got {owner_entry_ids} (empty = event dropped)"
+        )
+
+    def test_relay_gate_honors_all_non_essential_override(self, mock_hass):
+        """Mirror: ALL_NON_ESSENTIAL demotes an essential entity OUT of the count;
+        the gate must also drop its owner so no spurious count==0 event relays.
+        """
+        from custom_components.entity_availability.const import (
+            NE_OVERRIDE_ALL_NON_ESSENTIAL,
+        )
+        from custom_components.entity_availability.coordinator import (
+            EntityAvailabilityCoordinator,
+        )
+        from custom_components.entity_availability.models import DeviceState
+
+        entry_a = _make_group_entry("ea", "A", ["sensor.ess_x"])
+        combined = _make_combined_entry("ec", "C", ["ea"])
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "sensor.ess_x": DeviceState(
+                    entity_id="sensor.ess_x", is_non_essential=False, is_offline=True
+                )
+            }
+        mock_hass.data[DOMAIN] = {"ea": coord_a}
+        sensor = CombinedGroupSensor(
+            mock_hass, combined, "C", "c", ["ea"], {"ea": NE_OVERRIDE_ALL_NON_ESSENTIAL}
+        )
+
+        count, entities, _, owner_entry_ids = sensor._relay_fleet_snapshot(
+            "sensor.ess_x", "offline"
+        )
+        # Override demotes ess_x to NE: count drops it AND the gate drops ea —
+        # so the relay fires nothing (owner_entry_ids empty), no spurious event.
+        assert count == 0, f"override-demoted entity must not be counted, got {count}"
+        assert entities == []
+        assert owner_entry_ids == [], (
+            f"gate must NOT elect an owner for an override-demoted NE entity, "
+            f"got {owner_entry_ids} (non-empty = spurious count==0 relay)"
+        )
