@@ -2195,6 +2195,48 @@ async def test_save_storage_includes_offline_device(
     assert saved["device_states"]["binary_sensor.device_a"]["is_offline"] is True
 
 
+async def test_save_storage_encodes_availability_via_executor(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """The availability dict is built in the executor (off the event loop).
+
+    Guards Bug 2's fix: the expensive isoformat/dict build must NOT run on the
+    loop. We assert _async_save_storage hands AvailabilityStorage.encode_snapshot
+    to async_add_executor_job, and that the resulting persisted `availability`
+    matches a direct to_dict for the same instant (off-load produces identical
+    output).
+    """
+    from unittest.mock import patch
+
+    hass = mock_hass
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=None)
+    coord._store.async_save = AsyncMock()
+
+    # Seed some availability buckets for a monitored entity.
+    now = datetime.now(timezone.utc)
+    eid = coord._entities[0]
+    coord._availability_storage.record_online(eid, 300.0, now - timedelta(minutes=10))
+    coord._availability_storage.record_online(eid, 150.0, now)
+
+    with patch.object(
+        hass, "async_add_executor_job", wraps=hass.async_add_executor_job
+    ) as spy:
+        await coord._async_save_storage()
+
+    # encode_snapshot was dispatched to the executor (not run on the loop).
+    assert any(
+        call.args and getattr(call.args[0], "__name__", "") == "encode_snapshot"
+        for call in spy.call_args_list
+    ), "encode_snapshot must be offloaded via async_add_executor_job"
+
+    # Off-load output equals a direct same-instant to_dict (identical serialization).
+    saved = coord._store.async_save.call_args[0][0]
+    assert eid in saved["availability"]
+    assert all(set(row) == {"s", "o"} for row in saved["availability"][eid])
+
+
 async def test_save_storage_includes_cooldown_device(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
