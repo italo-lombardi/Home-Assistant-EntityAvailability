@@ -5735,6 +5735,20 @@ async def test_commit_signal_debounce(
         assert coord._commit_signal(d, candidate, at(i * 3)) == "good"
     assert d.signal_quality == "good"
 
+    # 8. clock jump backward: a crossing armed at t0, then a later refresh whose `now`
+    #    is BEFORE t0 (NTP correction / restart) -> elapsed negative. Must not strand
+    #    the pending forever nor shortcut later: it re-stamps and keeps holding, and a
+    #    full threshold measured from the re-stamp then commits normally.
+    d = dev("good")
+    assert coord._commit_signal(d, "poor", at(100)) == "good"  # arm at t0+100s
+    assert d.signal_pending_since == at(100)
+    assert coord._commit_signal(d, "poor", at(10)) == "good"  # clock jumped back: hold
+    assert d.signal_pending_since == at(10)  # re-stamped to the new (earlier) now
+    assert (
+        coord._commit_signal(d, "poor", at(10 + SIGNAL_DEBOUNCE_SECONDS)) == "poor"
+    )  # threshold from the re-stamp: commits
+    assert d.signal_pending_poor is None and d.signal_pending_since is None
+
 
 async def test_classify_signal_zwave_thresholds(
     mock_hass: HomeAssistant, mock_config_entry

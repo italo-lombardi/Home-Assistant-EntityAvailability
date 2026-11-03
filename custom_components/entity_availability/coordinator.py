@@ -1528,6 +1528,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             return prev
         # Same pending direction persists — commit once it has held long enough.
         elapsed = (now - device.signal_pending_since).total_seconds()
+        # Clock moved backward (NTP correction, restart) since the crossing was
+        # stamped → elapsed is negative. Re-stamp and keep holding rather than let a
+        # bad clock either strand the pending forever or (if it later jumps forward)
+        # shortcut the wait. The crossing simply restarts its window from here.
+        if elapsed < 0:
+            device.signal_pending_since = now
+            return prev
         if elapsed >= SIGNAL_DEBOUNCE_SECONDS:
             device.signal_pending_poor = None
             device.signal_pending_since = None
