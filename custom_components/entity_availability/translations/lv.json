@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Pieejamība (šodien)"
       },
+      "availability_24h": {
+        "name": "Pieejamība (24 stundas)"
+      },
       "availability_3d": {
         "name": "Pieejamība (3 dienas)"
       },

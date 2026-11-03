@@ -473,3 +473,56 @@ merged row takes the concrete sensor from whichever group set it). They conflict
 only when both name a **different concrete** sensor on the same axis — e.g. two
 distinct battery sensors on the device — which keeps them as separate rows so
 neither reading is hidden.
+
+## 10. Availability windows & bucket retention
+
+Source of truth: `custom_components/entity_availability/storage.py`
+(`AvailabilityStorage`) + the save/load wiring in `coordinator.py`.
+
+**Windows.** Availability is reported per selected window as a percentage, backed
+by 5-minute buckets of online seconds. Selectable windows: `today`, `24h`, `3d`,
+`5d`, `7d` (default selection `today` + `7d`). Each selected window creates one
+`sensor.*_availability_<window>`; selecting none creates no availability sensor.
+
+**`today` is a calendar day, not a rolling 24 h.** `today` is read from **local
+midnight** (HA's configured timezone, via `dt_util.start_of_local_day`, converted
+to UTC for comparison against the UTC bucket grid). It is DST-safe (a fall-back
+day spans 25 h, a spring-forward day 23 h). Just after local midnight the value
+reflects "since midnight" — little data, so it may read briefly as a low value or
+`None` until the first post-midnight bucket closes — which is the correct meaning
+of a calendar day.
+
+> **Behavior change (0.7.1):** before 0.7.1, `today` was a rolling 24 h window. It
+> is now a calendar day. Users who want the old trailing-24 h behavior should tick
+> the new **`24h`** window, which is exactly that rolling lookback.
+
+**Known ceiling — sub-hour timezones.** Buckets sit on a UTC 5-minute grid. In
+timezones with a sub-hour offset (e.g. +5:30, +5:45) local midnight lands
+mid-bucket, so the `today` start edge can be off by up to one 5-minute bucket.
+Cosmetic for a daily KPI; not worth reshaping the grid.
+
+**Retention = the longest *selected* window.** Buckets are retained (in RAM **and**
+on disk) only for the longest currently-selected window, not a fixed 7 days:
+
+- No windows selected → **nothing persisted** (retention 0); buckets may accumulate
+  in RAM between saves but prune(retention 0) runs at the top of every save and
+  clears them, so they are never saved and never held across a save cycle.
+- `today` only → ~24 h kept; `7d` selected → 7 days kept; etc.
+- `today` reserves **25 h** of retention (not 24) so a DST fall-back day's calendar
+  read is always fully covered. `today` is the only window whose read span can
+  exceed its nominal hours; the others are fixed-duration lookbacks.
+- A +15-minute margin (3 buckets) is added so a boundary eviction never races a
+  read.
+- Buckets for entities no longer monitored by the group (orphans) are dropped, not
+  carried forever.
+
+The **same** retention value governs RAM pruning, the on-disk serialization, and
+the prune applied immediately after load — RAM is never trimmed tighter than the
+file. Pruning runs at load and once per save (never on the per-bucket write hot
+path).
+
+> **History is not recovered by widening.** Narrowing a window discards buckets
+> beyond the new (shorter) retention on the next save; widening the window again
+> later does **not** bring that history back — it only begins retaining the longer
+> span from that point. An options edit reloads the group from the persisted file,
+> so the file is the single source of truth across any window change.

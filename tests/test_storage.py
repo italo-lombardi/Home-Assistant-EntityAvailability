@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.entity_availability.const import BUCKET_INTERVAL, BUCKETS_MAX
 from custom_components.entity_availability.storage import AvailabilityStorage
+
+# Retention large enough to keep every bucket a test creates — isolates the
+# entity-filter / window-split behaviour under test from retention trimming.
+_WIDE_RETENTION = 10**9
 
 
 @pytest.fixture
@@ -303,16 +309,16 @@ class TestWindowCalculation:
 class TestSerialization:
     """Tests for serialization and deserialization."""
 
-    def test_to_dict_empty(self, storage: AvailabilityStorage) -> None:
+    def test_to_dict_empty(self, storage: AvailabilityStorage, now: datetime) -> None:
         """Test serialization of empty storage."""
-        assert storage.to_dict() == {}
+        assert storage.to_dict(now, _WIDE_RETENTION, ["sensor.test"]) == {}
 
     def test_to_dict_with_data(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
         """Test serialization with data."""
         storage.record_online("sensor.test", 100.0, now)
-        result = storage.to_dict()
+        result = storage.to_dict(now, _WIDE_RETENTION, ["sensor.test"])
 
         assert "sensor.test" in result
         assert len(result["sensor.test"]) == 1
@@ -329,7 +335,7 @@ class TestSerialization:
         per-poll write-amplification the elapsed-denominator fix removes.
         """
         storage.record_online("sensor.test", 100.0, now)
-        serialized = storage.to_dict()
+        serialized = storage.to_dict(now, _WIDE_RETENTION, ["sensor.test"])
         for bucket_data in serialized["sensor.test"]:
             assert "total_seconds" not in bucket_data
             assert set(bucket_data) == {"s", "o"}
@@ -346,9 +352,8 @@ class TestSerialization:
         storage.record_online("sensor.a", 150.0, now)
         storage.record_online("sensor.b", 300.0, now)
 
-        serialized = storage.to_dict()
+        serialized = storage.to_dict(now, _WIDE_RETENTION, ["sensor.a", "sensor.b"])
         restored = AvailabilityStorage.from_dict(serialized)
-
         assert "sensor.a" in restored._buckets
         assert "sensor.b" in restored._buckets
         assert restored._buckets["sensor.a"][0].online_seconds == 150.0
@@ -375,7 +380,7 @@ class TestSerialization:
         storage = AvailabilityStorage()
         storage.record_online("sensor.test", 100.0, now)
 
-        serialized = storage.to_dict()
+        serialized = storage.to_dict(now, _WIDE_RETENTION, ["sensor.test"])
         restored = AvailabilityStorage.from_dict(serialized)
 
         expected_start = now.replace(minute=30, second=0, microsecond=0)
@@ -511,3 +516,244 @@ class TestReset:
         storage.record_online("sensor.a", 30.0, now)
         storage.reset(["sensor.missing"])
         assert "sensor.a" in storage.buckets
+
+
+# ---------------------------------------------------------------------------
+# Retention-aware to_dict / prune + window split (today=calendar, new 24h)
+# ---------------------------------------------------------------------------
+
+
+# margin applied by the coordinator; mirrored here so the retention-edge tests
+# exercise the exact cutoff the save path uses. Keep in sync with
+# coordinator._retention_seconds (BUCKET_INTERVAL * 3 == 15 min).
+_MARGIN = BUCKET_INTERVAL * 3
+
+
+def _fill_online(storage: AvailabilityStorage, eid: str, start: datetime, count: int):
+    """Record one fully-online bucket per 5-min slot starting at `start`."""
+    for i in range(count):
+        t = start + timedelta(seconds=BUCKET_INTERVAL * i)
+        storage.record_online(eid, float(BUCKET_INTERVAL), t)
+
+
+class TestRetentionHours:
+    """_retention_hours vs _window_to_hours — today retains 25h for DST long days."""
+
+    def test_window_to_hours_24h(self) -> None:
+        assert AvailabilityStorage._window_to_hours("24h") == 24
+
+    def test_window_to_hours_today(self) -> None:
+        assert AvailabilityStorage._window_to_hours("today") == 24
+
+    def test_retention_hours_today_is_25(self) -> None:
+        # calendar today spans 25h on a DST fall-back day; retention must cover it
+        assert AvailabilityStorage._retention_hours("today") == 25
+
+    def test_retention_hours_24h_is_24(self) -> None:
+        assert AvailabilityStorage._retention_hours("24h") == 24
+
+    @pytest.mark.parametrize(
+        ("window", "hours"), [("3d", 72), ("5d", 120), ("7d", 168)]
+    )
+    def test_retention_matches_read_span_for_fixed_windows(
+        self, window: str, hours: int
+    ) -> None:
+        # fixed-duration windows: retention == read span (only today differs)
+        assert AvailabilityStorage._retention_hours(window) == hours
+        assert AvailabilityStorage._window_to_hours(window) == hours
+
+    def test_retention_hours_unknown_defaults_24(self) -> None:
+        assert AvailabilityStorage._retention_hours("bogus") == 24
+
+
+class TestToDictRetention:
+    """to_dict filters by retention window and monitored-entity keep set."""
+
+    def test_empty_retention_serializes_nothing(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # no windows selected -> retention_seconds <= 0 -> persist nothing
+        storage.record_online("sensor.a", 100.0, now)
+        assert storage.to_dict(now, 0, ["sensor.a"]) == {}
+        assert storage.to_dict(now, -1, ["sensor.a"]) == {}
+
+    def test_drops_buckets_older_than_retention(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        old = now - timedelta(hours=48)
+        storage.record_online("sensor.a", float(BUCKET_INTERVAL), old)
+        storage.record_online("sensor.a", float(BUCKET_INTERVAL), now)
+        out = storage.to_dict(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+        # only the recent bucket survives the 24h+margin cutoff
+        assert len(out["sensor.a"]) == 1
+
+    def test_drops_orphan_entities(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        storage.record_online("sensor.keep", 100.0, now)
+        storage.record_online("sensor.orphan", 100.0, now)
+        out = storage.to_dict(now, _WIDE_RETENTION, ["sensor.keep"])
+        assert "sensor.keep" in out
+        assert "sensor.orphan" not in out
+
+    def test_monitored_but_all_buckets_out_of_window_omitted(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # monitored entity whose ONLY buckets fall outside retention -> kept list
+        # empty -> entity omitted from the file (no dead empty-list key).
+        storage.record_online(
+            "sensor.a", float(BUCKET_INTERVAL), now - timedelta(hours=48)
+        )
+        out = storage.to_dict(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+        assert out == {}
+
+
+class TestPrune:
+    """prune mirrors the to_dict filter, mutating _buckets in place."""
+
+    def test_prune_drops_old_buckets(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        old = now - timedelta(hours=48)
+        storage.record_online("sensor.a", float(BUCKET_INTERVAL), old)
+        storage.record_online("sensor.a", float(BUCKET_INTERVAL), now)
+        storage.prune(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+        assert len(storage._buckets["sensor.a"]) == 1
+
+    def test_prune_removes_orphan_entity(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        storage.record_online("sensor.keep", 100.0, now)
+        storage.record_online("sensor.orphan", 100.0, now)
+        storage.prune(now, _WIDE_RETENTION, ["sensor.keep"])
+        assert "sensor.keep" in storage._buckets
+        assert "sensor.orphan" not in storage._buckets
+
+    def test_prune_drops_monitored_entity_with_no_in_window_buckets(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # monitored entity whose buckets all fall outside retention -> kept empty
+        # -> key deleted, not held as an empty list.
+        storage.record_online(
+            "sensor.a", float(BUCKET_INTERVAL), now - timedelta(hours=48)
+        )
+        storage.prune(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+        assert "sensor.a" not in storage._buckets
+
+    def test_prune_empty_retention_clears_all(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        storage.record_online("sensor.a", 100.0, now)
+        storage.prune(now, 0, ["sensor.a"])
+        assert storage._buckets == {}
+
+    def test_prune_never_tighter_than_persist(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # Guard the load/save invariant: prune with the SAME retention as to_dict
+        # must keep exactly the buckets to_dict would serialize — never fewer, or
+        # an options-widen (reload from file) would lose data the file still held.
+        _fill_online(storage, "sensor.a", now - timedelta(hours=30), 360)
+        retention = 25 * 3600 + _MARGIN
+        persisted = storage.to_dict(now, retention, ["sensor.a"])
+        storage.prune(now, retention, ["sensor.a"])
+        assert len(storage._buckets["sensor.a"]) == len(persisted["sensor.a"])
+
+
+class TestWindow24h:
+    """New rolling 24h window: fixed now-24h lookback, min_required=1 (OLD-today)."""
+
+    def test_24h_is_rolling_lookback(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # 24h uses min_required=1 (faithful replacement for old rolling today), so
+        # a couple of completed in-window buckets already yield a value.
+        _fill_online(storage, "sensor.a", now - timedelta(hours=20), 3)
+        result = storage.get_availability("sensor.a", "24h", now)
+        assert result == 100.0
+
+    def test_24h_value_shows_with_single_bucket(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # min_required=1: one completed bucket inside the window is enough (this is
+        # the whole point of 24h vs the 10% longer-window rule — immediate value).
+        _fill_online(storage, "sensor.a", now - timedelta(hours=20), 2)
+        assert storage.get_availability("sensor.a", "24h", now) == 100.0
+
+    def test_24h_excludes_beyond_window(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        # only a bucket 30h back -> outside rolling 24h -> no relevant buckets -> None
+        storage.record_online(
+            "sensor.a", float(BUCKET_INTERVAL), now - timedelta(hours=30)
+        )
+        assert storage.get_availability("sensor.a", "24h", now) is None
+
+
+class TestCalendarTodayDST:
+    """Calendar 'today' + 25h retention on a DST fall-back day.
+
+    America/New_York falls back 2024-11-03: local clocks run 01:59 -> 01:00, so
+    that local day is 25h long. Just before the NEXT local midnight the calendar
+    read reaches ~25h back. Retention MUST be 25h or the save path prunes the
+    oldest buckets the read still needs.
+    """
+
+    def _ny(self):
+        return ZoneInfo("America/New_York")
+
+    def test_calendar_today_cutoff_is_local_midnight(
+        self, storage: AvailabilityStorage
+    ) -> None:
+        tz = self._ny()
+        orig = dt_util.DEFAULT_TIME_ZONE
+        dt_util.set_default_time_zone(tz)
+        try:
+            # 23:55 local on the long day
+            now = datetime(2024, 11, 3, 23, 55, tzinfo=tz).astimezone(timezone.utc)
+            # a bucket just after local midnight (inside today) and one just before
+            # it (yesterday -> excluded)
+            after_midnight = datetime(2024, 11, 3, 0, 5, tzinfo=tz).astimezone(
+                timezone.utc
+            )
+            before_midnight = datetime(2024, 11, 2, 23, 55, tzinfo=tz).astimezone(
+                timezone.utc
+            )
+            storage.record_online("sensor.a", float(BUCKET_INTERVAL), after_midnight)
+            storage.record_online("sensor.a", float(BUCKET_INTERVAL), before_midnight)
+            val = storage.get_availability("sensor.a", "today", now)
+            # today must include the after-midnight bucket -> a value, not None
+            assert val is not None
+        finally:
+            dt_util.set_default_time_zone(orig)
+
+    def test_25h_retention_covers_calendar_today_on_long_day(
+        self, storage: AvailabilityStorage
+    ) -> None:
+        tz = self._ny()
+        orig = dt_util.DEFAULT_TIME_ZONE
+        dt_util.set_default_time_zone(tz)
+        try:
+            now = datetime(2024, 11, 3, 23, 55, tzinfo=tz).astimezone(timezone.utc)
+            local_midnight = datetime(2024, 11, 3, 0, 0, tzinfo=tz).astimezone(
+                timezone.utc
+            )
+            # earliest bucket of the calendar day, ~25h before `now`
+            storage.record_online("sensor.a", float(BUCKET_INTERVAL), local_midnight)
+            # a mid-day bucket so there is more than one sample
+            storage.record_online(
+                "sensor.a", float(BUCKET_INTERVAL), local_midnight + timedelta(hours=12)
+            )
+
+            # 25h retention (today) must KEEP the local-midnight bucket...
+            kept = storage.to_dict(now, 25 * 3600 + _MARGIN, ["sensor.a"])
+            starts_25 = {b["s"] for b in kept["sensor.a"]}
+            assert local_midnight.isoformat() in starts_25
+
+            # ...whereas a naive 24h retention would PRUNE it (regression guard:
+            # proves why _retention_hours('today') must be 25, not 24).
+            kept_24 = storage.to_dict(now, 24 * 3600 + _MARGIN, ["sensor.a"])
+            starts_24 = {b["s"] for b in kept_24["sensor.a"]}
+            assert local_midnight.isoformat() not in starts_24
+        finally:
+            dt_util.set_default_time_zone(orig)

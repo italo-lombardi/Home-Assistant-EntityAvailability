@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Tilgjengelighet (i dag)"
       },
+      "availability_24h": {
+        "name": "Tilgjengelighet (24 timer)"
+      },
       "availability_3d": {
         "name": "Tilgjengelighet (3 dager)"
       },

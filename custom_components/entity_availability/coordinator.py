@@ -18,9 +18,12 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.util import dt as dt_util
 
 from .const import (
     BATTERY_HYSTERESIS,
+    BUCKET_INTERVAL,
+    CONF_AVAILABILITY_WINDOWS,
     CONF_BAD_STATES,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
@@ -34,6 +37,7 @@ from .const import (
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
+    DEFAULT_AVAILABILITY_WINDOWS,
     DEFAULT_BAD_STATES,
     DEFAULT_BATTERY_THRESHOLD,
     DEFAULT_COLLAPSE_DEVICES,
@@ -337,6 +341,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 self._availability_storage = AvailabilityStorage.from_dict(
                     stored["availability"]
                 )
+                # Prune immediately so an oversized pre-fix file does not sit in RAM
+                # (and is not re-serialized at full size on the first save) — the
+                # restart-freeze. Same retention/entity filter as the save path.
+                self._availability_storage.prune(
+                    dt_util.utcnow(), self._retention_seconds(), self._entities
+                )
             if "suppressed" in stored:
                 for entity_id, until_str in stored["suppressed"].items():
                     if entity_id not in self._entities:
@@ -440,6 +450,24 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     if entity_id in self._entities:
                         self._device_states[entity_id] = device
 
+    def _retention_seconds(self) -> float:
+        """Seconds of availability buckets to retain = longest SELECTED window.
+
+        Bounds RAM, on-disk file, and per-save serialize cost to what the selected
+        windows can actually read. 0 when no window is selected (persist nothing).
+        The same value feeds to_dict (save), prune (save + load), so RAM is never
+        trimmed tighter than the file — a widen-after-narrow (which reloads from the
+        file) can only ever recover what the file retained, never less.
+        """
+        windows = self.entry.data.get(
+            CONF_AVAILABILITY_WINDOWS, DEFAULT_AVAILABILITY_WINDOWS
+        )
+        max_hours = max(
+            (AvailabilityStorage._retention_hours(w) for w in windows), default=0
+        )
+        # +15 min margin (3 buckets) so a boundary eviction never races a read.
+        return (max_hours * 3600 + BUCKET_INTERVAL * 3) if max_hours else 0
+
     async def _async_save_storage(self) -> None:
         """Persist availability data."""
         device_states_data: dict[str, dict] = {}
@@ -481,8 +509,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     if device.last_changed
                     else None,
                 }
+        # Bound RAM + disk to the longest selected window, drop orphan entities.
+        # Same now + retention for prune (RAM) and to_dict (disk) so they never diverge.
+        now = dt_util.utcnow()
+        retention_seconds = self._retention_seconds()
+        self._availability_storage.prune(now, retention_seconds, self._entities)
         data = {
-            "availability": self._availability_storage.to_dict(),
+            "availability": self._availability_storage.to_dict(
+                now, retention_seconds, self._entities
+            ),
             "suppressed": {
                 entity_id: until.isoformat() if until else None
                 for entity_id, until in self._suppressed.items()

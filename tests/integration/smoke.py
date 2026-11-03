@@ -72,6 +72,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC92 PR#106: availability_today shows a value immediately (not unknown) — startup fallback
   EC93 PR#109: mtbf per_device present in live state but excluded from recorder — per-device
        mtbf_hours drift alone does not rewrite the sensor (no last_updated sawtooth)
+  EC139 v0.7.1: availability_today reads a value (calendar-day / local-midnight path wired)
+  EC140 v0.7.1: selecting the new 24h window creates a working sensor (guards UnboundLocalError)
+  EC141 v0.7.1: retention bounds the persisted file to the selected window (no fixed-7d store)
+  EC142 v0.7.1: empty window selection persists nothing (empty availability block, no sensor)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -175,6 +179,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Config from env
@@ -6432,6 +6437,229 @@ for e in cfg['data']['entries']:
                     f"foreign_id={foreign_id} err={err}",
                 )
                 _delete_probe()
+
+    # ------------------------------------------------------------------
+    # EC139-EC142: 0.7.1 availability-window changes (calendar today, new 24h
+    # window, retention bounded to selected window). Live wiring guards on top of
+    # the unit coverage in test_storage.py / test_coordinator.py.
+    # ------------------------------------------------------------------
+    if ec_enabled(139):
+        # EC139: calendar "today" sensor reads a value live (not unknown). The
+        # today branch now uses dt_util.start_of_local_day; this proves the
+        # local-midnight path is wired and produces a number on a real HA.
+        print(
+            "\n=== EC139: availability_today (calendar day) reads a value ===",
+            flush=True,
+        )
+        state_139 = gs(f"{prefix}_availability_today").get("state")
+        chk(
+            "EC139 availability_today is numeric (calendar-day path wired)",
+            state_139 not in (None, "unknown", "unavailable"),
+            True,
+            f"state={state_139!r}",
+        )
+
+    if ec_enabled(140):
+        # EC140: the new "24h" rolling window. Default windows are today+7d, so no
+        # 24h sensor exists yet. Add "24h" via the options flow (which reloads the
+        # coordinator), assert the sensor appears AND returns a value — the live
+        # regression guard for the window_hours UnboundLocalError that crashed every
+        # 24h read with data (it would read unknown/unavailable). Restore after.
+        print(
+            "\n=== EC140: new 24h window sensor appears and reads a value ===",
+            flush=True,
+        )
+        avail_24h = f"{prefix}_availability_24h"
+        base_windows = ["today", "7d"]
+        try:
+            r = api(
+                "POST",
+                "/api/config/config_entries/options/flow",
+                {"handler": ctx["entry_id"]},
+            )
+            fid = r["flow_id"]
+            api(
+                "POST",
+                f"/api/config/config_entries/options/flow/{fid}",
+                {
+                    "entities": ctx["entities"],
+                    "non_essential_entities": [],
+                    "bad_states": ["unavailable", "unknown"],
+                    "cooldown": 0,
+                    "staleness_threshold": 0,
+                    "staleness_use_last_updated": False,
+                    "battery_threshold": 0,
+                    "signal_enabled": ctx.get("signal_enabled", False),
+                    "availability_windows": ["today", "24h", "7d"],
+                    "recovery_window": 5,
+                    "use_device_names": False,
+                    "collapse_devices": False,
+                },
+            )
+            # reload + first refresh + one bucket of recording
+            wait(45)
+            st = gs_safe(avail_24h)
+            present = st is not None
+            value = (st or {}).get("state")
+            chk(
+                "EC140 availability_24h sensor exists after selecting 24h window",
+                present,
+                True,
+                f"eid={avail_24h}",
+            )
+            chk(
+                "EC140 availability_24h reads a value (no UnboundLocalError crash)",
+                present and value not in (None, "unknown", "unavailable"),
+                True,
+                f"state={value!r}",
+            )
+        finally:
+            # Restore the original window selection no matter what.
+            try:
+                r = api(
+                    "POST",
+                    "/api/config/config_entries/options/flow",
+                    {"handler": ctx["entry_id"]},
+                )
+                fid = r["flow_id"]
+                api(
+                    "POST",
+                    f"/api/config/config_entries/options/flow/{fid}",
+                    {
+                        "entities": ctx["entities"],
+                        "non_essential_entities": [],
+                        "bad_states": ["unavailable", "unknown"],
+                        "cooldown": 0,
+                        "staleness_threshold": 0,
+                        "staleness_use_last_updated": False,
+                        "battery_threshold": 0,
+                        "signal_enabled": ctx.get("signal_enabled", False),
+                        "availability_windows": base_windows,
+                        "recovery_window": 5,
+                        "use_device_names": False,
+                        "collapse_devices": False,
+                    },
+                )
+                wait(20)
+            except Exception as e:
+                print(f"  EC140 WARN: failed to restore windows: {e}", flush=True)
+
+    # EC141 / EC142 reconfigure the group's windows and inspect the persisted
+    # storage file. An options edit reloads the entry, and the coordinator flushes
+    # dirty state on unload (async_shutdown), so the reconfigure itself forces a
+    # save — no waiting on the periodic save interval. The file lives in the
+    # container at .storage/entity_availability_{entry_id}.
+    def _set_windows(windows):
+        r = api(
+            "POST",
+            "/api/config/config_entries/options/flow",
+            {"handler": ctx["entry_id"]},
+        )
+        fid = r["flow_id"]
+        return api(
+            "POST",
+            f"/api/config/config_entries/options/flow/{fid}",
+            {
+                "entities": ctx["entities"],
+                "non_essential_entities": [],
+                "bad_states": ["unavailable", "unknown"],
+                "cooldown": 0,
+                "staleness_threshold": 0,
+                "staleness_use_last_updated": False,
+                "battery_threshold": 0,
+                "signal_enabled": ctx.get("signal_enabled", False),
+                "availability_windows": windows,
+                "recovery_window": 5,
+                "use_device_names": False,
+                "collapse_devices": False,
+            },
+        )
+
+    def _read_stored_availability():
+        # Read the persisted availability block from the storage file (runs inside
+        # the container where the file lives). Returns {} if absent/empty.
+        import subprocess
+
+        path = (
+            f"/workspaces/home-assistant-core/config/.storage/"
+            f"entity_availability_{ctx['entry_id']}"
+        )
+        try:
+            raw = subprocess.check_output(["cat", path], text=True)
+            return (json.loads(raw).get("data") or {}).get("availability", {})
+        except Exception:
+            return {}
+
+    if ec_enabled(141):
+        # EC141: retention bounds the on-disk file. Select only "today" (~1 day
+        # retention); the persisted availability block must not carry buckets older
+        # than the today retention window (25h + margin). Guards the fixed-7d-always
+        # regression — a "today"-only group must not store a week.
+        print(
+            "\n=== EC141: retention bounds the persisted file to the window ===",
+            flush=True,
+        )
+        try:
+            _set_windows(["today"])
+            wait(30)  # reload + flush-on-unload writes the file
+            avail = _read_stored_availability()
+            cutoff = time.time() - (25 * 3600 + 3 * 300) - 600  # retention + slack
+            oldest_ok = True
+            oldest_seen = None
+            for _eid, buckets in avail.items():
+                for b in buckets:
+                    ts = datetime.fromisoformat(b["s"]).timestamp()
+                    oldest_seen = ts if oldest_seen is None else min(oldest_seen, ts)
+                    if ts < cutoff:
+                        oldest_ok = False
+            chk(
+                "EC141 persisted buckets are within the selected (today) retention",
+                oldest_ok,
+                True,
+                f"entities={len(avail)} oldest_age_h="
+                f"{round((time.time() - oldest_seen) / 3600, 1) if oldest_seen else 'n/a'}",
+            )
+        finally:
+            try:
+                _set_windows(["today", "7d"])
+                wait(20)
+            except Exception as e:
+                print(f"  EC141 WARN: failed to restore windows: {e}", flush=True)
+
+    if ec_enabled(142):
+        # EC142: no windows selected -> nothing persisted. The availability block in
+        # the storage file must be empty and no availability sensor should exist.
+        print(
+            "\n=== EC142: empty window selection persists no availability ===",
+            flush=True,
+        )
+        try:
+            _set_windows([])
+            wait(30)
+            avail = _read_stored_availability()
+            chk(
+                "EC142 empty windows -> persisted availability block is empty",
+                avail,
+                {},
+                f"got {len(avail)} entity key(s)",
+            )
+            today_after = gs_safe(f"{prefix}_availability_today")
+            # Deselecting a window does not delete the entity from the registry; HA
+            # marks it unavailable (its platform no longer adds it). Absent OR
+            # unavailable/unknown both mean "no longer a live availability sensor".
+            today_state = None if today_after is None else today_after.get("state")
+            chk(
+                "EC142 empty windows -> availability_today not live",
+                today_state in (None, "unavailable", "unknown"),
+                True,
+                f"state={today_state!r}",
+            )
+        finally:
+            try:
+                _set_windows(["today", "7d"])
+                wait(20)
+            except Exception as e:
+                print(f"  EC142 WARN: failed to restore windows: {e}", flush=True)
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed

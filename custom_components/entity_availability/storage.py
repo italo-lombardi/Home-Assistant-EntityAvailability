@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
+from homeassistant.util import dt as dt_util
 
 from .const import BUCKET_INTERVAL, BUCKETS_MAX
 
@@ -100,11 +103,19 @@ class AvailabilityStorage:
         if entity_id not in self._buckets or not self._buckets[entity_id]:
             return None
 
+        window_hours = self._window_to_hours(window)
         if window == "today":
-            # Rolling 24h window — timezone-agnostic and consistent across DST changes.
-            cutoff = now - timedelta(hours=24)
+            # Calendar day: midnight in HA's local timezone, converted to UTC for
+            # comparison against the UTC bucket grid. dt_util handles DST (23/25h
+            # days). Known ceiling: buckets sit on a UTC 5-min grid, so in tzs with a
+            # sub-hour offset (e.g. +5:30/+5:45) local midnight lands mid-bucket and
+            # the start edge can be off by up to one 5-min bucket — cosmetic for a
+            # daily KPI, not worth grid rework.
+            cutoff = dt_util.start_of_local_day(dt_util.as_local(now)).astimezone(
+                timezone.utc
+            )
         else:
-            window_hours = self._window_to_hours(window)
+            # Rolling lookback (24h / 3d / 5d / 7d) — timezone-agnostic, DST-safe.
             cutoff = now - timedelta(hours=window_hours)
 
         relevant_buckets = [
@@ -120,8 +131,11 @@ class AvailabilityStorage:
             )
             return None
 
-        # Require at least 1 bucket for "today", 10% for longer windows
-        if window == "today":
+        # Require at least 1 bucket for the ~day windows ("today"/"24h"), 10% for
+        # longer windows. "24h" matches the old "today" behaviour (value shows
+        # almost immediately) so it is a faithful replacement for users who want
+        # the rolling lookback back.
+        if window in ("today", "24h"):
             min_required = 1
         else:
             expected_buckets = window_hours * 12  # 12 buckets per hour
@@ -165,18 +179,61 @@ class AvailabilityStorage:
         """Get availability for all configured windows."""
         return {w: self.get_availability(entity_id, w, now) for w in windows}
 
-    def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict for storage."""
+    def to_dict(
+        self, now: datetime, retention_seconds: float, entity_ids: Iterable[str]
+    ) -> dict[str, Any]:
+        """Serialize to dict for storage.
+
+        Only buckets within ``retention_seconds`` of ``now``, for entities still in
+        ``entity_ids``, are serialized. retention_seconds <= 0 serializes nothing
+        (no availability windows selected). This bounds the on-save serialize cost
+        and the on-disk file to the longest selected window and drops orphan buckets
+        left by entities no longer monitored.
+        """
+        if retention_seconds <= 0:
+            return {}
+        monitored = set(entity_ids)
+        cutoff = now - timedelta(seconds=retention_seconds)
         result: dict[str, Any] = {}
         for entity_id, buckets in self._buckets.items():
-            result[entity_id] = [
+            if entity_id not in monitored:
+                continue
+            kept = [
                 {
                     "s": b.interval_start.isoformat(),
                     "o": round(b.online_seconds, 1),
                 }
                 for b in buckets
+                if b.interval_start >= cutoff
             ]
+            if kept:  # skip monitored-but-dataless entities — keep the file minimal
+                result[entity_id] = kept
         return result
+
+    def prune(
+        self, now: datetime, retention_seconds: float, entity_ids: Iterable[str]
+    ) -> None:
+        """Drop in-RAM buckets outside the retention window or for unmonitored entities.
+
+        Mirrors the to_dict filter so RAM, disk, and serialize cost all track the
+        longest selected window. Must never be MORE aggressive than the persisted
+        retention, or an options-widen (which reloads the coordinator from the file)
+        would lose data the file still held. retention_seconds <= 0 clears everything.
+        """
+        if retention_seconds <= 0:
+            self._buckets.clear()
+            return
+        monitored = set(entity_ids)
+        cutoff = now - timedelta(seconds=retention_seconds)
+        for entity_id in list(self._buckets):
+            if entity_id not in monitored:
+                del self._buckets[entity_id]
+                continue
+            kept = [b for b in self._buckets[entity_id] if b.interval_start >= cutoff]
+            if kept:
+                self._buckets[entity_id] = kept
+            else:  # drop the key entirely rather than hold an empty list
+                del self._buckets[entity_id]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AvailabilityStorage:
@@ -205,8 +262,10 @@ class AvailabilityStorage:
 
     @staticmethod
     def _window_to_hours(window: str) -> int:
-        """Convert window string to hours."""
+        """Convert window string to hours (read-side span)."""
         if window == "today":
+            return 24
+        if window == "24h":
             return 24
         if window == "3d":
             return 72
@@ -216,3 +275,16 @@ class AvailabilityStorage:
             return 168
         _LOGGER.warning("Unknown availability window '%s', defaulting to 24h", window)
         return 24
+
+    @staticmethod
+    def _retention_hours(window: str) -> int:
+        """Hours of buckets to RETAIN for a window.
+
+        Differs from the read span only for "today": a calendar day reaches 25h on a
+        DST fall-back day, so retaining 24h would prune the oldest ~45min the read
+        still needs. Every other window's read is a fixed-duration lookback fully
+        covered by its own hours.
+        """
+        if window == "today":
+            return 25
+        return AvailabilityStorage._window_to_hours(window)

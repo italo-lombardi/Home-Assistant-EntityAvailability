@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "可用性（今日）"
       },
+      "availability_24h": {
+        "name": "可用性（24 小時）"
+      },
       "availability_3d": {
         "name": "可用性（3 天）"
       },

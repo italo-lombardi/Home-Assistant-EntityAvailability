@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Διαθεσιμότητα (Σήμερα)"
       },
+      "availability_24h": {
+        "name": "Διαθεσιμότητα (24 ώρες)"
+      },
       "availability_3d": {
         "name": "Διαθεσιμότητα (3 ημέρες)"
       },

@@ -180,6 +180,9 @@
       "availability_today": {
         "name": "Elérhetőség (ma)"
       },
+      "availability_24h": {
+        "name": "Elérhetőség (24 óra)"
+      },
       "availability_3d": {
         "name": "Elérhetőség (3 nap)"
       },

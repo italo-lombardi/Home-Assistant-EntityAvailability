@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.1] - 2026-11-03
+
+### Added
+- **New "24h" availability window** — a rolling 24-hour lookback, offered in the availability-windows picker but **unticked by default**. This is the behaviour `today` had before this release (see Changed); tick it if you want a trailing-24h figure alongside the calendar day. Selecting it creates a `sensor.*_availability_24h`.
+
+### Changed
+- **`today` is now a calendar day, not a rolling 24 hours.** The `today` availability window is measured from **local midnight** (your Home Assistant timezone, DST-safe), matching what the label means, instead of the previous trailing-24h window. Just after midnight the value reflects "since midnight" (little data yet, so it may read low or briefly as unknown until the first post-midnight bucket closes). Existing `sensor.*_availability_today` entities keep their entity_id and history — only the computation changes. Want the old behaviour back? Tick the new **24h** window.
+- **Availability history is retained only for the longest *selected* window.** Previously the store always kept a fixed 7 days of 5-minute buckets regardless of which windows you selected — so a "today"-only group still stored (and re-serialized on every save) a full week, and a group with no windows selected still persisted 7 days despite having no availability sensor. Retention now tracks the longest selected window: `today`/`24h` keep ~a day, `7d` keeps a week, **no windows selected persists nothing**. This bounds both memory and the on-disk file, and sharply cuts the per-save serialization cost that could stall Home Assistant on large groups. Buckets for entities no longer in the group are also dropped instead of being carried forever.
+
+### Fixed
+- **Large groups could freeze Home Assistant periodically.** On a group with many monitored entities, every save re-serialized the entire 7-day bucket history for every entity on the event loop, blocking it for seconds at a time. Retention is now bounded to the selected window (above) and oversized history is pruned immediately on load (not only on the next save), so the file — and the per-save cost — shrink right away instead of after one more full-size save.
+
+### Notes
+- **Narrowing a window discards history beyond the new retention; widening later does not recover it.** Switching a group from, say, `7d` to `today` drops buckets older than the new retention on the next save; re-selecting `7d` later starts retaining a week again from that point but cannot restore what was dropped.
+- **Minimum Home Assistant version unchanged (2025.11.0).**
+
 ## [0.7.0] - 2026-11-03
 
 ### Added
