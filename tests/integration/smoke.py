@@ -4087,7 +4087,19 @@ def run_checks(ctx):
             flush=True,
         )
         target_entity = ctx["entities"][0]
-        signal_sensor = f"sensor.{target_entity.split('.')[-1]}_linkquality"
+        # Canonical signal-sensor name: the integration's _detect_signal_entity
+        # STRIPS a trailing _last_seen/_last_updated before appending the signal
+        # suffix, so for 'sensor.foo_last_seen' the sensor is 'sensor.foo_linkquality'
+        # (NOT 'sensor.foo_last_seen_linkquality'). Mirror that stripping so the
+        # submitted sensor matches what the signal fixture already mapped + what the
+        # flow would auto-detect — otherwise the EntitySelector-validated submit is
+        # dropped and the pre-existing fixture mapping survives (the EC51 FAIL).
+        _slug = target_entity.split(".", 1)[1]
+        for _suf in ("_last_seen", "_last_updated"):
+            if _slug.endswith(_suf):
+                _slug = _slug[: -len(_suf)]
+                break
+        signal_sensor = f"sensor.{_slug}_linkquality"
         # Create a synthetic signal sensor so the flow can accept it
         ss(
             signal_sensor,
