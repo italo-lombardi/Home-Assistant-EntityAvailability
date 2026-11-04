@@ -6226,12 +6226,41 @@ for e in cfg['data']['entries']:
             # any sibling entity moving during the observation window can rewrite
             # it; these scalars let EC89 detect that and skip-loud instead of
             # false-failing.
+            # Snapshot EVERY recorded scalar the combined view publishes — not
+            # just the three EC88 drives. combined_summary aggregates N
+            # coordinators; on an --all run an earlier EC can leave a sibling
+            # settling (a stale flip, a battery/suppress change, a poor-signal
+            # move) DURING EC89's 85 s churn window. Any such move is a LEGIT
+            # combined rewrite that advances last_updated, but is invisible to a
+            # 3-field guard — so EC89 false-FAILs ("spurious write") on --all
+            # while passing in isolation. Watch the full scalar set so any
+            # sibling move trips the skip-loud path instead. Deliberately EXCLUDE
+            # the volatile maps (last_seen / battery_levels / signal_levels /
+            # signal_units / offline_since / suppressed_until / display_names):
+            # WriteDedupMixin strips those from the dedup view so they do NOT
+            # advance last_updated — guarding them would over-fire and make EC89
+            # skip every run.
+            _SCALAR_KEYS = (
+                "offline",
+                "online",
+                "non_essential",
+                "non_essential_offline",
+                "non_essential_online",
+                "non_essential_suppressed",
+                "suppressed",
+                "stale",
+                "poor_signal",
+                "low_battery",
+                "battery_powered",
+                "total_entities",
+                "status",
+                "status_color",
+            )
+
             def _combined_scalars():
                 a = gs(summary_eid_86).get("attributes", {})
-                return (
-                    gs(summary_eid_86).get("state"),
-                    a.get("offline"),
-                    a.get("non_essential_offline"),
+                return (gs(summary_eid_86).get("state"),) + tuple(
+                    a.get(k) for k in _SCALAR_KEYS
                 )
 
             # EC88: positive control. A real member-touching settle (drive the
