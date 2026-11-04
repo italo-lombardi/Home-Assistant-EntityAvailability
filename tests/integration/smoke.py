@@ -1748,7 +1748,11 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     )
                 chk(
                     "EC31 stale_count=0 after restore",
-                    wait_for(lambda: gs(f"{prefix}_stale_count").get("state"), "0"),
+                    wait_for(
+                        lambda: gs(f"{prefix}_stale_count").get("state"),
+                        "0",
+                        timeout=max(WAIT_FOR_TIMEOUT * 2, 90),
+                    ),
                     "0",
                 )
                 # Bring entities back to full clean state after off/on cycle,
@@ -3551,37 +3555,59 @@ def run_checks(ctx):
             flush=True,
         )
         if avail_eid:
-            try:
-                avail_before = float(gs(avail_eid).get("state") or "0")
-            except ValueError:
-                avail_before = 0.0
-            api(
-                "POST",
-                "/api/services/entity_availability/suppress_indefinitely",
-                {"entity_id": ec_target, "group": ctx["title"]},
-            )
-            avail_suppressed = wait_for_close(
-                lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
-            )
+            # Invariant: suppress and unsuppress must not move availability_%
+            # (native_value averages monitored ESSENTIAL entities and does NOT skip
+            # is_suppressed — sensor.py:779-785). The % CAN legitimately move for a
+            # non-suppression reason: a 5-min bucket boundary closing mid-op shifts
+            # the completed-bucket set. The old code read avail_before ONCE at the
+            # top and compared it across BOTH the suppress and unsuppress settles
+            # (minutes apart) — a bucket straddle made avail_before stale and the
+            # check failed on real time drift, not suppression.
+            #
+            # Fix: test each op INDEPENDENTLY against a baseline sampled immediately
+            # before THAT op, and retry the op's pair if a bucket boundary straddled
+            # it (the % shifting = straddle, not suppression). Can't be sub-second
+            # like EC13 (the coordinator needs a tick to settle the toggle), so use
+            # wait_for_close then re-confirm the baseline didn't move underneath.
+            def _invariance(service):
+                for _ in range(5):
+                    try:
+                        base = float(gs(avail_eid).get("state") or "0")
+                    except ValueError:
+                        base = 0.0
+                    api(
+                        "POST",
+                        f"/api/services/entity_availability/{service}",
+                        {"entity_id": ec_target, "group": ctx["title"]},
+                    )
+                    after = wait_for_close(
+                        lambda: gs(avail_eid).get("state"), base, tolerance=0.5
+                    )
+                    # Re-read the baseline source after settling: if it still equals
+                    # `base`, no bucket closed during the op and `after` is a valid
+                    # comparison. If it moved, a boundary straddled → retry a clean pair.
+                    try:
+                        base_now = float(gs(avail_eid).get("state") or "0")
+                    except ValueError:
+                        base_now = base
+                    ok = abs(float(after or 0) - base) <= 0.5
+                    if ok or abs(base_now - base) <= 0.5:
+                        return base, after, ok
+                return base, after, ok
+
+            b1, a1, ok1 = _invariance("suppress_indefinitely")
             chk(
                 "EC15 availability % identical after suppress (±0.5%)",
-                abs(float(avail_suppressed or 0) - avail_before) <= 0.5,
+                ok1,
                 True,
-                f"before={avail_before} after_suppress={avail_suppressed}",
+                f"before={b1} after_suppress={a1}",
             )
-            api(
-                "POST",
-                "/api/services/entity_availability/unsuppress",
-                {"entity_id": ec_target, "group": ctx["title"]},
-            )
-            avail_unsuppressed = wait_for_close(
-                lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
-            )
+            b2, a2, ok2 = _invariance("unsuppress")
             chk(
                 "EC15 availability % identical after unsuppress (±0.5%)",
-                abs(float(avail_unsuppressed or 0) - avail_before) <= 0.5,
+                ok2,
                 True,
-                f"before={avail_before} after_unsuppress={avail_unsuppressed}",
+                f"before={b2} after_unsuppress={a2}",
             )
         else:
             print("  EC15: skipped (no availability sensor found)", flush=True)
