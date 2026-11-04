@@ -226,17 +226,45 @@ class TestWindowCalculation:
     def test_get_availability_only_in_progress_bucket_shows_value(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
-        """A brand-new entity with only the current in-progress bucket (no
-        completed bucket yet) shows a value IMMEDIATELY, not None — the sensor
-        must not read "unknown" for the first 5 minutes after setup. The
-        in-progress bucket is the fallback source only until the first bucket
-        completes, after which the stable completed-only path takes over."""
-        storage.record_online("sensor.new", 120.0, now)
-        result = storage.get_availability("sensor.new", "today", now)
+        """A brand-new entity with only the current in-progress bucket (no completed
+        bucket yet) shows a value IMMEDIATELY, not None — the sensor must not read
+        "unknown" for the first 5 minutes after setup or after a calendar-"today"
+        rollover. Its denominator is the ELAPSED time in the bucket, not the full
+        5-minute interval, so a fully-online device reads ~100% from the first poll
+        instead of a spurious low value that ramps up (the midnight-collapse bug)."""
+        # Bucket starts at the 5-min slot of `now`; place the reading 120 s into it
+        # with the device online the whole time → 120 online / 120 elapsed = 100%.
+        start = storage._get_interval_start(now)
+        probe = start + timedelta(seconds=120)
+        storage.record_online("sensor.new", 120.0, probe)
+        result = storage.get_availability("sensor.new", "today", probe)
         assert result is not None
-        # 120 s online / 300 s bucket denominator = 40.0 (fills toward 100 as the
-        # bucket completes; a one-time startup ramp, not steady-state jitter).
-        assert result == 40.0
+        # online == elapsed → fully online → 100%, NOT 40% (=120/300, the old bug).
+        assert result == 100.0
+
+    def test_get_availability_in_progress_partial_online_elapsed_ratio(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """In-progress-only ratio uses online/elapsed. A device online 90 s of the
+        first 120 s of the bucket reads 75%, not 30% (=90/300)."""
+        start = storage._get_interval_start(now)
+        probe = start + timedelta(seconds=120)
+        # 90 s online out of 120 s elapsed.
+        storage.record_online("sensor.new", 90.0, probe)
+        result = storage.get_availability("sensor.new", "today", probe)
+        assert result == 75.0
+
+    def test_get_availability_in_progress_clamps_at_100(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """online_seconds marginally exceeding elapsed (poll-timing skew) must clamp
+        to 100%, never print 100.x%."""
+        start = storage._get_interval_start(now)
+        probe = start + timedelta(seconds=100)
+        # Book MORE online than elapsed (101 > 100) — skew. Must clamp to 100.0.
+        storage.record_online("sensor.new", 101.0, probe)
+        result = storage.get_availability("sensor.new", "today", probe)
+        assert result == 100.0
 
     def test_get_availability_0_percent(
         self, storage: AvailabilityStorage, now: datetime

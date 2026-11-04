@@ -38,8 +38,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC19 PR#53: combined config entry has non-empty entry_id (event payload source)
   EC20 PR#53: individual group offline_count sensor rises when entity in combined group goes offline
   EC21 PR#53: individual and combined offline_entities sensors both reflect the offline entity
-  EC22 PR#54: entity_availability_low_battery event fires when battery drops below threshold
-  EC23 PR#54: entity_availability_battery_ok event fires when battery recovers above threshold
+  EC22 PR#54: low_battery_count rises when battery drops below threshold (sensor
+       transition proxy — NOT the bus event)
+  EC23 PR#54: low_battery_count clears when battery recovers above threshold (sensor
+       transition proxy; the REAL entity_availability_battery_ok bus event is EC144)
   EC24 combined offline event carries source_groups list (websocket; skipped if websocket-client absent)
 
   EC43 group_summary battery_enabled matches battery_threshold config
@@ -732,19 +734,24 @@ def restore_all(ctx):
 
 
 def restore_and_wait(ctx):
-    """restore_all then poll until offline_count=0 and low_battery_count=0."""
+    """restore_all then poll until offline_count=0 and low_battery_count=0.
+
+    Both counters are OPTIONAL per group: a signal-only (battery-less) group has
+    no low_battery_count sensor, and a bare group may lack either. Poll via
+    gs_safe and skip a counter that does not exist — a 404 there means "this
+    group has no such sensor", not a failure. (A bare gs() here 404-raised
+    through wait_for and flipped a clean run to EXIT=1 once the signal fixture
+    started routing through restore_and_wait.)
+    """
     restore_all(ctx)
     prefix = ctx["prefix"]
-    wait_for(
-        lambda: gs(f"{prefix}_offline_count").get("state"),
-        "0",
-        timeout=WAIT_FOR_TIMEOUT,
-    )
-    wait_for(
-        lambda: gs(f"{prefix}_low_battery_count").get("state"),
-        "0",
-        timeout=WAIT_FOR_TIMEOUT,
-    )
+    for counter in ("offline_count", "low_battery_count"):
+        if gs_safe(f"{prefix}_{counter}") is not None:
+            wait_for(
+                lambda c=counter: (gs_safe(f"{prefix}_{c}") or {}).get("state"),
+                "0",
+                timeout=WAIT_FOR_TIMEOUT,
+            )
 
 
 def reload_entry(ctx):
@@ -1143,6 +1150,37 @@ def _provision_signal_fixture():
         }
     except Exception as exc:  # best-effort
         print(f"  signal fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _provision_shared_fixture(shared_entity):
+    """EC12 (group-scoped suppress): provision a SECOND group that monitors the
+    same entity as the pass-1 target, so EC12's sibling-discovery finds a group
+    sharing an entity. Without a sharing sibling EC12 can only skip (group-scoped
+    suppression is unobservable with one group). `shared_entity` is the pass-1
+    target's entity[0] (the one EC12 suppresses in Alpha and checks stays
+    unsuppressed in Beta). No battery/signal/NE → the capability router never
+    routes a pass here; it exists purely to be the sibling.
+    """
+    group_name = _FIX_PREFIX + "Shared"
+    if not shared_entity:
+        return None
+    try:
+        existing = _ea_entries_by_title().get(group_name)
+        if existing:
+            return {"group_entry_id": existing, "entity": shared_entity}
+        fid, r_adv = _create_group(group_name, [shared_entity])
+        if r_adv.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  shared fixture: create did not finish "
+                f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {"group_entry_id": r_adv["result"]["entry_id"], "entity": shared_entity}
+    except Exception as exc:  # best-effort
+        print(f"  shared fixture: provisioning failed: {exc}", flush=True)
         return None
 
 
@@ -1684,38 +1722,67 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                         time.sleep(10)
 
                 # Capture window MUST outlast the full stale onset (threshold+2 min)
-                # or the socket closes before the event fires (total_events=0).
+                # AND the combined's relay, which fires on the combined coordinator's
+                # NEXT tick AFTER the member goes stale (up to WAIT_FOR_TIMEOUT later).
+                # A tight +30s margin let the combined's relayed stale land after the
+                # socket closed (total_events=0) on a slow run — widen it so the
+                # combined tick is always inside the window.
                 stale_timeout = (threshold + 2) * 60
                 stale_events = capture_events(
                     "entity_availability_stale",
                     _wait_fix_stale,
-                    timeout=stale_timeout + 30,
+                    timeout=stale_timeout + max(WAIT_FOR_TIMEOUT * 2, 60),
                 )
+                # Separate the two failure modes (as EC137 does): confirm the MEMBER
+                # group actually went stale. member=0 → the template sensor never
+                # aged past the threshold in-window (a settle/timing miss, not a
+                # relay bug); member=1 + combined=0 → a real combined-relay bug.
+                member_stale = False
+                try:
+                    member_stale = (
+                        int(gs(f"{fix_prefix}_stale_count").get("state", "0") or 0) > 0
+                    )
+                except (TypeError, ValueError):
+                    pass
                 combined_stale = [
                     e for e in stale_events if e.get("entry_id") == combined_entry_id
                 ]
-                chk(
-                    "EC136 combined stale event captured",
-                    len(combined_stale) > 0,
-                    True,
-                    f"combined_entry_id={combined_entry_id} total_events={len(stale_events)}",
-                )
-                if combined_stale:
-                    ev = combined_stale[0]
-                    chk(
-                        "EC136 combined stale source_groups is non-empty list",
-                        isinstance(ev.get("source_groups"), list)
-                        and len(ev.get("source_groups", [])) > 0,
-                        True,
-                        f"source_groups={ev.get('source_groups')}",
+                if not member_stale and not combined_stale:
+                    # Member never went stale → nothing could relay. This is a
+                    # fixture-timing miss, not a relay defect; skip loud rather than
+                    # record a spurious RED (same disposition as EC31's stale miss).
+                    print(
+                        "  EC136: skipped (member group did not go stale in-window — "
+                        "template sensor aging miss, not a relay bug)",
+                        flush=True,
                     )
+                    _teardown_stale_fixture(fix)
+                else:
                     chk(
-                        "EC136 combined stale stale_count is int",
-                        isinstance(ev.get("stale_count"), int),
+                        "EC136 combined stale event captured",
+                        len(combined_stale) > 0,
                         True,
-                        f"stale_count={ev.get('stale_count')}",
+                        f"combined_entry_id={combined_entry_id} "
+                        f"total_events={len(stale_events)} member_stale={member_stale} "
+                        f"(member=0 → settle miss not relay bug; "
+                        f"member=1 + combined=0 → real relay bug)",
                     )
-                _teardown_stale_fixture(fix)
+                    if combined_stale:
+                        ev = combined_stale[0]
+                        chk(
+                            "EC136 combined stale source_groups is non-empty list",
+                            isinstance(ev.get("source_groups"), list)
+                            and len(ev.get("source_groups", [])) > 0,
+                            True,
+                            f"source_groups={ev.get('source_groups')}",
+                        )
+                        chk(
+                            "EC136 combined stale stale_count is int",
+                            isinstance(ev.get("stale_count"), int),
+                            True,
+                            f"stale_count={ev.get('stale_count')}",
+                        )
+                    _teardown_stale_fixture(fix)
 
     # EC32: any_low_battery binary sensor
     if ec_enabled(32) and essential_entities:
@@ -2378,6 +2445,10 @@ def run_all():
     numbatt = _provision_numeric_battery_fixture()
     _provision_signal_fixture()
     _provision_both_tiers_fixture()
+    # EC12 needs a 2nd group sharing an entity with the pass-1 target. Point the
+    # shared sibling at the numeric-battery fixture's entity[0] (the pass-1 target's
+    # entities[0], which EC12 suppresses) so EC12's sibling-discovery finds it.
+    _provision_shared_fixture(numbatt.get("entity") if numbatt else None)
     # Combined owns the numeric-battery group (the ess_batt target the combined-
     # relay ECs route to) so EC16-24/66 find a combined owner instead of skipping.
     _provision_combined_fixture(numbatt.get("group_entry_id") if numbatt else None)
@@ -2475,10 +2546,13 @@ def _run_all_passes():
     # battery-COUNT family (EC4/22/23/65) only needs low/not-low, so it stays in
     # pass 1 on any essential-mapped-battery group.
     battery_level_ecs = {59, 90}
-    # Signal ECs that need the signal fixture specifically: EC50 (any_poor_signal
-    # reachable) + EC52 (_last_seen suffix strip). Other signal ECs (47-49, 51)
-    # work on any signal group and ride pass 1.
-    signal_ecs = {50, 52}
+    # Signal ECs that need a signal-mapped group: EC50 (any_poor_signal reachable),
+    # EC52 (_last_seen suffix strip), EC47 (poor_signal_count reachable), EC51
+    # (signal_entity_map round-trip). The pass-1 target (EA Fix Numeric Battery)
+    # has NO signal map, so 47 skipped + 51 FAILED there — route all four to the
+    # signal fixture (EA Fix Signal) instead. EC48/49 read attrs any group exposes
+    # and stay in pass 1.
+    signal_ecs = {47, 50, 51, 52}
     # 1) The broad slice an essential-mapped-battery + signal + combined group
     #    satisfies: core, battery-count family, signal, combined, collapse-attr,
     #    recorder, EC12/EC82 (which have NO dedicated pass). Everything EXCEPT
@@ -2509,7 +2583,8 @@ def _run_all_passes():
     # 4) Battery-LEVEL ECs on a NUMERIC-battery group (drive-to-value).
     if numeric_batt:
         passes.append(("battery-level", numeric_batt, "", battery_level_ecs))
-    # 5) Signal ECs needing the signal fixture (_last_seen + any_poor_signal).
+    # 5) Signal ECs needing the signal fixture (_last_seen + any_poor_signal +
+    #    poor_signal_count + signal_entity_map round-trip).
     if signal_grp:
         passes.append(("signal-fixture", signal_grp, "", signal_ecs))
 
@@ -2526,7 +2601,7 @@ def _run_all_passes():
     if not collapse_grp:
         dark.append("collapse fixture (EC86,87,88,89,117): no collapse-active group")
     if not signal_grp:
-        dark.append("signal ECs (EC50,52): no signal group")
+        dark.append("signal ECs (EC47,50,51,52): no signal group")
     for d in dark:
         print(f"  DARK (will not run): {d}", flush=True)
 
@@ -3277,20 +3352,49 @@ def run_checks(ctx):
         if avail_eid:
             ss(ec_target, "unavailable", {"friendly_name": "test"})
             wait()
-            avail_mid = gs(avail_eid).get("state")
-            # Read immediately before and after suppress — coordinator fires
-            # async_set_updated_data synchronously so value updates in same tick.
-            api(
-                "POST",
-                "/api/services/entity_availability/suppress_indefinitely",
-                {"entity_id": ec_target, "group": ctx["title"]},
-            )
-            avail_after_suppress = gs(avail_eid).get("state")
+            # Invariant: suppressing an offline entity must not move availability_%
+            # (native_value averages monitored ESSENTIAL entities and does NOT skip
+            # is_suppressed — sensor.py:779-785 — so the entity set is identical
+            # before/after suppress). The only thing that CAN move the % between two
+            # reads is TIME: on a fresh fixture with no completed bucket,
+            # get_availability uses online/ELAPSED (the midnight cold-start path) so
+            # the value climbs with wall-clock, and a 5-min bucket boundary landing
+            # between the reads shifts the completed set. Neither is suppression.
+            #
+            # So read mid → suppress (synchronous: coordinator fires
+            # async_set_updated_data in the same tick) → read after, BACK-TO-BACK
+            # (sub-second apart → ~0 elapsed drift, rounds identical on any path),
+            # and RETRY the whole triple if they differ: a mismatch can only be a
+            # bucket boundary straddling the two reads, which a retry dodges. No
+            # fixed completed-bucket wait (would cost a full BUCKET_INTERVAL) and no
+            # skip — deterministic within a bounded number of tries.
+            avail_mid = avail_after_suppress = None
+            _tries = 0
+            while _tries < 5:
+                _tries += 1
+                avail_mid = gs(avail_eid).get("state")
+                api(
+                    "POST",
+                    "/api/services/entity_availability/suppress_indefinitely",
+                    {"entity_id": ec_target, "group": ctx["title"]},
+                )
+                avail_after_suppress = gs(avail_eid).get("state")
+                if avail_after_suppress == avail_mid:
+                    break
+                # Mismatch = a bucket boundary straddled the pair (not suppression).
+                # Unsuppress, let the write settle, and re-sample a clean pair.
+                api(
+                    "POST",
+                    "/api/services/entity_availability/unsuppress",
+                    {"entity_id": ec_target, "group": ctx["title"]},
+                )
+                wait(3)
             chk(
                 "EC13 availability % unchanged immediately after suppressing offline entity",
                 avail_after_suppress,
                 avail_mid,
-                f"sensor={avail_eid} after_offline={avail_mid} after_suppress={avail_after_suppress}",
+                f"sensor={avail_eid} after_offline={avail_mid} "
+                f"after_suppress={avail_after_suppress} tries={_tries}",
             )
             api(
                 "POST",
@@ -3673,7 +3777,8 @@ def run_checks(ctx):
     if ec_enabled(22) and battery_sensor and battery_entity:
         restore_and_wait(ctx)
         print(
-            "\n=== EC22: entity_availability_low_battery event proxy (sensor transition) ===",
+            "\n=== EC22: low_battery_count rises on battery drop "
+            "(sensor transition — not the bus event) ===",
             flush=True,
         )
         baseline = gs(f"{prefix}_low_battery_count").get("state", "0")
@@ -3691,7 +3796,7 @@ def run_checks(ctx):
             str(int(baseline) + 1),
         )
         chk(
-            "EC22 low_battery_count rose (low_battery event fired)",
+            "EC22 low_battery_count rose on battery drop (sensor only)",
             after,
             str(int(baseline) + 1),
             f"baseline={baseline} after={after}",
@@ -3721,7 +3826,8 @@ def run_checks(ctx):
                 "1",
             )
         print(
-            "\n=== EC23: entity_availability_battery_ok event proxy (sensor transition) ===",
+            "\n=== EC23: low_battery_count clears on battery recovery "
+            "(sensor transition — the REAL battery_ok bus event is EC144) ===",
             flush=True,
         )
         high_val = "90"
@@ -3739,7 +3845,7 @@ def run_checks(ctx):
             "0",
         )
         chk(
-            "EC23 low_battery_count dropped to 0 (battery_ok event fired)",
+            "EC23 low_battery_count dropped to 0 on battery recovery (sensor only)",
             after_ok,
             "0",
             f"after={after_ok}",
@@ -4044,7 +4150,19 @@ def run_checks(ctx):
             flush=True,
         )
         target_entity = ctx["entities"][0]
-        signal_sensor = f"sensor.{target_entity.split('.')[-1]}_linkquality"
+        # Canonical signal-sensor name: the integration's _detect_signal_entity
+        # STRIPS a trailing _last_seen/_last_updated before appending the signal
+        # suffix, so for 'sensor.foo_last_seen' the sensor is 'sensor.foo_linkquality'
+        # (NOT 'sensor.foo_last_seen_linkquality'). Mirror that stripping so the
+        # submitted sensor matches what the signal fixture already mapped + what the
+        # flow would auto-detect — otherwise the EntitySelector-validated submit is
+        # dropped and the pre-existing fixture mapping survives (the EC51 FAIL).
+        _slug = target_entity.split(".", 1)[1]
+        for _suf in ("_last_seen", "_last_updated"):
+            if _slug.endswith(_suf):
+                _slug = _slug[: -len(_suf)]
+                break
+        signal_sensor = f"sensor.{_slug}_linkquality"
         # Create a synthetic signal sensor so the flow can accept it
         ss(
             signal_sensor,
@@ -6120,12 +6238,41 @@ for e in cfg['data']['entries']:
             # any sibling entity moving during the observation window can rewrite
             # it; these scalars let EC89 detect that and skip-loud instead of
             # false-failing.
+            # Snapshot EVERY recorded scalar the combined view publishes — not
+            # just the three EC88 drives. combined_summary aggregates N
+            # coordinators; on an --all run an earlier EC can leave a sibling
+            # settling (a stale flip, a battery/suppress change, a poor-signal
+            # move) DURING EC89's 85 s churn window. Any such move is a LEGIT
+            # combined rewrite that advances last_updated, but is invisible to a
+            # 3-field guard — so EC89 false-FAILs ("spurious write") on --all
+            # while passing in isolation. Watch the full scalar set so any
+            # sibling move trips the skip-loud path instead. Deliberately EXCLUDE
+            # the volatile maps (last_seen / battery_levels / signal_levels /
+            # signal_units / offline_since / suppressed_until / display_names):
+            # WriteDedupMixin strips those from the dedup view so they do NOT
+            # advance last_updated — guarding them would over-fire and make EC89
+            # skip every run.
+            _SCALAR_KEYS = (
+                "offline",
+                "online",
+                "non_essential",
+                "non_essential_offline",
+                "non_essential_online",
+                "non_essential_suppressed",
+                "suppressed",
+                "stale",
+                "poor_signal",
+                "low_battery",
+                "battery_powered",
+                "total_entities",
+                "status",
+                "status_color",
+            )
+
             def _combined_scalars():
                 a = gs(summary_eid_86).get("attributes", {})
-                return (
-                    gs(summary_eid_86).get("state"),
-                    a.get("offline"),
-                    a.get("non_essential_offline"),
+                return (gs(summary_eid_86).get("state"),) + tuple(
+                    a.get(k) for k in _SCALAR_KEYS
                 )
 
             # EC88: positive control. A real member-touching settle (drive the
@@ -7165,12 +7312,17 @@ for e in cfg['data']['entries']:
     if ec125_deleted:
         return
     restore_all(ctx)
+    # Diagnostic prints only. Use gs_safe + 'n/a' — a battery-less/signal group has
+    # no low_battery_count sensor, and a bare gs() here 404-raised to EXIT=1 on an
+    # otherwise clean run (same bug class as the restore_and_wait fix, separate site).
+    _oc = gs_safe(f"{prefix}_offline_count")
+    _lbc = gs_safe(f"{prefix}_low_battery_count")
     print(
-        f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
+        f"offline_count={_oc.get('state') if _oc else 'n/a'} (expected 0)",
         flush=True,
     )
     print(
-        f"low_battery_count={gs(f'{prefix}_low_battery_count').get('state')} (expected 0)",
+        f"low_battery_count={_lbc.get('state') if _lbc else 'n/a'} (expected 0)",
         flush=True,
     )
 

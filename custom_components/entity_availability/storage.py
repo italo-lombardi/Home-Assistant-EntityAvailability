@@ -143,35 +143,57 @@ class AvailabilityStorage:
         if len(relevant_buckets) < min_required:
             return None
 
-        # Exclude the CURRENT in-progress bucket from the ratio ONCE at least one
-        # bucket has completed. Its online_seconds climbs ~30 s per poll while real
-        # time also grows, so mixing it with the completed history makes the
-        # whole-window rounded % cross a 0.1 boundary every poll — a recorder write
-        # each poll with no real change (~7000 rows/day observed). Averaging only
-        # COMPLETED buckets makes the value STABLE between polls within a fixed
-        # window membership: it can then change only when the membership changes —
-        # a bucket closing, or (once the window is full) the trailing bucket being
-        # evicted as the cutoff advances. Both are real ~per-5-min data points, not
-        # a per-poll sawtooth. Trade-off: the % lags reality by up to one bucket
-        # (≤5 min) — fine for a rolling KPI; offline_count / the binary sensors
-        # give instant status.
-        #
-        # EXCEPTION: before any bucket has completed (the first ≤5 min after
-        # setup) the in-progress bucket is all we have — use it so the sensor
-        # shows a value immediately instead of "unknown". Its ratio drifts as the
-        # bucket fills, but only this once and only until the first bucket closes,
-        # after which the completed-only path takes over and the value is stable.
+        # Prefer COMPLETED buckets for the ratio: the in-progress bucket's
+        # online_seconds climbs every poll while real time also grows, so mixing it
+        # with completed history makes the whole-window rounded % cross a 0.1 boundary
+        # every poll — a recorder write each poll with no real change (~7000 rows/day
+        # observed). Averaging only COMPLETED buckets keeps the value STABLE between
+        # polls: it changes only when membership changes (a bucket closing, or the
+        # trailing bucket evicted as the cutoff advances) — real ~per-5-min data
+        # points, not a per-poll sawtooth. Trade-off: the % lags reality by up to one
+        # bucket (≤5 min); offline_count / the binary sensors give instant status.
         newest_start = self._get_interval_start(now)
         completed = [b for b in relevant_buckets if b.interval_start != newest_start]
-        source = completed if completed else relevant_buckets
 
-        total_online = sum(b.online_seconds for b in source)
-        total_time = sum(b.total_seconds for b in source)
+        if completed:
+            total_online = sum(b.online_seconds for b in completed)
+            total_time = sum(b.total_seconds for b in completed)
+        else:
+            # No completed bucket in the window yet — the first ≤5 min after setup,
+            # AND the first ≤5 min after a calendar-"today" rollover (the window
+            # resets at local midnight, emptying `completed` every day). The
+            # in-progress bucket is all we have; use it so the sensor shows a value
+            # immediately instead of "unknown".
+            #
+            # Its denominator MUST be the ELAPSED time in the bucket, not the full
+            # BUCKET_INTERVAL. online_seconds only accrues while online and tracks
+            # elapsed, so online/elapsed ≈ the true ratio (≈100% for a healthy
+            # device) from the first poll. Dividing by the full 300 s instead made a
+            # healthy device read ~0% at the bucket start and ramp ~10 %/poll as it
+            # filled — the spurious "today% collapses to ~0% at midnight then climbs"
+            # artifact users saw after calendar-today shipped.
+            #
+            # relevant_buckets[-1] is provably the in-progress (newest-start)
+            # bucket here, independent of list ordering: this branch runs only
+            # when `completed` is empty, i.e. EVERY relevant bucket has
+            # interval_start == newest_start; get_or_create_bucket dedups by
+            # interval (one bucket per 5-min slot), so exactly one such bucket
+            # exists and [-1] is it. (A refactor that breaks either the dedup or
+            # this branch guard would reintroduce an ordering assumption here.)
+            b = relevant_buckets[-1]
+            elapsed = (now - b.interval_start).total_seconds()
+            total_online = b.online_seconds
+            total_time = min(elapsed, b.total_seconds)
 
-        if total_time == 0:
+        if total_time <= 0:
             return None
 
-        return round((total_online / total_time) * 100, 1)
+        # Clamp to 100%: in the elapsed-denominator (in-progress-only) path,
+        # online_seconds can marginally exceed elapsed on poll-timing skew
+        # (a poll books ~30 s of online slightly before the wall clock catches up),
+        # which would otherwise print 100.x%. The completed path is already ≤100%.
+        ratio = min(total_online / total_time, 1.0)
+        return round(ratio * 100, 1)
 
     def get_entity_availability(
         self, entity_id: str, windows: list[str], now: datetime
