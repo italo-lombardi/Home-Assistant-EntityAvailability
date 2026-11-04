@@ -3323,6 +3323,23 @@ def run_checks(ctx):
         if avail_eid:
             ss(ec_target, "unavailable", {"friendly_name": "test"})
             wait()
+            # The availability_today % must be on the STABLE completed-bucket path
+            # before we assert suppression-invariance. On a FRESH fixture with no
+            # completed bucket, get_availability uses online/ELAPSED (the midnight
+            # cold-start path), so the value drifts with elapsed time between the
+            # two reads below — a TIME artifact, not suppression. Settle until two
+            # reads spaced > one poll apart agree (value stopped moving = completed
+            # path, or at least membership-stable), so after_offline == after_suppress
+            # reflects the real invariant (native_value averages essential entities
+            # and does NOT filter is_suppressed, so suppression cannot move the %).
+            _prev = gs(avail_eid).get("state")
+            _stable_deadline = time.time() + max(WAIT_FOR_TIMEOUT * 2, 90)
+            while time.time() < _stable_deadline:
+                time.sleep(15)
+                _cur = gs(avail_eid).get("state")
+                if _cur == _prev:
+                    break
+                _prev = _cur
             avail_mid = gs(avail_eid).get("state")
             # Read immediately before and after suppress — coordinator fires
             # async_set_updated_data synchronously so value updates in same tick.
@@ -7225,12 +7242,17 @@ for e in cfg['data']['entries']:
     if ec125_deleted:
         return
     restore_all(ctx)
+    # Diagnostic prints only. Use gs_safe + 'n/a' — a battery-less/signal group has
+    # no low_battery_count sensor, and a bare gs() here 404-raised to EXIT=1 on an
+    # otherwise clean run (same bug class as the restore_and_wait fix, separate site).
+    _oc = gs_safe(f"{prefix}_offline_count")
+    _lbc = gs_safe(f"{prefix}_low_battery_count")
     print(
-        f"offline_count={gs(f'{prefix}_offline_count').get('state')} (expected 0)",
+        f"offline_count={_oc.get('state') if _oc else 'n/a'} (expected 0)",
         flush=True,
     )
     print(
-        f"low_battery_count={gs(f'{prefix}_low_battery_count').get('state')} (expected 0)",
+        f"low_battery_count={_lbc.get('state') if _lbc else 'n/a'} (expected 0)",
         flush=True,
     )
 
