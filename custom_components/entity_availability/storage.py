@@ -172,6 +172,14 @@ class AvailabilityStorage:
             # healthy device read ~0% at the bucket start and ramp ~10 %/poll as it
             # filled — the spurious "today% collapses to ~0% at midnight then climbs"
             # artifact users saw after calendar-today shipped.
+            #
+            # relevant_buckets[-1] is provably the in-progress (newest-start)
+            # bucket here, independent of list ordering: this branch runs only
+            # when `completed` is empty, i.e. EVERY relevant bucket has
+            # interval_start == newest_start; get_or_create_bucket dedups by
+            # interval (one bucket per 5-min slot), so exactly one such bucket
+            # exists and [-1] is it. (A refactor that breaks either the dedup or
+            # this branch guard would reintroduce an ordering assumption here.)
             b = relevant_buckets[-1]
             elapsed = (now - b.interval_start).total_seconds()
             total_online = b.online_seconds
