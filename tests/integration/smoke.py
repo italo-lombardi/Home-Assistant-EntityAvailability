@@ -78,6 +78,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC140 v0.7.1: selecting the new 24h window creates a working sensor (guards UnboundLocalError)
   EC141 v0.7.1: retention bounds the persisted file to the selected window (no fixed-7d store)
   EC142 v0.7.1: empty window selection persists nothing (empty availability block, no sensor)
+  EC143 reset_statistics service clears a group's availability history (availability_today
+       → unknown after reset) — the only service with no prior smoke coverage
+  EC144 real entity_availability_battery_ok BUS event fires on numeric recovery above
+       threshold (capture_events; distinct from EC23's sensor-transition proxy)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -1002,6 +1006,7 @@ def _create_group(
     battery_threshold=0,
     signal_enabled=False,
     non_essential=None,
+    staleness_threshold=0,
 ):
     """Drive the config-entries flow user->group->monitoring->advanced to create a
     group. Returns entry_id or None. Stops before battery/signal mapping — caller
@@ -1022,7 +1027,7 @@ def _create_group(
         {
             "bad_states": ["unavailable", "unknown"],
             "cooldown": 0,
-            "staleness_threshold": 0,
+            "staleness_threshold": staleness_threshold,
             "staleness_use_last_updated": False,
         },
     )
@@ -1188,11 +1193,19 @@ def _provision_both_tiers_fixture():
     """EC32 (+ NE tier EC25-42): a both-tiers group (essential + non-essential
     entities) whose ESSENTIAL entity has a NUMERIC mapped battery (threshold>0,
     drivable low) so EC32 can drive essential any_low_battery on/off.
+
+    Also carries staleness_threshold=1 and a SEPARATE mapped battery on the NE
+    entity so the NE pass can run the staleness family (EC31/33/37/38/39 — the
+    idle essential/NE entities age stale once left unchanged) and EC40 (NE entity
+    with a mapped battery → any_low_battery stays off when only the NE battery is
+    low). Essential and NE batteries are disjoint sensors so EC32 (essential) and
+    EC40 (NE) never cross-contaminate.
     """
     group_name = _FIX_PREFIX + "Both Tiers"
     ess = "sensor.ea_fix_bt_essential"
     ne = "sensor.ea_fix_bt_nonessential"
     battery = "sensor.ea_fix_bt_battery"
+    ne_battery = "sensor.ea_fix_bt_ne_battery"
     try:
         ss(ess, "on", {"friendly_name": "EA Fix BT Essential"})
         ss(ne, "on", {"friendly_name": "EA Fix BT NonEssential"})
@@ -1205,6 +1218,15 @@ def _provision_both_tiers_fixture():
                 "unit_of_measurement": "%",
             },
         )
+        ss(
+            ne_battery,
+            "90",
+            {
+                "friendly_name": "EA Fix BT NE Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
         existing = _ea_entries_by_title().get(group_name)
         if existing:
             return {
@@ -1212,16 +1234,25 @@ def _provision_both_tiers_fixture():
                 "essential": ess,
                 "non_essential": ne,
                 "battery": battery,
+                "ne_battery": ne_battery,
             }
         # both tiers: `entities` is ESSENTIAL-only, `non_essential` is the NE set;
         # they MUST be disjoint (the group step rejects overlap as duplicate).
         fid, r_adv = _create_group(
-            group_name, [ess], battery_threshold=20, non_essential=[ne]
+            group_name,
+            [ess],
+            battery_threshold=20,
+            non_essential=[ne],
+            staleness_threshold=1,
         )
-        # threshold>0 -> battery_mapping: map the ESSENTIAL entity -> numeric battery
+        # threshold>0 -> battery_mapping: map BOTH the essential and NE entities to
+        # their (disjoint) numeric batteries so EC32 (essential) and EC40 (NE) both
+        # have a mapped battery to drive.
         if r_adv.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
             r_map = api(
-                "POST", f"/api/config/config_entries/flow/{fid}", {ess: battery}
+                "POST",
+                f"/api/config/config_entries/flow/{fid}",
+                {ess: battery, ne: ne_battery},
             )
             if r_map.get("step_id") == "signal_mapping":
                 r_map = api("POST", f"/api/config/config_entries/flow/{fid}", {})
@@ -1239,18 +1270,70 @@ def _provision_both_tiers_fixture():
             "essential": ess,
             "non_essential": ne,
             "battery": battery,
+            "ne_battery": ne_battery,
         }
     except Exception as exc:  # best-effort
         print(f"  both-tiers fixture: provisioning failed: {exc}", flush=True)
         return None
 
 
-def _provision_combined_fixture(member_entry_id):
+def _provision_ec82_twin_fixture(shared_entity, battery_sensor):
+    """EC82 (unsuppressed-wins dedup): a SECOND group ('EA Fix Twin') that monitors
+    the SAME entity as the pass-1 target (EA Fix Numeric Battery) with an IDENTICAL
+    config fingerprint — same battery mapping (shared_entity -> battery_sensor,
+    threshold 20), no signal, no NE, same bad_states. Identical fingerprint is what
+    makes the combined COLLAPSE Alpha + Twin to a single row (no ::entry_id split);
+    EC82's dedup assertion only applies on that collapsed row. A different-config
+    sibling would split into separate rows (intentional, not what EC82 tests).
+
+    Returns {group_entry_id, entity} or None. Must be a combined member for EC82 to
+    find it — the combined fixture takes it as the preferred second member.
+    """
+    group_name = _FIX_PREFIX + "Twin"
+    if not shared_entity or not battery_sensor:
+        return None
+    try:
+        existing = _ea_entries_by_title().get(group_name)
+        if existing:
+            return {"group_entry_id": existing, "entity": shared_entity}
+        # Mirror EA Fix Numeric Battery EXACTLY: battery_threshold=20, map the
+        # shared entity to the same battery sensor, no signal/NE. _create_group
+        # defaults (cooldown 0, staleness 0, bad_states unavailable/unknown) match
+        # the numeric-battery fixture, so the fingerprint collapses.
+        fid, r_adv = _create_group(group_name, [shared_entity], battery_threshold=20)
+        if r_adv.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
+            r_map = api(
+                "POST",
+                f"/api/config/config_entries/flow/{fid}",
+                {shared_entity: battery_sensor},
+            )
+            if r_map.get("step_id") == "signal_mapping":
+                r_map = api("POST", f"/api/config/config_entries/flow/{fid}", {})
+            r_adv = r_map
+        if r_adv.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  twin fixture: create did not finish "
+                f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {"group_entry_id": r_adv["result"]["entry_id"], "entity": shared_entity}
+    except Exception as exc:  # best-effort
+        print(f"  twin fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _provision_combined_fixture(member_entry_id, preferred_second=None):
     """EC16-18/20/21/24/66: a combined group OWNING the given member group (plus a
     second loaded group — combined requires >=2 members). The combined-relay ECs
     run against the member group; discover() then finds it owned by this combined
     and the relay checks fire instead of skipping. member_entry_id = the group the
     relay ECs route to (the ess_batt target = EA Fix Numeric Battery).
+
+    preferred_second: if given (the EA Fix Twin entry_id), use it as the second
+    member so EC82 finds an identical-fingerprint sibling sharing an entity with
+    the pass-1 target inside this combined. Falls back to any loaded group.
     """
     combined_name = _FIX_PREFIX + "Combined"
     if not member_entry_id:
@@ -1260,18 +1343,31 @@ def _provision_combined_fixture(member_entry_id):
         if existing:
             return {"combined_entry_id": existing}
         entries = api("GET", "/api/config/config_entries/entry")
-        # a second LOADED, non-combined group to satisfy the >=2 member rule
-        second = next(
-            (
-                e
-                for e in entries
-                if e.get("domain") == "entity_availability"
-                and e.get("entry_id") != member_entry_id
-                and "combined" not in (e.get("title") or "").lower()
-                and e.get("state") == "loaded"
-            ),
-            None,
-        )
+        # Prefer the EA Fix Twin (identical-fingerprint sibling) as the second
+        # member so EC82 finds it inside this combined; else any loaded group.
+        second = None
+        if preferred_second:
+            second = next(
+                (
+                    e
+                    for e in entries
+                    if e.get("entry_id") == preferred_second
+                    and e.get("state") == "loaded"
+                ),
+                None,
+            )
+        if not second:
+            second = next(
+                (
+                    e
+                    for e in entries
+                    if e.get("domain") == "entity_availability"
+                    and e.get("entry_id") != member_entry_id
+                    and "combined" not in (e.get("title") or "").lower()
+                    and e.get("state") == "loaded"
+                ),
+                None,
+            )
         if not second:
             print("  combined fixture: no second group for combined", flush=True)
             return None
@@ -1654,10 +1750,35 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                         isinstance(ev_recovered.get("stale_count"), int),
                         True,
                     )
+
+                # The fixture's staleness_threshold is short (1 min), so an essential
+                # entity can RE-stale between the recovery cycle and the coordinator
+                # tick that clears stale_count — a single cycle refreshes last_changed
+                # but the clock restarts and can re-trip before the sensor reads 0.
+                # Re-cycle each poll so last_changed stays fresh until stale_count
+                # actually reaches 0 (self-healing against the short threshold). A
+                # genuinely stuck stale (never clears despite fresh last_changed)
+                # still times out and fails — this only beats the re-stale race.
+                def _stale_cleared() -> bool:
+                    if gs(f"{prefix}_stale_count").get("state") == "0":
+                        return True
+                    _cycle_all_essential()  # re-freshen; next tick should clear
+                    return gs(f"{prefix}_stale_count").get("state") == "0"
+
+                _cleared = False
+                _deadline = time.time() + max(WAIT_FOR_TIMEOUT * 2, 90)
+                while time.time() < _deadline:
+                    if _stale_cleared():
+                        _cleared = True
+                        break
+                    time.sleep(5)
                 chk(
                     "EC31 stale_count=0 after restore",
-                    wait_for(lambda: gs(f"{prefix}_stale_count").get("state"), "0"),
-                    "0",
+                    _cleared,
+                    True,
+                    f"cleared={_cleared} "
+                    f"stale_count={gs(f'{prefix}_stale_count').get('state')} "
+                    f"stale_entities={gs(f'{prefix}_stale_entities').get('attributes', {}).get('entities')}",
                 )
                 # Bring entities back to full clean state after off/on cycle,
                 # then wait for coordinator to confirm offline_count=0 before
@@ -2449,9 +2570,21 @@ def run_all():
     # shared sibling at the numeric-battery fixture's entity[0] (the pass-1 target's
     # entities[0], which EC12 suppresses) so EC12's sibling-discovery finds it.
     _provision_shared_fixture(numbatt.get("entity") if numbatt else None)
+    # EC82 needs an IDENTICAL-fingerprint sibling of the pass-1 target inside the
+    # combined. Twin mirrors EA Fix Numeric Battery's config on the shared entity,
+    # and is passed to the combined as the preferred second member so the combined
+    # collapses Alpha+Twin to one row (the dedup EC82 asserts on).
+    twin = _provision_ec82_twin_fixture(
+        numbatt.get("entity") if numbatt else None,
+        numbatt.get("battery") if numbatt else None,
+    )
     # Combined owns the numeric-battery group (the ess_batt target the combined-
-    # relay ECs route to) so EC16-24/66 find a combined owner instead of skipping.
-    _provision_combined_fixture(numbatt.get("group_entry_id") if numbatt else None)
+    # relay ECs route to) so EC16-24/66 find a combined owner instead of skipping;
+    # Twin is its second member so EC82's identical-fingerprint sibling is present.
+    _provision_combined_fixture(
+        numbatt.get("group_entry_id") if numbatt else None,
+        preferred_second=twin.get("group_entry_id") if twin else None,
+    )
     wait(8)  # let the new groups' entries load + their group_summary register
     # Deterministically wait until the combined's membership is visible in
     # .storage — the config-entry write is debounced, and discover() reads the
@@ -2545,7 +2678,11 @@ def _run_all_passes():
     # any essential mapped battery — route them to a numeric-battery group. The
     # battery-COUNT family (EC4/22/23/65) only needs low/not-low, so it stays in
     # pass 1 on any essential-mapped-battery group.
-    battery_level_ecs = {59, 90}
+    # EC143 (reset_statistics) + EC144 (battery_ok bus event) also route here: both
+    # need the numeric-battery fixture — EC144 drives the mapped battery below then
+    # above threshold to fire the real entity_availability_battery_ok event, EC143
+    # resets stats on a group that has accrued availability history.
+    battery_level_ecs = {59, 90, 143, 144}
     # Signal ECs that need a signal-mapped group: EC50 (any_poor_signal reachable),
     # EC52 (_last_seen suffix strip), EC47 (poor_signal_count reachable), EC51
     # (signal_entity_map round-trip). The pass-1 target (EA Fix Numeric Battery)
@@ -3447,37 +3584,59 @@ def run_checks(ctx):
             flush=True,
         )
         if avail_eid:
-            try:
-                avail_before = float(gs(avail_eid).get("state") or "0")
-            except ValueError:
-                avail_before = 0.0
-            api(
-                "POST",
-                "/api/services/entity_availability/suppress_indefinitely",
-                {"entity_id": ec_target, "group": ctx["title"]},
-            )
-            avail_suppressed = wait_for_close(
-                lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
-            )
+            # Invariant: suppress and unsuppress must not move availability_%
+            # (native_value averages monitored ESSENTIAL entities and does NOT skip
+            # is_suppressed — sensor.py:779-785). The % CAN legitimately move for a
+            # non-suppression reason: a 5-min bucket boundary closing mid-op shifts
+            # the completed-bucket set. The old code read avail_before ONCE at the
+            # top and compared it across BOTH the suppress and unsuppress settles
+            # (minutes apart) — a bucket straddle made avail_before stale and the
+            # check failed on real time drift, not suppression.
+            #
+            # Fix: test each op INDEPENDENTLY against a baseline sampled immediately
+            # before THAT op, and retry the op's pair if a bucket boundary straddled
+            # it (the % shifting = straddle, not suppression). Can't be sub-second
+            # like EC13 (the coordinator needs a tick to settle the toggle), so use
+            # wait_for_close then re-confirm the baseline didn't move underneath.
+            def _invariance(service):
+                for _ in range(5):
+                    try:
+                        base = float(gs(avail_eid).get("state") or "0")
+                    except ValueError:
+                        base = 0.0
+                    api(
+                        "POST",
+                        f"/api/services/entity_availability/{service}",
+                        {"entity_id": ec_target, "group": ctx["title"]},
+                    )
+                    after = wait_for_close(
+                        lambda: gs(avail_eid).get("state"), base, tolerance=0.5
+                    )
+                    # Re-read the baseline source after settling: if it still equals
+                    # `base`, no bucket closed during the op and `after` is a valid
+                    # comparison. If it moved, a boundary straddled → retry a clean pair.
+                    try:
+                        base_now = float(gs(avail_eid).get("state") or "0")
+                    except ValueError:
+                        base_now = base
+                    ok = abs(float(after or 0) - base) <= 0.5
+                    if ok or abs(base_now - base) <= 0.5:
+                        return base, after, ok
+                return base, after, ok
+
+            b1, a1, ok1 = _invariance("suppress_indefinitely")
             chk(
                 "EC15 availability % identical after suppress (±0.5%)",
-                abs(float(avail_suppressed or 0) - avail_before) <= 0.5,
+                ok1,
                 True,
-                f"before={avail_before} after_suppress={avail_suppressed}",
+                f"before={b1} after_suppress={a1}",
             )
-            api(
-                "POST",
-                "/api/services/entity_availability/unsuppress",
-                {"entity_id": ec_target, "group": ctx["title"]},
-            )
-            avail_unsuppressed = wait_for_close(
-                lambda: gs(avail_eid).get("state"), avail_before, tolerance=0.5
-            )
+            b2, a2, ok2 = _invariance("unsuppress")
             chk(
                 "EC15 availability % identical after unsuppress (±0.5%)",
-                abs(float(avail_unsuppressed or 0) - avail_before) <= 0.5,
+                ok2,
                 True,
-                f"before={avail_before} after_unsuppress={avail_unsuppressed}",
+                f"before={b2} after_unsuppress={a2}",
             )
         else:
             print("  EC15: skipped (no availability sensor found)", flush=True)
@@ -7258,6 +7417,152 @@ for e in cfg['data']['entries']:
                 wait(20)
             except Exception as e:
                 print(f"  EC142 WARN: failed to restore windows: {e}", flush=True)
+
+    # ------------------------------------------------------------------
+    # EC144: the REAL entity_availability_battery_ok bus event fires when a mapped
+    # battery recovers above threshold (coordinator.py:1032-1049). Distinct from
+    # EC23, which only checks the low_battery_count SENSOR transition and never
+    # subscribes to the event (a dead battery_ok would leave EC23 green). EC144
+    # drives the mapped battery NUMERIC below threshold (fire low_battery) then
+    # NUMERIC above (fire battery_ok) and asserts the captured payload. The
+    # `is not None` fire-guard means recovery MUST be via a numeric reading, never
+    # unavailable/None — so both drives are numeric.
+    # ------------------------------------------------------------------
+    if ec_enabled(144):
+        print(
+            "\n=== EC144: entity_availability_battery_ok real bus event on recovery ===",
+            flush=True,
+        )
+        bsensor = ctx.get("mapped_battery_sensor")
+        bentity = ctx.get("mapped_battery_entity")
+        bthresh = int(ctx.get("battery_threshold") or 0)
+        if not (_WS_AVAILABLE and bsensor and bentity and bthresh > 0):
+            print(
+                "  EC144: skipped (needs websocket + a numeric mapped battery with "
+                f"threshold>0; ws={_WS_AVAILABLE} sensor={bsensor} thresh={bthresh})",
+                flush=True,
+            )
+        else:
+            low_val = str(bthresh - 5)
+            ok_val = str(bthresh + 20)
+            battery_attrs = {
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            }
+            # Arm: drive below threshold so the device is is_low_battery=True (the
+            # precondition for battery_ok). Wait for the low_battery_count sensor to
+            # confirm the coordinator committed low before the recovery drive.
+            ss(bsensor, low_val, battery_attrs)
+            wait_for(
+                lambda: (
+                    gs_safe(f"{ctx['prefix']}_low_battery_count")
+                    and gs_safe(f"{ctx['prefix']}_low_battery_count").get("state")
+                    != "0"
+                ),
+                True,
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 60),
+            )
+            # Recover above threshold inside the capture window → fires battery_ok.
+            ok_events = capture_events(
+                "entity_availability_battery_ok",
+                lambda: ss(bsensor, ok_val, battery_attrs),
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 60),
+            )
+            ev = next(
+                (e for e in ok_events if e.get("entity_id") == bentity),
+                None,
+            )
+            chk(
+                "EC144 battery_ok event captured for the recovered entity",
+                ev is not None,
+                True,
+                f"entity={bentity} ok_val={ok_val} total_events={len(ok_events)}",
+            )
+            if ev is not None:
+                chk(
+                    "EC144 battery_ok payload entity_id matches",
+                    ev.get("entity_id"),
+                    bentity,
+                )
+                chk(
+                    "EC144 battery_ok payload entry_id non-empty",
+                    bool(ev.get("entry_id")),
+                    True,
+                    f"entry_id={ev.get('entry_id')!r}",
+                )
+                chk(
+                    "EC144 battery_ok payload battery_level == recovered value",
+                    str(ev.get("battery_level")),
+                    ok_val,
+                    f"battery_level={ev.get('battery_level')}",
+                )
+            restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC143: reset_statistics service clears a group's availability history +
+    # reliability counters (services.py:211, coordinator.py:268-294). The cleanest
+    # observable is availability_today: it has a value on a group that accrued
+    # history, and goes to None/unknown immediately after the buckets are cleared
+    # (until the next poll rebuilds a fresh in-progress bucket). Covers the only
+    # smoke-untested service (suppress/suppress_indefinitely/unsuppress are covered).
+    # ------------------------------------------------------------------
+    if ec_enabled(143):
+        print(
+            "\n=== EC143: reset_statistics clears availability history ===",
+            flush=True,
+        )
+        today_eid = f"{ctx['prefix']}_availability_today"
+        before = gs_safe(today_eid)
+        before_state = before.get("state") if before else None
+
+        def _numeric(x):
+            try:
+                float(x)
+                return True
+            except (TypeError, ValueError):
+                return False
+
+        if not _numeric(before_state):
+            # No availability value to reset (window deselected / brand-new) — the
+            # reset is unobservable on this sensor. Ensure at least a settled value
+            # by restoring + waiting one coordinator tick, then re-read.
+            restore_and_wait(ctx)
+            wait(WAIT_FOR_TIMEOUT // 2 or 20)
+            before = gs_safe(today_eid)
+            before_state = before.get("state") if before else None
+        chk(
+            "EC143 precondition: availability_today has a numeric value to reset",
+            _numeric(before_state),
+            True,
+            f"before={before_state!r}",
+        )
+        if _numeric(before_state):
+            api(
+                "POST",
+                "/api/services/entity_availability/reset_statistics",
+                {"group": ctx["title"]},
+            )
+
+            # Buckets cleared → availability_today drops to None/unknown until the
+            # next poll rebuilds a fresh bucket. Poll briefly for the drop.
+            def _reset_observed() -> bool:
+                s = gs_safe(today_eid)
+                return s is None or s.get("state") in (None, "unknown", "unavailable")
+
+            observed = False
+            _deadline = time.time() + max(WAIT_FOR_TIMEOUT, 30)
+            while time.time() < _deadline:
+                if _reset_observed():
+                    observed = True
+                    break
+                time.sleep(3)
+            chk(
+                "EC143 availability_today cleared after reset_statistics",
+                observed,
+                True,
+                f"before={before_state} after={(gs_safe(today_eid) or {}).get('state')}",
+            )
+            restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed
