@@ -254,6 +254,18 @@ class TestWindowCalculation:
         result = storage.get_availability("sensor.new", "today", probe)
         assert result == 75.0
 
+    def test_get_availability_in_progress_clamps_at_100(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """online_seconds marginally exceeding elapsed (poll-timing skew) must clamp
+        to 100%, never print 100.x%."""
+        start = storage._get_interval_start(now)
+        probe = start + timedelta(seconds=100)
+        # Book MORE online than elapsed (101 > 100) — skew. Must clamp to 100.0.
+        storage.record_online("sensor.new", 101.0, probe)
+        result = storage.get_availability("sensor.new", "today", probe)
+        assert result == 100.0
+
     def test_get_availability_0_percent(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:

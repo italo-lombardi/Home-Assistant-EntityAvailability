@@ -180,7 +180,12 @@ class AvailabilityStorage:
         if total_time <= 0:
             return None
 
-        return round((total_online / total_time) * 100, 1)
+        # Clamp to 100%: in the elapsed-denominator (in-progress-only) path,
+        # online_seconds can marginally exceed elapsed on poll-timing skew
+        # (a poll books ~30 s of online slightly before the wall clock catches up),
+        # which would otherwise print 100.x%. The completed path is already ≤100%.
+        ratio = min(total_online / total_time, 1.0)
+        return round(ratio * 100, 1)
 
     def get_entity_availability(
         self, entity_id: str, windows: list[str], now: datetime
