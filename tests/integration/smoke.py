@@ -1002,6 +1002,7 @@ def _create_group(
     battery_threshold=0,
     signal_enabled=False,
     non_essential=None,
+    staleness_threshold=0,
 ):
     """Drive the config-entries flow user->group->monitoring->advanced to create a
     group. Returns entry_id or None. Stops before battery/signal mapping — caller
@@ -1022,7 +1023,7 @@ def _create_group(
         {
             "bad_states": ["unavailable", "unknown"],
             "cooldown": 0,
-            "staleness_threshold": 0,
+            "staleness_threshold": staleness_threshold,
             "staleness_use_last_updated": False,
         },
     )
@@ -1188,11 +1189,19 @@ def _provision_both_tiers_fixture():
     """EC32 (+ NE tier EC25-42): a both-tiers group (essential + non-essential
     entities) whose ESSENTIAL entity has a NUMERIC mapped battery (threshold>0,
     drivable low) so EC32 can drive essential any_low_battery on/off.
+
+    Also carries staleness_threshold=1 and a SEPARATE mapped battery on the NE
+    entity so the NE pass can run the staleness family (EC31/33/37/38/39 — the
+    idle essential/NE entities age stale once left unchanged) and EC40 (NE entity
+    with a mapped battery → any_low_battery stays off when only the NE battery is
+    low). Essential and NE batteries are disjoint sensors so EC32 (essential) and
+    EC40 (NE) never cross-contaminate.
     """
     group_name = _FIX_PREFIX + "Both Tiers"
     ess = "sensor.ea_fix_bt_essential"
     ne = "sensor.ea_fix_bt_nonessential"
     battery = "sensor.ea_fix_bt_battery"
+    ne_battery = "sensor.ea_fix_bt_ne_battery"
     try:
         ss(ess, "on", {"friendly_name": "EA Fix BT Essential"})
         ss(ne, "on", {"friendly_name": "EA Fix BT NonEssential"})
@@ -1205,6 +1214,15 @@ def _provision_both_tiers_fixture():
                 "unit_of_measurement": "%",
             },
         )
+        ss(
+            ne_battery,
+            "90",
+            {
+                "friendly_name": "EA Fix BT NE Battery",
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            },
+        )
         existing = _ea_entries_by_title().get(group_name)
         if existing:
             return {
@@ -1212,16 +1230,25 @@ def _provision_both_tiers_fixture():
                 "essential": ess,
                 "non_essential": ne,
                 "battery": battery,
+                "ne_battery": ne_battery,
             }
         # both tiers: `entities` is ESSENTIAL-only, `non_essential` is the NE set;
         # they MUST be disjoint (the group step rejects overlap as duplicate).
         fid, r_adv = _create_group(
-            group_name, [ess], battery_threshold=20, non_essential=[ne]
+            group_name,
+            [ess],
+            battery_threshold=20,
+            non_essential=[ne],
+            staleness_threshold=1,
         )
-        # threshold>0 -> battery_mapping: map the ESSENTIAL entity -> numeric battery
+        # threshold>0 -> battery_mapping: map BOTH the essential and NE entities to
+        # their (disjoint) numeric batteries so EC32 (essential) and EC40 (NE) both
+        # have a mapped battery to drive.
         if r_adv.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
             r_map = api(
-                "POST", f"/api/config/config_entries/flow/{fid}", {ess: battery}
+                "POST",
+                f"/api/config/config_entries/flow/{fid}",
+                {ess: battery, ne: ne_battery},
             )
             if r_map.get("step_id") == "signal_mapping":
                 r_map = api("POST", f"/api/config/config_entries/flow/{fid}", {})
@@ -1239,6 +1266,7 @@ def _provision_both_tiers_fixture():
             "essential": ess,
             "non_essential": ne,
             "battery": battery,
+            "ne_battery": ne_battery,
         }
     except Exception as exc:  # best-effort
         print(f"  both-tiers fixture: provisioning failed: {exc}", flush=True)
