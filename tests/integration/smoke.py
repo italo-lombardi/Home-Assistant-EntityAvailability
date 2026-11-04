@@ -3352,37 +3352,49 @@ def run_checks(ctx):
         if avail_eid:
             ss(ec_target, "unavailable", {"friendly_name": "test"})
             wait()
-            # The availability_today % must be on the STABLE completed-bucket path
-            # before we assert suppression-invariance. On a FRESH fixture with no
-            # completed bucket, get_availability uses online/ELAPSED (the midnight
-            # cold-start path), so the value drifts with elapsed time between the
-            # two reads below — a TIME artifact, not suppression. Settle until two
-            # reads spaced > one poll apart agree (value stopped moving = completed
-            # path, or at least membership-stable), so after_offline == after_suppress
-            # reflects the real invariant (native_value averages essential entities
-            # and does NOT filter is_suppressed, so suppression cannot move the %).
-            _prev = gs(avail_eid).get("state")
-            _stable_deadline = time.time() + max(WAIT_FOR_TIMEOUT * 2, 90)
-            while time.time() < _stable_deadline:
-                time.sleep(15)
-                _cur = gs(avail_eid).get("state")
-                if _cur == _prev:
+            # Invariant: suppressing an offline entity must not move availability_%
+            # (native_value averages monitored ESSENTIAL entities and does NOT skip
+            # is_suppressed — sensor.py:779-785 — so the entity set is identical
+            # before/after suppress). The only thing that CAN move the % between two
+            # reads is TIME: on a fresh fixture with no completed bucket,
+            # get_availability uses online/ELAPSED (the midnight cold-start path) so
+            # the value climbs with wall-clock, and a 5-min bucket boundary landing
+            # between the reads shifts the completed set. Neither is suppression.
+            #
+            # So read mid → suppress (synchronous: coordinator fires
+            # async_set_updated_data in the same tick) → read after, BACK-TO-BACK
+            # (sub-second apart → ~0 elapsed drift, rounds identical on any path),
+            # and RETRY the whole triple if they differ: a mismatch can only be a
+            # bucket boundary straddling the two reads, which a retry dodges. No
+            # fixed completed-bucket wait (would cost a full BUCKET_INTERVAL) and no
+            # skip — deterministic within a bounded number of tries.
+            avail_mid = avail_after_suppress = None
+            _tries = 0
+            while _tries < 5:
+                _tries += 1
+                avail_mid = gs(avail_eid).get("state")
+                api(
+                    "POST",
+                    "/api/services/entity_availability/suppress_indefinitely",
+                    {"entity_id": ec_target, "group": ctx["title"]},
+                )
+                avail_after_suppress = gs(avail_eid).get("state")
+                if avail_after_suppress == avail_mid:
                     break
-                _prev = _cur
-            avail_mid = gs(avail_eid).get("state")
-            # Read immediately before and after suppress — coordinator fires
-            # async_set_updated_data synchronously so value updates in same tick.
-            api(
-                "POST",
-                "/api/services/entity_availability/suppress_indefinitely",
-                {"entity_id": ec_target, "group": ctx["title"]},
-            )
-            avail_after_suppress = gs(avail_eid).get("state")
+                # Mismatch = a bucket boundary straddled the pair (not suppression).
+                # Unsuppress, let the write settle, and re-sample a clean pair.
+                api(
+                    "POST",
+                    "/api/services/entity_availability/unsuppress",
+                    {"entity_id": ec_target, "group": ctx["title"]},
+                )
+                wait(3)
             chk(
                 "EC13 availability % unchanged immediately after suppressing offline entity",
                 avail_after_suppress,
                 avail_mid,
-                f"sensor={avail_eid} after_offline={avail_mid} after_suppress={avail_after_suppress}",
+                f"sensor={avail_eid} after_offline={avail_mid} "
+                f"after_suppress={avail_after_suppress} tries={_tries}",
             )
             api(
                 "POST",
