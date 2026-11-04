@@ -734,19 +734,24 @@ def restore_all(ctx):
 
 
 def restore_and_wait(ctx):
-    """restore_all then poll until offline_count=0 and low_battery_count=0."""
+    """restore_all then poll until offline_count=0 and low_battery_count=0.
+
+    Both counters are OPTIONAL per group: a signal-only (battery-less) group has
+    no low_battery_count sensor, and a bare group may lack either. Poll via
+    gs_safe and skip a counter that does not exist — a 404 there means "this
+    group has no such sensor", not a failure. (A bare gs() here 404-raised
+    through wait_for and flipped a clean run to EXIT=1 once the signal fixture
+    started routing through restore_and_wait.)
+    """
     restore_all(ctx)
     prefix = ctx["prefix"]
-    wait_for(
-        lambda: gs(f"{prefix}_offline_count").get("state"),
-        "0",
-        timeout=WAIT_FOR_TIMEOUT,
-    )
-    wait_for(
-        lambda: gs(f"{prefix}_low_battery_count").get("state"),
-        "0",
-        timeout=WAIT_FOR_TIMEOUT,
-    )
+    for counter in ("offline_count", "low_battery_count"):
+        if gs_safe(f"{prefix}_{counter}") is not None:
+            wait_for(
+                lambda c=counter: (gs_safe(f"{prefix}_{c}") or {}).get("state"),
+                "0",
+                timeout=WAIT_FOR_TIMEOUT,
+            )
 
 
 def reload_entry(ctx):
