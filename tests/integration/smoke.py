@@ -78,6 +78,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC140 v0.7.1: selecting the new 24h window creates a working sensor (guards UnboundLocalError)
   EC141 v0.7.1: retention bounds the persisted file to the selected window (no fixed-7d store)
   EC142 v0.7.1: empty window selection persists nothing (empty availability block, no sensor)
+  EC143 reset_statistics service clears a group's availability history (availability_today
+       → unknown after reset) — the only service with no prior smoke coverage
+  EC144 real entity_availability_battery_ok BUS event fires on numeric recovery above
+       threshold (capture_events; distinct from EC23's sensor-transition proxy)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -1746,16 +1750,6 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                         isinstance(ev_recovered.get("stale_count"), int),
                         True,
                     )
-                # DEBUG (one-shot): surface which entity is still stale so an
-                # isolated run shows the stuck entity, not just count=1.
-                _sc_attrs = gs(f"{prefix}_stale_entities").get("attributes", {})
-                print(
-                    f"  EC31 debug: stale_count="
-                    f"{gs(f'{prefix}_stale_count').get('state')} "
-                    f"stale_entities={_sc_attrs.get('entities') or _sc_attrs.get('devices')} "
-                    f"essential={essential_entities}",
-                    flush=True,
-                )
 
                 # The fixture's staleness_threshold is short (1 min), so an essential
                 # entity can RE-stale between the recovery cycle and the coordinator
@@ -2682,7 +2676,11 @@ def _run_all_passes():
     # any essential mapped battery — route them to a numeric-battery group. The
     # battery-COUNT family (EC4/22/23/65) only needs low/not-low, so it stays in
     # pass 1 on any essential-mapped-battery group.
-    battery_level_ecs = {59, 90}
+    # EC143 (reset_statistics) + EC144 (battery_ok bus event) also route here: both
+    # need the numeric-battery fixture — EC144 drives the mapped battery below then
+    # above threshold to fire the real entity_availability_battery_ok event, EC143
+    # resets stats on a group that has accrued availability history.
+    battery_level_ecs = {59, 90, 143, 144}
     # Signal ECs that need a signal-mapped group: EC50 (any_poor_signal reachable),
     # EC52 (_last_seen suffix strip), EC47 (poor_signal_count reachable), EC51
     # (signal_entity_map round-trip). The pass-1 target (EA Fix Numeric Battery)
@@ -7417,6 +7415,152 @@ for e in cfg['data']['entries']:
                 wait(20)
             except Exception as e:
                 print(f"  EC142 WARN: failed to restore windows: {e}", flush=True)
+
+    # ------------------------------------------------------------------
+    # EC144: the REAL entity_availability_battery_ok bus event fires when a mapped
+    # battery recovers above threshold (coordinator.py:1032-1049). Distinct from
+    # EC23, which only checks the low_battery_count SENSOR transition and never
+    # subscribes to the event (a dead battery_ok would leave EC23 green). EC144
+    # drives the mapped battery NUMERIC below threshold (fire low_battery) then
+    # NUMERIC above (fire battery_ok) and asserts the captured payload. The
+    # `is not None` fire-guard means recovery MUST be via a numeric reading, never
+    # unavailable/None — so both drives are numeric.
+    # ------------------------------------------------------------------
+    if ec_enabled(144):
+        print(
+            "\n=== EC144: entity_availability_battery_ok real bus event on recovery ===",
+            flush=True,
+        )
+        bsensor = ctx.get("mapped_battery_sensor")
+        bentity = ctx.get("mapped_battery_entity")
+        bthresh = int(ctx.get("battery_threshold") or 0)
+        if not (_WS_AVAILABLE and bsensor and bentity and bthresh > 0):
+            print(
+                "  EC144: skipped (needs websocket + a numeric mapped battery with "
+                f"threshold>0; ws={_WS_AVAILABLE} sensor={bsensor} thresh={bthresh})",
+                flush=True,
+            )
+        else:
+            low_val = str(bthresh - 5)
+            ok_val = str(bthresh + 20)
+            battery_attrs = {
+                "device_class": "battery",
+                "unit_of_measurement": "%",
+            }
+            # Arm: drive below threshold so the device is is_low_battery=True (the
+            # precondition for battery_ok). Wait for the low_battery_count sensor to
+            # confirm the coordinator committed low before the recovery drive.
+            ss(bsensor, low_val, battery_attrs)
+            wait_for(
+                lambda: (
+                    gs_safe(f"{ctx['prefix']}_low_battery_count")
+                    and gs_safe(f"{ctx['prefix']}_low_battery_count").get("state")
+                    != "0"
+                ),
+                True,
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 60),
+            )
+            # Recover above threshold inside the capture window → fires battery_ok.
+            ok_events = capture_events(
+                "entity_availability_battery_ok",
+                lambda: ss(bsensor, ok_val, battery_attrs),
+                timeout=max(WAIT_FOR_TIMEOUT * 2, 60),
+            )
+            ev = next(
+                (e for e in ok_events if e.get("entity_id") == bentity),
+                None,
+            )
+            chk(
+                "EC144 battery_ok event captured for the recovered entity",
+                ev is not None,
+                True,
+                f"entity={bentity} ok_val={ok_val} total_events={len(ok_events)}",
+            )
+            if ev is not None:
+                chk(
+                    "EC144 battery_ok payload entity_id matches",
+                    ev.get("entity_id"),
+                    bentity,
+                )
+                chk(
+                    "EC144 battery_ok payload entry_id non-empty",
+                    bool(ev.get("entry_id")),
+                    True,
+                    f"entry_id={ev.get('entry_id')!r}",
+                )
+                chk(
+                    "EC144 battery_ok payload battery_level == recovered value",
+                    str(ev.get("battery_level")),
+                    ok_val,
+                    f"battery_level={ev.get('battery_level')}",
+                )
+            restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC143: reset_statistics service clears a group's availability history +
+    # reliability counters (services.py:211, coordinator.py:268-294). The cleanest
+    # observable is availability_today: it has a value on a group that accrued
+    # history, and goes to None/unknown immediately after the buckets are cleared
+    # (until the next poll rebuilds a fresh in-progress bucket). Covers the only
+    # smoke-untested service (suppress/suppress_indefinitely/unsuppress are covered).
+    # ------------------------------------------------------------------
+    if ec_enabled(143):
+        print(
+            "\n=== EC143: reset_statistics clears availability history ===",
+            flush=True,
+        )
+        today_eid = f"{ctx['prefix']}_availability_today"
+        before = gs_safe(today_eid)
+        before_state = before.get("state") if before else None
+
+        def _numeric(x):
+            try:
+                float(x)
+                return True
+            except (TypeError, ValueError):
+                return False
+
+        if not _numeric(before_state):
+            # No availability value to reset (window deselected / brand-new) — the
+            # reset is unobservable on this sensor. Ensure at least a settled value
+            # by restoring + waiting one coordinator tick, then re-read.
+            restore_and_wait(ctx)
+            wait(WAIT_FOR_TIMEOUT // 2 or 20)
+            before = gs_safe(today_eid)
+            before_state = before.get("state") if before else None
+        chk(
+            "EC143 precondition: availability_today has a numeric value to reset",
+            _numeric(before_state),
+            True,
+            f"before={before_state!r}",
+        )
+        if _numeric(before_state):
+            api(
+                "POST",
+                "/api/services/entity_availability/reset_statistics",
+                {"group": ctx["title"]},
+            )
+
+            # Buckets cleared → availability_today drops to None/unknown until the
+            # next poll rebuilds a fresh bucket. Poll briefly for the drop.
+            def _reset_observed() -> bool:
+                s = gs_safe(today_eid)
+                return s is None or s.get("state") in (None, "unknown", "unavailable")
+
+            observed = False
+            _deadline = time.time() + max(WAIT_FOR_TIMEOUT, 30)
+            while time.time() < _deadline:
+                if _reset_observed():
+                    observed = True
+                    break
+                time.sleep(3)
+            chk(
+                "EC143 availability_today cleared after reset_statistics",
+                observed,
+                True,
+                f"before={before_state} after={(gs_safe(today_eid) or {}).get('state')}",
+            )
+            restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed
