@@ -1273,12 +1273,63 @@ def _provision_both_tiers_fixture():
         return None
 
 
-def _provision_combined_fixture(member_entry_id):
+def _provision_ec82_twin_fixture(shared_entity, battery_sensor):
+    """EC82 (unsuppressed-wins dedup): a SECOND group ('EA Fix Twin') that monitors
+    the SAME entity as the pass-1 target (EA Fix Numeric Battery) with an IDENTICAL
+    config fingerprint — same battery mapping (shared_entity -> battery_sensor,
+    threshold 20), no signal, no NE, same bad_states. Identical fingerprint is what
+    makes the combined COLLAPSE Alpha + Twin to a single row (no ::entry_id split);
+    EC82's dedup assertion only applies on that collapsed row. A different-config
+    sibling would split into separate rows (intentional, not what EC82 tests).
+
+    Returns {group_entry_id, entity} or None. Must be a combined member for EC82 to
+    find it — the combined fixture takes it as the preferred second member.
+    """
+    group_name = _FIX_PREFIX + "Twin"
+    if not shared_entity or not battery_sensor:
+        return None
+    try:
+        existing = _ea_entries_by_title().get(group_name)
+        if existing:
+            return {"group_entry_id": existing, "entity": shared_entity}
+        # Mirror EA Fix Numeric Battery EXACTLY: battery_threshold=20, map the
+        # shared entity to the same battery sensor, no signal/NE. _create_group
+        # defaults (cooldown 0, staleness 0, bad_states unavailable/unknown) match
+        # the numeric-battery fixture, so the fingerprint collapses.
+        fid, r_adv = _create_group(group_name, [shared_entity], battery_threshold=20)
+        if r_adv.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
+            r_map = api(
+                "POST",
+                f"/api/config/config_entries/flow/{fid}",
+                {shared_entity: battery_sensor},
+            )
+            if r_map.get("step_id") == "signal_mapping":
+                r_map = api("POST", f"/api/config/config_entries/flow/{fid}", {})
+            r_adv = r_map
+        if r_adv.get("type") != "create_entry":
+            api("DELETE", f"/api/config/config_entries/flow/{fid}")
+            print(
+                f"  twin fixture: create did not finish "
+                f"(type={r_adv.get('type')} step={r_adv.get('step_id')})",
+                flush=True,
+            )
+            return None
+        return {"group_entry_id": r_adv["result"]["entry_id"], "entity": shared_entity}
+    except Exception as exc:  # best-effort
+        print(f"  twin fixture: provisioning failed: {exc}", flush=True)
+        return None
+
+
+def _provision_combined_fixture(member_entry_id, preferred_second=None):
     """EC16-18/20/21/24/66: a combined group OWNING the given member group (plus a
     second loaded group — combined requires >=2 members). The combined-relay ECs
     run against the member group; discover() then finds it owned by this combined
     and the relay checks fire instead of skipping. member_entry_id = the group the
     relay ECs route to (the ess_batt target = EA Fix Numeric Battery).
+
+    preferred_second: if given (the EA Fix Twin entry_id), use it as the second
+    member so EC82 finds an identical-fingerprint sibling sharing an entity with
+    the pass-1 target inside this combined. Falls back to any loaded group.
     """
     combined_name = _FIX_PREFIX + "Combined"
     if not member_entry_id:
@@ -1288,18 +1339,31 @@ def _provision_combined_fixture(member_entry_id):
         if existing:
             return {"combined_entry_id": existing}
         entries = api("GET", "/api/config/config_entries/entry")
-        # a second LOADED, non-combined group to satisfy the >=2 member rule
-        second = next(
-            (
-                e
-                for e in entries
-                if e.get("domain") == "entity_availability"
-                and e.get("entry_id") != member_entry_id
-                and "combined" not in (e.get("title") or "").lower()
-                and e.get("state") == "loaded"
-            ),
-            None,
-        )
+        # Prefer the EA Fix Twin (identical-fingerprint sibling) as the second
+        # member so EC82 finds it inside this combined; else any loaded group.
+        second = None
+        if preferred_second:
+            second = next(
+                (
+                    e
+                    for e in entries
+                    if e.get("entry_id") == preferred_second
+                    and e.get("state") == "loaded"
+                ),
+                None,
+            )
+        if not second:
+            second = next(
+                (
+                    e
+                    for e in entries
+                    if e.get("domain") == "entity_availability"
+                    and e.get("entry_id") != member_entry_id
+                    and "combined" not in (e.get("title") or "").lower()
+                    and e.get("state") == "loaded"
+                ),
+                None,
+            )
         if not second:
             print("  combined fixture: no second group for combined", flush=True)
             return None
@@ -2477,9 +2541,21 @@ def run_all():
     # shared sibling at the numeric-battery fixture's entity[0] (the pass-1 target's
     # entities[0], which EC12 suppresses) so EC12's sibling-discovery finds it.
     _provision_shared_fixture(numbatt.get("entity") if numbatt else None)
+    # EC82 needs an IDENTICAL-fingerprint sibling of the pass-1 target inside the
+    # combined. Twin mirrors EA Fix Numeric Battery's config on the shared entity,
+    # and is passed to the combined as the preferred second member so the combined
+    # collapses Alpha+Twin to one row (the dedup EC82 asserts on).
+    twin = _provision_ec82_twin_fixture(
+        numbatt.get("entity") if numbatt else None,
+        numbatt.get("battery") if numbatt else None,
+    )
     # Combined owns the numeric-battery group (the ess_batt target the combined-
-    # relay ECs route to) so EC16-24/66 find a combined owner instead of skipping.
-    _provision_combined_fixture(numbatt.get("group_entry_id") if numbatt else None)
+    # relay ECs route to) so EC16-24/66 find a combined owner instead of skipping;
+    # Twin is its second member so EC82's identical-fingerprint sibling is present.
+    _provision_combined_fixture(
+        numbatt.get("group_entry_id") if numbatt else None,
+        preferred_second=twin.get("group_entry_id") if twin else None,
+    )
     wait(8)  # let the new groups' entries load + their group_summary register
     # Deterministically wait until the combined's membership is visible in
     # .storage — the config-entry write is debounced, and discover() reads the
