@@ -1774,8 +1774,10 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                     time.sleep(5)
                 chk(
                     "EC31 stale_count=0 after restore",
-                    "0" if _cleared else gs(f"{prefix}_stale_count").get("state"),
-                    "0",
+                    _cleared,
+                    True,
+                    f"cleared={_cleared} "
+                    f"stale_count={gs(f'{prefix}_stale_count').get('state')} "
                     f"stale_entities={gs(f'{prefix}_stale_entities').get('attributes', {}).get('entities')}",
                 )
                 # Bring entities back to full clean state after off/on cycle,
