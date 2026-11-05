@@ -183,7 +183,22 @@ class AvailabilityStorage:
             b = relevant_buckets[-1]
             elapsed = (now - b.interval_start).total_seconds()
             total_online = b.online_seconds
-            total_time = min(elapsed, b.total_seconds)
+            # Floor the denominator at total_online. The sensor reads with a
+            # minute-truncated `now`, so at a calendar-"today" rollover that lands
+            # on a 5-min bucket boundary (e.g. 00:00 UTC) the fresh bucket's
+            # interval_start == the truncated read instant → elapsed == 0 for the
+            # whole first minute, while record_online has already booked this
+            # poll's online seconds. Without the floor, total_time = min(0, 300) = 0
+            # → the `<= 0` guard returned None → every today sensor flashed
+            # "unknown" for 60 s at midnight (card hid the bar). You cannot accrue
+            # N online-seconds in fewer than N elapsed-seconds, so total_time must
+            # be ≥ total_online; this keeps total_time > 0 whenever online > 0,
+            # even when elapsed rounds to 0. A genuinely-offline fresh bucket
+            # (online == 0, elapsed == 0) still yields total_time == 0 → None
+            # below, unchanged — the floor only ever raises a denominator that was
+            # spuriously below the online seconds already booked, so it can never
+            # hide a real outage (an offline device books 0 online).
+            total_time = max(min(elapsed, b.total_seconds), total_online)
 
         if total_time <= 0:
             return None

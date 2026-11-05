@@ -745,6 +745,10 @@ class AvailabilitySensor(DedupCoordinatorSensor):
     _attr_icon = "mdi:chart-line"
     _attr_native_unit_of_measurement = "%"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    # native_value already rounds to 1 decimal; this tells the HA frontend
+    # (history graph tooltip, more-info) to display it at the same precision
+    # instead of the raw stored float (e.g. 99.23529%).
+    _attr_suggested_display_precision = 1
     _attr_has_entity_name = True
 
     def __init__(
@@ -820,6 +824,9 @@ class MTBFSensor(DedupCoordinatorSensor):
     _attr_icon = "mdi:chart-timeline-variant"
     _attr_native_unit_of_measurement = "h"
     _attr_device_class = SensorDeviceClass.DURATION
+    # native_value rounds to 1 decimal; match it in the frontend (history
+    # tooltip, more-info) instead of showing the raw stored float.
+    _attr_suggested_display_precision = 1
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     # Advanced reliability metric — off by default to keep a new group's entity
     # list focused on the core offline/battery/availability sensors. Enable it in
@@ -900,6 +907,9 @@ class MTTRSensor(DedupCoordinatorSensor):
     _attr_icon = "mdi:timer-alert-outline"
     _attr_native_unit_of_measurement = "min"
     _attr_device_class = SensorDeviceClass.DURATION
+    # native_value rounds to 1 decimal; match it in the frontend (history
+    # tooltip, more-info) instead of showing the raw stored float.
+    _attr_suggested_display_precision = 1
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     # Advanced reliability metric — off by default (see MTBFSensor). Enable it in
     # the entity settings to track mean outage length. Only affects newly

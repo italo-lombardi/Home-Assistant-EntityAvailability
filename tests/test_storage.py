@@ -266,6 +266,36 @@ class TestWindowCalculation:
         result = storage.get_availability("sensor.new", "today", probe)
         assert result == 100.0
 
+    def test_get_availability_midnight_rollover_online_not_unknown(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """At a calendar-"today" rollover landing on a 5-min bucket boundary, the
+        sensor reads with a minute-truncated `now` so elapsed == 0 for the fresh
+        bucket, while record_online has already booked this poll's online seconds.
+        The today sensor MUST show 100.0 (device was online), NOT "unknown" (None).
+        Regression guard for the midnight "today bars disappear for 60 s" bug: the
+        in-progress denominator is floored at total_online so total_time > 0."""
+        start = storage._get_interval_start(now)
+        # Probe AT the bucket start → elapsed == 0, but a full poll of online booked.
+        storage.record_online("sensor.new", 30.0, start)
+        result = storage.get_availability("sensor.new", "today", start)
+        assert result == 100.0
+
+    def test_get_availability_fresh_bucket_offline_still_none(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """Twin of the rollover guard: a genuinely-offline fresh bucket (no online
+        seconds booked, elapsed == 0) still returns None — the floor only raises the
+        denominator when online > 0, so an all-offline brand-new bucket with no data
+        yet is unchanged. NB: this passes on the pre-fix code too; it guards the fix
+        from OVER-reaching (floor must not turn genuine-offline into a value), not
+        the midnight bug itself — that guard is the rollover test above."""
+        start = storage._get_interval_start(now)
+        # Bucket exists (offline recorded) but zero online, probed at elapsed == 0.
+        storage.record_offline("sensor.new", 30.0, start)
+        result = storage.get_availability("sensor.new", "today", start)
+        assert result is None
+
     def test_get_availability_0_percent(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
