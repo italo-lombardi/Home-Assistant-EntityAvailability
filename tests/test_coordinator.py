@@ -95,6 +95,66 @@ async def test_store_serialize_kwarg_guarded(
         assert "serialize_in_event_loop" not in kwargs
 
 
+async def test_slow_save_warn_and_diagnostics(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Slow-save warn is peak-gated on on-loop ms; diagnostics always record.
+
+    perf_counter is scripted so each _async_save_storage sees a known on-loop
+    span (prune+snapshot) independent of real time. Verifies: warn fires above
+    SAVE_SLOW_WARN_MS, not for off-loop-only slowness, peak-gate (higher re-warns,
+    lower-but-still-over does NOT), and the 4 diagnostics fields are stamped.
+    """
+    import custom_components.entity_availability.coordinator as coord_mod
+    from custom_components.entity_availability.coordinator import SAVE_SLOW_WARN_MS
+
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+    # Real save path, but storage I/O stubbed: snapshot returns a tiny frozen set,
+    # async_save + encode are no-ops. perf_counter supplies the timings.
+    coord._store.async_save = AsyncMock()
+    coord._availability_storage.prune = MagicMock()
+    coord._availability_storage.snapshot = MagicMock(return_value={"e": [(1, 2.0)]})
+
+    # Each save consumes 4 perf_counter() reads: total0, onloop0, onloop_end,
+    # total_end. on-loop ms = (onloop_end - onloop0) * 1000.
+    sec = SAVE_SLOW_WARN_MS / 1000  # threshold in seconds
+
+    def script(*spans_s):
+        ticks = []
+        for onloop_s in spans_s:
+            # total0, onloop0, onloop_end (= onloop0 + span), total_end
+            ticks += [0.0, 0.0, onloop_s, onloop_s + 0.001]
+        return iter(ticks)
+
+    # 4 saves: (1) over threshold -> warn; (2) lower but still over -> NO re-warn
+    # (peak-gate); (3) higher new worst -> re-warn; (4) under threshold -> no warn.
+    perf = script(sec + 1.0, sec + 0.5, sec + 3.0, sec - 1.0)
+    with (
+        patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
+        patch.object(coord_mod, "_LOGGER") as mock_log,
+        patch.object(
+            coord_mod.AvailabilityStorage,
+            "encode_snapshot",
+            MagicMock(return_value={}),
+        ),
+    ):
+        for _ in range(4):
+            await coord._async_save_storage()
+
+    # Peak-gate: warns at save 1 (first cross) and save 3 (new worst) only.
+    assert mock_log.warning.call_count == 2
+    # Diagnostics fields stamped (last save: under threshold, ~sec-1).
+    assert coord._last_save_onloop_ms == pytest.approx((sec - 1.0) * 1000)
+    assert coord._last_save_total_ms is not None
+    assert coord._last_save_bucket_count == 1  # one entity, one bucket row
+
+
 async def test_state_change_online_device(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:

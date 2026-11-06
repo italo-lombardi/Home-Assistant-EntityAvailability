@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -56,6 +57,7 @@ from .const import (
     EVENT_SIGNAL_OK,
     EVENT_STALE,
     EVENT_STALE_RECOVERED,
+    SAVE_SLOW_WARN_MS,
     SCAN_INTERVAL,
     SIGNAL_DEBOUNCE_SECONDS,
     SIGNAL_HYSTERESIS,
@@ -163,6 +165,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._suppressed: dict[str, datetime | None] = {}
         self._last_save: datetime | None = None
         self._dirty: bool = False
+        # Save/refresh timing for Diagnostics (perf_counter ms). The slow-save warn
+        # is peak-gated on _slow_save_warned_peak_ms: only a new worst above
+        # SAVE_SLOW_WARN_MS re-warns, so it cannot spam.
+        self._last_save_onloop_ms: float | None = None
+        self._last_save_total_ms: float | None = None
+        self._last_save_bucket_count: int | None = None
+        self._last_refresh_ms: float | None = None
+        self._slow_save_warned_peak_ms: float = 0.0
         # Memoized entity_id -> representative entity_id map for device-collapse.
         # Rebuilt once per _async_update_data tick (registry + battery/signal churn
         # can change keys), then read by every count/list site so er lookups run
@@ -495,6 +505,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
     async def _async_save_storage(self) -> None:
         """Persist availability data."""
+        t_total0 = time.perf_counter()
         device_states_data: dict[str, dict] = {}
         for entity_id, device in self._device_states.items():
             if entity_id not in self._entities:
@@ -549,10 +560,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # bucket payload (compact storage format) reduces it; no Store flag touches it.
         now = dt_util.utcnow()
         retention_seconds = self._retention_seconds()
+        # ON-LOOP span: prune() + snapshot() are the residual event-loop cost of a
+        # save (encode + disk write are off-loop). Timed separately from the total so
+        # the slow-save warn fires on real loop-blocking, not the off-loop encode.
+        t_onloop0 = time.perf_counter()
         self._availability_storage.prune(now, retention_seconds, self._entities)
         frozen = self._availability_storage.snapshot(
             now, retention_seconds, self._entities
         )
+        onloop_ms = (time.perf_counter() - t_onloop0) * 1000
         # Capture `suppressed` BEFORE the executor await too, so all three persisted
         # fields (availability / device_states / suppressed) reflect the SAME instant
         # — a suppress/unsuppress firing during the encode must not skew the save.
@@ -578,6 +594,22 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         await self._store.async_save(data)
         self._dirty = False
+        # Timing for Diagnostics + peak-gated slow-save warn.
+        total_ms = (time.perf_counter() - t_total0) * 1000
+        bucket_count = sum(len(v) for v in frozen.values())
+        self._last_save_onloop_ms = onloop_ms
+        self._last_save_total_ms = total_ms
+        self._last_save_bucket_count = bucket_count
+        if onloop_ms > SAVE_SLOW_WARN_MS and onloop_ms > self._slow_save_warned_peak_ms:
+            self._slow_save_warned_peak_ms = onloop_ms
+            _LOGGER.warning(
+                "[%s] Slow storage save: on-loop %.0fms (prune+snapshot), "
+                "%d buckets. Large groups + long windows inflate this; shorter "
+                "windows or fewer monitored entities reduce it.",
+                self.group_name,
+                onloop_ms,
+                bucket_count,
+            )
         self._last_save = now
 
     @callback
@@ -681,6 +713,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
 
     async def _async_update_data(self) -> EntityAvailabilityData:
         """Update device states and availability."""
+        t_refresh0 = time.perf_counter()
         now = datetime.now(timezone.utc)
         elapsed = (
             (now - self._last_update).total_seconds()
@@ -1122,6 +1155,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # Gating on elapsed time, not a tick count, keeps the save rate a pure
         # ceiling regardless of how many state-change refreshes a busy group
         # fires. First dirty tick (_last_save is None) saves immediately to seed.
+        # Refresh timing (Diagnostics only — the O(N) sweep cost, excluding the
+        # save below which is timed on its own). No warn path here; the save warn
+        # is the single load-bearing one.
+        self._last_refresh_ms = (time.perf_counter() - t_refresh0) * 1000
         self._dirty = True
         if (
             self._last_save is None

@@ -149,6 +149,12 @@ STORAGE_KEY_PREFIX = "entity_availability"
 BUCKET_INTERVAL = 300  # 5 minutes per bucket
 BUCKETS_MAX = 2016  # 7 days * 24 hours * 12 buckets/hour
 
+# Warn when a save's ON-LOOP span (prune + snapshot) exceeds this. Chosen high
+# (2 s) so it flags a real stall, not routine saves; the warn is peak-gated
+# (only a new worst re-warns) so it can never spam. Diagnostics always carries
+# the live number regardless of the threshold.
+SAVE_SLOW_WARN_MS = 2000
+
 # Update interval for coordinator
 SCAN_INTERVAL = 30  # seconds
 

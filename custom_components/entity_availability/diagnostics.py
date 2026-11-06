@@ -130,6 +130,12 @@ async def async_get_config_entry_diagnostics(
                     1 for d in states.values() if d.is_stale and not d.is_non_essential
                 ),
             },
+            "storage": {
+                "last_save_onloop_ms": coordinator._last_save_onloop_ms,
+                "last_save_total_ms": coordinator._last_save_total_ms,
+                "last_save_bucket_count": coordinator._last_save_bucket_count,
+                "last_refresh_ms": coordinator._last_refresh_ms,
+            },
         },
         TO_REDACT,
     )
