@@ -69,6 +69,32 @@ async def test_coordinator_init(hass: HomeAssistant, mock_config_entry) -> None:
     assert coord.group_name == "Test Group"
 
 
+@pytest.mark.parametrize("flag_present", [True, False])
+async def test_store_serialize_kwarg_guarded(
+    hass: HomeAssistant, mock_config_entry, flag_present: bool
+) -> None:
+    """serialize_in_event_loop=False is passed only when Store supports it.
+
+    HA 2025.12 added the kwarg (keyword-only); 2025.11 (our floor) rejects it with
+    TypeError. The signature guard must pass it when present and omit it when absent.
+    """
+    import custom_components.entity_availability.coordinator as coord_mod
+
+    mock_store = MagicMock()
+    with (
+        patch.object(coord_mod, "Store", mock_store),
+        patch.object(coord_mod, "_STORE_HAS_SERIALIZE_FLAG", flag_present),
+    ):
+        EntityAvailabilityCoordinator(hass, mock_config_entry)
+
+    assert mock_store.called
+    kwargs = mock_store.call_args.kwargs
+    if flag_present:
+        assert kwargs.get("serialize_in_event_loop") is False
+    else:
+        assert "serialize_in_event_loop" not in kwargs
+
+
 async def test_state_change_online_device(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:

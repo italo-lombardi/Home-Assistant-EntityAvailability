@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -83,6 +84,21 @@ _STATE_CHANGE_DEBOUNCE = 0.5  # seconds
 # on elapsed time makes the save rate a pure ceiling, independent of activity.
 SAVE_MIN_INTERVAL = 300  # seconds (5 min)
 
+# HA 2025.12.0 added a keyword-only ``serialize_in_event_loop`` param to Store
+# (absent at 2025.11.0, our manifest floor; present 2025.12.0 + dev). It defaults
+# True, which runs the JSON encode ON the event loop in the save path — a
+# multi-second stall for large groups (our snapshot can be tens of MB). Passing
+# False moves the encode into the executor (the file write already was). We detect
+# the param by signature so we never pass an unknown kwarg to a 2025.11 Store
+# (that raises TypeError). On <=2025.11 the encode is already off-loop (the old
+# monolithic _write_data ran entirely in the executor), so omitting the kwarg is a
+# correct no-op there.
+# ponytail: signature guard, drop it and pass serialize_in_event_loop=False
+# unconditionally once the manifest/hacs floor reaches 2025.12.0.
+_STORE_HAS_SERIALIZE_FLAG = (
+    "serialize_in_event_loop" in inspect.signature(Store.__init__).parameters
+)
+
 
 class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData]):
     """Coordinator that monitors device states and tracks availability."""
@@ -121,8 +137,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             CONF_SIGNAL_ENTITY_MAP, {}
         )
         self._availability_storage = AvailabilityStorage()
+        store_kwargs = (
+            {"serialize_in_event_loop": False} if _STORE_HAS_SERIALIZE_FLAG else {}
+        )
         self._store = Store(
-            hass, STORAGE_VERSION, f"{STORAGE_KEY_PREFIX}_{entry.entry_id}"
+            hass,
+            STORAGE_VERSION,
+            f"{STORAGE_KEY_PREFIX}_{entry.entry_id}",
+            **store_kwargs,
         )
         self._last_update: datetime | None = None
         self._startup_time: datetime | None = None
