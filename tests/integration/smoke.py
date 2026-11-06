@@ -1845,14 +1845,19 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                 # Capture window MUST outlast the full stale onset (threshold+2 min)
                 # AND the combined's relay, which fires on the combined coordinator's
                 # NEXT tick AFTER the member goes stale (up to WAIT_FOR_TIMEOUT later).
-                # A tight +30s margin let the combined's relayed stale land after the
-                # socket closed (total_events=0) on a slow run — widen it so the
-                # combined tick is always inside the window.
+                # _wait_fix_stale and the combined relay share ONE socket budget, so
+                # the tail margin must cover the combined tick even when the member
+                # goes stale LATE in stale_timeout under full --all load. A +120s
+                # margin still let the relay land after socket close on a loaded run
+                # (total_events=1, member captured, combined missed); +180s (>=3x a
+                # 60s WAIT_FOR_TIMEOUT, >=6x SCAN_INTERVAL) keeps the combined tick
+                # inside the window with load headroom. Verified: EC136 passes in
+                # isolation AND under --all with this margin.
                 stale_timeout = (threshold + 2) * 60
                 stale_events = capture_events(
                     "entity_availability_stale",
                     _wait_fix_stale,
-                    timeout=stale_timeout + max(WAIT_FOR_TIMEOUT * 2, 60),
+                    timeout=stale_timeout + max(WAIT_FOR_TIMEOUT * 3, 180),
                 )
                 # Separate the two failure modes (as EC137 does): confirm the MEMBER
                 # group actually went stale. member=0 → the template sensor never
