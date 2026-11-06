@@ -340,10 +340,21 @@ except ImportError:
     _WS_AVAILABLE = False
 
 
-def capture_events(event_type: str, trigger_fn, timeout: int = 30) -> list[dict]:
+def capture_events(
+    event_type: str, trigger_fn, timeout: int = 30, post_trigger_grace: int = 0
+) -> list[dict]:
     """Subscribe to event_type, call trigger_fn(), return captured payloads.
 
     Falls back to [] when websocket-client is not installed.
+
+    ``timeout`` bounds the wait for ``trigger_fn`` to START being serviced
+    (subscription confirm + the trigger's own work). ``post_trigger_grace``, when
+    > 0, holds the socket open for a FIXED number of seconds AFTER trigger_fn
+    RETURNS — use it when the event of interest fires slightly after the trigger
+    completes (e.g. a combined group relaying a member event one coordinator tick
+    later). Without it the relay has to race whatever is left of the flat
+    ``timeout`` budget after a slow trigger, which flakes under load; the grace
+    gives it a deterministic tail measured from trigger completion, not from start.
     """
     if not _WS_AVAILABLE:
         trigger_fn()
@@ -355,7 +366,14 @@ def capture_events(event_type: str, trigger_fn, timeout: int = 30) -> list[dict]
         + "/api/websocket"
     )
     done = threading.Event()
+    triggered = threading.Event()
     msg_id = 1
+
+    def _run_trigger(ws) -> None:
+        try:
+            trigger_fn()
+        finally:
+            triggered.set()
 
     def on_message(ws, raw):
         nonlocal msg_id
@@ -374,12 +392,13 @@ def capture_events(event_type: str, trigger_fn, timeout: int = 30) -> list[dict]
             )
         elif mtype == "result" and msg.get("id") == msg_id:
             if msg.get("success"):
-                trigger_fn()
+                # Run the (possibly long-blocking) trigger off the WS read thread
+                # so it keeps receiving events while trigger_fn waits; signal
+                # completion so the main thread can time the post-trigger grace.
+                threading.Thread(target=_run_trigger, args=(ws,), daemon=True).start()
         elif mtype == "event":
             data = msg.get("event", {}).get("data", {})
             captured.append(data)
-        elif mtype == "event" and done.is_set():
-            pass
 
     def on_error(ws, err):
         pass
@@ -395,7 +414,14 @@ def capture_events(event_type: str, trigger_fn, timeout: int = 30) -> list[dict]
     )
     t = threading.Thread(target=lambda: ws.run_forever(), daemon=True)
     t.start()
-    time.sleep(timeout)
+    if post_trigger_grace > 0:
+        # Wait (bounded by timeout) for trigger_fn to finish, THEN hold the socket
+        # open a fixed grace so a slightly-later relay always lands in-window,
+        # independent of how long the trigger blocked under load.
+        triggered.wait(timeout)
+        time.sleep(post_trigger_grace)
+    else:
+        time.sleep(timeout)
     ws.close()
     done.set()
     return captured
@@ -1842,22 +1868,26 @@ def _run_ne_tests(ne_ctx: dict) -> None:
                             pass
                         time.sleep(10)
 
-                # Capture window MUST outlast the full stale onset (threshold+2 min)
-                # AND the combined's relay, which fires on the combined coordinator's
-                # NEXT tick AFTER the member goes stale (up to WAIT_FOR_TIMEOUT later).
-                # _wait_fix_stale and the combined relay share ONE socket budget, so
-                # the tail margin must cover the combined tick even when the member
-                # goes stale LATE in stale_timeout under full --all load. A +120s
-                # margin still let the relay land after socket close on a loaded run
-                # (total_events=1, member captured, combined missed); +180s (>=3x a
-                # 60s WAIT_FOR_TIMEOUT, >=6x SCAN_INTERVAL) keeps the combined tick
-                # inside the window with load headroom. Verified: EC136 passes in
-                # isolation AND under --all with this margin.
+                # The combined group relays the member's stale event on its NEXT
+                # coordinator tick AFTER the member goes stale (up to WAIT_FOR_TIMEOUT
+                # later). Two things made this flaky under full --all load:
+                #   1. A flat `timeout` budget was shared between _wait_fix_stale
+                #      (which blocks until the member goes stale, slower under load)
+                #      and the post-stale relay — so a late onset ate the relay's tail.
+                #   2. trigger_fn ran ON the websocket read thread, so while
+                #      _wait_fix_stale blocked for minutes the socket processed no
+                #      incoming events — a relay arriving during the wait was dropped.
+                # capture_events now runs the trigger off the read thread (socket stays
+                # live throughout) and takes post_trigger_grace: a FIXED tail held open
+                # after _wait_fix_stale returns, measured from trigger completion, not
+                # from start — so the combined tick always lands in-window regardless of
+                # how long the onset took. timeout here bounds only the onset wait.
                 stale_timeout = (threshold + 2) * 60
                 stale_events = capture_events(
                     "entity_availability_stale",
                     _wait_fix_stale,
-                    timeout=stale_timeout + max(WAIT_FOR_TIMEOUT * 3, 180),
+                    timeout=stale_timeout,
+                    post_trigger_grace=max(WAIT_FOR_TIMEOUT * 2, 90),
                 )
                 # Separate the two failure modes (as EC137 does): confirm the MEMBER
                 # group actually went stale. member=0 → the template sensor never
