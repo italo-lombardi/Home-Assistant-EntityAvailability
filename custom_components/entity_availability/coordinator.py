@@ -517,8 +517,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # diverge. prune() MUTATES _buckets so it must stay on the loop; snapshot()
         # then freezes the pruned buckets BY VALUE into a detached structure, and the
         # expensive isoformat/dict build (encode_snapshot) runs in the EXECUTOR so it
-        # never blocks the event loop (the ~1M-bucket build was a multi-second freeze
-        # on large groups — the JSON encode + disk write were already off-loop).
+        # does not block the loop. HA's async_save → _write_data (the JSON byte-encode
+        # AND the atomic disk write) is also off-loop on every supported HA (>=2025.11,
+        # async_add_executor_job; no serialize_in_event_loop flag exists to disable).
+        #
+        # The residual ON-LOOP cost of a save is prune() + snapshot() themselves —
+        # O(buckets), ~0.4s measured locally at 496 entities x 2016 buckets (~1M
+        # buckets), scaling with bucket count (NOT a fixed cost). Only shrinking the
+        # bucket payload (compact storage format) reduces it; no Store flag touches it.
         now = dt_util.utcnow()
         retention_seconds = self._retention_seconds()
         self._availability_storage.prune(now, retention_seconds, self._entities)
