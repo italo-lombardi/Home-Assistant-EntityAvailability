@@ -290,6 +290,9 @@ async def test_load_storage_stall_block_missing_or_corrupt(
         [1, 2, 3],
         {"count": "x", "last_wall_ms": [9, 9], "last_at": 5},
         {"count": True, "last_wall_ms": float("nan"), "last_at": None},
+        # negative values from a hand-edited file are rejected (count/wall are
+        # monotonic non-negative; a negative would poison the diagnostics)
+        {"count": -5, "last_wall_ms": -100.0, "last_at": None},
     ):
         coord2 = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord2._store = MagicMock()

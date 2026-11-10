@@ -5492,7 +5492,7 @@ for e in cfg['data']['entries']:
             "\n=== EC92: availability_today shows a value (not unknown) ===",
             flush=True,
         )
-        state_92 = gs(f"{prefix}_availability_today").get("state")
+        state_92 = (gs_safe(f"{prefix}_availability_today") or {}).get("state")
         chk(
             "EC92 availability_today is a numeric value, not unknown",
             state_92 not in (None, "unknown", "unavailable"),
@@ -7316,7 +7316,7 @@ for e in cfg['data']['entries']:
             "\n=== EC139: availability_today (calendar day) reads a value ===",
             flush=True,
         )
-        state_139 = gs(f"{prefix}_availability_today").get("state")
+        state_139 = (gs_safe(f"{prefix}_availability_today") or {}).get("state")
         chk(
             "EC139 availability_today is numeric (calendar-day path wired)",
             state_139 not in (None, "unknown", "unavailable"),

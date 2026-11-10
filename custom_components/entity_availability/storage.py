@@ -294,8 +294,10 @@ class AvailabilityStorage:
         ``interval_start = base + i * BUCKET_INTERVAL``; the full ISO string per
         bucket (the old {"s","o"} shape) is redundant and is dropped.
 
-        Size: ~85-91% smaller than the old {"s","o"} format for a CONTINUOUSLY-running
-        HA — the coordinator records a bucket for every monitored entity every tick
+        Size: ~75-90% smaller than the old {"s","o"} format for a CONTINUOUSLY-running
+        HA on disk (measured on a real install; HA Store writes indented JSON, and the
+        exact figure depends on how many buckets hold a whole-second value) — the
+        coordinator records a bucket for every monitored entity every tick
         (``_async_update_data`` sweeps all entities, record_online/offline either way),
         so a healthy instance's arrays are dense (no nulls) and the per-bucket ISO
         string + key overhead is what the compact form removes. An INTERMITTENTLY-run

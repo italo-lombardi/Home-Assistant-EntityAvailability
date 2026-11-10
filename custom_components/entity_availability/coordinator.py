@@ -501,10 +501,18 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             stall = stored.get("stall")
             if isinstance(stall, dict):
                 raw_count = stall.get("count")
-                if isinstance(raw_count, int) and not isinstance(raw_count, bool):
+                if (
+                    isinstance(raw_count, int)
+                    and not isinstance(raw_count, bool)
+                    and raw_count >= 0
+                ):
                     self._save_stall_count = raw_count
                 raw_wall = stall.get("last_wall_ms")
-                if isinstance(raw_wall, (int, float)) and math.isfinite(raw_wall):
+                if (
+                    isinstance(raw_wall, (int, float))
+                    and math.isfinite(raw_wall)
+                    and raw_wall >= 0
+                ):
                     self._last_stall_wall_ms = float(raw_wall)
                 raw_at = stall.get("last_at")
                 if isinstance(raw_at, str):
