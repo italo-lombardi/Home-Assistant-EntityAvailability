@@ -82,6 +82,9 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
        → unknown after reset) — the only service with no prior smoke coverage
   EC144 real entity_availability_battery_ok BUS event fires on numeric recovery above
        threshold (capture_events; distinct from EC23's sensor-transition proxy)
+  EC145 v0.7.1 follow-up (issue #145): save-timing diagnostics split cpu vs wall
+       (last_save_onloop_cpu_ms + _wall_ms + save_stall_count; old _onloop_ms gone;
+       healthy save → stall_count 0, cpu well under the warn threshold)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -2731,7 +2734,7 @@ def _run_all_passes():
     #    the NE tier, the collapse fixture, and battery-level, which own passes.
     pass1_ecs = {
         n
-        for n in list(range(1, 93)) + [113, 114]
+        for n in list(range(1, 93)) + [113, 114, 139, 140, 141, 142, 145, 146]
         if n not in ne_ecs
         and n not in collapse_ecs
         and n not in battery_level_ecs
@@ -4592,6 +4595,76 @@ for e in cfg['data']['entries']:
             )
         except Exception as e:
             chk("EC53 diagnostics endpoint reachable", False, True, str(e))
+
+    # EC145: issue #145 — the slow-save warn now measures CPU (process_time), not
+    # wall (perf_counter), so a host stall is no longer mislabeled as integration
+    # work. Diagnostics must carry the split: last_save_onloop_CPU_ms +
+    # last_save_onloop_WALL_ms + save_stall_count, and the old single
+    # last_save_onloop_ms key must be GONE. A healthy devcontainer save is CPU-cheap
+    # and un-stalled, so save_stall_count stays 0 and no slow-save WARN fires.
+    # Diagnostics-only (no fixture) — rides the main group ctx, always runs in --all.
+    if ec_enabled(145):
+        print(
+            "\n=== EC145: save-timing metric split (cpu vs wall) in diagnostics ===",
+            flush=True,
+        )
+        try:
+            # The coordinator seeds its first save at startup (first dirty tick), so
+            # by smoke time the timing fields are already populated — no need to force
+            # a save (and no need to perturb the group's state). Just read them.
+            def _storage_block():
+                raw = api("GET", f"/api/diagnostics/config_entry/{ctx['entry_id']}")
+                return (raw.get("data", raw) or {}).get("storage") or {}
+
+            # Wait for the first save to stamp the CPU field (None until then).
+            wait_for(
+                lambda: _storage_block().get("last_save_onloop_cpu_ms") is not None,
+                True,
+            )
+            storage = _storage_block()
+            # New split fields present + correctly typed.
+            chk(
+                "EC145 storage.last_save_onloop_cpu_ms is a number",
+                isinstance(storage.get("last_save_onloop_cpu_ms"), (int, float)),
+                True,
+                f"storage={storage}",
+            )
+            chk(
+                "EC145 storage.last_save_onloop_wall_ms is a number",
+                isinstance(storage.get("last_save_onloop_wall_ms"), (int, float)),
+                True,
+                f"storage={storage}",
+            )
+            chk(
+                "EC145 storage.save_stall_count is an int",
+                isinstance(storage.get("save_stall_count"), int),
+                True,
+                f"storage={storage}",
+            )
+            # The old single-clock key is gone (metric renamed, not aliased).
+            chk(
+                "EC145 old last_save_onloop_ms key absent",
+                "last_save_onloop_ms" not in storage,
+                True,
+            )
+            # A healthy save is un-stalled: CPU cost is tiny and no host freeze, so
+            # the stall counter has not incremented.
+            chk(
+                "EC145 no host stall counted on a healthy save",
+                storage.get("save_stall_count"),
+                0,
+                f"storage={storage}",
+            )
+            # CPU cost of prune+snapshot is far below the 1000ms warn threshold on a
+            # devcontainer-sized group (sanity: the metric reflects real, small work).
+            chk(
+                "EC145 cpu cost well under the slow-save warn threshold",
+                float(storage.get("last_save_onloop_cpu_ms", 0)) < 1000,
+                True,
+                f"cpu_ms={storage.get('last_save_onloop_cpu_ms')}",
+            )
+        except Exception as e:
+            chk("EC145 diagnostics save-timing reachable", False, True, str(e))
 
     # EC137: combined group relays the per-group POOR_SIGNAL event under its own
     # entry_id — the third event family (after EC24 offline, EC136 stale) proven
@@ -7342,13 +7415,22 @@ for e in cfg['data']['entries']:
     # save — no waiting on the periodic save interval. The file lives in the
     # container at .storage/entity_availability_{entry_id}.
     def _set_windows(windows):
+        # Preserve the group's REAL battery config while reconfiguring windows. If the
+        # group has a mapped battery (battery_threshold>0), submitting threshold=0 here
+        # would ZERO its battery_threshold + drop its battery_entity_map on the ess_batt
+        # pass-1 group — which later breaks EC144/EC59/EC90 in pass-4 (they reuse this
+        # group and find no mapped battery). Carry the real threshold through and answer
+        # the battery_mapping substep with the existing mapping so nothing is lost.
+        bthresh = int(ctx.get("battery_threshold") or 0)
+        bentity = ctx.get("mapped_battery_entity")
+        bsensor = ctx.get("mapped_battery_sensor")
         r = api(
             "POST",
             "/api/config/config_entries/options/flow",
             {"handler": ctx["entry_id"]},
         )
         fid = r["flow_id"]
-        return api(
+        r2 = api(
             "POST",
             f"/api/config/config_entries/options/flow/{fid}",
             {
@@ -7358,7 +7440,7 @@ for e in cfg['data']['entries']:
                 "cooldown": 0,
                 "staleness_threshold": 0,
                 "staleness_use_last_updated": False,
-                "battery_threshold": 0,
+                "battery_threshold": bthresh,
                 "signal_enabled": ctx.get("signal_enabled", False),
                 "availability_windows": windows,
                 "recovery_window": 5,
@@ -7366,10 +7448,21 @@ for e in cfg['data']['entries']:
                 "collapse_devices": False,
             },
         )
+        # threshold>0 routes to the battery_mapping step — re-submit the existing map
+        # (then the signal_mapping step if it follows) so the battery config survives.
+        if r2.get("step_id") in ("battery_mapping", "battery_mapping_no_new"):
+            payload = {bentity: bsensor} if (bentity and bsensor) else {}
+            r2 = api("POST", f"/api/config/config_entries/options/flow/{fid}", payload)
+            if r2.get("step_id") == "signal_mapping":
+                r2 = api("POST", f"/api/config/config_entries/options/flow/{fid}", {})
+        return r2
 
     def _read_stored_availability():
-        # Read the persisted availability block from the storage file (runs inside
-        # the container where the file lives). Returns {} if absent/empty.
+        # Read the persisted availability block and return a normalized
+        # {eid: [bucket_start_epoch_seconds, ...]} view, decoding BOTH the legacy
+        # per-bucket [{"s","o"}] shape AND the compact v2 {"v":2,"base","entities"}
+        # shape (index i -> base + i*BUCKET_INTERVAL; None slots are gaps, skipped).
+        # Returns {} if absent/empty. Runs inside the container where the file lives.
         import subprocess
 
         path = (
@@ -7378,9 +7471,22 @@ for e in cfg['data']['entries']:
         )
         try:
             raw = subprocess.check_output(["cat", path], text=True)
-            return (json.loads(raw).get("data") or {}).get("availability", {})
+            block = (json.loads(raw).get("data") or {}).get("availability", {})
         except Exception:
             return {}
+        if not block:
+            return {}
+        if isinstance(block, dict) and block.get("v") == 2:
+            base = datetime.fromisoformat(block["base"]).timestamp()
+            out = {}
+            for eid, arr in (block.get("entities") or {}).items():
+                out[eid] = [base + i * 300 for i, o in enumerate(arr) if o is not None]
+            return out
+        # legacy shape: {eid: [{"s": iso, "o": sec}, ...]}
+        return {
+            eid: [datetime.fromisoformat(b["s"]).timestamp() for b in buckets]
+            for eid, buckets in block.items()
+        }
 
     if ec_enabled(141):
         # EC141: retention bounds the on-disk file. Select only "today" (~1 day
@@ -7398,9 +7504,8 @@ for e in cfg['data']['entries']:
             cutoff = time.time() - (25 * 3600 + 3 * 300) - 600  # retention + slack
             oldest_ok = True
             oldest_seen = None
-            for _eid, buckets in avail.items():
-                for b in buckets:
-                    ts = datetime.fromisoformat(b["s"]).timestamp()
+            for _eid, bucket_ts in avail.items():
+                for ts in bucket_ts:
                     oldest_seen = ts if oldest_seen is None else min(oldest_seen, ts)
                     if ts < cutoff:
                         oldest_ok = False
@@ -7532,6 +7637,165 @@ for e in cfg['data']['entries']:
                     f"battery_level={ev.get('battery_level')}",
                 )
             restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC146: compact v2 storage format round-trips on disk + reads legacy files.
+    # Two legs, both through the LIVE integration (no direct module import —
+    # smoke's interpreter can't import custom_components; everything is API/file):
+    #   (A) the seeded save is written compact v2:
+    #       data["data"]["availability"] == {"v":2,"base":<iso>,"entities":{eid:[...]}}
+    #       (scalar/null arrays, NOT the old per-bucket [{"s","o"}] dicts).
+    #   (B) a pre-v2 (legacy {"s","o"}) .storage file still LOADS and then UPGRADES:
+    #       back up the real file, write a legacy-format file, reload the entry →
+    #       from_dict's legacy branch parses it (availability_today reads numeric) →
+    #       next seeded save rewrites the file to v2. Restores the real file after.
+    # Rides any pass-1 group with availability history (precondition like EC143).
+    # Routed into pass1_ecs so --all runs it 0-skip. Runs IN the container
+    # (reads/writes .storage via subprocess, same as EC125).
+    # ------------------------------------------------------------------
+    if ec_enabled(146):
+        print(
+            "\n=== EC146: compact v2 storage format on disk + legacy read/upgrade ===",
+            flush=True,
+        )
+        import subprocess
+
+        storage_path = (
+            "/workspaces/home-assistant-core/config/.storage/"
+            f"entity_availability_{ctx['entry_id']}"
+        )
+
+        def _read_storage():
+            """Return the parsed .storage file (container-side) or None."""
+            r = subprocess.run(
+                ["cat", storage_path], capture_output=True, text=True, check=False
+            )
+            if r.returncode != 0:
+                return None
+            try:
+                return json.loads(r.stdout)
+            except ValueError:
+                return None
+
+        # Ensure the seeded save exists (first dirty tick saves immediately —
+        # coordinator.py ~1198). restore + one tick if the file isn't there yet.
+        if _read_storage() is None:
+            restore_and_wait(ctx)
+            wait(WAIT_FOR_TIMEOUT // 2 or 20)
+
+        # Poll briefly for the v2 save.
+        _deadline = time.time() + max(WAIT_FOR_TIMEOUT, 30)
+        doc = None
+        while time.time() < _deadline:
+            doc = _read_storage()
+            avail = (doc or {}).get("data", {}).get("availability")
+            if isinstance(avail, dict) and avail.get("v") == 2:
+                break
+            time.sleep(3)
+        avail = (doc or {}).get("data", {}).get("availability")
+
+        # --- Leg A: on-disk format is compact v2 ---
+        chk(
+            "EC146 storage availability block is compact v2",
+            isinstance(avail, dict) and avail.get("v") == 2,
+            True,
+            f"path={storage_path} got={type(avail).__name__}",
+        )
+        if isinstance(avail, dict) and avail.get("v") == 2:
+            chk(
+                "EC146 v2 carries a base grid timestamp",
+                isinstance(avail.get("base"), str) and bool(avail["base"]),
+                True,
+                f"base={avail.get('base')!r}",
+            )
+            entities = avail.get("entities", {})
+            sample = next(iter(entities.values())) if entities else []
+            chk(
+                "EC146 v2 entity arrays are scalar online-seconds (not {s,o} dicts)",
+                isinstance(sample, list)
+                and all(v is None or isinstance(v, (int, float)) for v in sample),
+                True,
+                f"sample_head={sample[:3] if isinstance(sample, list) else sample!r}",
+            )
+
+        # --- Leg B: a legacy (pre-v2) .storage file does not crash the load ---
+        # Only run if we have a real file to back up + restore (we do by here).
+        backup = _read_storage()
+        if backup is not None:
+            # Write a legacy-format availability block (old per-bucket [{"s","o"}]
+            # shape) under a REAL monitored entity, keeping the Store envelope +
+            # suppressed/device_states intact, then reload the entry.
+            #
+            # SCOPE (important — this leg does NOT prove the legacy PARSE): on reload
+            # the OUTGOING coordinator's async_shutdown runs a final save while it is
+            # still _dirty (coordinator.py:367), which rewrites this file as v2 from
+            # the old coordinator's in-RAM buckets BEFORE the incoming coordinator
+            # loads. So the incoming coordinator reads v2, not our injected legacy
+            # file, and from_dict's legacy branch is NOT exercised here. The real
+            # _from_dict_legacy coverage lives in the unit suite
+            # (tests/test_storage.py::test_v2_reads_legacy_file — a direct from_dict
+            # call that no shutdown-save can clobber). What this leg legitimately
+            # proves: dropping a legacy-shaped file in front of a reload does not
+            # crash setup, and the integration settles back to a valid v2 file.
+            import copy
+
+            real_eid = ctx["entities"][0]
+            grid_now = (int(time.time()) // 300) * 300
+            s1 = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(grid_now - 600))
+            s2 = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(grid_now - 300))
+            legacy_doc = copy.deepcopy(backup)
+            legacy_doc.setdefault("data", {})["availability"] = {
+                real_eid: [
+                    {"s": s1, "o": 300.0},
+                    {"s": s2, "o": 150.5},
+                ]
+            }
+            legacy_json = json.dumps(legacy_doc)
+            try:
+                subprocess.run(
+                    ["tee", storage_path],
+                    input=legacy_json,
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                reload_entry(ctx)
+                wait(WAIT_FOR_TIMEOUT // 2 or 20)
+
+                # The reload over a legacy file must not break the entry: the group's
+                # sensors must be live and the file must settle to a valid v2 shape.
+                gs_eid = f"{ctx['prefix']}_group_summary"
+                chk(
+                    "EC146 reload over a legacy file keeps the group alive (no crash)",
+                    gs_safe(gs_eid) is not None,
+                    True,
+                    f"group_summary={gs_eid}",
+                )
+                _deadline2 = time.time() + max(WAIT_FOR_TIMEOUT, 30)
+                a2 = None
+                while time.time() < _deadline2:
+                    a2 = (_read_storage() or {}).get("data", {}).get("availability")
+                    if isinstance(a2, dict) and a2.get("v") == 2:
+                        break
+                    time.sleep(3)
+                chk(
+                    "EC146 storage settles back to a valid v2 file after the reload",
+                    isinstance(a2, dict) and a2.get("v") == 2,
+                    True,
+                    f"after_reload_type={type(a2).__name__}",
+                )
+            finally:
+                # ALWAYS restore the real file + reload so we don't leave the group's
+                # history replaced by the legacy test payload.
+                subprocess.run(
+                    ["tee", storage_path],
+                    input=json.dumps(backup),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                reload_entry(ctx)
+                restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     # EC143: reset_statistics service clears a group's availability history +

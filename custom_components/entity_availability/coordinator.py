@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import math
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -57,7 +58,8 @@ from .const import (
     EVENT_SIGNAL_OK,
     EVENT_STALE,
     EVENT_STALE_RECOVERED,
-    SAVE_SLOW_WARN_MS,
+    SAVE_SLOW_WARN_CPU_MS,
+    SAVE_STALL_DEBUG_MS,
     SCAN_INTERVAL,
     SIGNAL_DEBOUNCE_SECONDS,
     SIGNAL_HYSTERESIS,
@@ -166,13 +168,19 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._last_save: datetime | None = None
         self._dirty: bool = False
         # Save/refresh timing for Diagnostics (perf_counter ms). The slow-save warn
-        # is peak-gated on _slow_save_warned_peak_ms: only a new worst above
-        # SAVE_SLOW_WARN_MS re-warns, so it cannot spam.
-        self._last_save_onloop_ms: float | None = None
+        # is peak-gated on _slow_save_warned_peak_cpu_ms: only a new worst CPU cost
+        # above SAVE_SLOW_WARN_CPU_MS re-warns, so it cannot spam.
+        self._last_save_onloop_cpu_ms: float | None = None  # thread_time: our cost
+        self._last_save_onloop_wall_ms: float | None = None  # perf_counter: incl stall
         self._last_save_total_ms: float | None = None
         self._last_save_bucket_count: int | None = None
         self._last_refresh_ms: float | None = None
-        self._slow_save_warned_peak_ms: float = 0.0
+        self._slow_save_warned_peak_cpu_ms: float = 0.0
+        # Count of saves whose wall span far exceeded their CPU cost — i.e. the host
+        # froze the event loop during the save (not integration work). Diagnostics-only.
+        self._save_stall_count: int = 0
+        self._last_stall_wall_ms: float | None = None  # rolling max wall of a stall
+        self._last_stall_at: str | None = None  # iso ts of the most recent stall
         # Memoized entity_id -> representative entity_id map for device-collapse.
         # Rebuilt once per _async_update_data tick (registry + battery/signal churn
         # can change keys), then read by every count/list site so er lookups run
@@ -484,6 +492,23 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     device.is_low_battery = ds.get("is_low_battery", False)
                     if entity_id in self._entities:
                         self._device_states[entity_id] = device
+            # Restore persisted host-stall telemetry so a diagnostics download after a
+            # restart (which a host freeze usually prompts) still reflects the stall
+            # history instead of reading a fresh 0/null. Accumulates across restarts
+            # (seed, not reset). Guarded so a missing key (upgrade) or a corrupt block
+            # (hand-edited/bit-rot) degrades to defaults and can never crash load or a
+            # later stall's += / max().
+            stall = stored.get("stall")
+            if isinstance(stall, dict):
+                raw_count = stall.get("count")
+                if isinstance(raw_count, int) and not isinstance(raw_count, bool):
+                    self._save_stall_count = raw_count
+                raw_wall = stall.get("last_wall_ms")
+                if isinstance(raw_wall, (int, float)) and math.isfinite(raw_wall):
+                    self._last_stall_wall_ms = float(raw_wall)
+                raw_at = stall.get("last_at")
+                if isinstance(raw_at, str):
+                    self._last_stall_at = raw_at
 
     def _retention_seconds(self) -> float:
         """Seconds of availability buckets to retain = longest SELECTED window.
@@ -554,21 +579,76 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # AND the atomic disk write) is also off-loop on every supported HA (>=2025.11,
         # async_add_executor_job; no serialize_in_event_loop flag exists to disable).
         #
-        # The residual ON-LOOP cost of a save is prune() + snapshot() themselves —
-        # O(buckets), ~0.4s measured locally at 496 entities x 2016 buckets (~1M
-        # buckets), scaling with bucket count (NOT a fixed cost). Only shrinking the
-        # bucket payload (compact storage format) reduces it; no Store flag touches it.
+        # The residual ON-LOOP cost of a save is prune() + snapshot() themselves.
+        # Measured, this is CPU-cheap — a few ms even at the per-entity bucket ceiling
+        # (a pure __slots__ tuple-copy + one tz-aware datetime compare per bucket). It
+        # is NOT what makes a save look slow: issue #145 logged 3051ms for a step whose
+        # actual CPU cost was ~0.4ms, because the host froze the event loop mid-span.
+        # So the span is timed on BOTH clocks below. (The compact storage format shrinks
+        # the on-disk file and the on-loop decode at RESTART, not this span.)
         now = dt_util.utcnow()
         retention_seconds = self._retention_seconds()
         # ON-LOOP span: prune() + snapshot() are the residual event-loop cost of a
-        # save (encode + disk write are off-loop). Timed separately from the total so
-        # the slow-save warn fires on real loop-blocking, not the off-loop encode.
-        t_onloop0 = time.perf_counter()
+        # save (encode + disk write are off-loop). thread_time = the CPU this loop
+        # thread actually burns (our cost — thread-scoped, so a CPU-busy OTHER thread
+        # cannot inflate it into a false warn); perf_counter = wall time, which ALSO
+        # counts any host freeze (OS deschedule, swap, a GC pause from another
+        # integration) landing in this zero-yield span. wall >> cpu means the host
+        # stalled the loop, not us.
+        t_onloop_wall0 = time.perf_counter()
+        t_onloop_cpu0 = time.thread_time()
         self._availability_storage.prune(now, retention_seconds, self._entities)
         frozen = self._availability_storage.snapshot(
             now, retention_seconds, self._entities
         )
-        onloop_ms = (time.perf_counter() - t_onloop0) * 1000
+        onloop_cpu_ms = (time.thread_time() - t_onloop_cpu0) * 1000
+        onloop_wall_ms = (time.perf_counter() - t_onloop_wall0) * 1000
+        bucket_count = sum(len(v) for v in frozen.values())
+        # Classify this save's on-loop cost BEFORE building the payload, so the stall
+        # counters we persist reflect THIS save (otherwise the save would serialize the
+        # pre-increment value and the stall history would lag one save behind).
+        # (i) The integration's own code is genuinely slow (high CPU) -> WARN with
+        # actionable advice. Peak-gated so it cannot spam. ~Never fires in practice
+        # (the step is a few ms even at the bucket ceiling).
+        if (
+            onloop_cpu_ms > SAVE_SLOW_WARN_CPU_MS
+            and onloop_cpu_ms > self._slow_save_warned_peak_cpu_ms
+        ):
+            self._slow_save_warned_peak_cpu_ms = onloop_cpu_ms
+            _LOGGER.warning(
+                "[%s] Slow storage save: %.0fms CPU (prune+snapshot), %d buckets. "
+                "If this persists, shorter availability windows or fewer monitored "
+                "entities will reduce it.",
+                self.group_name,
+                onloop_cpu_ms,
+                bucket_count,
+            )
+        # (ii) The host froze the loop during the span (high wall, low CPU) — NOT our
+        # bug and not actionable on our side, so count it + DEBUG only, never a WARN in
+        # our name. Gated on a CPU CEILING (cpu <= the warn threshold) so a genuinely
+        # high-CPU save that merely failed the (i) peak-gate is NOT miscounted as a host
+        # stall. A pure wall>threshold with low CPU is unambiguously a host stall. This
+        # is a ceiling, not a cpu-ratio: it does NOT reintroduce the gap a ratio left
+        # (e.g. 600ms CPU / 2100ms wall: 600<=1000 and 2100>2000 → still counted).
+        # The counters are persisted (see data["stall"]) so they survive the restart a
+        # host freeze usually prompts — the diagnostics download still shows the stall.
+        elif (
+            onloop_cpu_ms <= SAVE_SLOW_WARN_CPU_MS
+            and onloop_wall_ms > SAVE_STALL_DEBUG_MS
+        ):
+            self._save_stall_count += 1
+            self._last_stall_wall_ms = max(
+                self._last_stall_wall_ms or 0.0, onloop_wall_ms
+            )
+            self._last_stall_at = now.isoformat()
+            _LOGGER.debug(
+                "[%s] Event loop stalled %.0fms wall / %.0fms CPU during a storage "
+                "save (host scheduling/GC/swap, not integration work); %d buckets.",
+                self.group_name,
+                onloop_wall_ms,
+                onloop_cpu_ms,
+                bucket_count,
+            )
         # Capture `suppressed` BEFORE the executor await too, so all three persisted
         # fields (availability / device_states / suppressed) reflect the SAME instant
         # — a suppress/unsuppress firing during the encode must not skew the save.
@@ -584,6 +664,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             "availability": availability,
             "suppressed": suppressed_data,
             "device_states": device_states_data,
+            # Host-stall telemetry, persisted so a diagnostics download after the
+            # restart a freeze usually triggers still reflects the stall history.
+            "stall": {
+                "count": self._save_stall_count,
+                "last_wall_ms": self._last_stall_wall_ms,
+                "last_at": self._last_stall_at,
+            },
         }
         _LOGGER.debug(
             "[%s] Saving storage: %d availability entries, %d suppressed, %d offline device states",
@@ -594,22 +681,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         await self._store.async_save(data)
         self._dirty = False
-        # Timing for Diagnostics + peak-gated slow-save warn.
+        # Timing for Diagnostics.
         total_ms = (time.perf_counter() - t_total0) * 1000
-        bucket_count = sum(len(v) for v in frozen.values())
-        self._last_save_onloop_ms = onloop_ms
+        self._last_save_onloop_cpu_ms = onloop_cpu_ms
+        self._last_save_onloop_wall_ms = onloop_wall_ms
         self._last_save_total_ms = total_ms
         self._last_save_bucket_count = bucket_count
-        if onloop_ms > SAVE_SLOW_WARN_MS and onloop_ms > self._slow_save_warned_peak_ms:
-            self._slow_save_warned_peak_ms = onloop_ms
-            _LOGGER.warning(
-                "[%s] Slow storage save: on-loop %.0fms (prune+snapshot), "
-                "%d buckets. Large groups + long windows inflate this; shorter "
-                "windows or fewer monitored entities reduce it.",
-                self.group_name,
-                onloop_ms,
-                bucket_count,
-            )
         self._last_save = now
 
     @callback

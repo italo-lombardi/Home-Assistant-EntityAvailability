@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -261,11 +262,22 @@ class AvailabilityStorage:
             # here — so a bare reference capture already freezes the value. round()
             # is NOT needed for the freeze; it is deferred to encode_snapshot so the
             # ~1M-float rounding runs off-loop with the isoformat build, not here.
-            rows = [
-                (b.interval_start, b.online_seconds)
-                for b in buckets
-                if b.interval_start >= cutoff
-            ]
+            # Sort ascending by interval_start AND collapse duplicate interval_starts:
+            # the v2 on-disk format is index-based (decode reconstructs each timestamp
+            # as base + i*BUCKET_INTERVAL), so rows MUST be in strict grid order with
+            # one row per 5-min slot or decode mislabels them. Buckets are normally
+            # appended in time order with get_or_create_bucket deduping the CURRENT
+            # slot, but a backward wall-clock step (NTP correction / VM resume) can
+            # append an earlier-start bucket after a later one AND re-create a slot that
+            # already has a bucket — two rows sharing an interval_start would otherwise
+            # be encoded into consecutive array slots, shifting the duplicate forward one
+            # grid step on decode (even into the future). Fold same-slot rows keeping the
+            # last value (matches get_or_create_bucket's last-write-wins on buckets[-1]).
+            by_slot: dict[datetime, float] = {}
+            for b in buckets:
+                if b.interval_start >= cutoff:
+                    by_slot[b.interval_start] = b.online_seconds
+            rows = sorted(by_slot.items(), key=lambda r: r[0])
             if rows:  # skip monitored-but-dataless entities — keep the file minimal
                 frozen[entity_id] = rows
         return frozen
@@ -276,15 +288,64 @@ class AvailabilityStorage:
     ) -> dict[str, Any]:
         """Build the on-disk dict from a ``snapshot``. Executor-safe (no ``self``).
 
-        This is the expensive part — ``isoformat`` + ``round`` + dict construction
-        per bucket — and it touches only ``frozen`` (which the event loop never
-        mutates), so it runs via ``async_add_executor_job`` off the loop. Output is
-        byte-identical to the former on-loop ``to_dict`` ({"s": iso, "o": round}).
+        Compact format (``"v": 2``): one shared ``base`` timestamp + a dense
+        per-entity array of ``online_seconds``. Buckets sit on a fixed 5-min UTC grid
+        (``_get_interval_start``), so index ``i`` in an entity's array maps to
+        ``interval_start = base + i * BUCKET_INTERVAL``; the full ISO string per
+        bucket (the old {"s","o"} shape) is redundant and is dropped.
+
+        Size: ~85-91% smaller than the old {"s","o"} format for a CONTINUOUSLY-running
+        HA — the coordinator records a bucket for every monitored entity every tick
+        (``_async_update_data`` sweeps all entities, record_online/offline either way),
+        so a healthy instance's arrays are dense (no nulls) and the per-bucket ISO
+        string + key overhead is what the compact form removes. An INTERMITTENTLY-run
+        instance (e.g. a dev box that isn't always on) stores explicit ``None`` gaps
+        for the slots when HA ITSELF was down — those arrays are null-heavy and the
+        file is correspondingly larger (still bounded by BUCKETS_MAX per entity, and
+        null entries decode FASTER — ``from_dict`` skips them). The gaps reflect
+        HA-downtime, NOT slow-polling devices: a slow RTL-SDR/MQTT sensor still gets a
+        (stale-value) bucket every tick, so slow polling does not create nulls.
+
+        Also cheaper to decode at load than the old format (``from_dict`` reconstructs
+        timestamps by integer arithmetic instead of parsing one ISO string per bucket).
+
+        ``None`` entries mark a genuine GAP — a 5-min slot with no bucket, i.e. HA was
+        down for that interval. A stored ``0.0`` is DISTINCT: a bucket that existed
+        with the device offline the whole interval (``record_offline`` creates it), a
+        real data point the availability ratio counts. The two must never collapse.
+
+        Runs off the loop via ``async_add_executor_job`` (touches only ``frozen``,
+        which the event loop never mutates). ``round(o, 1)`` is deferred to here.
         """
-        return {
-            entity_id: [{"s": s.isoformat(), "o": round(o, 1)} for (s, o) in rows]
-            for entity_id, rows in frozen.items()
-        }
+        if not frozen:
+            return {}
+        # Shared base = earliest grid point across the snapshot. Every rows[0][0] is a
+        # grid point, so base is too, and base + i*300 reproduces every interval_start
+        # bit-for-bit on decode.
+        base = min(rows[0][0] for rows in frozen.values())
+        entities: dict[str, list[float | None]] = {}
+        for entity_id, rows in frozen.items():
+            arr: list[float | None] = []
+            # Leading nulls for an entity that started recording after `base`.
+            lead = int((rows[0][0] - base).total_seconds()) // BUCKET_INTERVAL
+            arr.extend([None] * lead)
+            expected = rows[0][0]
+            for s, o in rows:
+                # Contiguous missing slots (HA down) between the last bucket and this
+                # one become nulls; snapshot() yields rows ascending on the grid.
+                gap = int((s - expected).total_seconds()) // BUCKET_INTERVAL
+                if gap:
+                    arr.extend([None] * gap)
+                # Emit a JSON int when the value is whole (300 not 300.0) — the
+                # dominant steady-state values (300.0 fully-online, 0.0 fully-offline)
+                # are whole, so dropping the ".0" shrinks the file ~33% further on top
+                # of the dense-array win. Decode is unaffected: from_dict does
+                # float(o), and float(300) == float(300.0).
+                r = round(o, 1)
+                arr.append(int(r) if r == int(r) else r)
+                expected = s + timedelta(seconds=BUCKET_INTERVAL)
+            entities[entity_id] = arr
+        return {"v": 2, "base": base.isoformat(), "entities": entities}
 
     def prune(
         self, now: datetime, retention_seconds: float, entity_ids: Iterable[str]
@@ -313,26 +374,108 @@ class AvailabilityStorage:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AvailabilityStorage:
-        """Deserialize from dict."""
+        """Deserialize from dict. Reads both the compact v2 format and legacy files.
+
+        v2 (``"v": 2``): base + per-entity dense array (see ``encode_snapshot``).
+        Anything without a ``"v": 2`` marker is an old file (bare
+        ``dict[eid, list[{"s","o"}]]``) and is read by ``_from_dict_legacy`` — so an
+        in-place upgrade just works; the first save after upgrade rewrites compact.
+        """
+        if not isinstance(data, dict):
+            # `data` is stored["availability"] from a possibly-corrupt/hand-edited
+            # file; the caller only type-checks the outer Store object, not this
+            # value. A non-dict (list/str/number) would make data.get("v") /
+            # data.items() raise AttributeError and abort the whole load (setup-retry
+            # loop) — degrade to empty, matching every other corrupt-file guard below.
+            return cls()
+        if data.get("v") != 2:
+            return cls._from_dict_legacy(data)
+        storage = cls()
+        base = data.get("base")
+        if not base:
+            return storage
+        try:
+            base_dt = datetime.fromisoformat(base)
+        except (ValueError, TypeError):
+            # Corrupt/malformed base (bit-rot, truncated write, hand-edit). The base
+            # is the single shared field every v2 bucket's timestamp derives from, so
+            # a bad parse here must not crash the whole load — degrade to empty, same
+            # as a missing base above. Per-entity values are already guarded below.
+            return storage
+        if base_dt.tzinfo is None:
+            base_dt = base_dt.replace(tzinfo=timezone.utc)
+        ents = data.get("entities")
+        if not isinstance(ents, dict):
+            # Corrupt/hand-edited file: `entities` present but not a dict (list,
+            # None, scalar) → .items() would raise AttributeError and abort the
+            # whole load (setup-retry loop), below the legacy reader's never-raise
+            # bar. Degrade to empty, consistent with the base guard above.
+            return storage
+        step = timedelta(seconds=BUCKET_INTERVAL)
+        for entity_id, arr in ents.items():
+            buckets: list[AvailabilityBucket] = []
+            if not isinstance(arr, list):
+                continue
+            # Cap the decoded length: the live write path hard-caps each entity at
+            # BUCKETS_MAX (get_or_create_bucket), so a longer array on READ is a
+            # corrupt/hostile file. Slicing bounds the on-loop decode walk + bucket
+            # RAM and keeps a giant crafted array from freezing the loop at restart.
+            cur = base_dt
+            for o in arr[:BUCKETS_MAX]:
+                if o is not None:
+                    try:
+                        online = float(o)
+                        # Reject NaN/Inf from a hand-edited file — a non-finite
+                        # online_seconds would poison the availability ratio.
+                        if math.isfinite(online):
+                            buckets.append(
+                                AvailabilityBucket(
+                                    interval_start=cur,
+                                    online_seconds=max(
+                                        0.0, min(online, float(BUCKET_INTERVAL))
+                                    ),
+                                )
+                            )
+                    except (ValueError, TypeError, OverflowError):
+                        pass
+                # Advance the cursor for EVERY slot (incl. None gaps) so index→time
+                # stays aligned (running cursor = cheap vs per-index base+i*step, and
+                # matches the dense-array semantics). A base near datetime.max can make
+                # this overflow; stop there — every later slot would be out of range too.
+                try:
+                    cur += step
+                except OverflowError:
+                    break
+            storage._buckets[entity_id] = buckets
+        return storage
+
+    @classmethod
+    def _from_dict_legacy(cls, data: dict[str, Any]) -> AvailabilityStorage:
+        """Deserialize the pre-v2 per-bucket {"s","o"} format (upgrade path)."""
         storage = cls()
         for entity_id, buckets_data in data.items():
             buckets: list[AvailabilityBucket] = []
-            try:
-                for b in buckets_data:
-                    try:
-                        online = float(b["o"])
-                        interval_start = datetime.fromisoformat(b["s"])
-                        if interval_start.tzinfo is None:
-                            interval_start = interval_start.replace(tzinfo=timezone.utc)
-                        bucket = AvailabilityBucket(
-                            interval_start=interval_start,
-                            online_seconds=min(online, float(BUCKET_INTERVAL)),
-                        )
-                        buckets.append(bucket)
-                    except (KeyError, ValueError, TypeError):
-                        continue
-            except TypeError:
+            if not isinstance(buckets_data, list):
                 continue
+            # Same read-side length cap as the v2 path: a legacy list longer than the
+            # live write cap (BUCKETS_MAX) is corrupt/hostile; bound the decode walk.
+            # (buckets_data is a list here, so the slice + iteration cannot raise — the
+            # inner try guards every per-item error.)
+            for b in buckets_data[:BUCKETS_MAX]:
+                try:
+                    online = float(b["o"])
+                    if not math.isfinite(online):
+                        continue
+                    interval_start = datetime.fromisoformat(b["s"])
+                    if interval_start.tzinfo is None:
+                        interval_start = interval_start.replace(tzinfo=timezone.utc)
+                    bucket = AvailabilityBucket(
+                        interval_start=interval_start,
+                        online_seconds=max(0.0, min(online, float(BUCKET_INTERVAL))),
+                    )
+                    buckets.append(bucket)
+                except (KeyError, ValueError, TypeError, OverflowError):
+                    continue
             storage._buckets[entity_id] = buckets
         return storage
 

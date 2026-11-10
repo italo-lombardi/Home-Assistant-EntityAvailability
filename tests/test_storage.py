@@ -9,7 +9,10 @@ import pytest
 from homeassistant.util import dt as dt_util
 
 from custom_components.entity_availability.const import BUCKET_INTERVAL, BUCKETS_MAX
-from custom_components.entity_availability.storage import AvailabilityStorage
+from custom_components.entity_availability.storage import (
+    AvailabilityBucket,
+    AvailabilityStorage,
+)
 
 # Retention large enough to keep every bucket a test creates — isolates the
 # entity-filter / window-split behaviour under test from retention trimming.
@@ -374,15 +377,16 @@ class TestSerialization:
     def test_to_dict_with_data(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
-        """Test serialization with data."""
+        """Test serialization with data (compact v2 format)."""
         storage.record_online("sensor.test", 100.0, now)
         result = storage.to_dict(now, _WIDE_RETENTION, ["sensor.test"])
 
-        assert "sensor.test" in result
-        assert len(result["sensor.test"]) == 1
-        bucket_data = result["sensor.test"][0]
-        assert "s" in bucket_data
-        assert bucket_data["o"] == 100.0
+        assert result["v"] == 2
+        assert result["base"] is not None
+        assert "sensor.test" in result["entities"]
+        arr = result["entities"]["sensor.test"]
+        assert len(arr) == 1
+        assert arr[0] == 100.0
 
     def test_total_seconds_never_serialized(
         self, storage: AvailabilityStorage, now: datetime
@@ -391,12 +395,14 @@ class TestSerialization:
         the in-progress bucket is recomputed from elapsed time at read time. If a
         stored total leaked back in, a restart mid-bucket would resurface the
         per-poll write-amplification the elapsed-denominator fix removes.
+
+        In the compact v2 format each bucket is a single scalar (online_seconds) or
+        ``None`` (gap), so there is structurally nowhere for total_seconds to appear.
         """
         storage.record_online("sensor.test", 100.0, now)
         serialized = storage.to_dict(now, _WIDE_RETENTION, ["sensor.test"])
-        for bucket_data in serialized["sensor.test"]:
-            assert "total_seconds" not in bucket_data
-            assert set(bucket_data) == {"s", "o"}
+        for value in serialized["entities"]["sensor.test"]:
+            assert value is None or isinstance(value, (int, float))
 
     def test_from_dict_empty(self) -> None:
         """Test deserialization of empty dict."""
@@ -443,6 +449,340 @@ class TestSerialization:
 
         expected_start = now.replace(minute=30, second=0, microsecond=0)
         assert restored._buckets["sensor.test"][0].interval_start == expected_start
+
+    def test_v2_gap_distinct_from_present_offline(self, now: datetime) -> None:
+        """A None entry (HA down → no bucket) must stay distinct from a stored 0.0
+        (bucket existed, device offline the whole interval). Collapsing them would
+        corrupt the availability denominator."""
+        enc = {
+            "v": 2,
+            "base": now.replace(minute=0, second=0, microsecond=0).isoformat(),
+            # slot 0 online, slot 1 GAP (None), slot 2 present-offline (0.0)
+            "entities": {"sensor.test": [300.0, None, 0.0]},
+        }
+        restored = AvailabilityStorage.from_dict(enc)
+        buckets = restored._buckets["sensor.test"]
+        # gap dropped → 2 buckets, not 3; the 0.0 bucket is kept
+        assert len(buckets) == 2
+        base = now.replace(minute=0, second=0, microsecond=0)
+        assert buckets[0].interval_start == base
+        assert buckets[0].online_seconds == 300.0
+        # slot 2 (index 2), NOT slot 1 — index-to-time arithmetic skips the gap
+        assert buckets[1].interval_start == base + timedelta(
+            seconds=2 * BUCKET_INTERVAL
+        )
+        assert buckets[1].online_seconds == 0.0
+
+    def test_v2_ha_downtime_gaps_roundtrip_and_ratio(self, now: datetime) -> None:
+        """HA-downtime regression: when the coordinator didn't run for some slots
+        (HA itself down), those slots have NO bucket → the v2 array carries explicit
+        None gaps. This is the null-heavy intermittently-run-instance case the dense
+        EC146 smoke path doesn't cover. Assert: (a) the gap round-trips bit-exact in
+        position (a missing slot stays missing, not resurrected as 0.0), (b) the
+        availability ratio counts the present 0.0 bucket and excludes the gap, (c) the
+        file stays bounded (no runaway from null padding).
+        """
+        base = now.replace(minute=0, second=0, microsecond=0)
+
+        def g(k):
+            return base + timedelta(seconds=k * BUCKET_INTERVAL)
+
+        # slot 0 online, slots 1-2 HA DOWN (no bucket), slot 3 present-offline (0.0)
+        storage = AvailabilityStorage()
+        storage.record_online("sensor.a", float(BUCKET_INTERVAL), g(0))
+        storage.record_offline("sensor.a", float(BUCKET_INTERVAL), g(3))
+
+        serialized = storage.to_dict(now, _WIDE_RETENTION, ["sensor.a"])
+        arr = serialized["entities"]["sensor.a"]
+        # (a) explicit gap: index 0 present, 1 & 2 None (HA down), 3 present (0.0)
+        assert arr[0] == float(BUCKET_INTERVAL)
+        assert arr[1] is None and arr[2] is None
+        assert arr[3] == 0.0
+
+        restored = AvailabilityStorage.from_dict(serialized)
+        back = restored._buckets["sensor.a"]
+        # gap slots are NOT resurrected as buckets — only the 2 real buckets survive,
+        # at their original grid positions (0 and 3), NOT contiguous.
+        assert [b.interval_start for b in back] == [g(0), g(3)]
+        assert [b.online_seconds for b in back] == [float(BUCKET_INTERVAL), 0.0]
+
+        # (b) availability over a window: 1 fully-online + 1 fully-offline COMPLETED
+        # bucket → 300/600 = 50% (the 2 missing slots are excluded, the 0.0 counts).
+        # Use "24h" (min_required=1) so the 2-bucket sample isn't rejected by the
+        # longer windows' 10%-of-window minimum.
+        later = g(4)  # make both buckets COMPLETED (not the in-progress newest slot)
+        assert storage.get_availability("sensor.a", "24h", later) == 50.0
+
+        # (c) bounded: the null gap adds at most one entry per missing slot, never
+        # more than BUCKETS_MAX entries total for the entity.
+        assert len(arr) <= BUCKETS_MAX
+
+    def test_v2_roundtrip_with_gap(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """to_dict (v2) → from_dict reconstructs interval_start + online byte-faithful."""
+        base = now.replace(minute=0, second=0, microsecond=0)
+        storage.record_online("sensor.a", 150.0, base)
+        storage.record_online(
+            "sensor.a", 200.0, base + timedelta(seconds=BUCKET_INTERVAL)
+        )
+        serialized = storage.to_dict(now, _WIDE_RETENTION, ["sensor.a"])
+        assert serialized["v"] == 2
+        restored = AvailabilityStorage.from_dict(serialized)
+        orig = storage._buckets["sensor.a"]
+        back = restored._buckets["sensor.a"]
+        assert [b.interval_start for b in back] == [b.interval_start for b in orig]
+        assert [b.online_seconds for b in back] == [b.online_seconds for b in orig]
+
+    def test_v2_reads_legacy_file(self) -> None:
+        """A pre-v2 file (no 'v' key, list-of-{s,o}) still loads after upgrade."""
+        legacy = {
+            "sensor.c": [
+                {"s": "2024-06-15T12:30:00+00:00", "o": 300.0},
+                {"s": "2024-06-15T12:35:00+00:00", "o": 150.5},
+            ]
+        }
+        restored = AvailabilityStorage.from_dict(legacy)
+        assert len(restored._buckets["sensor.c"]) == 2
+        assert restored._buckets["sensor.c"][1].online_seconds == 150.5
+
+    def test_v2_empty(self) -> None:
+        """Empty v2 snapshot round-trips to empty storage."""
+        assert (
+            AvailabilityStorage.from_dict(
+                {"v": 2, "base": None, "entities": {}}
+            )._buckets
+            == {}
+        )
+
+    def test_v2_naive_base_normalized_to_utc(self) -> None:
+        """A naive 'base' in a hand-edited/corrupt file is read as UTC (trust boundary)."""
+        restored = AvailabilityStorage.from_dict(
+            {"v": 2, "base": "2024-06-15T12:00:00", "entities": {"sensor.a": [300.0]}}
+        )
+        assert restored._buckets["sensor.a"][0].interval_start == datetime(
+            2024, 6, 15, 12, 0, tzinfo=timezone.utc
+        )
+
+    def test_v2_corrupt_base_degrades_to_empty(self) -> None:
+        """A malformed v2 base (bit-rot / truncated write) must not crash the whole
+        load — it degrades to empty storage, same as a missing base. The base is the
+        one shared field every bucket timestamp derives from, so a naked parse here
+        would wipe the load with a ValueError."""
+        restored = AvailabilityStorage.from_dict(
+            {
+                "v": 2,
+                "base": "2026-13-99T99:99:99",  # not a valid datetime
+                "entities": {"sensor.a": [300.0]},
+            }
+        )
+        assert restored._buckets == {}
+
+    def test_v2_non_dict_entities_degrades_to_empty(self) -> None:
+        """A v2 file whose `entities` is present but not a dict (list/None/scalar)
+        must not crash the load — `.items()` on a non-dict would raise AttributeError
+        and abort setup. Degrade to empty, matching the legacy reader's never-raise
+        bar for a hostile/hand-edited file."""
+        for bad in ([{"s": "x", "o": 1}], None, 42, "oops"):
+            restored = AvailabilityStorage.from_dict(
+                {"v": 2, "base": "2024-06-15T12:00:00+00:00", "entities": bad}
+            )
+            assert restored._buckets == {}, f"entities={bad!r}"
+
+    def test_from_dict_non_dict_data_degrades_to_empty(self) -> None:
+        """The outermost guard: stored["availability"] can itself be a non-dict in a
+        corrupt/hand-edited file (the caller only type-checks the outer Store object).
+        from_dict(list/str/number) must degrade to empty, not raise AttributeError on
+        data.get("v") and brick setup. Closes the last never-raise hole."""
+        for bad in ([], [{"s": "x", "o": 1}], "oops", 42, None):
+            restored = AvailabilityStorage.from_dict(bad)
+            assert restored._buckets == {}, f"data={bad!r}"
+
+    def test_negative_online_seconds_clamped_to_zero(self) -> None:
+        """A hand-edited file with a NEGATIVE online_seconds must clamp to 0.0 in BOTH
+        decoders — get_availability only clamps the ratio's upper bound (<=1.0), so a
+        negative online would emit a negative availability %. Pins the max(0.0, ...)
+        lower clamp so reverting it reds."""
+        # v2 path
+        v2 = AvailabilityStorage.from_dict(
+            {
+                "v": 2,
+                "base": "2024-06-15T12:00:00+00:00",
+                "entities": {"sensor.a": [-50.0, 300.0]},
+            }
+        )
+        assert v2._buckets["sensor.a"][0].online_seconds == 0.0
+        assert v2._buckets["sensor.a"][1].online_seconds == 300.0
+        # legacy path
+        legacy = AvailabilityStorage.from_dict(
+            {"sensor.b": [{"s": "2024-06-15T12:00:00+00:00", "o": -50.0}]}
+        )
+        assert legacy._buckets["sensor.b"][0].online_seconds == 0.0
+
+    def test_v2_non_ascending_and_duplicate_interval_start(self, now: datetime) -> None:
+        """V1 regression guard (mutation gap): every other round-trip test inserts
+        buckets ASCENDING, so the snapshot() sort+slot-fold would stay green if
+        reverted. This inserts NON-ASCENDING interval_starts AND a DUPLICATE directly
+        into _buckets (as a backward clock step / VM-resume would), then asserts the
+        encode→decode round-trip yields CORRECT ascending timestamps with the dup
+        folded last-write-wins — NOT shifted forward a grid step. Reverting the
+        snapshot sort or the slot-fold must red this test."""
+        base = now.replace(minute=0, second=0, microsecond=0)
+
+        def slot(k):
+            return base + timedelta(seconds=k * BUCKET_INTERVAL)
+
+        storage = AvailabilityStorage()
+        # non-ascending order + a DUPLICATE interval_start (slot 1 appears twice):
+        # [slot2=100, slot0=200, slot1=300, slot1=50 (dup, later write)]
+        storage._buckets["sensor.x"] = [
+            AvailabilityBucket(slot(2), 100.0),
+            AvailabilityBucket(slot(0), 200.0),
+            AvailabilityBucket(slot(1), 300.0),
+            AvailabilityBucket(slot(1), 50.0),  # duplicate slot 1, last-write-wins
+        ]
+        restored = AvailabilityStorage.from_dict(
+            storage.to_dict(slot(5), _WIDE_RETENTION, ["sensor.x"])
+        )
+        back = restored._buckets["sensor.x"]
+        # correct ascending timestamps, exactly 3 distinct slots, NO forward shift,
+        # dup slot 1 folded to the last-written value (50.0)
+        assert [b.interval_start for b in back] == [slot(0), slot(1), slot(2)]
+        assert [b.online_seconds for b in back] == [200.0, 50.0, 100.0]
+
+    def test_v2_non_list_entity_skipped(self) -> None:
+        """A corrupt non-list entity array is skipped (key omitted), not crashed on."""
+        restored = AvailabilityStorage.from_dict(
+            {"v": 2, "base": "2024-06-15T12:00:00+00:00", "entities": {"sensor.a": 42}}
+        )
+        assert "sensor.a" not in restored._buckets
+
+    def test_v2_non_numeric_entry_skipped(self) -> None:
+        """A non-numeric array entry is skipped (mirrors legacy per-bucket guard)."""
+        restored = AvailabilityStorage.from_dict(
+            {
+                "v": 2,
+                "base": "2024-06-15T12:00:00+00:00",
+                "entities": {"sensor.a": ["oops", 300.0]},
+            }
+        )
+        # the bad entry at index 0 is dropped; index 1 survives at base + 1*300
+        assert len(restored._buckets["sensor.a"]) == 1
+        assert restored._buckets["sensor.a"][0].online_seconds == 300.0
+
+    def test_v2_far_future_base_degrades_no_crash(self) -> None:
+        """B1: a corrupt/hostile file with a base near datetime.max must NOT crash the
+        load with an uncaught OverflowError (which would brick setup into a retry
+        loop). The cursor advance (cur += step) overflows past datetime.max and must
+        break cleanly — slot 0 still decodes, later slots are dropped."""
+        restored = AvailabilityStorage.from_dict(
+            {
+                "v": 2,
+                "base": "9999-12-31T23:59:59+00:00",
+                "entities": {"sensor.a": [300.0, 300.0, 300.0]},
+            }
+        )
+        # no raise; slot 0 (at the base) decodes, the cursor overflow breaks the rest
+        assert len(restored._buckets["sensor.a"]) == 1
+
+    def test_v2_nan_inf_dropped(self) -> None:
+        """N5: a non-finite online_seconds (NaN/Inf from a hand-edited file) must be
+        dropped — it would poison the availability ratio. Finite neighbours survive."""
+        restored = AvailabilityStorage.from_dict(
+            {
+                "v": 2,
+                "base": "2024-06-15T12:00:00+00:00",
+                "entities": {"sensor.a": [float("nan"), float("inf"), 250.0]},
+            }
+        )
+        # both non-finite entries dropped; the 250.0 survives at index 2
+        buckets = restored._buckets["sensor.a"]
+        assert len(buckets) == 1
+        assert buckets[0].online_seconds == 250.0
+        assert buckets[0].interval_start == datetime(
+            2024, 6, 15, 12, 10, tzinfo=timezone.utc
+        )
+
+    def test_v2_oversized_array_capped(self) -> None:
+        """A decoded array longer than BUCKETS_MAX is corrupt/hostile (the live write
+        path caps each entity at BUCKETS_MAX). Reading must bound the walk to
+        BUCKETS_MAX so a giant crafted array cannot freeze the loop at restart."""
+        restored = AvailabilityStorage.from_dict(
+            {
+                "v": 2,
+                "base": "2024-06-15T12:00:00+00:00",
+                "entities": {"sensor.a": [300.0] * (BUCKETS_MAX + 500)},
+            }
+        )
+        assert len(restored._buckets["sensor.a"]) == BUCKETS_MAX
+
+    def test_v2_cursor_equals_base_plus_index(self) -> None:
+        """S1: the running cursor must reconstruct exactly the same interval_start as
+        base + i*BUCKET_INTERVAL would, across leading/interior/trailing gaps."""
+        base = datetime(2024, 6, 15, 12, 0, tzinfo=timezone.utc)
+        # None | 300 | None | None | 250 | None  → present at index 1 and 4
+        restored = AvailabilityStorage.from_dict(
+            {
+                "v": 2,
+                "base": base.isoformat(),
+                "entities": {"sensor.a": [None, 300.0, None, None, 250.0, None]},
+            }
+        )
+        starts = [b.interval_start for b in restored._buckets["sensor.a"]]
+        assert starts == [
+            base + timedelta(seconds=1 * BUCKET_INTERVAL),
+            base + timedelta(seconds=4 * BUCKET_INTERVAL),
+        ]
+
+    def test_v2_encode_emits_int_for_whole_values(self) -> None:
+        """V3: whole online_seconds serialize as JSON ints (300 not 300.0) — the
+        headline size win; a fractional value stays a float. Pins the int-emission
+        branch so a refactor that drops it is caught (decode is unaffected either way)."""
+        now = datetime(2024, 6, 15, 12, 0, tzinfo=timezone.utc)
+        storage = AvailabilityStorage()
+        storage.record_online("sensor.a", float(BUCKET_INTERVAL), now)  # whole → 300
+        storage.record_online("sensor.b", 272.46, now)  # fractional → 272.5 (float)
+        out = storage.to_dict(now, _WIDE_RETENTION, ["sensor.a", "sensor.b"])
+        a = out["entities"]["sensor.a"][0]
+        b = out["entities"]["sensor.b"][0]
+        assert a == 300 and isinstance(a, int) and not isinstance(a, bool)
+        assert b == 272.5 and isinstance(b, float)
+
+    def test_import_math_present(self) -> None:
+        """N5: storage.py must import math — math.isfinite is used in both decoders;
+        a missing import would NameError on the first non-finite value (a new crash)."""
+        from custom_components.entity_availability import storage as storage_mod
+
+        assert hasattr(storage_mod, "math")
+
+    def test_legacy_nan_and_oversized_guarded(self) -> None:
+        """The legacy ({"s","o"}) reader has the SAME hostile-file guards as v2: a
+        non-finite value is dropped, and the array is capped at BUCKETS_MAX."""
+        legacy = {
+            "sensor.a": [
+                {"s": "2024-06-15T12:00:00+00:00", "o": float("inf")},  # dropped
+                {"s": "2024-06-15T12:05:00+00:00", "o": 150.0},  # kept
+            ]
+        }
+        restored = AvailabilityStorage.from_dict(legacy)
+        assert len(restored._buckets["sensor.a"]) == 1
+        assert restored._buckets["sensor.a"][0].online_seconds == 150.0
+        # oversized legacy array is capped
+        big = {
+            "sensor.b": [{"s": "2024-06-15T12:00:00+00:00", "o": 300.0}]
+            * (BUCKETS_MAX + 100)
+        }
+        assert (
+            len(AvailabilityStorage.from_dict(big)._buckets["sensor.b"]) == BUCKETS_MAX
+        )
+
+    def test_legacy_non_iterable_item_degrades(self) -> None:
+        """Legacy outer guard: a non-iterable buckets value degrades to empty, not a
+        crash (the outer `except TypeError`)."""
+        # a buckets_data that is a list but whose iteration yields a non-subscriptable
+        # item exercises the inner guard; a non-list is caught by the isinstance check.
+        restored = AvailabilityStorage.from_dict({"sensor.a": [42, "x"]})
+        assert restored._buckets["sensor.a"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -643,7 +983,7 @@ class TestToDictRetention:
         storage.record_online("sensor.a", float(BUCKET_INTERVAL), now)
         out = storage.to_dict(now, 24 * 3600 + _MARGIN, ["sensor.a"])
         # only the recent bucket survives the 24h+margin cutoff
-        assert len(out["sensor.a"]) == 1
+        assert len(out["entities"]["sensor.a"]) == 1
 
     def test_drops_orphan_entities(
         self, storage: AvailabilityStorage, now: datetime
@@ -651,8 +991,8 @@ class TestToDictRetention:
         storage.record_online("sensor.keep", 100.0, now)
         storage.record_online("sensor.orphan", 100.0, now)
         out = storage.to_dict(now, _WIDE_RETENTION, ["sensor.keep"])
-        assert "sensor.keep" in out
-        assert "sensor.orphan" not in out
+        assert "sensor.keep" in out["entities"]
+        assert "sensor.orphan" not in out["entities"]
 
     def test_monitored_but_all_buckets_out_of_window_omitted(
         self, storage: AvailabilityStorage, now: datetime
@@ -715,7 +1055,9 @@ class TestPrune:
         retention = 25 * 3600 + _MARGIN
         persisted = storage.to_dict(now, retention, ["sensor.a"])
         storage.prune(now, retention, ["sensor.a"])
-        assert len(storage._buckets["sensor.a"]) == len(persisted["sensor.a"])
+        assert len(storage._buckets["sensor.a"]) == len(
+            persisted["entities"]["sensor.a"]
+        )
 
 
 class TestSnapshotOffload:
@@ -768,7 +1110,11 @@ class TestSnapshotOffload:
             "sensor.x": [(datetime(2026, 11, 3, 18, 0, tzinfo=timezone.utc), 272.46)]
         }
         out = AvailabilityStorage.encode_snapshot(frozen)
-        assert out == {"sensor.x": [{"s": "2026-11-03T18:00:00+00:00", "o": 272.5}]}
+        assert out == {
+            "v": 2,
+            "base": "2026-11-03T18:00:00+00:00",
+            "entities": {"sensor.x": [272.5]},
+        }
 
     def test_snapshot_no_buckets_handles_cleanly(
         self, storage: AvailabilityStorage, now: datetime
@@ -870,13 +1216,19 @@ class TestCalendarTodayDST:
 
             # 25h retention (today) must KEEP the local-midnight bucket...
             kept = storage.to_dict(now, 25 * 3600 + _MARGIN, ["sensor.a"])
-            starts_25 = {b["s"] for b in kept["sensor.a"]}
-            assert local_midnight.isoformat() in starts_25
+            starts_25 = {
+                b.interval_start
+                for b in AvailabilityStorage.from_dict(kept)._buckets["sensor.a"]
+            }
+            assert local_midnight in starts_25
 
             # ...whereas a naive 24h retention would PRUNE it (regression guard:
             # proves why _retention_hours('today') must be 25, not 24).
             kept_24 = storage.to_dict(now, 24 * 3600 + _MARGIN, ["sensor.a"])
-            starts_24 = {b["s"] for b in kept_24["sensor.a"]}
-            assert local_midnight.isoformat() not in starts_24
+            starts_24 = {
+                b.interval_start
+                for b in AvailabilityStorage.from_dict(kept_24)._buckets["sensor.a"]
+            }
+            assert local_midnight not in starts_24
         finally:
             dt_util.set_default_time_zone(orig)
