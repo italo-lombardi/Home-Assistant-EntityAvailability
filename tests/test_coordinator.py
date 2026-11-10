@@ -98,15 +98,20 @@ async def test_store_serialize_kwarg_guarded(
 async def test_slow_save_warn_and_diagnostics(
     hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """Slow-save warn is peak-gated on on-loop ms; diagnostics always record.
+    """Slow-save warn is CPU-based; a host stall is demoted; diagnostics record both.
 
-    perf_counter is scripted so each _async_save_storage sees a known on-loop
-    span (prune+snapshot) independent of real time. Verifies: warn fires above
-    SAVE_SLOW_WARN_MS, not for off-loop-only slowness, peak-gate (higher re-warns,
-    lower-but-still-over does NOT), and the 4 diagnostics fields are stamped.
+    The on-loop span (prune+snapshot) is timed on BOTH clocks: thread_time (loop-thread
+    CPU, our cost) drives the WARN; perf_counter (wall) only flags a host stall. Both
+    are scripted so each _async_save_storage sees a known CPU and wall span. Verifies:
+    (i) high CPU -> WARN, peak-gated (new worst re-warns, lower-but-still-over does
+    NOT); (ii) low CPU + high wall -> NO warn, save_stall_count++ + stall scalars; (iii)
+    both low -> silent; and the diagnostics cpu/wall/stall fields are stamped.
     """
     import custom_components.entity_availability.coordinator as coord_mod
-    from custom_components.entity_availability.coordinator import SAVE_SLOW_WARN_MS
+    from custom_components.entity_availability.coordinator import (
+        SAVE_SLOW_WARN_CPU_MS,
+        SAVE_STALL_DEBUG_MS,
+    )
 
     with (
         patch.object(
@@ -116,27 +121,53 @@ async def test_slow_save_warn_and_diagnostics(
         coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
 
     # Real save path, but storage I/O stubbed: snapshot returns a tiny frozen set,
-    # async_save + encode are no-ops. perf_counter supplies the timings.
+    # async_save + encode are no-ops. The two clocks supply the timings.
     coord._store.async_save = AsyncMock()
     coord._availability_storage.prune = MagicMock()
     coord._availability_storage.snapshot = MagicMock(return_value={"e": [(1, 2.0)]})
 
-    # Each save consumes 4 perf_counter() reads: total0, onloop0, onloop_end,
-    # total_end. on-loop ms = (onloop_end - onloop0) * 1000.
-    sec = SAVE_SLOW_WARN_MS / 1000  # threshold in seconds
+    cpu_sec = SAVE_SLOW_WARN_CPU_MS / 1000  # CPU warn threshold, seconds
+    stall_sec = SAVE_STALL_DEBUG_MS / 1000  # wall stall-debug threshold, seconds
 
-    def script(*spans_s):
+    # Per save the code reads perf_counter 4x (total0, wall0, wall_end, total_end)
+    # and thread_time 2x (cpu0, cpu_end), in that interleaved order. Script each
+    # clock independently: wall span = wall_end-wall0, cpu span = cpu_end-cpu0.
+    def perf_script(*wall_spans_s):
         ticks = []
-        for onloop_s in spans_s:
-            # total0, onloop0, onloop_end (= onloop0 + span), total_end
-            ticks += [0.0, 0.0, onloop_s, onloop_s + 0.001]
+        for w in wall_spans_s:
+            # total0, wall0, wall_end (= wall0 + span), total_end
+            ticks += [0.0, 0.0, w, w + 0.001]
         return iter(ticks)
 
-    # 4 saves: (1) over threshold -> warn; (2) lower but still over -> NO re-warn
-    # (peak-gate); (3) higher new worst -> re-warn; (4) under threshold -> no warn.
-    perf = script(sec + 1.0, sec + 0.5, sec + 3.0, sec - 1.0)
+    def cpu_script(*cpu_spans_s):
+        ticks = []
+        for c in cpu_spans_s:
+            ticks += [0.0, c]  # cpu0, cpu_end
+        return iter(ticks)
+
+    # 6 saves:
+    # 1) CPU over -> WARN (first cross). wall also high but (i) wins via elif order.
+    # 2) CPU lower-but-still-over -> NO re-warn (peak-gate).
+    # 3) CPU new worst -> re-WARN.
+    # 4) CPU ~0 but wall over stall threshold -> NO warn, stall++ + stall scalars.
+    # 5) both ~0 -> silent.
+    # 6) CPU over threshold (not a new peak) + wall over stall threshold -> must NOT be
+    #    miscounted as a host stall (the (ii) CPU-ceiling guard): no warn (peak-gate),
+    #    no stall++ (cpu > SAVE_SLOW_WARN_CPU_MS fails the ceiling).
+    perf = perf_script(
+        cpu_sec + 1.0,
+        cpu_sec + 0.5,
+        cpu_sec + 3.0,
+        stall_sec + 1.0,
+        0.001,
+        stall_sec + 2.0,
+    )
+    cpu = cpu_script(
+        cpu_sec + 1.0, cpu_sec + 0.5, cpu_sec + 3.0, 0.0, 0.0005, cpu_sec + 0.5
+    )
     with (
         patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
+        patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
         patch.object(coord_mod, "_LOGGER") as mock_log,
         patch.object(
             coord_mod.AvailabilityStorage,
@@ -144,15 +175,141 @@ async def test_slow_save_warn_and_diagnostics(
             MagicMock(return_value={}),
         ),
     ):
-        for _ in range(4):
+        for _ in range(6):
             await coord._async_save_storage()
 
-    # Peak-gate: warns at save 1 (first cross) and save 3 (new worst) only.
+    # (i) Peak-gate: WARN at save 1 (first cross) and save 3 (new worst) only.
+    # Save 6 is high-cpu but not a new peak -> no re-warn.
     assert mock_log.warning.call_count == 2
-    # Diagnostics fields stamped (last save: under threshold, ~sec-1).
-    assert coord._last_save_onloop_ms == pytest.approx((sec - 1.0) * 1000)
+    # (ii) Exactly one host-stall demotion (save 4), never a WARN; stall scalars set.
+    # Save 6 (high cpu + high wall, not new peak) must NOT bump the stall count — the
+    # CPU-ceiling guard keeps a genuine-CPU save out of the host-stall bucket.
+    assert coord._save_stall_count == 1
+    assert coord._last_stall_wall_ms == pytest.approx((stall_sec + 1.0) * 1000)
+    assert coord._last_stall_at is not None
+    # Diagnostics stamped from the LAST save (save 6): cpu = (cpu_sec+0.5)s,
+    # wall = (stall_sec+2.0)s — both are always recorded regardless of branch.
+    assert coord._last_save_onloop_cpu_ms == pytest.approx((cpu_sec + 0.5) * 1000)
+    assert coord._last_save_onloop_wall_ms == pytest.approx((stall_sec + 2.0) * 1000)
     assert coord._last_save_total_ms is not None
     assert coord._last_save_bucket_count == 1  # one entity, one bucket row
+
+
+async def test_save_persists_stall_block(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """A save serializes the CURRENT stall counters into the payload (hoisted above
+    the payload build, so it reflects THIS save, not the previous one)."""
+    import custom_components.entity_availability.coordinator as coord_mod
+    from custom_components.entity_availability.coordinator import SAVE_STALL_DEBUG_MS
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store.async_save = AsyncMock()
+    coord._availability_storage.prune = MagicMock()
+    coord._availability_storage.snapshot = MagicMock(return_value={"e": [(1, 2.0)]})
+
+    stall_sec = SAVE_STALL_DEBUG_MS / 1000
+    # One save that is a host stall (cpu ~0, wall over threshold) -> count becomes 1,
+    # and the payload handed to async_save must already carry count==1 (not 0).
+    perf = iter(
+        [0.0, 0.0, stall_sec + 1.0, stall_sec + 1.001]
+    )  # total0,wall0,wall_end,total_end
+    cpu = iter([0.0, 0.0])  # cpu0, cpu_end
+    with (
+        patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
+        patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
+        patch.object(
+            coord_mod.AvailabilityStorage, "encode_snapshot", MagicMock(return_value={})
+        ),
+    ):
+        await coord._async_save_storage()
+
+    saved = coord._store.async_save.call_args[0][0]
+    assert (
+        saved["stall"]["count"] == 1
+    )  # hoisted: reflects THIS save, not pre-increment 0
+    assert saved["stall"]["last_wall_ms"] == pytest.approx((stall_sec + 1.0) * 1000)
+    assert saved["stall"]["last_at"] is not None
+
+
+async def test_load_storage_restores_and_accumulates_stall(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Stall counters persist across restarts: load SEEDS from the stored block
+    (monotonic accumulation), it does not reset to 0 — so a diagnostics download
+    after the restart a freeze prompts still shows the stall history."""
+    hass = mock_hass
+    stored = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {},
+        "stall": {
+            "count": 3,
+            "last_wall_ms": 4200.0,
+            "last_at": "2026-11-10T09:00:00+00:00",
+        },
+    }
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored)
+    coord._store.async_save = AsyncMock()
+
+    await coord._async_load_storage()
+
+    assert coord._save_stall_count == 3  # seeded, not reset
+    assert coord._last_stall_wall_ms == pytest.approx(4200.0)
+    assert coord._last_stall_at == "2026-11-10T09:00:00+00:00"
+
+
+async def test_load_storage_stall_block_missing_or_corrupt(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """A payload with no stall block (upgrade) or a corrupt one (hand-edited /
+    bit-rot) degrades to defaults and never crashes load — and a corrupt block does
+    not break a later real stall's += / max()."""
+    hass = mock_hass
+
+    # (a) missing key -> defaults, no KeyError
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(
+        return_value={"availability": {}, "suppressed": {}, "device_states": {}}
+    )
+    coord._store.async_save = AsyncMock()
+    await coord._async_load_storage()
+    assert coord._save_stall_count == 0
+    assert coord._last_stall_wall_ms is None
+    assert coord._last_stall_at is None
+
+    # (b) corrupt block: non-dict + bad types + NaN wall -> all ignored, defaults kept,
+    # and the attrs stay the right types so a later += / max() can't TypeError.
+    for bad in (
+        [1, 2, 3],
+        {"count": "x", "last_wall_ms": [9, 9], "last_at": 5},
+        {"count": True, "last_wall_ms": float("nan"), "last_at": None},
+    ):
+        coord2 = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord2._store = MagicMock()
+        coord2._store.async_load = AsyncMock(
+            return_value={
+                "availability": {},
+                "suppressed": {},
+                "device_states": {},
+                "stall": bad,
+            }
+        )
+        coord2._store.async_save = AsyncMock()
+        await coord2._async_load_storage()
+        assert coord2._save_stall_count == 0  # bool True rejected, "x" rejected
+        assert coord2._last_stall_wall_ms is None  # list + NaN rejected
+        # a later real stall still works (no TypeError from a poisoned attr)
+        coord2._save_stall_count += 1
+        coord2._last_stall_wall_ms = max(coord2._last_stall_wall_ms or 0.0, 2500.0)
+        assert coord2._save_stall_count == 1
+        assert coord2._last_stall_wall_ms == pytest.approx(2500.0)
 
 
 async def test_state_change_online_device(
@@ -2319,8 +2476,11 @@ async def test_save_storage_encodes_availability_via_executor(
 
     # Off-load output equals a direct same-instant to_dict (identical serialization).
     saved = coord._store.async_save.call_args[0][0]
-    assert eid in saved["availability"]
-    assert all(set(row) == {"s", "o"} for row in saved["availability"][eid])
+    assert eid in saved["availability"]["entities"]
+    assert all(
+        v is None or isinstance(v, (int, float))
+        for v in saved["availability"]["entities"][eid]
+    )
 
 
 async def test_save_storage_captures_all_fields_pre_await(
@@ -2365,7 +2525,7 @@ async def test_save_storage_captures_all_fields_pre_await(
     # — proving suppressed was captured before the executor hop (single-instant save).
     assert saved["suppressed"][eid] == pre_until.isoformat()
     assert saved["suppressed"][eid] != mid_until.isoformat()
-    assert eid in saved["availability"]
+    assert eid in saved["availability"]["entities"]
 
 
 async def test_save_storage_includes_cooldown_device(
@@ -7392,10 +7552,10 @@ class TestSaveRetentionFiltering:
 
         saved = coord._store.async_save.await_args.args[0]["availability"]
         # orphan dropped entirely
-        assert "binary_sensor.orphan" not in saved
+        assert "binary_sensor.orphan" not in saved["entities"]
         # monitored kept, but only the in-window bucket (10d-old pruned)
-        assert monitored in saved
-        assert len(saved[monitored]) == 1
+        assert monitored in saved["entities"]
+        assert len(saved["entities"][monitored]) == 1
 
     async def test_empty_windows_persist_no_buckets(
         self, hass: HomeAssistant, mock_config_data

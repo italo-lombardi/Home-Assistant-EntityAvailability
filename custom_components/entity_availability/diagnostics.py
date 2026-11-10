@@ -131,9 +131,18 @@ async def async_get_config_entry_diagnostics(
                 ),
             },
             "storage": {
-                "last_save_onloop_ms": coordinator._last_save_onloop_ms,
+                "last_save_onloop_cpu_ms": coordinator._last_save_onloop_cpu_ms,
+                "last_save_onloop_wall_ms": coordinator._last_save_onloop_wall_ms,
                 "last_save_total_ms": coordinator._last_save_total_ms,
                 "last_save_bucket_count": coordinator._last_save_bucket_count,
+                "save_stall_count": coordinator._save_stall_count,
+                "last_stall_wall_ms": coordinator._last_stall_wall_ms,
+                "last_stall_at": coordinator._last_stall_at,
+                "last_save_at": (
+                    coordinator._last_save.isoformat()
+                    if coordinator._last_save
+                    else None
+                ),
                 "last_refresh_ms": coordinator._last_refresh_ms,
             },
         },

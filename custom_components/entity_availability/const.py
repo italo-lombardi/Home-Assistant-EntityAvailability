@@ -149,11 +149,21 @@ STORAGE_KEY_PREFIX = "entity_availability"
 BUCKET_INTERVAL = 300  # 5 minutes per bucket
 BUCKETS_MAX = 2016  # 7 days * 24 hours * 12 buckets/hour
 
-# Warn when a save's ON-LOOP span (prune + snapshot) exceeds this. Chosen high
-# (2 s) so it flags a real stall, not routine saves; the warn is peak-gated
-# (only a new worst re-warns) so it can never spam. Diagnostics always carries
-# the live number regardless of the threshold.
-SAVE_SLOW_WARN_MS = 2000
+# Warn when a save's ON-LOOP CPU cost (prune + snapshot, time.thread_time)
+# exceeds this. This is the integration's OWN algorithmic cost only — host GC
+# pauses and OS descheduling are EXCLUDED (they inflate wall time, not CPU). At
+# the bucket ceiling this step is a few ms, so the warn effectively fires only if
+# the code itself regresses; its advice (shorter windows / fewer entities) is then
+# genuinely actionable. Peak-gated (only a new worst re-warns) so it cannot spam.
+# Diagnostics carries the live cpu AND wall numbers regardless of the threshold.
+SAVE_SLOW_WARN_CPU_MS = 1000
+
+# A save's WALL span can far exceed its CPU cost when the host freezes the event
+# loop during the span (OS descheduling, swap, or a gen-2 GC pause triggered by
+# ANOTHER integration). That is a host-health signal, not an integration bug, so
+# it is logged at DEBUG (never WARNed in this integration's name) and surfaced in
+# diagnostics via save_stall_count. Gate so a routine scheduling hiccup stays quiet.
+SAVE_STALL_DEBUG_MS = 2000
 
 # Update interval for coordinator
 SCAN_INTERVAL = 30  # seconds
