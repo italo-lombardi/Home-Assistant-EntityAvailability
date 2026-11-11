@@ -231,9 +231,14 @@ async def test_slow_save_gc_in_span_suppresses_warn(
 
     cpu_sec = SAVE_SLOW_WARN_CPU_MS / 1000
     # Both saves: wall span and CPU span identically well over the warn threshold.
+    # perf_counter is read 4x per save, in this order: t_total0 (before the loop over
+    # device_states), t_onloop_wall0 and wall_end (around prune+snapshot), and total_end
+    # (after the executor encode). So the 4-value block per save is
+    # [total0, wall0, wall_end, total_end] and the `* 2` feeds both saves — all 8 are
+    # consumed. onloop_wall_ms here is ~(cpu_sec+2)s (high), not 0.
     perf = iter(
         [0.0, 0.0, cpu_sec + 2.0, cpu_sec + 2.001] * 2
-    )  # total0,wall0,wall_end,total_end per save
+    )  # [total0, wall0, wall_end, total_end] per save
     cpu = iter([0.0, cpu_sec + 2.0] * 2)  # cpu0, cpu_end per save
 
     # gc.get_stats() is read twice per save (before, after). Save 1: gen-2 count
@@ -267,8 +272,17 @@ async def test_slow_save_gc_in_span_suppresses_warn(
     ):
         await coord._async_save_storage()  # save 1: GC in-span -> suppressed
         assert mock_log.warning.call_count == 0
+        # Save 1 hit branch (iii) — suppressed, not a host stall. Pin the fall-through:
+        # it must NOT be miscounted as a host stall, and it MUST bump the GC-contaminated
+        # counter so the otherwise-invisible suppression is visible in diagnostics.
+        assert coord._save_stall_count == 0
+        assert coord._last_stall_at is None
+        assert coord._gc_contaminated_save_count == 1
         await coord._async_save_storage()  # save 2: no GC -> genuine WARN
         assert mock_log.warning.call_count == 1
+        # Save 2 WARNed, did not touch either non-WARN counter.
+        assert coord._save_stall_count == 0
+        assert coord._gc_contaminated_save_count == 1
 
     # The surviving WARN is the genuine-slow one from save 2.
     msg = mock_log.warning.call_args[0][0]
@@ -354,6 +368,9 @@ async def test_save_persists_stall_block(
     )  # hoisted: reflects THIS save, not pre-increment 0
     assert saved["stall"]["last_wall_ms"] == pytest.approx((stall_sec + 1.0) * 1000)
     assert saved["stall"]["last_at"] is not None
+    # The GC-contaminated counter rides in the same persisted block (0 here — this
+    # save was a pure host stall, not a GC-contaminated one).
+    assert saved["stall"]["gc_contaminated_count"] == 0
 
 
 async def test_load_storage_restores_and_accumulates_stall(
@@ -371,6 +388,7 @@ async def test_load_storage_restores_and_accumulates_stall(
             "count": 3,
             "last_wall_ms": 4200.0,
             "last_at": "2026-11-10T09:00:00+00:00",
+            "gc_contaminated_count": 7,
         },
     }
     coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
@@ -383,6 +401,7 @@ async def test_load_storage_restores_and_accumulates_stall(
     assert coord._save_stall_count == 3  # seeded, not reset
     assert coord._last_stall_wall_ms == pytest.approx(4200.0)
     assert coord._last_stall_at == "2026-11-10T09:00:00+00:00"
+    assert coord._gc_contaminated_save_count == 7  # seeded, not reset
 
 
 async def test_load_storage_stall_block_missing_or_corrupt(
@@ -404,16 +423,32 @@ async def test_load_storage_stall_block_missing_or_corrupt(
     assert coord._save_stall_count == 0
     assert coord._last_stall_wall_ms is None
     assert coord._last_stall_at is None
+    assert coord._gc_contaminated_save_count == 0  # missing key -> default, no KeyError
 
     # (b) corrupt block: non-dict + bad types + NaN wall -> all ignored, defaults kept,
     # and the attrs stay the right types so a later += / max() can't TypeError.
     for bad in (
         [1, 2, 3],
-        {"count": "x", "last_wall_ms": [9, 9], "last_at": 5},
-        {"count": True, "last_wall_ms": float("nan"), "last_at": None},
+        {
+            "count": "x",
+            "last_wall_ms": [9, 9],
+            "last_at": 5,
+            "gc_contaminated_count": "x",
+        },
+        {
+            "count": True,
+            "last_wall_ms": float("nan"),
+            "last_at": None,
+            "gc_contaminated_count": True,
+        },
         # negative values from a hand-edited file are rejected (count/wall are
         # monotonic non-negative; a negative would poison the diagnostics)
-        {"count": -5, "last_wall_ms": -100.0, "last_at": None},
+        {
+            "count": -5,
+            "last_wall_ms": -100.0,
+            "last_at": None,
+            "gc_contaminated_count": -5,
+        },
     ):
         coord2 = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord2._store = MagicMock()
@@ -429,6 +464,8 @@ async def test_load_storage_stall_block_missing_or_corrupt(
         await coord2._async_load_storage()
         assert coord2._save_stall_count == 0  # bool True rejected, "x" rejected
         assert coord2._last_stall_wall_ms is None  # list + NaN rejected
+        # gc counter rejects the same way (str / bool / negative all -> default 0)
+        assert coord2._gc_contaminated_save_count == 0
         # a later real stall still works (no TypeError from a poisoned attr)
         coord2._save_stall_count += 1
         coord2._last_stall_wall_ms = max(coord2._last_stall_wall_ms or 0.0, 2500.0)

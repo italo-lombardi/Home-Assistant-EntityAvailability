@@ -182,6 +182,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._save_stall_count: int = 0
         self._last_stall_wall_ms: float | None = None  # rolling max wall of a stall
         self._last_stall_at: str | None = None  # iso ts of the most recent stall
+        # Count of saves whose measured CPU was inflated by a Python gen-1/gen-2
+        # garbage collection completing in the timing window (not integration work;
+        # see _async_save_storage). Such a save is silenced — it warrants no WARN —
+        # but a GENUINELY slow save (very large group) that also coincides with a GC
+        # would be silenced too, so this counter keeps that otherwise-invisible case
+        # visible in diagnostics. Diagnostics-only, like the stall counters.
+        self._gc_contaminated_save_count: int = 0
         # Memoized entity_id -> representative entity_id map for device-collapse.
         # Rebuilt once per _async_update_data tick (registry + battery/signal churn
         # can change keys), then read by every count/list site so er lookups run
@@ -518,6 +525,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 raw_at = stall.get("last_at")
                 if isinstance(raw_at, str):
                     self._last_stall_at = raw_at
+                raw_gc = stall.get("gc_contaminated_count")
+                if (
+                    isinstance(raw_gc, int)
+                    and not isinstance(raw_gc, bool)
+                    and raw_gc >= 0
+                ):
+                    self._gc_contaminated_save_count = raw_gc
 
     def _retention_seconds(self) -> float:
         """Seconds of availability buckets to retain = longest SELECTED window.
@@ -635,10 +649,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # counters we persist reflect THIS save (otherwise the save would serialize the
         # pre-increment value and the stall history would lag one save behind).
         # (i) The integration's own code is genuinely slow (high CPU, NO in-span GC) ->
-        # WARN with actionable advice. Peak-gated so it cannot spam. ~Never fires in
-        # practice (the step is a few ms even at the bucket ceiling). The `not gc_ran`
-        # gate is what fixes issue #145: a high-CPU reading caused by an in-span GC is
-        # NOT our code and falls through to silence rather than a false WARN.
+        # WARN with actionable advice. Peak-gated so it cannot spam. For typical groups
+        # this ~never fires (the step is sub-millisecond), but it is NOT bounded: prune +
+        # snapshot cost scales ~linearly with the total bucket count (entities ×
+        # BUCKETS_MAX), so a very large combined group (the entity selector is uncapped)
+        # can legitimately reach hundreds of ms to over a second of real CPU — and there
+        # the WARN's advice (shorter windows / fewer entities) is genuinely correct. The
+        # `not gc_ran` gate is what fixes issue #145: a high-CPU reading caused by a GC
+        # completing in the timing window is NOT our code, so it is routed to branch
+        # (iii) rather than a false WARN.
         if (
             onloop_cpu_ms > SAVE_SLOW_WARN_CPU_MS
             and not gc_ran
@@ -662,10 +681,6 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # (e.g. 600ms CPU / 2100ms wall: 600<=1000 and 2100>2000 → still counted).
         # The counters are persisted (see data["stall"]) so they survive the restart a
         # host freeze usually prompts — the diagnostics download still shows the stall.
-        # NOTE: an in-span GC (high cpu AND high wall) matches NEITHER branch — it fails
-        # (i) on `not gc_ran` and (ii) on the cpu ceiling — so it falls through silently.
-        # That is intentional: the cost is CPython collecting the whole-process heap, not
-        # our save, and the user cannot act on it, so it warrants no log line at all.
         elif (
             onloop_cpu_ms <= SAVE_SLOW_WARN_CPU_MS
             and onloop_wall_ms > SAVE_STALL_DEBUG_MS
@@ -683,6 +698,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 onloop_cpu_ms,
                 bucket_count,
             )
+        # (iii) High CPU, but a gen-1/gen-2 collection COMPLETED in the observation
+        # window (gc_ran). `gc_ran` is process-global: it means a collection finished on
+        # ANY thread during the window, and in the common case that collection ran ON the
+        # loop thread (via a GIL hand-off from an in-span allocation) and its CPU was
+        # charged to thread_time() as if it were ours. Either way the CPU figure is
+        # contaminated, so this is NOT a WARN in our name. We count it (diagnostics-only)
+        # rather than log, so a genuinely slow save (a very large group, branch (i)
+        # territory) that ALSO coincided with a GC is not rendered fully invisible — the
+        # counter is the only trace that an otherwise-WARN-worthy save was suppressed.
+        elif onloop_cpu_ms > SAVE_SLOW_WARN_CPU_MS and gc_ran:
+            self._gc_contaminated_save_count += 1
         # Capture `suppressed` BEFORE the executor await too, so all three persisted
         # fields (availability / device_states / suppressed) reflect the SAME instant
         # — a suppress/unsuppress firing during the encode must not skew the save.
@@ -704,6 +730,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 "count": self._save_stall_count,
                 "last_wall_ms": self._last_stall_wall_ms,
                 "last_at": self._last_stall_at,
+                "gc_contaminated_count": self._gc_contaminated_save_count,
             },
         }
         _LOGGER.debug(
