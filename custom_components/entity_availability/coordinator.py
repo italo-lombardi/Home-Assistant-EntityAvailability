@@ -698,15 +698,23 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 onloop_cpu_ms,
                 bucket_count,
             )
-        # (iii) High CPU, but a gen-1/gen-2 collection COMPLETED in the observation
-        # window (gc_ran). `gc_ran` is process-global: it means a collection finished on
-        # ANY thread during the window, and in the common case that collection ran ON the
-        # loop thread (via a GIL hand-off from an in-span allocation) and its CPU was
-        # charged to thread_time() as if it were ours. Either way the CPU figure is
-        # contaminated, so this is NOT a WARN in our name. We count it (diagnostics-only)
-        # rather than log, so a genuinely slow save (a very large group, branch (i)
-        # territory) that ALSO coincided with a GC is not rendered fully invisible — the
-        # counter is the only trace that an otherwise-WARN-worthy save was suppressed.
+        # (iii) High CPU, and a gen-1/gen-2 collection COMPLETED in the observation
+        # window (gc_ran). `gc_ran` is process-global: the counter advances for a
+        # collection that finished on ANY thread. In the common case the collection ran
+        # ON the loop thread (an in-span allocation tripped it; HA's work and the GIL
+        # keep most allocation on the loop thread), and its CPU WAS charged to
+        # thread_time() as ours — a true false reading. In the rarer case it ran on
+        # another thread, thread_time() was NOT inflated by it, so a genuinely slow
+        # OUR-code save could be suppressed here by an unrelated collection — a false
+        # NEGATIVE. We accept that: the window is narrow, the fail direction is a missing
+        # WARN (never a false alarm, never a crash), and it self-heals — the next slow
+        # save without a coincident collection WARNs (the peak var is untouched here). We
+        # count it (diagnostics-only) rather than log, so a genuinely slow save (a very
+        # large group, branch (i) territory) coinciding with a GC is not fully invisible —
+        # the counter is the only trace that an otherwise-WARN-worthy save was suppressed.
+        # (A genuine-slow save BELOW the recorded peak with no GC also stays silent, but
+        # that is the pre-existing peak-gate dedup, not introduced here; _last_save_onloop_
+        # cpu_ms still records its cost for diagnostics.)
         elif onloop_cpu_ms > SAVE_SLOW_WARN_CPU_MS and gc_ran:
             self._gc_contaminated_save_count += 1
         # Capture `suppressed` BEFORE the executor await too, so all three persisted
