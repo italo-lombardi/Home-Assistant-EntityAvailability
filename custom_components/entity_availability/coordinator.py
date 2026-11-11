@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import inspect
 import logging
 import math
@@ -597,12 +598,24 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         now = dt_util.utcnow()
         retention_seconds = self._retention_seconds()
         # ON-LOOP span: prune() + snapshot() are the residual event-loop cost of a
-        # save (encode + disk write are off-loop). thread_time = the CPU this loop
-        # thread actually burns (our cost — thread-scoped, so a CPU-busy OTHER thread
-        # cannot inflate it into a false warn); perf_counter = wall time, which ALSO
-        # counts any host freeze (OS deschedule, swap, a GC pause from another
-        # integration) landing in this zero-yield span. wall >> cpu means the host
-        # stalled the loop, not us.
+        # save (encode + disk write are off-loop). The step is CPU-cheap — a few ms
+        # even at the per-entity bucket ceiling (a __slots__ tuple-copy + one tz-aware
+        # datetime compare per bucket). It is NOT what makes a save look slow.
+        #
+        # Two confounders inflate the measured span, and NEITHER is our code:
+        #   * A host freeze (OS deschedule, swap) — inflates WALL but not CPU, because
+        #     the loop thread was off-CPU. wall >> cpu ⇒ host stalled the loop (branch ii).
+        #   * A Python garbage collection firing in-span — inflates BOTH cpu AND wall
+        #     roughly equally, because gc runs ON this thread and burns real CPU that
+        #     thread_time() counts as ours. A gen-2 sweep of HA's whole-process heap
+        #     costs 1-3s on a loaded install (issue #145), dwarfing our ~1ms of work and
+        #     landing in whichever save span it coincides with — unrelated to bucket
+        #     count. So thread_time() ALONE cannot tell our slow code from an in-span GC.
+        # We therefore read gc collection counts across the span: a gen-1/gen-2 collection
+        # during the span means the CPU figure is GC-contaminated, not our work, so it must
+        # not WARN in our name. (gen-0 is cheap + constant and would over-suppress, so it
+        # is ignored.) wall is still timed for the host-stall branch.
+        gc_stats_before = [s["collections"] for s in gc.get_stats()]
         t_onloop_wall0 = time.perf_counter()
         t_onloop_cpu0 = time.thread_time()
         self._availability_storage.prune(now, retention_seconds, self._entities)
@@ -611,15 +624,24 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         onloop_cpu_ms = (time.thread_time() - t_onloop_cpu0) * 1000
         onloop_wall_ms = (time.perf_counter() - t_onloop_wall0) * 1000
+        gc_delta = [
+            a - b
+            for a, b in zip((s["collections"] for s in gc.get_stats()), gc_stats_before)
+        ]
+        # gen-1 or gen-2 collected in-span ⇒ CPU is GC-contaminated, not our work.
+        gc_ran = len(gc_delta) >= 3 and (gc_delta[1] > 0 or gc_delta[2] > 0)
         bucket_count = sum(len(v) for v in frozen.values())
         # Classify this save's on-loop cost BEFORE building the payload, so the stall
         # counters we persist reflect THIS save (otherwise the save would serialize the
         # pre-increment value and the stall history would lag one save behind).
-        # (i) The integration's own code is genuinely slow (high CPU) -> WARN with
-        # actionable advice. Peak-gated so it cannot spam. ~Never fires in practice
-        # (the step is a few ms even at the bucket ceiling).
+        # (i) The integration's own code is genuinely slow (high CPU, NO in-span GC) ->
+        # WARN with actionable advice. Peak-gated so it cannot spam. ~Never fires in
+        # practice (the step is a few ms even at the bucket ceiling). The `not gc_ran`
+        # gate is what fixes issue #145: a high-CPU reading caused by an in-span GC is
+        # NOT our code and falls through to silence rather than a false WARN.
         if (
             onloop_cpu_ms > SAVE_SLOW_WARN_CPU_MS
+            and not gc_ran
             and onloop_cpu_ms > self._slow_save_warned_peak_cpu_ms
         ):
             self._slow_save_warned_peak_cpu_ms = onloop_cpu_ms
@@ -640,6 +662,10 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         # (e.g. 600ms CPU / 2100ms wall: 600<=1000 and 2100>2000 → still counted).
         # The counters are persisted (see data["stall"]) so they survive the restart a
         # host freeze usually prompts — the diagnostics download still shows the stall.
+        # NOTE: an in-span GC (high cpu AND high wall) matches NEITHER branch — it fails
+        # (i) on `not gc_ran` and (ii) on the cpu ceiling — so it falls through silently.
+        # That is intentional: the cost is CPython collecting the whole-process heap, not
+        # our save, and the user cannot act on it, so it warrants no log line at all.
         elif (
             onloop_cpu_ms <= SAVE_SLOW_WARN_CPU_MS
             and onloop_wall_ms > SAVE_STALL_DEBUG_MS

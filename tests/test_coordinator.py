@@ -169,6 +169,15 @@ async def test_slow_save_warn_and_diagnostics(
         patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
         patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
         patch.object(coord_mod, "_LOGGER") as mock_log,
+        # Freeze gc collection counts so no save reads a gen-1/gen-2 delta — this test
+        # exercises the pure-CPU WARN path, not the GC-contaminated suppression (that is
+        # test_slow_save_gc_in_span_suppresses_warn). Without this the real interpreter's
+        # background GC could bump a counter mid-span and flip a save to silent.
+        patch.object(
+            coord_mod.gc,
+            "get_stats",
+            MagicMock(return_value=[{"collections": 0} for _ in range(3)]),
+        ),
         patch.object(
             coord_mod.AvailabilityStorage,
             "encode_snapshot",
@@ -193,6 +202,118 @@ async def test_slow_save_warn_and_diagnostics(
     assert coord._last_save_onloop_wall_ms == pytest.approx((stall_sec + 2.0) * 1000)
     assert coord._last_save_total_ms is not None
     assert coord._last_save_bucket_count == 1  # one entity, one bucket row
+
+
+async def test_slow_save_gc_in_span_suppresses_warn(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Issue #145: a high-CPU save caused by a GC firing in-span must NOT WARN.
+
+    thread_time() cannot distinguish our prune+snapshot CPU from a Python garbage
+    collection that happens to run during the span — gc runs on the loop thread and
+    burns real CPU that thread_time() counts as ours. A gen-2 sweep of HA's whole
+    heap can cost seconds, dwarfing our ~1ms. The fix reads gc.get_stats() collection
+    counts across the span; a gen-1/gen-2 delta means the CPU figure is contaminated,
+    so the (i) WARN branch is gated on `not gc_ran`. Two saves, same high CPU:
+      save 1 — a gen-2 collection fired in-span  -> NO warn (suppressed, falls silent)
+      save 2 — no collection fired               -> WARN (genuine slow save preserved)
+    """
+    import custom_components.entity_availability.coordinator as coord_mod
+    from custom_components.entity_availability.coordinator import SAVE_SLOW_WARN_CPU_MS
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store.async_save = AsyncMock()
+    coord._availability_storage.prune = MagicMock()
+    coord._availability_storage.snapshot = MagicMock(return_value={"e": [(1, 2.0)]})
+
+    cpu_sec = SAVE_SLOW_WARN_CPU_MS / 1000
+    # Both saves: wall span and CPU span identically well over the warn threshold.
+    perf = iter(
+        [0.0, 0.0, cpu_sec + 2.0, cpu_sec + 2.001] * 2
+    )  # total0,wall0,wall_end,total_end per save
+    cpu = iter([0.0, cpu_sec + 2.0] * 2)  # cpu0, cpu_end per save
+
+    # gc.get_stats() is read twice per save (before, after). Save 1: gen-2 count
+    # advances 0->1 between the two reads (a collection fired in-span). Save 2: counts
+    # unchanged (no collection). Each list is a fresh object so the before-snapshot the
+    # code took is not mutated under it.
+    def stats(gen0, gen1, gen2):
+        return [
+            {"collections": gen0},
+            {"collections": gen1},
+            {"collections": gen2},
+        ]
+
+    gc_reads = iter(
+        [
+            stats(5, 2, 0),  # save 1 before
+            stats(5, 2, 1),  # save 1 after  -> gen-2 delta = 1 -> gc_ran
+            stats(5, 2, 1),  # save 2 before
+            stats(5, 2, 1),  # save 2 after  -> no delta -> genuine slow save
+        ]
+    )
+
+    with (
+        patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
+        patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
+        patch.object(coord_mod.gc, "get_stats", lambda: next(gc_reads)),
+        patch.object(coord_mod, "_LOGGER") as mock_log,
+        patch.object(
+            coord_mod.AvailabilityStorage, "encode_snapshot", MagicMock(return_value={})
+        ),
+    ):
+        await coord._async_save_storage()  # save 1: GC in-span -> suppressed
+        assert mock_log.warning.call_count == 0
+        await coord._async_save_storage()  # save 2: no GC -> genuine WARN
+        assert mock_log.warning.call_count == 1
+
+    # The surviving WARN is the genuine-slow one from save 2.
+    msg = mock_log.warning.call_args[0][0]
+    assert "Slow storage save" in msg
+
+
+async def test_slow_save_gen0_delta_does_not_suppress_warn(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """A gen-0 collection in-span is cheap and constant, so it must NOT suppress the
+    WARN — only gen-1/gen-2 (the expensive, multi-second sweeps) mark the CPU figure
+    as GC-contaminated. Guards against keying `gc_ran` off gen-0 and silencing a
+    genuinely slow save on every poll (gen-0 fires constantly)."""
+    import custom_components.entity_availability.coordinator as coord_mod
+    from custom_components.entity_availability.coordinator import SAVE_SLOW_WARN_CPU_MS
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store.async_save = AsyncMock()
+    coord._availability_storage.prune = MagicMock()
+    coord._availability_storage.snapshot = MagicMock(return_value={"e": [(1, 2.0)]})
+
+    cpu_sec = SAVE_SLOW_WARN_CPU_MS / 1000
+    perf = iter([0.0, 0.0, cpu_sec + 2.0, cpu_sec + 2.001])
+    cpu = iter([0.0, cpu_sec + 2.0])
+    gc_reads = iter(
+        [
+            [{"collections": 5}, {"collections": 2}, {"collections": 0}],  # before
+            [{"collections": 9}, {"collections": 2}, {"collections": 0}],  # gen-0 only
+        ]
+    )
+    with (
+        patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
+        patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
+        patch.object(coord_mod.gc, "get_stats", lambda: next(gc_reads)),
+        patch.object(coord_mod, "_LOGGER") as mock_log,
+        patch.object(
+            coord_mod.AvailabilityStorage, "encode_snapshot", MagicMock(return_value={})
+        ),
+    ):
+        await coord._async_save_storage()
+
+    assert mock_log.warning.call_count == 1  # gen-0 delta alone does not suppress
 
 
 async def test_save_persists_stall_block(
