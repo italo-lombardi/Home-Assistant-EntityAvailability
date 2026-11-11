@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import gc
 import inspect
 import logging
 import math
@@ -181,6 +182,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._save_stall_count: int = 0
         self._last_stall_wall_ms: float | None = None  # rolling max wall of a stall
         self._last_stall_at: str | None = None  # iso ts of the most recent stall
+        # Count of saves whose measured CPU was inflated by a Python gen-1/gen-2
+        # garbage collection completing in the timing window (not integration work;
+        # see _async_save_storage). Such a save is silenced — it warrants no WARN —
+        # but a GENUINELY slow save (very large group) that also coincides with a GC
+        # would be silenced too, so this counter keeps that otherwise-invisible case
+        # visible in diagnostics. Diagnostics-only, like the stall counters.
+        self._gc_contaminated_save_count: int = 0
         # Memoized entity_id -> representative entity_id map for device-collapse.
         # Rebuilt once per _async_update_data tick (registry + battery/signal churn
         # can change keys), then read by every count/list site so er lookups run
@@ -517,6 +525,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 raw_at = stall.get("last_at")
                 if isinstance(raw_at, str):
                     self._last_stall_at = raw_at
+                raw_gc = stall.get("gc_contaminated_count")
+                if (
+                    isinstance(raw_gc, int)
+                    and not isinstance(raw_gc, bool)
+                    and raw_gc >= 0
+                ):
+                    self._gc_contaminated_save_count = raw_gc
 
     def _retention_seconds(self) -> float:
         """Seconds of availability buckets to retain = longest SELECTED window.
@@ -597,12 +612,24 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         now = dt_util.utcnow()
         retention_seconds = self._retention_seconds()
         # ON-LOOP span: prune() + snapshot() are the residual event-loop cost of a
-        # save (encode + disk write are off-loop). thread_time = the CPU this loop
-        # thread actually burns (our cost — thread-scoped, so a CPU-busy OTHER thread
-        # cannot inflate it into a false warn); perf_counter = wall time, which ALSO
-        # counts any host freeze (OS deschedule, swap, a GC pause from another
-        # integration) landing in this zero-yield span. wall >> cpu means the host
-        # stalled the loop, not us.
+        # save (encode + disk write are off-loop). The step is CPU-cheap — a few ms
+        # even at the per-entity bucket ceiling (a __slots__ tuple-copy + one tz-aware
+        # datetime compare per bucket). It is NOT what makes a save look slow.
+        #
+        # Two confounders inflate the measured span, and NEITHER is our code:
+        #   * A host freeze (OS deschedule, swap) — inflates WALL but not CPU, because
+        #     the loop thread was off-CPU. wall >> cpu ⇒ host stalled the loop (branch ii).
+        #   * A Python garbage collection firing in-span — inflates BOTH cpu AND wall
+        #     roughly equally, because gc runs ON this thread and burns real CPU that
+        #     thread_time() counts as ours. A gen-2 sweep of HA's whole-process heap
+        #     costs 1-3s on a loaded install (issue #145), dwarfing our ~1ms of work and
+        #     landing in whichever save span it coincides with — unrelated to bucket
+        #     count. So thread_time() ALONE cannot tell our slow code from an in-span GC.
+        # We therefore read gc collection counts across the span: a gen-1/gen-2 collection
+        # during the span means the CPU figure is GC-contaminated, not our work, so it must
+        # not WARN in our name. (gen-0 is cheap + constant and would over-suppress, so it
+        # is ignored.) wall is still timed for the host-stall branch.
+        gc_stats_before = [s["collections"] for s in gc.get_stats()]
         t_onloop_wall0 = time.perf_counter()
         t_onloop_cpu0 = time.thread_time()
         self._availability_storage.prune(now, retention_seconds, self._entities)
@@ -611,15 +638,29 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         onloop_cpu_ms = (time.thread_time() - t_onloop_cpu0) * 1000
         onloop_wall_ms = (time.perf_counter() - t_onloop_wall0) * 1000
+        gc_delta = [
+            a - b
+            for a, b in zip((s["collections"] for s in gc.get_stats()), gc_stats_before)
+        ]
+        # gen-1 or gen-2 collected in-span ⇒ CPU is GC-contaminated, not our work.
+        gc_ran = len(gc_delta) >= 3 and (gc_delta[1] > 0 or gc_delta[2] > 0)
         bucket_count = sum(len(v) for v in frozen.values())
         # Classify this save's on-loop cost BEFORE building the payload, so the stall
         # counters we persist reflect THIS save (otherwise the save would serialize the
         # pre-increment value and the stall history would lag one save behind).
-        # (i) The integration's own code is genuinely slow (high CPU) -> WARN with
-        # actionable advice. Peak-gated so it cannot spam. ~Never fires in practice
-        # (the step is a few ms even at the bucket ceiling).
+        # (i) The integration's own code is genuinely slow (high CPU, NO in-span GC) ->
+        # WARN with actionable advice. Peak-gated so it cannot spam. For typical groups
+        # this ~never fires (the step is sub-millisecond), but it is NOT bounded: prune +
+        # snapshot cost scales ~linearly with the total bucket count (entities ×
+        # BUCKETS_MAX), so a very large combined group (the entity selector is uncapped)
+        # can legitimately reach hundreds of ms to over a second of real CPU — and there
+        # the WARN's advice (shorter windows / fewer entities) is genuinely correct. The
+        # `not gc_ran` gate is what fixes issue #145: a high-CPU reading caused by a GC
+        # completing in the timing window is NOT our code, so it is routed to branch
+        # (iii) rather than a false WARN.
         if (
             onloop_cpu_ms > SAVE_SLOW_WARN_CPU_MS
+            and not gc_ran
             and onloop_cpu_ms > self._slow_save_warned_peak_cpu_ms
         ):
             self._slow_save_warned_peak_cpu_ms = onloop_cpu_ms
@@ -657,6 +698,25 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 onloop_cpu_ms,
                 bucket_count,
             )
+        # (iii) High CPU, and a gen-1/gen-2 collection COMPLETED in the observation
+        # window (gc_ran). `gc_ran` is process-global: the counter advances for a
+        # collection that finished on ANY thread. In the common case the collection ran
+        # ON the loop thread (an in-span allocation tripped it; HA's work and the GIL
+        # keep most allocation on the loop thread), and its CPU WAS charged to
+        # thread_time() as ours — a true false reading. In the rarer case it ran on
+        # another thread, thread_time() was NOT inflated by it, so a genuinely slow
+        # OUR-code save could be suppressed here by an unrelated collection — a false
+        # NEGATIVE. We accept that: the window is narrow, the fail direction is a missing
+        # WARN (never a false alarm, never a crash), and it self-heals — the next slow
+        # save without a coincident collection WARNs (the peak var is untouched here). We
+        # count it (diagnostics-only) rather than log, so a genuinely slow save (a very
+        # large group, branch (i) territory) coinciding with a GC is not fully invisible —
+        # the counter is the only trace that an otherwise-WARN-worthy save was suppressed.
+        # (A genuine-slow save BELOW the recorded peak with no GC also stays silent, but
+        # that is the pre-existing peak-gate dedup, not introduced here; _last_save_onloop_
+        # cpu_ms still records its cost for diagnostics.)
+        elif onloop_cpu_ms > SAVE_SLOW_WARN_CPU_MS and gc_ran:
+            self._gc_contaminated_save_count += 1
         # Capture `suppressed` BEFORE the executor await too, so all three persisted
         # fields (availability / device_states / suppressed) reflect the SAME instant
         # — a suppress/unsuppress firing during the encode must not skew the save.
@@ -678,6 +738,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 "count": self._save_stall_count,
                 "last_wall_ms": self._last_stall_wall_ms,
                 "last_at": self._last_stall_at,
+                "gc_contaminated_count": self._gc_contaminated_save_count,
             },
         }
         _LOGGER.debug(

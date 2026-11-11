@@ -138,6 +138,7 @@ async def async_get_config_entry_diagnostics(
                 "save_stall_count": coordinator._save_stall_count,
                 "last_stall_wall_ms": coordinator._last_stall_wall_ms,
                 "last_stall_at": coordinator._last_stall_at,
+                "gc_contaminated_save_count": coordinator._gc_contaminated_save_count,
                 "last_save_at": (
                     coordinator._last_save.isoformat()
                     if coordinator._last_save

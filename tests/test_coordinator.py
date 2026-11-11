@@ -169,6 +169,15 @@ async def test_slow_save_warn_and_diagnostics(
         patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
         patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
         patch.object(coord_mod, "_LOGGER") as mock_log,
+        # Freeze gc collection counts so no save reads a gen-1/gen-2 delta — this test
+        # exercises the pure-CPU WARN path, not the GC-contaminated suppression (that is
+        # test_slow_save_gc_in_span_suppresses_warn). Without this the real interpreter's
+        # background GC could bump a counter mid-span and flip a save to silent.
+        patch.object(
+            coord_mod.gc,
+            "get_stats",
+            MagicMock(return_value=[{"collections": 0} for _ in range(3)]),
+        ),
         patch.object(
             coord_mod.AvailabilityStorage,
             "encode_snapshot",
@@ -193,6 +202,132 @@ async def test_slow_save_warn_and_diagnostics(
     assert coord._last_save_onloop_wall_ms == pytest.approx((stall_sec + 2.0) * 1000)
     assert coord._last_save_total_ms is not None
     assert coord._last_save_bucket_count == 1  # one entity, one bucket row
+
+
+async def test_slow_save_gc_in_span_suppresses_warn(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Issue #145: a high-CPU save caused by a GC firing in-span must NOT WARN.
+
+    thread_time() cannot distinguish our prune+snapshot CPU from a Python garbage
+    collection that happens to run during the span — gc runs on the loop thread and
+    burns real CPU that thread_time() counts as ours. A gen-2 sweep of HA's whole
+    heap can cost seconds, dwarfing our ~1ms. The fix reads gc.get_stats() collection
+    counts across the span; a gen-1/gen-2 delta means the CPU figure is contaminated,
+    so the (i) WARN branch is gated on `not gc_ran`. Two saves, same high CPU:
+      save 1 — a gen-2 collection fired in-span  -> NO warn (suppressed, falls silent)
+      save 2 — no collection fired               -> WARN (genuine slow save preserved)
+    """
+    import custom_components.entity_availability.coordinator as coord_mod
+    from custom_components.entity_availability.coordinator import SAVE_SLOW_WARN_CPU_MS
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store.async_save = AsyncMock()
+    coord._availability_storage.prune = MagicMock()
+    coord._availability_storage.snapshot = MagicMock(return_value={"e": [(1, 2.0)]})
+
+    cpu_sec = SAVE_SLOW_WARN_CPU_MS / 1000
+    # Both saves: wall span and CPU span identically well over the warn threshold.
+    # perf_counter is read 4x per save, in this order: t_total0 (before the loop over
+    # device_states), t_onloop_wall0 and wall_end (around prune+snapshot), and total_end
+    # (after the executor encode). So the 4-value block per save is
+    # [total0, wall0, wall_end, total_end] and the `* 2` feeds both saves — all 8 are
+    # consumed. onloop_wall_ms here is ~(cpu_sec+2)s (high), not 0.
+    perf = iter(
+        [0.0, 0.0, cpu_sec + 2.0, cpu_sec + 2.001] * 2
+    )  # [total0, wall0, wall_end, total_end] per save
+    cpu = iter([0.0, cpu_sec + 2.0] * 2)  # cpu0, cpu_end per save
+
+    # gc.get_stats() is read twice per save (before, after). Save 1: gen-2 count
+    # advances 0->1 between the two reads (a collection fired in-span). Save 2: counts
+    # unchanged (no collection). Each list is a fresh object so the before-snapshot the
+    # code took is not mutated under it.
+    def stats(gen0, gen1, gen2):
+        return [
+            {"collections": gen0},
+            {"collections": gen1},
+            {"collections": gen2},
+        ]
+
+    gc_reads = iter(
+        [
+            stats(5, 2, 0),  # save 1 before
+            stats(5, 2, 1),  # save 1 after  -> gen-2 delta = 1 -> gc_ran
+            stats(5, 2, 1),  # save 2 before
+            stats(5, 2, 1),  # save 2 after  -> no delta -> genuine slow save
+        ]
+    )
+
+    with (
+        patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
+        patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
+        patch.object(coord_mod.gc, "get_stats", lambda: next(gc_reads)),
+        patch.object(coord_mod, "_LOGGER") as mock_log,
+        patch.object(
+            coord_mod.AvailabilityStorage, "encode_snapshot", MagicMock(return_value={})
+        ),
+    ):
+        await coord._async_save_storage()  # save 1: GC in-span -> suppressed
+        assert mock_log.warning.call_count == 0
+        # Save 1 hit branch (iii) — suppressed, not a host stall. Pin the fall-through:
+        # it must NOT be miscounted as a host stall, and it MUST bump the GC-contaminated
+        # counter so the otherwise-invisible suppression is visible in diagnostics.
+        assert coord._save_stall_count == 0
+        assert coord._last_stall_at is None
+        assert coord._gc_contaminated_save_count == 1
+        await coord._async_save_storage()  # save 2: no GC -> genuine WARN
+        assert mock_log.warning.call_count == 1
+        # Save 2 WARNed, did not touch either non-WARN counter.
+        assert coord._save_stall_count == 0
+        assert coord._gc_contaminated_save_count == 1
+
+    # The surviving WARN is the genuine-slow one from save 2.
+    msg = mock_log.warning.call_args[0][0]
+    assert "Slow storage save" in msg
+
+
+async def test_slow_save_gen0_delta_does_not_suppress_warn(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """A gen-0 collection in-span is cheap and constant, so it must NOT suppress the
+    WARN — only gen-1/gen-2 (the expensive, multi-second sweeps) mark the CPU figure
+    as GC-contaminated. Guards against keying `gc_ran` off gen-0 and silencing a
+    genuinely slow save on every poll (gen-0 fires constantly)."""
+    import custom_components.entity_availability.coordinator as coord_mod
+    from custom_components.entity_availability.coordinator import SAVE_SLOW_WARN_CPU_MS
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store.async_save = AsyncMock()
+    coord._availability_storage.prune = MagicMock()
+    coord._availability_storage.snapshot = MagicMock(return_value={"e": [(1, 2.0)]})
+
+    cpu_sec = SAVE_SLOW_WARN_CPU_MS / 1000
+    perf = iter([0.0, 0.0, cpu_sec + 2.0, cpu_sec + 2.001])
+    cpu = iter([0.0, cpu_sec + 2.0])
+    gc_reads = iter(
+        [
+            [{"collections": 5}, {"collections": 2}, {"collections": 0}],  # before
+            [{"collections": 9}, {"collections": 2}, {"collections": 0}],  # gen-0 only
+        ]
+    )
+    with (
+        patch.object(coord_mod.time, "perf_counter", lambda: next(perf)),
+        patch.object(coord_mod.time, "thread_time", lambda: next(cpu)),
+        patch.object(coord_mod.gc, "get_stats", lambda: next(gc_reads)),
+        patch.object(coord_mod, "_LOGGER") as mock_log,
+        patch.object(
+            coord_mod.AvailabilityStorage, "encode_snapshot", MagicMock(return_value={})
+        ),
+    ):
+        await coord._async_save_storage()
+
+    assert mock_log.warning.call_count == 1  # gen-0 delta alone does not suppress
 
 
 async def test_save_persists_stall_block(
@@ -233,6 +368,9 @@ async def test_save_persists_stall_block(
     )  # hoisted: reflects THIS save, not pre-increment 0
     assert saved["stall"]["last_wall_ms"] == pytest.approx((stall_sec + 1.0) * 1000)
     assert saved["stall"]["last_at"] is not None
+    # The GC-contaminated counter rides in the same persisted block (0 here — this
+    # save was a pure host stall, not a GC-contaminated one).
+    assert saved["stall"]["gc_contaminated_count"] == 0
 
 
 async def test_load_storage_restores_and_accumulates_stall(
@@ -250,6 +388,7 @@ async def test_load_storage_restores_and_accumulates_stall(
             "count": 3,
             "last_wall_ms": 4200.0,
             "last_at": "2026-11-10T09:00:00+00:00",
+            "gc_contaminated_count": 7,
         },
     }
     coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
@@ -262,6 +401,7 @@ async def test_load_storage_restores_and_accumulates_stall(
     assert coord._save_stall_count == 3  # seeded, not reset
     assert coord._last_stall_wall_ms == pytest.approx(4200.0)
     assert coord._last_stall_at == "2026-11-10T09:00:00+00:00"
+    assert coord._gc_contaminated_save_count == 7  # seeded, not reset
 
 
 async def test_load_storage_stall_block_missing_or_corrupt(
@@ -283,16 +423,32 @@ async def test_load_storage_stall_block_missing_or_corrupt(
     assert coord._save_stall_count == 0
     assert coord._last_stall_wall_ms is None
     assert coord._last_stall_at is None
+    assert coord._gc_contaminated_save_count == 0  # missing key -> default, no KeyError
 
     # (b) corrupt block: non-dict + bad types + NaN wall -> all ignored, defaults kept,
     # and the attrs stay the right types so a later += / max() can't TypeError.
     for bad in (
         [1, 2, 3],
-        {"count": "x", "last_wall_ms": [9, 9], "last_at": 5},
-        {"count": True, "last_wall_ms": float("nan"), "last_at": None},
+        {
+            "count": "x",
+            "last_wall_ms": [9, 9],
+            "last_at": 5,
+            "gc_contaminated_count": "x",
+        },
+        {
+            "count": True,
+            "last_wall_ms": float("nan"),
+            "last_at": None,
+            "gc_contaminated_count": True,
+        },
         # negative values from a hand-edited file are rejected (count/wall are
         # monotonic non-negative; a negative would poison the diagnostics)
-        {"count": -5, "last_wall_ms": -100.0, "last_at": None},
+        {
+            "count": -5,
+            "last_wall_ms": -100.0,
+            "last_at": None,
+            "gc_contaminated_count": -5,
+        },
     ):
         coord2 = EntityAvailabilityCoordinator(hass, mock_config_entry)
         coord2._store = MagicMock()
@@ -308,6 +464,8 @@ async def test_load_storage_stall_block_missing_or_corrupt(
         await coord2._async_load_storage()
         assert coord2._save_stall_count == 0  # bool True rejected, "x" rejected
         assert coord2._last_stall_wall_ms is None  # list + NaN rejected
+        # gc counter rejects the same way (str / bool / negative all -> default 0)
+        assert coord2._gc_contaminated_save_count == 0
         # a later real stall still works (no TypeError from a poisoned attr)
         coord2._save_stall_count += 1
         coord2._last_stall_wall_ms = max(coord2._last_stall_wall_ms or 0.0, 2500.0)
