@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.4] - 2026-11-13
+
+### Changed
+- **Lower CPU for combined-group summary sensors on busy installs.** Each combined-group summary sensor rebuilt its full aggregated attribute table (many per-group passes over every monitored entity) more than once on every coordinator update — once for the internal write-dedup comparison and again when Home Assistant read the attributes to store them — and it did so on every update even when nothing had changed. The heavy table is now built once per update and reused within that update, so a group that flaps or a 30-second poll no longer pays for the same aggregation two or more times. The sensor's values and attributes are byte-for-byte identical to before; only the redundant recomputation is removed.
+
+### Fixed
+- **Setup no longer does a blocking file check on the event loop.** Installing the dashboard card performed a one-off `exists()` check on the loop thread; on Home Assistant 2026.x this trips the blocking-I/O detector and logs a warning. The check now runs in the executor. No functional change.
+- **Internal teardown consistency.** The combined "any offline" binary sensor now chains its parent's removal handler on unload, matching the other combined sensors. No observable effect today; prevents a silent gap if a future base class adds teardown logic.
+
 ## [0.7.3] - 2026-11-11
 
 ### Fixed

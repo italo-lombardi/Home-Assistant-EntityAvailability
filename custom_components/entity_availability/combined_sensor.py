@@ -547,6 +547,12 @@ class CombinedGroupSensor(CombinedSensorBase):
         Group names are config strings, not drifting readings, so this cannot
         reintroduce per-tick amplification.
         """
+        # Start of a dedup compare = start of an update turn. Force a rebuild so
+        # this compare and HA's subsequent state read share ONE fresh build and
+        # never reuse a dict from an earlier turn (which would compare stale attrs
+        # and defeat dedup if a mutation reached device_states without bumping the
+        # collapse generation). Raw external reads still honor the generation key.
+        self._attrs_cache_key = None
         stored = super()._ea_dedup_attrs()
         # CombinedGroupSensor.extra_state_attributes always returns a populated
         # dict, so super() (which passes non-dicts straight through) always
@@ -578,6 +584,11 @@ class CombinedGroupSensor(CombinedSensorBase):
         )
         self._attr_translation_key = "combined_summary"
         self._unsub_bus: list[Callable[[], None]] = []
+        # Memo of the heavy aggregated attrs dict, keyed on the same per-tick key
+        # as _dm_cache (entry_ids + collapse generations). _ea_dedup_attrs also
+        # forces a rebuild at each turn start — see extra_state_attributes.
+        self._attrs_cache_key: tuple | None = None
+        self._attrs_cache: dict[str, Any] | None = None
 
     def _make_update_callback(self) -> Callable[[], None]:
         """Return the coordinator update callback — state write only.
@@ -783,9 +794,41 @@ class CombinedGroupSensor(CombinedSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
+        """Return the aggregated attrs, memoized to collapse repeated builds.
+
+        The build below is the heaviest path in the integration (~20
+        ``representative_states_matching`` passes per active coordinator plus the
+        merged/row-member scans). Each write cycle builds it at least twice: once
+        through ``_ea_dedup_attrs`` (the dedup compare) and once when HA reads the
+        attrs during ``async_write_ha_state`` — no ``await`` between, so state
+        cannot change mid-cycle.
+
+        The memo is keyed on the same ``(entry_ids, collapse_generations)`` tuple
+        the device map uses, so a raw external read (template/UI poll) rebuilds as
+        soon as any member coordinator advances its generation. On the write path,
+        ``_ea_dedup_attrs`` additionally forces a rebuild at the top of every turn
+        (sets ``_attrs_cache_key = None``) so the dedup compare never trusts a dict
+        from an earlier turn even if a mutation reached ``device_states`` without
+        bumping the generation (e.g. a direct suppress poke). Belt and braces: the
+        generation key covers external reads, the per-turn clear covers dedup.
+        """
+        active = self._active_coordinators()
+        key = (
+            tuple(c.entry.entry_id for c in active),
+            tuple(c.collapse_generation for c in active),
+        )
+        if self._attrs_cache_key == key and self._attrs_cache is not None:
+            return self._attrs_cache
+        attrs = self._build_extra_state_attributes(active)
+        self._attrs_cache_key = key
+        self._attrs_cache = attrs
+        return attrs
+
+    def _build_extra_state_attributes(
+        self, active: list[EntityAvailabilityCoordinator]
+    ) -> dict[str, Any]:
         groups: dict[str, Any] = {}
 
-        active = self._active_coordinators()
         registry = er.async_get(self.hass)
         for coord in active:
             # Route per-group counts through the coordinator's collapse-aware helpers

@@ -140,7 +140,7 @@ async def _async_install_card(hass: HomeAssistant) -> None:
     domain_data[_CARD_INSTALLED_KEY] = version
 
     source = Path(__file__).parent / "frontend" / CARD_FILENAME
-    if not source.exists():
+    if not await hass.async_add_executor_job(source.exists):
         _LOGGER.warning("Card JS not found at %s", source)
         domain_data.pop(_CARD_INSTALLED_KEY, None)
         return
