@@ -590,6 +590,12 @@ class CombinedGroupSensor(CombinedSensorBase):
         self._attrs_cache_key: tuple | None = None
         self._attrs_cache: dict[str, Any] | None = None
 
+    def _ea_reset_cache(self) -> None:
+        """Also drop the attrs memo so a re-added instance rebuilds from scratch."""
+        super()._ea_reset_cache()
+        self._attrs_cache_key = None
+        self._attrs_cache = None
+
     def _make_update_callback(self) -> Callable[[], None]:
         """Return the coordinator update callback — state write only.
 
