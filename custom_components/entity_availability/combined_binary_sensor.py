@@ -109,6 +109,7 @@ class CombinedGroupAnyOfflineBinarySensor(WriteDedupMixin, BinarySensorEntity):
             unsub()
         self._unsub_listeners.clear()
         self._ea_reset_cache()
+        await super().async_will_remove_from_hass()
 
     def _subscribe(self, eid: str, coord: EntityAvailabilityCoordinator) -> None:
         """Subscribe to a coordinator and evict eid on unsub (handles reload)."""
