@@ -15,21 +15,80 @@ jobs:
 
       - name: Extract version from tag
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Extract changelog for this version
-        id: changelog
+      - name: Determine prerelease
+        id: pre
+        run: |
+          if [[ "${{ github.ref_name }}" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Preserve a hand-curated body: if the release already exists with a
+      # non-empty body, we do NOT regenerate/overwrite it.
+      - name: Check for existing release body
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY=$(gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" --json body -q .body 2>/dev/null || true)
+          if [ -n "${BODY//[[:space:]]/}" ]; then
+            echo "preserve=true" >> "$GITHUB_OUTPUT"
+            echo "Existing non-empty release body found — preserving it, not regenerating."
+          else
+            echo "preserve=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Build the unified body ONLY for a brand-new release (no existing body).
+      # Unified structure: star+coffee header -> changelog section -> siblings footer.
+      - name: Build unified release notes
+        id: notes
+        if: steps.existing.outputs.preserve != 'true'
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          NOTES=$(awk "/^## \[$VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
-          echo "notes<<EOF" >> $GITHUB_OUTPUT
-          echo "$NOTES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Strip pre-release suffix (e.g. 0.4.0-beta.1 → 0.4.0) for changelog lookup
+          BASE_VERSION="${VERSION%%-*}"
+          CHANGES=$(awk "/^## \[$BASE_VERSION\]/{found=1; next} found && /^## \[/{exit} found{print}" CHANGELOG.md)
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
+          {
+            echo "> ⭐ **Find this useful? [Star the repo]($REPO_URL)** — it helps others discover it and keeps development going."
+            echo "> ☕ **Support development:** [Buy me a coffee](https://buymeacoffee.com/italolombardi) · [PayPal](https://paypal.me/ItaloLombardi)"
+            echo ""
+            echo "$CHANGES"
+            echo ""
+            echo "---"
+            echo "### 🏠 Other Home Assistant integrations by the same author"
+            echo "| Integration | Description |"
+            echo "|---|---|"
+            echo "| [Entity Availability](https://github.com/italo-lombardi/Home-Assistant-EntityAvailability) | Monitor entity availability by group — offline entities, history, degraded states, dashboard card |"
+            echo "| [Entity Guard](https://github.com/italo-lombardi/Home-Assistant-EntityGuard) | Enforce entity state via declarative rules — replaces auto-off / auto-lock / kill-switch automations |"
+            echo "| [Entity Distance](https://github.com/italo-lombardi/Home-Assistant-EntityDistance) | Distance between 2–5 entities — direction, closing speed, ETA, proximity, group sensors |"
+            echo "| [Entity State Tracker](https://github.com/italo-lombardi/Home-Assistant-EntityStateTracker) | Time-in-state & transitions across time frames — per-state breakdowns, compliance scoring, card |"
+            echo "| [WashWise](https://github.com/italo-lombardi/Home-Assistant-WashWise) | Laundry / outdoor-drying advisor from live weather forecasts |"
+            echo "| [Fuel Compare](https://github.com/italo-lombardi/Home-Assistant-FuelCompare) | Live fuel prices across many countries / providers |"
+            echo "| [DashSnap](https://github.com/italo-lombardi/DashSnap) | Record / screenshot any web page via headless Chromium — HA dashboards, Grafana, public pages |"
+            echo "| [DashSnap Integration](https://github.com/italo-lombardi/DashSnap-Integration) | Trigger DashSnap recordings / screenshots from HA automations & scripts |"
+          } > /tmp/release_notes.md
+          echo "path=/tmp/release_notes.md" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
+      # New release: publish with the generated unified body.
+      - name: Create GitHub Release (new, unified body)
+        if: steps.existing.outputs.preserve != 'true'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
-          body: ${{ steps.changelog.outputs.notes }}
-          prerelease: ${{ contains(github.ref_name, '-beta') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-rc') }}
+          body_path: /tmp/release_notes.md
+          prerelease: ${{ steps.pre.outputs.prerelease }}
+
+      # Existing release: ensure the tag/name/prerelease flag are correct but
+      # DO NOT touch the body (preserve the hand-curated notes).
+      - name: Update GitHub Release (existing, preserve body)
+        if: steps.existing.outputs.preserve == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          prerelease: ${{ steps.pre.outputs.prerelease }}
