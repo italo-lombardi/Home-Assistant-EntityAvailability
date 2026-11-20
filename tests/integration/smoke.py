@@ -8137,7 +8137,9 @@ for e in cfg['data']['entries']:
                     stable = 0
                 time.sleep(5)
             in_cleared_set = stable >= 2
-            material_drop = after_num is not None and after_num < before_val - CLEAR_MARGIN
+            material_drop = (
+                after_num is not None and after_num < before_val - CLEAR_MARGIN
+            )
             chk(
                 "EC143 reset clears availability_today (→ cleared-set AND "
                 "materially below pre-reset: proves history wiped, not just offline)",
