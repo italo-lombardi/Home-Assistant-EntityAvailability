@@ -216,7 +216,11 @@ class TestWindowCalculation:
         ``now`` and no bucket mutation must return the SAME value, and the second
         must have populated/hit the cache (one entry for the (eid, window) pair).
         """
-        for i in range(288):
+        # Record forward-in-time (oldest first) so the bucket list is monotonic,
+        # as the live coordinator produces it — the completed-sum cache only
+        # populates for a sorted list (an unsorted backward-clock list is never
+        # cached; see test_...unsorted_rolling_window_safe_miss).
+        for i in reversed(range(288)):
             t = now - timedelta(minutes=i * 5)
             storage.record_online("sensor.c", float(BUCKET_INTERVAL), t)
         r1 = storage.get_availability("sensor.c", "24h", now)
@@ -281,7 +285,7 @@ class TestWindowCalculation:
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
         """reset(entity_ids) must drop that entity's cache entries."""
-        for i in range(10):
+        for i in reversed(range(10)):  # forward-in-time → monotonic → cacheable
             t = now - timedelta(minutes=i * 5)
             storage.record_online("sensor.r", float(BUCKET_INTERVAL), t)
         storage.get_availability("sensor.r", "24h", now)
@@ -293,7 +297,7 @@ class TestWindowCalculation:
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
         """prune() dropping an UNMONITORED entity clears its cache entries."""
-        for i in range(10):
+        for i in reversed(range(10)):  # forward-in-time → monotonic → cacheable
             storage.record_online(
                 "sensor.gone", float(BUCKET_INTERVAL), now - timedelta(minutes=i * 5)
             )
@@ -309,7 +313,7 @@ class TestWindowCalculation:
         """prune() dropping a monitored entity whose buckets all age out clears
         that entity's cache entries (the empty-list branch)."""
         old = now - timedelta(days=30)
-        for i in range(10):
+        for i in reversed(range(10)):  # forward-in-time → monotonic → cacheable
             storage.record_online(
                 "sensor.old", float(BUCKET_INTERVAL), old - timedelta(minutes=i * 5)
             )
@@ -408,6 +412,78 @@ class TestWindowCalculation:
         storage._avail_sum_cache.clear()
         truth = storage.get_availability("sensor.bw2", "24h", now)
         assert cached == truth == 83.3
+
+    def test_completed_sum_cache_unsorted_rolling_window_safe_miss(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """Unsorted list + ROLLING window must never serve a stale sum as the cutoff
+        sweeps the out-of-order bucket.
+
+        first_idx = bisect_left(cutoff) assumes a SORTED list. A backward-clock step
+        appends an interval_start smaller than the tail (get_or_create dedups only
+        vs buckets[-1]), making the list non-monotonic; bisect then returns a
+        garbage-but-STABLE index. As the rolling 24h cutoff advances past the
+        out-of-order bucket, true membership changes while first_idx / newest_start
+        / len / tail term all hold — a membership-only key would HIT and serve the
+        pre-eviction sum (verified 50 % where truth is 100 %, sustained). The fix:
+        the full walk records monotonicity for free and the cache is populated only
+        for a sorted list, so an unsorted list always full-walks (correct) until it
+        self-heals. Every read here must equal the ground-truth full walk.
+
+        Public-API repro (the exact one the audit reproduced):
+          record 10:05 = 300, 10:10 = 120 (in-progress), then a PREV-DAY 10:10 = 0
+          appended at the tail (backward clock) → list unsorted.
+          sweep reads 10:10:00 .. 10:12 on the 24h window → all must track truth.
+        """
+        utc = timezone.utc
+        eid = "sensor.unsorted"
+        storage.record_online(eid, 300.0, datetime(2024, 6, 15, 10, 5, 30, tzinfo=utc))
+        storage.record_online(eid, 120.0, datetime(2024, 6, 15, 10, 10, 30, tzinfo=utc))
+        # Backward-clock: prev-day 10:10 appended at tail (dedups only vs buckets[-1]).
+        storage.record_offline(eid, 1.0, datetime(2024, 6, 14, 10, 10, 45, tzinfo=utc))
+
+        def _truth(read_now: datetime) -> float | None:
+            saved = storage._avail_sum_cache.pop((eid, "24h"), None)
+            val = storage.get_availability(eid, "24h", read_now)
+            if saved is not None:
+                storage._avail_sum_cache[(eid, "24h")] = saved
+            return val
+
+        base = datetime(2024, 6, 15, 10, 10, 0, tzinfo=utc)
+        storage.get_availability(eid, "24h", base)  # would-be cache fill
+        # The unsorted list must NOT be cached.
+        assert (eid, "24h") not in storage._avail_sum_cache
+        # Sweep as the rolling cutoff moves past the prev-day bucket.
+        for sec in range(20, 140, 10):
+            read_now = base + timedelta(seconds=sec)
+            assert storage.get_availability(eid, "24h", read_now) == _truth(read_now)
+
+    def test_completed_sum_cache_hit_with_no_in_progress_bucket(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """A cache HIT where NO bucket sits at newest_start: the tail reverse-scan
+        must exhaust cleanly (no in-progress term) and still return the completed
+        value. Covers the hit path when the window holds only completed buckets.
+        """
+        newest = storage._get_interval_start(now)
+        full = float(BUCKET_INTERVAL)
+        # Two completed buckets, NONE at newest_start, in sorted order → cacheable.
+        storage._buckets["sensor.noip"] = [
+            AvailabilityBucket(
+                interval_start=newest - timedelta(minutes=10), online_seconds=full
+            ),
+            AvailabilityBucket(
+                interval_start=newest - timedelta(minutes=5), online_seconds=full
+            ),
+        ]
+        r1 = storage.get_availability(
+            "sensor.noip", "24h", now
+        )  # miss, fills + monotonic
+        assert ("sensor.noip", "24h") in storage._avail_sum_cache
+        r2 = storage.get_availability(
+            "sensor.noip", "24h", now
+        )  # HIT, reversed scan exhausts
+        assert r1 == r2 == 100.0
 
     def test_completed_sum_cache_tail_completed_bucket_grows_in_place(
         self, storage: AvailabilityStorage, now: datetime

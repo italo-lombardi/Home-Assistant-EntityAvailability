@@ -147,55 +147,44 @@ class AvailabilityStorage:
         # relevant_count) are invariant between structural changes to the window:
         # they move only when a bucket closes (newest grid slot advances), when the
         # rolling cutoff crosses the oldest in-window bucket (a trailing bucket
-        # leaves the window), or when the list mutates in place (a backward wall-
-        # clock step appends/re-creates an OLDER slot (get_or_create_bucket only
-        # dedups against buckets[-1]) — or a
-        # prune/BUCKETS_MAX pop). All three are captured by this O(1)/O(log n)
-        # fingerprint:  (newest_start, first_in_window_idx, len(buckets)).
-        # newest_start → close; first_in_window_idx (bisect, the list is
-        # append-ascending) → rolling eviction crossing a boundary; len → any
-        # append/pop, including the non-newest backward-clock duplicate that would
-        # otherwise mutate a completed bucket while both grid endpoints hold.
+        # leaves the window), or when the list mutates (an append on close or a
+        # backward wall-clock step — get_or_create_bucket only dedups against
+        # buckets[-1] — or a prune/BUCKETS_MAX pop). The fingerprint captures these:
+        #   (newest_start, first_idx, len(buckets), tail_completed_online)
+        # - newest_start → a bucket closed.
+        # - first_idx = bisect_left(cutoff) → the rolling cutoff crossed a boundary
+        #   (an eviction). bisect is O(log n) (not an O(n) front scan, which would
+        #   cost what the memo saves on narrow windows like "today"). bisect is only
+        #   valid on a SORTED list; see the monotonic guard below.
+        # - len → any append/pop.
+        # - tail_completed_online → the ONE content change the membership terms
+        #   miss: a COMPLETED bucket growing IN PLACE. record_online tops up
+        #   get_or_create_bucket's return = buckets[-1] when the record slot matches
+        #   it. Read `now` is minute-truncated (sensor.py) and independent of record
+        #   `now` (coordinator.py), so near a 5-min boundary / on a backward step /
+        #   after a backward-clock dup-append, buckets[-1] can be COMPLETED w.r.t.
+        #   this read yet still grow — len/first_idx/newest_start all hold. Fold its
+        #   online_seconds, but ONLY when buckets[-1] is completed (!= newest_start);
+        #   on the happy path buckets[-1] IS the in-progress bucket (grows every
+        #   tick) so folding it would miss every poll — there the term is None.
         #
-        # Cost note: the fingerprint must stay cheap or the memo buys nothing. The
-        # oldest-in-window boundary is found by bisect (O(log n)) NOT a front scan
-        # (O(n) for narrow windows like "today", whose cutoff sits deep inside a
-        # 7-day list). A backward-clock-unsorted list can make bisect pick a wrong
-        # index — harmless: it only ever forces a cache MISS (full recompute), and
-        # len already flips on that append anyway.
-        #
-        # The COMPLETED-bucket sums (total_online/total_time/completed_count and
-        # relevant_count) are invariant between structural changes to the window:
-        # they move only when a bucket closes (newest grid slot advances), when the
-        # rolling cutoff crosses the oldest in-window bucket (a trailing bucket
-        # leaves the window), or when the list mutates (append on close/backward-
-        # clock, pop on prune/BUCKETS_MAX). newest_start catches a close,
-        # first_idx (bisect, O(log n), the list is append-ascending) catches a
-        # rolling eviction, len catches any append/pop.
-        #
-        # ONE more content trigger the membership terms miss: a COMPLETED bucket
-        # can grow IN PLACE. record_online writes get_or_create_bucket's return,
-        # which is buckets[-1] when the record slot == buckets[-1].interval_start
-        # (last-write-wins top-up, no append). On the happy path buckets[-1] IS the
-        # in-progress bucket (== read's newest_start) — recomputed fresh below, so
-        # fine. BUT read `now` is minute-truncated (sensor.py) and INDEPENDENT of
-        # record `now` (coordinator.py): near a 5-min boundary, or on a backward
-        # clock step, or after a backward-clock dup-append, buckets[-1] can be a
-        # bucket EARLIER than newest_start — i.e. COMPLETED w.r.t. this read — that
-        # record_online then tops up in place. len/first_idx/newest_start all hold
-        # → a pure-membership key returns a stale completed sum (verified repros:
-        # 75%→should-be-100%). buckets[-1] is the ONLY in-place-growable bucket
-        # (append-ascending → physically last == record's slot), so fold its
-        # online_seconds into the key — but ONLY when it is completed w.r.t. this
-        # read (interval_start != newest_start). On the happy path (buckets[-1] ==
-        # newest_start, the in-progress bucket that grows every tick) it is NOT
-        # folded, so the cache still hits tick-to-tick instead of missing on every
-        # poll. A miss recomputes the full walk and refills, so the cache can only
-        # ever be slower on a stale key, never wrong.
+        # MONOTONIC GUARD: a backward wall-clock step appends an interval_start
+        # SMALLER than the current tail (get_or_create only dedups vs buckets[-1]),
+        # leaving the list non-monotonic. bisect_left on a non-monotonic list returns
+        # a garbage-but-STABLE index, so as the rolling cutoff sweeps past the
+        # out-of-order bucket the true membership changes while first_idx/newest/len
+        # all hold → a stale HIT (verified: 50%→should-be-100% sustained). A single
+        # append can only invert the tail, but a later forward append re-sorts the
+        # tail while the earlier inversion persists mid-list, so a tail-only check is
+        # NOT enough. Instead the full walk (the miss path, order-independent — it
+        # filters by interval_start vs cutoff per element) records whether the list
+        # was monotonic for free; the cache is populated AND trusted only when the
+        # last walk saw it sorted. An unsorted list simply never caches (always full
+        # walk) until it self-heals (the out-of-order bucket evicts, or a reload
+        # re-sorts via snapshot) — rare backward-clock case, zero happy-path cost.
         buckets = self._buckets[entity_id]
         newest_start = self._get_interval_start(now)
         first_idx = bisect_left(buckets, cutoff, key=lambda b: b.interval_start)
-        # Content guard for the one in-place-growable COMPLETED bucket (the tail).
         last = buckets[-1] if buckets else None
         tail_completed_online = (
             last.online_seconds
@@ -228,7 +217,16 @@ class AvailabilityStorage:
             total_online = 0.0
             total_time = 0.0
             in_progress = None  # the newest-start bucket, if present in-window
+            prev_start = None
+            monotonic = True
             for b in buckets:
+                # Track sortedness for free during the walk the miss already does.
+                # Any backward-clock append lands a smaller interval_start than its
+                # predecessor; bisect (used for first_idx) is unsound on such a list,
+                # so we must NOT populate the cache from this walk.
+                if prev_start is not None and b.interval_start < prev_start:
+                    monotonic = False
+                prev_start = b.interval_start
                 if b.interval_start < cutoff:
                     continue
                 relevant_count += 1
@@ -252,16 +250,21 @@ class AvailabilityStorage:
                     total_time += b.total_seconds
                 else:
                     in_progress = b
-            # Store the completed sums (NOT the in-progress term). relevant_count is
-            # also frozen: it only changes when the window membership does, which is
-            # exactly what the fingerprint tracks.
-            self._avail_sum_cache[cache_key] = (
-                fingerprint,
-                total_online,
-                total_time,
-                completed_count,
-                relevant_count,
-            )
+            # Store the completed sums (NOT the in-progress term) ONLY when the list
+            # is monotonic — otherwise first_idx (bisect) is unsound and a future
+            # HIT could serve a stale pre-eviction sum. relevant_count is frozen
+            # with the sums: it only changes when window membership does, which the
+            # fingerprint tracks (on a monotonic list). An unsorted list self-heals
+            # (the out-of-order bucket evicts, or a reload re-sorts) and caching
+            # resumes; until then every read is a correct full walk.
+            if monotonic:
+                self._avail_sum_cache[cache_key] = (
+                    fingerprint,
+                    total_online,
+                    total_time,
+                    completed_count,
+                    relevant_count,
+                )
 
         if relevant_count == 0:
             _LOGGER.debug(
