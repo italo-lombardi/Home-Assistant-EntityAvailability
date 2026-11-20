@@ -6628,9 +6628,24 @@ for e in cfg['data']['entries']:
                 # reached in the bound we proceed and the attribution guard below
                 # still prevents a false FAIL (falls back to inconclusive, which
                 # the 20x loop must show does NOT happen on a settled container).
+                # SCAN_INTERVAL mirrors const.py:169 (SCAN_INTERVAL = 30, the
+                # coordinator's update_interval, coordinator.py:119). smoke.py is a
+                # standalone stdlib-only HTTP script (no integration import), so
+                # this is a documented mirror, not an import. ponytail: if the
+                # integration's interval ever changes, update here too — a bare
+                # import would couple this script to the package path it is cp'd
+                # out of.
                 SCAN_INTERVAL_S = 30
-                quiesce_need = 2 * SCAN_INTERVAL_S
-                q_deadline = time.time() + max(WAIT_FOR_TIMEOUT, 90)
+                quiesce_need = 2 * SCAN_INTERVAL_S  # 60s stable before injecting
+                # Bound must comfortably exceed quiesce_need so a quiescible
+                # container actually REACHES stable (not timeout→inconclusive):
+                # one 60s stable window + settle margin. max(WAIT_FOR_TIMEOUT, ...)
+                # alone (=90) left only 30s slack; a single sibling write resets
+                # the stable clock and the gate would time out. Give 3 extra
+                # SCAN_INTERVALs of headroom.
+                q_deadline = time.time() + max(
+                    WAIT_FOR_TIMEOUT, quiesce_need + 3 * SCAN_INTERVAL_S
+                )
                 q_lu = gs(summary_eid_86).get("last_updated")
                 q_stable_since = time.time()
                 quiesced = False
@@ -7889,32 +7904,37 @@ for e in cfg['data']['entries']:
                 restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
-    # EC143: reset_statistics service clears a group's availability history +
-    # reliability counters (services.py:211, coordinator.py:268-294).
+    # EC143: reset_statistics clears a group's availability history + reliability
+    # counters (services.py:211, coordinator.py:316-342).
     #
-    # Observable = the availability_today VALUE TRANSITION, not a "→ unknown"
-    # flash. "unknown" after reset is un-pinnable: it exists only in the
-    # sub-poll instant between reset clearing the buckets and the next poll
-    # booking a fresh one (coordinator.reset_statistics calls
-    # async_set_updated_data, coordinator.py:342, which fires an INSTANT
-    # refresh). An ONLINE entity re-seeds a value immediately; an OFFLINE entity
-    # re-seeds 0.0 (online_seconds=0, total_time>0 → ratio 0). Neither yields a
-    # stable "unknown". So we assert what reset actually DOES — wipe prior
-    # history — via a deterministic transition: with entities driven OFFLINE,
-    # availability_today starts at the accrued value (>0, from prior online
-    # history) and, after reset, settles to 0.0 (only the fresh offline buckets
-    # remain). before>0 → after==0.0 proves the old history was cleared, is
-    # stable (0.0 re-seeds to 0.0 every offline poll), and does not race the
-    # 30 s poll. Covers the only smoke-untested service (suppress/
-    # suppress_indefinitely/unsuppress are covered).
+    # Asserts TWO deterministic cleared-observables; runs ONCE (the flake was
+    # assertion-INCOMPLETENESS — it pinned one terminal state when reality has
+    # several — NOT a timing race, so a 20x loop proves nothing and would also
+    # destroy its own before>0 precondition each iteration, re-accruing a
+    # completed bucket is ~5 min wall-clock; the complete assertion is the fix):
+    #
+    #   (a) availability_today ∈ {unknown/None, 0.0}. After reset with entities
+    #       offline the window shows unknown (fresh offline in-progress bucket,
+    #       total_time path → None) OR 0.0 (once an offline bucket completes,
+    #       0/300) — WHICH one depends on un-pinnable bucket-completion timing, so
+    #       accept the whole cleared-set. Stability = 2 consecutive reads IN THE
+    #       SET (a read may move unknown→0.0 as the bucket completes; both in-set,
+    #       so require 2 consecutive in-set, not 2 identical).
+    #   (b) the MTBF sensor's total_offline_events attr → 0. reset zeroes
+    #       offline_event_count (coordinator.py:330), which feeds total_offline_events
+    #       (sensor.py). History-independent, no bucket timing, no unknown/0.0
+    #       ambiguity — the clean deterministic proof. MTBF sensor is
+    #       disabled-by-default; assert (b) only if it is REST-present, else lean
+    #       on (a).
     # ------------------------------------------------------------------
     if ec_enabled(143):
         print(
-            "\n=== EC143: reset_statistics clears prior history "
-            "(availability_today before>0 → 0.0 after reset) ===",
+            "\n=== EC143: reset_statistics clears history + reliability counters "
+            "(availability_today → cleared; total_offline_events → 0) ===",
             flush=True,
         )
         today_eid = f"{ctx['prefix']}_availability_today"
+        mtbf_eid = f"{ctx['prefix']}_mtbf"
 
         def _numeric(x):
             try:
@@ -7928,15 +7948,28 @@ for e in cfg['data']['entries']:
             st = s.get("state") if s else None
             return float(st) if _numeric(st) else None
 
+        def _today_cleared() -> bool:
+            # In the cleared-set: unknown/None/unavailable OR exactly 0.0.
+            s = gs_safe(today_eid)
+            st = s.get("state") if s else None
+            if st in (None, "unknown", "unavailable"):
+                return True
+            return _numeric(st) and float(st) == 0.0
+
+        def _offline_events():
+            s = gs_safe(mtbf_eid)
+            if s is None:
+                return None  # MTBF sensor not present (disabled-by-default)
+            return s.get("attributes", {}).get("total_offline_events")
+
         before_val = _today_val()
         if before_val is None or before_val <= 0:
-            # Need accrued ONLINE history (>0) so the clear is observable as a
-            # before>0 → 0.0 drop. Restore online + settle a tick, then re-read.
+            # Need accrued ONLINE history (>0) so the clear is observable.
             restore_and_wait(ctx)
             wait(WAIT_FOR_TIMEOUT // 2 or 20)
             before_val = _today_val()
-        # LOAD-BEARING precondition: if before is already 0/None, before==after
-        # proves nothing (a no-op pass). Fail loudly instead.
+        # LOAD-BEARING precondition: a 0/None start makes before==after a no-op
+        # pass. Fail loudly instead.
         chk(
             "EC143 precondition: availability_today > 0 before reset "
             "(real history to clear)",
@@ -7945,16 +7978,16 @@ for e in cfg['data']['entries']:
             f"before={before_val}",
         )
         if before_val is not None and before_val > 0:
-            # Drive every monitored entity OFFLINE and wait until EACH reads
-            # unavailable in HA's state machine (per-entity, not an offline_count
-            # equality that a suppressed/NE member could make unreachable). With
-            # them offline, the post-reset refresh books an OFFLINE bucket → the
-            # window settles to 0.0, a STABLE observable, not the racy unknown.
+            # Drive entities offline; wait until EACH reads unavailable in HA's
+            # state machine (per-entity, not an offline_count==len equality a
+            # suppressed/NE member could make unreachable).
             saved_states = {e: gs_safe(e) for e in ctx["entities"]}
             for e in ctx["entities"]:
                 ss(e, "unavailable", {"friendly_name": e.split(".")[-1]})
             for e in ctx["entities"]:
                 wait_for(lambda e=e: (gs_safe(e) or {}).get("state"), "unavailable")
+
+            events_before = _offline_events()
 
             api(
                 "POST",
@@ -7962,34 +7995,48 @@ for e in cfg['data']['entries']:
                 {"group": ctx["title"]},
             )
 
-            # Poll until availability_today settles to 0.0 AND stays there on 2
-            # consecutive reads — guards against catching a mid-transition sample
-            # (observed live: 20.0 lingers ~25 s post-reset, then flips to 0.0).
-            def _is_zero() -> bool:
-                v = _today_val()
-                return v is not None and v == 0.0
-
+            # (a) availability_today reaches the cleared-set and stays in it on 2
+            # consecutive reads (not 2 identical — unknown→0.0 is an in-set move).
             stable = 0
-            after_val = before_val
+            after_today = None
             _deadline = time.time() + max(WAIT_FOR_TIMEOUT, 60)
             while time.time() < _deadline:
-                if _is_zero():
+                after_today = (gs_safe(today_eid) or {}).get("state")
+                if _today_cleared():
                     stable += 1
-                    after_val = 0.0
                     if stable >= 2:
                         break
                 else:
                     stable = 0
-                    after_val = _today_val()
                 time.sleep(5)
             chk(
-                "EC143 reset clears prior history: availability_today "
-                "before>0 settles to 0.0 after reset (stable)",
+                "EC143 reset clears availability_today (→ unknown or 0.0, stable)",
                 stable >= 2,
                 True,
-                f"before={before_val} after={after_val} stable_reads={stable}",
+                f"before={before_val} after={after_today} stable_in_set_reads={stable}",
             )
-            # Restore the entities we drove offline, then the normal group restore.
+
+            # (b) total_offline_events → 0 (only if the MTBF sensor is present).
+            if events_before is not None:
+                after_events = wait_for(
+                    lambda: _offline_events(),
+                    0,
+                    timeout=max(WAIT_FOR_TIMEOUT, 30),
+                )
+                chk(
+                    "EC143 reset zeroes total_offline_events (reliability counter)",
+                    after_events,
+                    0,
+                    f"before={events_before} after={after_events}",
+                )
+            else:
+                print(
+                    "  EC143: total_offline_events check skipped "
+                    "(MTBF sensor disabled/not present on this group)",
+                    flush=True,
+                )
+
+            # Restore entities we drove offline, then the normal group restore.
             for e, saved in saved_states.items():
                 if saved and _numeric(saved.get("state")):
                     ss(e, saved["state"], saved.get("attributes") or {})
