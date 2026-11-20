@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
+from bisect import bisect_left
 from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -33,6 +34,23 @@ class AvailabilityStorage:
     def __init__(self) -> None:
         """Initialize storage."""
         self._buckets: dict[str, list[AvailabilityBucket]] = {}
+        # Memo for the COMPLETED-bucket sums per (entity_id, window). The completed
+        # set is invariant between bucket closings: it changes only when a bucket
+        # closes (newest grid slot advances), when the rolling cutoff crosses a
+        # 5-min boundary (a trailing bucket leaves the window), or when the list
+        # length changes (append on close/backward-clock, pop on prune/BUCKETS_MAX).
+        # get_availability is called every ~30 s tick but the completed sum over
+        # ~2000 buckets only changes ~once per 5 min, so ~90% of the walks re-sum
+        # an identical value. We cache (total_online, total_time, completed_count,
+        # relevant_count) keyed on a fingerprint of exactly those three triggers
+        # and reuse it on a hit, recomputing only the cheap O(1) in-progress term
+        # fresh each call (its online_seconds climbs per poll). Miss → full walk +
+        # refill, so a stale key can never return a wrong number, only a slower one.
+        # ponytail: flat key tuple, no per-entity object; cleared wholesale on any
+        # structural reset below.
+        self._avail_sum_cache: dict[
+            tuple[str, str], tuple[tuple, float, float, int, int]
+        ] = {}
 
     @property
     def buckets(self) -> dict[str, list[AvailabilityBucket]]:
@@ -43,9 +61,15 @@ class AvailabilityStorage:
         """Drop availability buckets. entity_ids=None clears everything."""
         if entity_ids is None:
             self._buckets.clear()
+            self._avail_sum_cache.clear()
         else:
             for eid in entity_ids:
                 self._buckets.pop(eid, None)
+                # Drop every (eid, window) completed-sum entry for this entity so a
+                # later re-created entity cannot hit a stale sum whose fingerprint
+                # happens to collide. ponytail: windows are few, scan is trivial.
+                for key in [k for k in self._avail_sum_cache if k[0] == eid]:
+                    del self._avail_sum_cache[key]
 
     def _get_interval_start(self, now: datetime) -> datetime:
         """Get the start of the current 5-minute interval."""
@@ -119,41 +143,93 @@ class AvailabilityStorage:
             # Rolling lookback (24h / 3d / 5d / 7d) — timezone-agnostic, DST-safe.
             cutoff = now - timedelta(hours=window_hours)
 
-        # Single pass over the bucket list (was 4: relevant filter, len check,
-        # completed filter, two sums). The list is append-ascending and pruned
-        # from the front (:63-76), but this loop is order-independent: the
-        # completed sums accumulate commutatively and the in-progress bucket is
-        # bound by interval_start equality, not list position.
+        # The COMPLETED-bucket sums (total_online/total_time/completed_count and
+        # relevant_count) are invariant between structural changes to the window:
+        # they move only when a bucket closes (newest grid slot advances), when the
+        # rolling cutoff crosses the oldest in-window bucket (a trailing bucket
+        # leaves the window), or when the list mutates in place (a backward wall-
+        # clock step appends/re-creates an OLDER slot — storage.py:282-297 — or a
+        # prune/BUCKETS_MAX pop). All three are captured by this O(1)/O(log n)
+        # fingerprint:  (newest_start, first_in_window_idx, len(buckets)).
+        # newest_start → close; first_in_window_idx (bisect, the list is
+        # append-ascending) → rolling eviction crossing a boundary; len → any
+        # append/pop, including the non-newest backward-clock duplicate that would
+        # otherwise mutate a completed bucket while both grid endpoints hold.
+        #
+        # Cost note: the fingerprint must stay cheap or the memo buys nothing. The
+        # oldest-in-window boundary is found by bisect (O(log n)) NOT a front scan
+        # (O(n) for narrow windows like "today", whose cutoff sits deep inside a
+        # 7-day list). A backward-clock-unsorted list can make bisect pick a wrong
+        # index — harmless: it only ever forces a cache MISS (full recompute), and
+        # len already flips on that append anyway.
+        #
+        # A miss recomputes the full walk and refills, so the cache can only ever
+        # be slower on a stale key, never wrong. The in-progress bucket (slot ==
+        # newest_start) is ALWAYS handled fresh below — its online_seconds climbs
+        # every poll — so it is never cached.
+        buckets = self._buckets[entity_id]
         newest_start = self._get_interval_start(now)
-        relevant_count = 0
-        completed_count = 0
-        total_online = 0.0
-        total_time = 0.0
-        in_progress = None  # the newest-start bucket, if present in-window
-        for b in self._buckets[entity_id]:
-            if b.interval_start < cutoff:
-                continue
-            relevant_count += 1
-            # Prefer COMPLETED buckets for the ratio: the in-progress bucket's
-            # online_seconds climbs every poll while real time also grows, so
-            # mixing it with completed history makes the whole-window rounded %
-            # cross a 0.1 boundary every poll — a recorder write each poll with
-            # no real change (~7000 rows/day observed). Summing only COMPLETED
-            # buckets keeps the value STABLE between polls: it changes only when
-            # membership changes (a bucket closing, or the trailing bucket
-            # evicted as the cutoff advances) — real ~per-5-min data points, not
-            # a per-poll sawtooth. Trade-off: the % lags reality by up to one
-            # bucket (≤5 min); offline_count / the binary sensors give instant
-            # status. A bucket is completed iff its interval_start differs from
-            # the newest (in-progress) slot — duplicate same-slot buckets (a
-            # backward wall-clock step, :265-275) are each counted individually,
-            # matching the old per-object filter.
-            if b.interval_start != newest_start:
-                completed_count += 1
-                total_online += b.online_seconds
-                total_time += b.total_seconds
-            else:
-                in_progress = b
+        first_idx = bisect_left(buckets, cutoff, key=lambda b: b.interval_start)
+        fingerprint = (newest_start, first_idx, len(buckets))
+
+        cache_key = (entity_id, window)
+        cached = self._avail_sum_cache.get(cache_key)
+        if cached is not None and cached[0] == fingerprint:
+            _fp, total_online, total_time, completed_count, relevant_count = cached
+            # Re-scan ONLY for the in-progress bucket (slot == newest_start). Scan
+            # from the TAIL: the list is append-ascending so the newest slot sits
+            # at/near the end — this is the O(1) that makes the cache hit cheap
+            # (a front scan would re-walk all ~2000 buckets, defeating the memo).
+            # Bound by interval_start == newest_start equality, not list[-1], so a
+            # backward-clock bucket appended AFTER the in-progress one (an older
+            # slot at the tail) is correctly skipped rather than mistaken for it.
+            in_progress = None
+            for b in reversed(buckets):
+                if b.interval_start == newest_start:
+                    in_progress = b  # already guaranteed >= cutoff (== newest)
+                    break
+        else:
+            # Miss (first call, bucket closed, eviction, or structural mutation):
+            # full single pass, then refill the completed sums for reuse.
+            relevant_count = 0
+            completed_count = 0
+            total_online = 0.0
+            total_time = 0.0
+            in_progress = None  # the newest-start bucket, if present in-window
+            for b in buckets:
+                if b.interval_start < cutoff:
+                    continue
+                relevant_count += 1
+                # Prefer COMPLETED buckets for the ratio: the in-progress bucket's
+                # online_seconds climbs every poll while real time also grows, so
+                # mixing it with completed history makes the whole-window rounded %
+                # cross a 0.1 boundary every poll — a recorder write each poll with
+                # no real change (~7000 rows/day observed). Summing only COMPLETED
+                # buckets keeps the value STABLE between polls: it changes only when
+                # membership changes (a bucket closing, or the trailing bucket
+                # evicted as the cutoff advances) — real ~per-5-min data points, not
+                # a per-poll sawtooth. Trade-off: the % lags reality by up to one
+                # bucket (≤5 min); offline_count / the binary sensors give instant
+                # status. A bucket is completed iff its interval_start differs from
+                # the newest (in-progress) slot — duplicate same-slot buckets (a
+                # backward wall-clock step, :265-275) are each counted individually,
+                # matching the old per-object filter.
+                if b.interval_start != newest_start:
+                    completed_count += 1
+                    total_online += b.online_seconds
+                    total_time += b.total_seconds
+                else:
+                    in_progress = b
+            # Store the completed sums (NOT the in-progress term). relevant_count is
+            # also frozen: it only changes when the window membership does, which is
+            # exactly what the fingerprint tracks.
+            self._avail_sum_cache[cache_key] = (
+                fingerprint,
+                total_online,
+                total_time,
+                completed_count,
+                relevant_count,
+            )
 
         if relevant_count == 0:
             _LOGGER.debug(
@@ -378,18 +454,23 @@ class AvailabilityStorage:
         """
         if retention_seconds <= 0:
             self._buckets.clear()
+            self._avail_sum_cache.clear()
             return
         monitored = set(entity_ids)
         cutoff = now - timedelta(seconds=retention_seconds)
         for entity_id in list(self._buckets):
             if entity_id not in monitored:
                 del self._buckets[entity_id]
+                for key in [k for k in self._avail_sum_cache if k[0] == entity_id]:
+                    del self._avail_sum_cache[key]
                 continue
             kept = [b for b in self._buckets[entity_id] if b.interval_start >= cutoff]
             if kept:
                 self._buckets[entity_id] = kept
             else:  # drop the key entirely rather than hold an empty list
                 del self._buckets[entity_id]
+                for key in [k for k in self._avail_sum_cache if k[0] == entity_id]:
+                    del self._avail_sum_cache[key]
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AvailabilityStorage:

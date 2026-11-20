@@ -206,6 +206,152 @@ class TestWindowCalculation:
         result = storage.get_availability("sensor.dup", "24h", now)
         assert result == 83.3
 
+    def test_completed_sum_cache_hit_returns_identical_value(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """Repeated reads in the same tick hit the completed-sum cache and agree.
+
+        The cache memoizes the COMPLETED-bucket sums keyed on
+        (newest_start, oldest_in_window_start, len). Two calls with the same
+        ``now`` and no bucket mutation must return the SAME value, and the second
+        must have populated/hit the cache (one entry for the (eid, window) pair).
+        """
+        for i in range(288):
+            t = now - timedelta(minutes=i * 5)
+            storage.record_online("sensor.c", float(BUCKET_INTERVAL), t)
+        r1 = storage.get_availability("sensor.c", "24h", now)
+        assert ("sensor.c", "24h") in storage._avail_sum_cache
+        r2 = storage.get_availability("sensor.c", "24h", now)
+        assert r1 == r2 == 100.0
+
+    def test_completed_sum_cache_invalidates_on_backward_clock_dup(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """A backward-clock duplicate at a NON-newest slot must bust the cache.
+
+        This is the hole a pure (newest_start, oldest_in_window_start) key would
+        miss: appending a second bucket for an already-seen COMPLETED slot mutates
+        the completed sum while BOTH grid endpoints stay identical. ``len`` in the
+        fingerprint catches it. Fill, read (fills cache), append the dup, read
+        again — the second read MUST reflect the dup, not the stale cached sum.
+        """
+        newest = storage._get_interval_start(now)
+        slot_a = newest - timedelta(minutes=5)  # completed
+        slot_b = newest - timedelta(minutes=10)  # completed
+        full = float(BUCKET_INTERVAL)
+        # Before dup: slot_b=50%, slot_a=100% → 450/600 = 75.0%
+        storage._buckets["sensor.bw"] = [
+            AvailabilityBucket(interval_start=slot_b, online_seconds=full / 2),
+            AvailabilityBucket(interval_start=slot_a, online_seconds=full),
+        ]
+        assert storage.get_availability("sensor.bw", "24h", now) == 75.0
+        # Backward-clock step appends a SECOND slot_a object (non-newest):
+        # 750/900 = 83.3%. A stale cache (key without len) would still read 75.0.
+        storage._buckets["sensor.bw"].append(
+            AvailabilityBucket(interval_start=slot_a, online_seconds=full)
+        )
+        assert storage.get_availability("sensor.bw", "24h", now) == 83.3
+
+    def test_completed_sum_cache_updates_when_bucket_closes(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """When the in-progress bucket closes (newest_start advances), the cache
+        must recompute — the formerly in-progress bucket joins the completed sum.
+        """
+        # One completed bucket (100%) + an in-progress bucket at 50%. In-progress
+        # is excluded, so the completed-only ratio = 100%.
+        newest = storage._get_interval_start(now)
+        prev = newest - timedelta(minutes=5)
+        full = float(BUCKET_INTERVAL)
+        storage._buckets["sensor.cl"] = [
+            AvailabilityBucket(interval_start=prev, online_seconds=full),
+            AvailabilityBucket(interval_start=newest, online_seconds=full / 2),
+        ]
+        assert storage.get_availability("sensor.cl", "24h", now) == 100.0
+        # Advance one interval: the old newest becomes completed (50%), a fresh
+        # in-progress opens. Completed set = {100%, 50%} → 450/600 = 75.0%.
+        later = now + timedelta(minutes=5)
+        new_newest = storage._get_interval_start(later)
+        storage._buckets["sensor.cl"].append(
+            AvailabilityBucket(interval_start=new_newest, online_seconds=full)
+        )
+        assert storage.get_availability("sensor.cl", "24h", later) == 75.0
+
+    def test_completed_sum_cache_cleared_on_reset(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """reset(entity_ids) must drop that entity's cache entries."""
+        for i in range(10):
+            t = now - timedelta(minutes=i * 5)
+            storage.record_online("sensor.r", float(BUCKET_INTERVAL), t)
+        storage.get_availability("sensor.r", "24h", now)
+        assert ("sensor.r", "24h") in storage._avail_sum_cache
+        storage.reset(["sensor.r"])
+        assert ("sensor.r", "24h") not in storage._avail_sum_cache
+
+    def test_completed_sum_cache_cleared_on_prune_unmonitored(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """prune() dropping an UNMONITORED entity clears its cache entries."""
+        for i in range(10):
+            storage.record_online(
+                "sensor.gone", float(BUCKET_INTERVAL), now - timedelta(minutes=i * 5)
+            )
+        storage.get_availability("sensor.gone", "24h", now)
+        assert ("sensor.gone", "24h") in storage._avail_sum_cache
+        # Not in the monitored set → pruned, cache dropped.
+        storage.prune(now, _WIDE_RETENTION, ["sensor.other"])
+        assert ("sensor.gone", "24h") not in storage._avail_sum_cache
+
+    def test_completed_sum_cache_cleared_on_prune_empty(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """prune() dropping a monitored entity whose buckets all age out clears
+        that entity's cache entries (the empty-list branch)."""
+        old = now - timedelta(days=30)
+        for i in range(10):
+            storage.record_online(
+                "sensor.old", float(BUCKET_INTERVAL), old - timedelta(minutes=i * 5)
+            )
+        storage.get_availability("sensor.old", "24h", old)
+        assert ("sensor.old", "24h") in storage._avail_sum_cache
+        # Monitored, but every bucket is older than retention → key deleted.
+        storage.prune(now, 3600, ["sensor.old"])
+        assert "sensor.old" not in storage._buckets
+        assert ("sensor.old", "24h") not in storage._avail_sum_cache
+
+    def test_completed_sum_cache_hit_with_zero_completed(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """completed_count==0 elapsed-denominator path must survive a cache HIT.
+
+        The fresh/midnight branch (storage.py:200-219) fires when completed_count
+        == 0 and reads ``in_progress`` (asserted non-None by the original single
+        pass). On a HIT, completed_count comes from the cache while in_progress is
+        re-found by the tail scan — this test crosses those two. A window holding
+        ONLY the in-progress bucket (no completed bucket) is read TWICE at the same
+        tick fingerprint: the 2nd read hits the cache with cached completed_count
+        == 0. Must (a) not None-deref, (b) equal the miss-path value.
+        """
+        newest = storage._get_interval_start(now)
+        # Single bucket, exactly at the in-progress (newest) slot, 90% of elapsed.
+        # elapsed from interval_start to now; online_seconds < elapsed so the
+        # elapsed-denominator path yields a real ratio (not clamped to 100).
+        elapsed = (now - newest).total_seconds()
+        online = (
+            max(1.0, elapsed * 0.9) if elapsed > 0 else float(BUCKET_INTERVAL) * 0.9
+        )
+        storage._buckets["sensor.z"] = [
+            AvailabilityBucket(interval_start=newest, online_seconds=online)
+        ]
+        r_miss = storage.get_availability("sensor.z", "24h", now)  # fills cache
+        assert ("sensor.z", "24h") in storage._avail_sum_cache
+        # Confirm it really exercised completed_count==0.
+        assert storage._avail_sum_cache[("sensor.z", "24h")][3] == 0
+        r_hit = storage.get_availability("sensor.z", "24h", now)  # HIT, count==0
+        assert r_hit == r_miss
+        assert r_hit is not None
+
     def test_get_availability_sufficient_data(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
