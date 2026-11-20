@@ -409,6 +409,121 @@ class TestWindowCalculation:
         truth = storage.get_availability("sensor.bw2", "24h", now)
         assert cached == truth == 83.3
 
+    def test_completed_sum_cache_tail_completed_bucket_grows_in_place(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """The in-place-growth hole: a COMPLETED tail bucket topped up in place must
+        bust the cache even though newest_start / first_idx / len are all frozen.
+
+        ``get_or_create_bucket`` dedups against ``buckets[-1]`` only, so the one
+        bucket ``record_online`` can grow in place is the physically-last one. When
+        the READ clock (minute-truncated ``now`` in sensor.py) is AHEAD of the
+        RECORD clock (coordinator.py) — a plain 5-minute boundary, a backward NTP
+        step, or after a backward-clock duplicate append — that last bucket is a
+        COMPLETED bucket relative to the read, and a top-up changes the completed
+        sum with no membership change. The membership-only key (newest, first_idx,
+        len) would return a stale %; the conditional tail-content term catches it.
+
+        Public-API repro of the live sequence (verified: read 75 % where truth is
+        100 % before the fix):
+          record slot 10:00 = 300 (100 %), slot 10:05 = 150 (50 %)
+          read @ 10:10 (truncated, ahead of record) → both completed → caches 75 %
+          backward clock: record lands on slot 10:05 again → grows it 150 → 300
+          read @ 10:10 again → MUST recompute to 100 %, not serve the cached 75 %
+        """
+        utc = timezone.utc
+        eid = "sensor.grow"
+        storage.record_online(eid, 300.0, datetime(2024, 6, 15, 10, 0, 30, tzinfo=utc))
+        storage.record_online(eid, 150.0, datetime(2024, 6, 15, 10, 5, 30, tzinfo=utc))
+        read_now = datetime(2024, 6, 15, 10, 10, 0, tzinfo=utc)  # ahead of record
+        assert storage.get_availability(eid, "24h", read_now) == 75.0  # fills cache
+        # buckets[-1] is slot 10:05 (completed w.r.t. the 10:10 read) — tail term set.
+        assert storage._avail_sum_cache[(eid, "24h")][0][3] is not None
+        # Backward-clock record tops up slot 10:05 in place (150 → 300); len holds.
+        storage.record_online(eid, 150.0, datetime(2024, 6, 15, 10, 5, 50, tzinfo=utc))
+        cached = storage.get_availability(
+            eid, "24h", read_now
+        )  # same fingerprint terms
+        storage._avail_sum_cache.clear()
+        truth = storage.get_availability(eid, "24h", read_now)
+        assert cached == truth == 100.0
+
+    def test_completed_sum_cache_post_append_tail_growth(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """Post-APPEND in-place growth — the case a simple append test misses.
+
+        ``len`` can only flip ONCE per dup: the append bumps it (correct miss), but
+        a LATER poll that grows that same appended tail bucket leaves len frozen.
+        Only the tail-content term catches the second step. Sequence (straddle r3):
+          completed history + in-progress; read → caches.
+          backward-clock dup APPENDS an older completed slot at the tail → len flips
+            → miss, recomputes (correct).
+          next poll records the SAME older slot again → grows the appended tail in
+            place → len/newest/first_idx all frozen → MUST still recompute.
+        """
+        utc = timezone.utc
+        eid = "sensor.pa"
+        full = float(BUCKET_INTERVAL)
+        s10, s05, s00 = (
+            datetime(2024, 6, 15, 10, m, 0, tzinfo=utc) for m in (10, 5, 0)
+        )
+        # Completed 10:00=300, 10:05=300, plus in-progress 10:10 at 150.
+        storage._buckets[eid] = [
+            AvailabilityBucket(interval_start=s00, online_seconds=full),
+            AvailabilityBucket(interval_start=s05, online_seconds=full),
+            AvailabilityBucket(interval_start=s10, online_seconds=full / 2),
+        ]
+        read_now = s10.replace(second=0, microsecond=0)  # newest_start = 10:10
+        assert storage.get_availability(eid, "24h", read_now) == 100.0  # 600/600
+        # Backward-clock: record slot 10:00 — buckets[-1] is 10:10 (!=10:00) → APPEND
+        # a 2nd 10:00 bucket (0 online) at the tail. len 3 → 4 (miss).
+        storage.record_online(eid, 0.0, datetime(2024, 6, 15, 10, 0, 20, tzinfo=utc))
+        # record_online skips <=0; create the empty dup via get_or_create directly to
+        # model the append, then the NEXT poll tops it up.
+        storage.get_or_create_bucket(eid, datetime(2024, 6, 15, 10, 0, 20, tzinfo=utc))
+        storage.get_availability(eid, "24h", read_now)  # miss on len flip, recomputes
+        # Next poll lands on slot 10:00 again → grows the appended tail dup in place.
+        storage.record_online(eid, 120.0, datetime(2024, 6, 15, 10, 0, 40, tzinfo=utc))
+        cached = storage.get_availability(eid, "24h", read_now)  # len frozen at 4
+        storage._avail_sum_cache.clear()
+        truth = storage.get_availability(eid, "24h", read_now)
+        assert cached == truth  # tail-content term caught the post-append growth
+
+    def test_completed_sum_cache_hit_not_killed_by_in_progress_growth(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """The conditional guard must NOT fold the IN-PROGRESS bucket's value, or
+        the cache would miss on every poll (the in-progress bucket grows each tick).
+
+        Happy path: buckets[-1] IS the in-progress bucket (== read's newest_start).
+        Its online_seconds climbs each poll, but the completed sum is unchanged, so
+        the fingerprint must stay identical across the growth → a HIT. The tail
+        term must be None here.
+        """
+        newest = storage._get_interval_start(now)
+        full = float(BUCKET_INTERVAL)
+        # 3 completed buckets + an in-progress one at newest_start.
+        for i in range(1, 4):
+            storage._buckets.setdefault("sensor.ip", []).append(
+                AvailabilityBucket(
+                    interval_start=newest - timedelta(minutes=5 * i),
+                    online_seconds=full,
+                )
+            )
+        storage._buckets["sensor.ip"].append(
+            AvailabilityBucket(interval_start=newest, online_seconds=100.0)
+        )
+        storage._buckets["sensor.ip"].sort(key=lambda b: b.interval_start)
+        storage.get_availability("sensor.ip", "24h", now)
+        fp1 = storage._avail_sum_cache[("sensor.ip", "24h")][0]
+        assert fp1[3] is None  # in-progress tail NOT folded
+        # In-progress bucket grows (record on the newest slot) — same tick read.
+        storage.record_online("sensor.ip", 50.0, now)
+        storage.get_availability("sensor.ip", "24h", now)
+        fp2 = storage._avail_sum_cache[("sensor.ip", "24h")][0]
+        assert fp1 == fp2  # fingerprint stable across in-progress growth → still hits
+
     def test_get_availability_sufficient_data(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:

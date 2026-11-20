@@ -148,7 +148,8 @@ class AvailabilityStorage:
         # they move only when a bucket closes (newest grid slot advances), when the
         # rolling cutoff crosses the oldest in-window bucket (a trailing bucket
         # leaves the window), or when the list mutates in place (a backward wall-
-        # clock step appends/re-creates an OLDER slot — storage.py:282-297 — or a
+        # clock step appends/re-creates an OLDER slot (get_or_create_bucket only
+        # dedups against buckets[-1]) — or a
         # prune/BUCKETS_MAX pop). All three are captured by this O(1)/O(log n)
         # fingerprint:  (newest_start, first_in_window_idx, len(buckets)).
         # newest_start → close; first_in_window_idx (bisect, the list is
@@ -163,14 +164,45 @@ class AvailabilityStorage:
         # index — harmless: it only ever forces a cache MISS (full recompute), and
         # len already flips on that append anyway.
         #
-        # A miss recomputes the full walk and refills, so the cache can only ever
-        # be slower on a stale key, never wrong. The in-progress bucket (slot ==
-        # newest_start) is ALWAYS handled fresh below — its online_seconds climbs
-        # every poll — so it is never cached.
+        # The COMPLETED-bucket sums (total_online/total_time/completed_count and
+        # relevant_count) are invariant between structural changes to the window:
+        # they move only when a bucket closes (newest grid slot advances), when the
+        # rolling cutoff crosses the oldest in-window bucket (a trailing bucket
+        # leaves the window), or when the list mutates (append on close/backward-
+        # clock, pop on prune/BUCKETS_MAX). newest_start catches a close,
+        # first_idx (bisect, O(log n), the list is append-ascending) catches a
+        # rolling eviction, len catches any append/pop.
+        #
+        # ONE more content trigger the membership terms miss: a COMPLETED bucket
+        # can grow IN PLACE. record_online writes get_or_create_bucket's return,
+        # which is buckets[-1] when the record slot == buckets[-1].interval_start
+        # (last-write-wins top-up, no append). On the happy path buckets[-1] IS the
+        # in-progress bucket (== read's newest_start) — recomputed fresh below, so
+        # fine. BUT read `now` is minute-truncated (sensor.py) and INDEPENDENT of
+        # record `now` (coordinator.py): near a 5-min boundary, or on a backward
+        # clock step, or after a backward-clock dup-append, buckets[-1] can be a
+        # bucket EARLIER than newest_start — i.e. COMPLETED w.r.t. this read — that
+        # record_online then tops up in place. len/first_idx/newest_start all hold
+        # → a pure-membership key returns a stale completed sum (verified repros:
+        # 75%→should-be-100%). buckets[-1] is the ONLY in-place-growable bucket
+        # (append-ascending → physically last == record's slot), so fold its
+        # online_seconds into the key — but ONLY when it is completed w.r.t. this
+        # read (interval_start != newest_start). On the happy path (buckets[-1] ==
+        # newest_start, the in-progress bucket that grows every tick) it is NOT
+        # folded, so the cache still hits tick-to-tick instead of missing on every
+        # poll. A miss recomputes the full walk and refills, so the cache can only
+        # ever be slower on a stale key, never wrong.
         buckets = self._buckets[entity_id]
         newest_start = self._get_interval_start(now)
         first_idx = bisect_left(buckets, cutoff, key=lambda b: b.interval_start)
-        fingerprint = (newest_start, first_idx, len(buckets))
+        # Content guard for the one in-place-growable COMPLETED bucket (the tail).
+        last = buckets[-1] if buckets else None
+        tail_completed_online = (
+            last.online_seconds
+            if last is not None and last.interval_start != newest_start
+            else None
+        )
+        fingerprint = (newest_start, first_idx, len(buckets), tail_completed_online)
 
         cache_key = (entity_id, window)
         cached = self._avail_sum_cache.get(cache_key)
@@ -212,7 +244,7 @@ class AvailabilityStorage:
                 # bucket (≤5 min); offline_count / the binary sensors give instant
                 # status. A bucket is completed iff its interval_start differs from
                 # the newest (in-progress) slot — duplicate same-slot buckets (a
-                # backward wall-clock step, :265-275) are each counted individually,
+                # backward wall-clock step) are each counted individually,
                 # matching the old per-object filter.
                 if b.interval_start != newest_start:
                     completed_count += 1
