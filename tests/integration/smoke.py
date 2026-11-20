@@ -182,6 +182,7 @@ import base64
 import itertools
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -2532,23 +2533,21 @@ print(json.dumps(out))
         if e["domain"] != "entity_availability" or "combined" in e["title"].lower():
             continue
         title = e["title"]
-        slug = title.lower().replace(" ", "_").replace(".", "_").replace("-", "_")
-        # Exact canonical id first. A substring/endswith match collides on a
-        # slug that is a SUFFIX of a longer group's slug — e.g. "collapse"
-        # endswith-matches BOTH ..._collapse_group_summary AND
-        # ..._not_collapse_group_summary, so "Collapse" could bind to the wrong
-        # summary (and mis-score its collapse cap). Anchor on the full id.
+        # Match the integration's own slugifier (combined_sensor.py:95,
+        # binary_sensor.py:52) EXACTLY: re.sub(r"[^a-z0-9_]+","_", lower).strip("_").
+        # A naive .replace(" .-") chain diverges on other punctuation / repeated
+        # or trailing specials, producing a canonical id that misses the group's
+        # real summary.
+        slug = re.sub(r"[^a-z0-9_]+", "_", title.lower()).strip("_")
+        # Anchor on the EXACT canonical id. A substring/endswith match collides on
+        # a slug that is a SUFFIX of a longer group's slug (e.g. a "collapse" slug
+        # would endswith-match both ..._collapse_group_summary AND
+        # ..._not_collapse_group_summary), binding to the wrong summary and
+        # mis-scoring its collapse cap. Exact-id match cannot collide, so no
+        # endswith fallback — a miss means the group genuinely has no summary yet.
         canonical = f"sensor.entity_availability_{slug}_group_summary"
         match = next(
             (s for s in summaries if s["entity_id"] == canonical),
-            None,
-        ) or next(
-            (
-                s
-                for s in summaries
-                if f"_{slug}_group_summary" in s["entity_id"]
-                or s["entity_id"].endswith(f"{slug}_group_summary")
-            ),
             None,
         )
         if not match:
@@ -2723,9 +2722,7 @@ def _run_all_passes():
         while time.time() < _cdeadline and collapse_grp is None:
             time.sleep(5)
             for title in caps:
-                slug = (
-                    title.lower().replace(" ", "_").replace(".", "_").replace("-", "_")
-                )
+                slug = re.sub(r"[^a-z0-9_]+", "_", title.lower()).strip("_")
                 canonical = f"sensor.entity_availability_{slug}_group_summary"
                 s = next(
                     (
@@ -8052,13 +8049,16 @@ for e in cfg['data']['entries']:
 
             # (b) total_offline_events → 0, read IMMEDIATELY after the reset POST
             # — BEFORE (a)'s clear-poll and before any restore. Why here: the
-            # offline-event counter is booked on RECOVERY (offline→online
-            # completing), not on reset (coordinator.py:330 zeroes it, :338 sets
-            # offline_since=now). So right after reset, with entities still
-            # offline, the counter is genuinely 0; reading it after (a)'s 60s poll
-            # + the restore would catch FRESH events the test's own offline→online
-            # recovery re-books (observed: before=4 → "after"=2, two recovered
-            # entities). DELTA, not bare ==0: assert events_before > 0 AND
+            # offline-event counter is incremented when an outage OPENS
+            # (coordinator.py:1101, the went-offline branch), so driving the
+            # entities offline in step 1 already raised it; reset then zeroes it
+            # (coordinator.py:330 zeroes offline_event_count, :338 sets
+            # offline_since=now). Reading it right after reset — entities still
+            # offline, nothing recovered yet — sees the zeroed value. Reading it
+            # after (a)'s 60s poll + the restore would instead catch FRESH events
+            # the test's own offline→online recovery re-books on restore
+            # (observed: before=4 → "after"=2, two recovered entities). DELTA,
+            # not bare ==0: assert events_before > 0 AND
             # events_after == 0, so a no-op that left an already-0 counter can't
             # pass vacuously. MTBF-GATED: disabled-by-default, so skip-loud when
             # the sensor is absent (events_before is None) — that is the test not
