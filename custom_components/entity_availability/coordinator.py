@@ -338,6 +338,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.offline_since = now
         _LOGGER.debug("[%s] Reset statistics for %s", self.group_name, targets)
         self._dirty = True
+        # Bump the collapse generation so per-tick memos keyed on it (the
+        # AvailabilitySensor availability memo, combined-sensor caches) MISS on
+        # this out-of-band push and recompute against the just-cleared storage —
+        # otherwise they'd keep publishing the pre-reset value until the next
+        # 30s tick, defeating the async_set_updated_data push below. Same reason
+        # suppress/unsuppress call it (see _invalidate_collapse docstring).
+        self._invalidate_collapse()
         if self.data is not None:
             self.async_set_updated_data(self.data)
 

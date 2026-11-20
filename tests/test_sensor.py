@@ -646,6 +646,52 @@ class TestAvailabilitySensor:
         )
         assert sensor._avail_cache_gen == gen0 + 1
 
+    def test_reset_statistics_clears_memo_immediately(
+        self, mock_coordinator, mock_hass
+    ):
+        """reset_statistics must bump the generation so the availability memo
+        reflects the cleared storage IMMEDIATELY — not after the next ~30s tick.
+
+        Regression guard (Fix 1). The per-tick memo keys on
+        coordinator.collapse_generation. reset_statistics clears the buckets and
+        pushes via async_set_updated_data, but if it does NOT bump the
+        generation, the memo serves the stale pre-reset dict and the sensor keeps
+        publishing the old % until a background tick bumps gen. Pre-Fix-1,
+        native_value read storage directly and reflected the reset at once; the
+        memo must preserve that. Mutation: drop the _invalidate_collapse() call
+        in coordinator.reset_statistics and this FAILS (returns the stale %).
+
+        A unit test, deliberately: smoke EC143's post-reset poll runs long enough
+        that a real 30s coordinator tick rescues the read, masking this window —
+        only a no-tick unit check catches it.
+        """
+        now = datetime.now(timezone.utc)
+        storage = mock_coordinator.availability_storage
+        for entity_id in mock_coordinator.monitored_entities:
+            for i in range(24):
+                storage.record_online(entity_id, 3600.0, now - timedelta(hours=i))
+
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+
+        # Populate the memo at the current generation (real buckets → ~100%).
+        before = sensor.native_value
+        assert before == 100.0, f"precondition: expected 100.0, got {before}"
+
+        # Clear history. reset_statistics clears buckets AND (with the fix) bumps
+        # the generation so the memo invalidates.
+        mock_coordinator.reset_statistics()
+
+        # WITHOUT advancing any coordinator tick: the sensor must now reflect the
+        # cleared storage (no buckets → None), NOT the stale pre-reset 100.0.
+        after = sensor.native_value
+        assert after is None, (
+            f"availability_today should be None immediately after reset "
+            f"(buckets cleared), got {after} — memo served a stale pre-reset value"
+        )
+
     def test_non_essential_entity_excluded_from_both_outputs(
         self, mock_coordinator, mock_hass
     ):

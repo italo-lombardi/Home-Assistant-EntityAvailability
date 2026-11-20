@@ -8005,22 +8005,34 @@ for e in cfg['data']['entries']:
                 return None  # MTBF sensor not present (disabled-by-default)
             return s.get("attributes", {}).get("total_offline_events")
 
+        # Thresholds for the delta-based clear proof (see the (a) assertion).
+        # FLOOR must exceed MARGIN so a REAL reset just above the floor still
+        # passes: before>FLOOR, after→0/unknown, and the delta needs
+        # after < before-MARGIN, i.e. before-MARGIN > FLOOR-MARGIN > 0, so
+        # after==0 satisfies it. FLOOR<=MARGIN would false-FAIL a real reset near
+        # the floor (before-MARGIN<=0, 0<that is false).
+        CLEAR_FLOOR = 10.0
+        CLEAR_MARGIN = 5.0
+
         before_val = _today_val()
-        if before_val is None or before_val <= 0:
-            # Need accrued ONLINE history (>0) so the clear is observable.
+        if before_val is None or before_val <= CLEAR_FLOOR:
+            # Need accrued ONLINE history well above the floor so the clear is
+            # observable as a MATERIAL drop (not aliasable to already-near-zero).
             restore_and_wait(ctx)
             wait(WAIT_FOR_TIMEOUT // 2 or 20)
             before_val = _today_val()
-        # LOAD-BEARING precondition: a 0/None start makes before==after a no-op
-        # pass. Fail loudly instead.
+        # LOAD-BEARING precondition: a 0/None/near-zero start makes the clear
+        # unobservable (after≈before, or already in the cleared-set) → a no-op
+        # reset would falsely pass. Require before > FLOOR so "cleared" is
+        # unambiguously distinct from "was already near zero". Fail loudly.
         chk(
-            "EC143 precondition: availability_today > 0 before reset "
-            "(real history to clear)",
-            before_val is not None and before_val > 0,
+            "EC143 precondition: availability_today > floor before reset "
+            "(real, materially-nonzero history to clear)",
+            before_val is not None and before_val > CLEAR_FLOOR,
             True,
-            f"before={before_val}",
+            f"before={before_val} floor={CLEAR_FLOOR}",
         )
-        if before_val is not None and before_val > 0:
+        if before_val is not None and before_val > CLEAR_FLOOR:
             # Drive entities offline; wait until EACH reads unavailable in HA's
             # state machine (per-entity, not an offline_count==len equality a
             # suppressed/NE member could make unreachable).
@@ -8038,13 +8050,85 @@ for e in cfg['data']['entries']:
                 {"group": ctx["title"]},
             )
 
-            # (a) availability_today reaches the cleared-set and stays in it on 2
-            # consecutive reads (not 2 identical — unknown→0.0 is an in-set move).
+            # (b) total_offline_events → 0, read IMMEDIATELY after the reset POST
+            # — BEFORE (a)'s clear-poll and before any restore. Why here: the
+            # offline-event counter is booked on RECOVERY (offline→online
+            # completing), not on reset (coordinator.py:330 zeroes it, :338 sets
+            # offline_since=now). So right after reset, with entities still
+            # offline, the counter is genuinely 0; reading it after (a)'s 60s poll
+            # + the restore would catch FRESH events the test's own offline→online
+            # recovery re-books (observed: before=4 → "after"=2, two recovered
+            # entities). DELTA, not bare ==0: assert events_before > 0 AND
+            # events_after == 0, so a no-op that left an already-0 counter can't
+            # pass vacuously. MTBF-GATED: disabled-by-default, so skip-loud when
+            # the sensor is absent (events_before is None) — that is the test not
+            # asserting on an ABSENT sensor, NOT a skip of EC143's purpose; (a) is
+            # the always-run core clear-proof. Skip-loud too if events_before==0
+            # (nothing to zero → can't prove a zeroing).
+            if events_before is None:
+                print(
+                    "  EC143: total_offline_events check skipped "
+                    "(MTBF sensor disabled/not present on this group)",
+                    flush=True,
+                )
+            elif not (isinstance(events_before, (int, float)) and events_before > 0):
+                print(
+                    f"  EC143: total_offline_events delta skipped "
+                    f"(events_before={events_before} not > 0 — no nonzero counter "
+                    f"to prove the zeroing)",
+                    flush=True,
+                )
+            else:
+                after_events = _offline_events()
+                chk(
+                    "EC143 reset zeroes total_offline_events (nonzero → 0, "
+                    "read immediately post-reset before recovery re-books)",
+                    isinstance(after_events, (int, float))
+                    and after_events == 0
+                    and events_before > 0,
+                    True,
+                    f"before={events_before} after={after_events}",
+                )
+
+            # (a) CLEAR PROOF — membership AND a material DOWNWARD delta.
+            # get_availability uses COMPLETED buckets only, so forcing entities
+            # offline adds an EXCLUDED in-progress bucket and leaves the completed
+            # average untouched: a REAL reset empties the completed set → after
+            # drops to the cleared-set (unknown/None, or 0.0 once an offline
+            # bucket completes); a NO-OP reset leaves after ≈ before_val. So we
+            # require BOTH:
+            #   (1) after ∈ cleared-set {unknown/None/unavailable, 0.0}, stable on
+            #       2 consecutive reads (unknown→0.0 is an in-set move, not a reset
+            #       of the counter), AND
+            #   (2) after is MATERIALLY below before: numeric-after < before-MARGIN
+            #       (an unknown/None read is treated as 0 → trivially below). This
+            #       closes the alias hole: a no-op leaves after≈before → delta
+            #       fails even when before is low; only a real wipe drops after
+            #       below before-MARGIN. Combined with before>FLOOR (>MARGIN), a
+            #       real reset near the floor still passes (before-MARGIN>0 so
+            #       after=0 satisfies it). This replaces the earlier
+            #       fresh-recovery (d) attempt — strictly stronger, no extra poll.
+            def _after_numeric():
+                # Numeric value of availability_today, or 0.0 for a cleared
+                # unknown/None/unavailable read (cleared == effectively below any
+                # positive before_val for the delta check).
+                s = gs_safe(today_eid)
+                st = s.get("state") if s else None
+                if st in (None, "unknown", "unavailable"):
+                    return 0.0
+                return float(st) if _numeric(st) else None
+
             stable = 0
             after_today = None
+            after_num = None
             _deadline = time.time() + max(WAIT_FOR_TIMEOUT, 60)
             while time.time() < _deadline:
                 after_today = (gs_safe(today_eid) or {}).get("state")
+                after_num = _after_numeric()  # every read, so the delta reflects
+                # the last-seen value regardless of exit path (a no-op reset never
+                # enters the cleared branch → without this, after_num stays unbound
+                # and the material_drop line would NameError instead of cleanly
+                # FAILing — a crash is not a clean red).
                 if _today_cleared():
                     stable += 1
                     if stable >= 2:
@@ -8052,40 +8136,17 @@ for e in cfg['data']['entries']:
                 else:
                     stable = 0
                 time.sleep(5)
+            in_cleared_set = stable >= 2
+            material_drop = after_num is not None and after_num < before_val - CLEAR_MARGIN
             chk(
-                "EC143 reset clears availability_today (→ unknown or 0.0, stable)",
-                stable >= 2,
+                "EC143 reset clears availability_today (→ cleared-set AND "
+                "materially below pre-reset: proves history wiped, not just offline)",
+                in_cleared_set and material_drop,
                 True,
-                f"before={before_val} after={after_today} stable_in_set_reads={stable}",
+                f"before={before_val} after={after_today} after_num={after_num} "
+                f"in_cleared_set={in_cleared_set} material_drop={material_drop} "
+                f"(no-op reset would leave after≈before)",
             )
-
-            # (b) total_offline_events → 0. MTBF-GATED BONUS counter-proof: the
-            # MTBF sensor is disabled-by-default, so on a group without it this
-            # sub-check GUARDS OFF (skip-loud below) — that is the test not
-            # asserting on an ABSENT sensor, NOT a skip of EC143's purpose. The
-            # CORE clear-proof is (a) above (reset → availability_today cleared,
-            # before>0 → unknown/0.0 stable), which always runs and passed.
-            # Enabling a disabled-by-default entity is not cleanly in smoke's
-            # REST model (and the WS path would just relocate the skip to
-            # "WS absent"), so 4b is intentionally best-effort.
-            if events_before is not None:
-                after_events = wait_for(
-                    lambda: _offline_events(),
-                    0,
-                    timeout=max(WAIT_FOR_TIMEOUT, 30),
-                )
-                chk(
-                    "EC143 reset zeroes total_offline_events (reliability counter)",
-                    after_events,
-                    0,
-                    f"before={events_before} after={after_events}",
-                )
-            else:
-                print(
-                    "  EC143: total_offline_events check skipped "
-                    "(MTBF sensor disabled/not present on this group)",
-                    flush=True,
-                )
 
             # Restore entities we drove offline, then the normal group restore.
             for e, saved in saved_states.items():
