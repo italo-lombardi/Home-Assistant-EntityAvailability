@@ -2533,7 +2533,16 @@ print(json.dumps(out))
             continue
         title = e["title"]
         slug = title.lower().replace(" ", "_").replace(".", "_").replace("-", "_")
+        # Exact canonical id first. A substring/endswith match collides on a
+        # slug that is a SUFFIX of a longer group's slug — e.g. "collapse"
+        # endswith-matches BOTH ..._collapse_group_summary AND
+        # ..._not_collapse_group_summary, so "Collapse" could bind to the wrong
+        # summary (and mis-score its collapse cap). Anchor on the full id.
+        canonical = f"sensor.entity_availability_{slug}_group_summary"
         match = next(
+            (s for s in summaries if s["entity_id"] == canonical),
+            None,
+        ) or next(
             (
                 s
                 for s in summaries
@@ -2699,6 +2708,40 @@ def _run_all_passes():
     _fix_bt = _FIX_PREFIX + "Both Tiers"
     both_tiers = _fix_bt if _fix_bt in caps else best(lambda c: c["both_tiers"])
     collapse_grp = best(lambda c: c["collapse"])
+    if collapse_grp is None:
+        # The collapse cap scores from the group_summary's entities_collapsed
+        # attr (0 < len(entities_collapsed) < len(entities)). On a cold --all,
+        # a real collapse-active group can be mid-settle at discovery time —
+        # entities_collapsed not yet populated — so it transiently scores
+        # collapse=False and the whole EC86-89/117 family goes DARK even though
+        # a collapse group exists. A smoke fixture CANNOT substitute: collapse
+        # buckets by device_id (helpers.collapse_key), and set-state entities
+        # have no device_id, so only a real registry-backed device-collapse
+        # group collapses. Retry the collapse cap read until a group settles
+        # into collapse-active (bounded) before giving up and reporting DARK.
+        _cdeadline = time.time() + max(WAIT_FOR_TIMEOUT, 60)
+        while time.time() < _cdeadline and collapse_grp is None:
+            time.sleep(5)
+            for title in caps:
+                slug = (
+                    title.lower().replace(" ", "_").replace(".", "_").replace("-", "_")
+                )
+                canonical = f"sensor.entity_availability_{slug}_group_summary"
+                s = next(
+                    (
+                        st
+                        for st in api("GET", "/api/states")
+                        if st["entity_id"] == canonical
+                    ),
+                    None,
+                )
+                if not s:
+                    continue
+                a = s.get("attributes", {})
+                ecoll = a.get("entities_collapsed") or []
+                ents = a.get("entities") or []
+                caps[title]["collapse"] = 0 < len(ecoll) < len(ents)
+            collapse_grp = best(lambda c: c["collapse"])
 
     # A pass = (label, target, ne_group, ec_filter set). ec_filter None = all
     # enabled ECs; an explicit set restricts the pass to those ECs.
@@ -8016,7 +8059,15 @@ for e in cfg['data']['entries']:
                 f"before={before_val} after={after_today} stable_in_set_reads={stable}",
             )
 
-            # (b) total_offline_events → 0 (only if the MTBF sensor is present).
+            # (b) total_offline_events → 0. MTBF-GATED BONUS counter-proof: the
+            # MTBF sensor is disabled-by-default, so on a group without it this
+            # sub-check GUARDS OFF (skip-loud below) — that is the test not
+            # asserting on an ABSENT sensor, NOT a skip of EC143's purpose. The
+            # CORE clear-proof is (a) above (reset → availability_today cleared,
+            # before>0 → unknown/0.0 stable), which always runs and passed.
+            # Enabling a disabled-by-default entity is not cleanly in smoke's
+            # REST model (and the WS path would just relocate the skip to
+            # "WS absent"), so 4b is intentionally best-effort.
             if events_before is not None:
                 after_events = wait_for(
                     lambda: _offline_events(),
