@@ -558,6 +558,120 @@ class TestAvailabilitySensor:
         )
         assert sensor.unique_id == "test_entry_id_availability_7d"
 
+    def test_availability_computed_once_per_entity_per_read_cycle(
+        self, mock_coordinator, mock_hass
+    ):
+        """get_availability is called once per essential entity per read cycle.
+
+        native_value and extra_state_attributes previously each looped
+        monitored_entities and called get_availability with identical args →
+        2x per entity. The per-minute memo collapses that to 1x. The assertion
+        (calls == n_essential, not 2x) is the regression guard.
+        """
+        now = datetime.now(timezone.utc)
+        storage = mock_coordinator.availability_storage
+        for entity_id in mock_coordinator.monitored_entities:
+            for i in range(24):
+                storage.record_online(entity_id, 3600.0, now - timedelta(hours=i))
+
+        real = storage.get_availability
+        calls = {"n": 0}
+
+        def counting(eid, window, t):
+            calls["n"] += 1
+            return real(eid, window, t)
+
+        storage.get_availability = counting
+
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+
+        def is_essential(e):
+            d = mock_coordinator.device_states.get(e)
+            return not (d and d.is_non_essential)
+
+        essential = {e for e in mock_coordinator.monitored_entities if is_essential(e)}
+        n_essential = len(essential)
+
+        value = sensor.native_value
+        attrs = sensor.extra_state_attributes
+
+        assert value == 100.0
+        assert set(attrs["per_device"]) == essential
+        # One call per essential entity across BOTH reads — not 2x.
+        assert calls["n"] == n_essential
+
+    def test_availability_memo_recomputes_next_tick(self, mock_coordinator, mock_hass):
+        """A generation bump re-reads CHANGED storage; same generation does not.
+
+        Observable-freshness guard (not a field check): get_availability returns
+        a value that depends on the current collapse_generation, so:
+          - two reads in the SAME generation must yield the SAME native_value
+            (the memo served the cached dict — the second read did NOT recompute);
+          - a read AFTER a generation bump must yield the NEW value (the memo
+            invalidated and recomputed).
+        A _availability_map that bumps the gen field but returns the stale dict
+        would fail the post-bump assertion.
+        """
+        storage = mock_coordinator.availability_storage
+
+        def gen_keyed(_eid, _window, _now):
+            # Value tracks the live generation: 90.0 at gen g.
+            return 90.0 + float(mock_coordinator.collapse_generation)
+
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+
+        with patch.object(storage, "get_availability", side_effect=gen_keyed):
+            gen0 = mock_coordinator.collapse_generation
+            first = sensor.native_value
+            # Second read, SAME generation: storage value would be identical
+            # anyway, so prove non-recompute via call count instead.
+            storage.get_availability.reset_mock()
+            same_gen = sensor.native_value
+            assert same_gen == first  # cached value reused
+            assert storage.get_availability.call_count == 0  # no recompute same gen
+
+            # New tick → generation bumps → recompute → NEW value surfaces.
+            mock_coordinator._collapse_generation += 1
+            after_bump = sensor.native_value
+
+        assert after_bump == first + 1.0, (
+            f"expected recompute after generation bump (={first + 1.0}), "
+            f"got {after_bump} — memo served a stale tick"
+        )
+        assert sensor._avail_cache_gen == gen0 + 1
+
+    def test_non_essential_entity_excluded_from_both_outputs(
+        self, mock_coordinator, mock_hass
+    ):
+        """The is_non_essential skip in _availability_map drops a device from BOTH outputs.
+
+        _availability_map is the single enforcement point for the skip
+        (Invariant 1); this guards against a future edit silently breaking it.
+        """
+        now = datetime.now(timezone.utc)
+        storage = mock_coordinator.availability_storage
+        for entity_id in mock_coordinator.monitored_entities:
+            for i in range(24):
+                storage.record_online(entity_id, 3600.0, now - timedelta(hours=i))
+        victim = next(iter(mock_coordinator.monitored_entities))
+        mock_coordinator.device_states[victim].is_non_essential = True
+
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+
+        attrs = sensor.extra_state_attributes
+        assert victim not in attrs["per_device"]
+        # Dropped from the average too; remaining entities are all 100%.
+        assert sensor.native_value == 100.0
+
 
 class TestGroupSummarySensor:
     """Tests for GroupSummarySensor."""

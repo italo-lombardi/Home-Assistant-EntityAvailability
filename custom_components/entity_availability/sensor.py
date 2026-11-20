@@ -768,26 +768,47 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         )
         self._attr_translation_key = f"availability_{window}"
         self._attr_device_info = _device_info(entry_id, group_slug, group_name)
+        # Per-tick memo keyed on the coordinator's monotonic collapse_generation
+        # (same idiom combined sensors use). native_value and
+        # extra_state_attributes are read in the same tick → same generation →
+        # the second read hits this cache instead of recomputing every entity's
+        # availability twice. A new coordinator tick bumps the generation → miss
+        # → recompute, so a mid-minute availability change is never suppressed
+        # (a minute-keyed memo WOULD suppress it — multiple ticks share a
+        # minute). ponytail: 1-slot dict, not lru_cache — one key per tick,
+        # two readers; a full cache would be dead flexibility.
+        self._avail_cache_gen: int = -1
+        self._avail_cache: dict[str, float | None] = {}
 
     @staticmethod
     def _truncated_now() -> datetime:
         return datetime.now(timezone.utc).replace(second=0, microsecond=0)
 
-    @property
-    def native_value(self) -> float | None:
-        """Return group availability % (1-decimal precision)."""
-        now = self._truncated_now()
-        storage = self.coordinator.availability_storage
+    def _availability_map(self, now: datetime) -> dict[str, float | None]:
+        """Per-entity availability for the essential set, computed once per tick.
 
-        values: list[float] = []
+        Centralizes the ``is_non_essential`` skip so native_value and
+        extra_state_attributes can never diverge on membership.
+        """
+        gen = self.coordinator.collapse_generation
+        if self._avail_cache_gen == gen:
+            return self._avail_cache
+        storage = self.coordinator.availability_storage
+        result: dict[str, float | None] = {}
         for entity_id in self.coordinator.monitored_entities:
             d = self.coordinator.device_states.get(entity_id)
             if d and d.is_non_essential:
                 continue
-            avail = storage.get_availability(entity_id, self._window, now)
-            if avail is not None:
-                values.append(avail)
+            result[entity_id] = storage.get_availability(entity_id, self._window, now)
+        self._avail_cache_gen = gen
+        self._avail_cache = result
+        return result
 
+    @property
+    def native_value(self) -> float | None:
+        """Return group availability % (1-decimal precision)."""
+        now = self._truncated_now()
+        values = [v for v in self._availability_map(now).values() if v is not None]
         if not values:
             return None
 
@@ -803,15 +824,12 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         group-level rounded value was stable (v5.5 audit finding F-EA-1).
         """
         now = self._truncated_now()
-        storage = self.coordinator.availability_storage
-        breakdown: dict[str, float | None] = {}
-        for entity_id in self.coordinator.monitored_entities:
-            d = self.coordinator.device_states.get(entity_id)
-            if d and d.is_non_essential:
-                continue
-            avail = storage.get_availability(entity_id, self._window, now)
-            breakdown[entity_id] = round(avail, 1) if avail is not None else None
-        return {"per_device": breakdown}
+        return {
+            "per_device": {
+                eid: (round(v, 1) if v is not None else None)
+                for eid, v in self._availability_map(now).items()
+            }
+        }
 
 
 class MTBFSensor(DedupCoordinatorSensor):
