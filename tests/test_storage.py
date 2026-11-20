@@ -352,6 +352,63 @@ class TestWindowCalculation:
         assert r_hit == r_miss
         assert r_hit is not None
 
+    def test_completed_sum_cache_at_buckets_max_cap_eviction(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """At BUCKETS_MAX, a close evicts the oldest so len is UNCHANGED across the
+        tick (append → 2017 → pop → 2016) — the one structural change the len term
+        alone would miss. newest_start moving must still bust the cache.
+
+        This is the non-obvious invalidation case: fill to the cap, read (fills
+        cache), advance one interval via record_online (closes the old newest,
+        opens a fresh one, pops the oldest at cap). len returns to BUCKETS_MAX, but
+        the value must reflect the new completed set, not the stale cached sum.
+        """
+        start0 = storage._get_interval_start(now)
+        storage._buckets["sensor.cap"] = [
+            AvailabilityBucket(
+                interval_start=start0 - timedelta(minutes=5 * (BUCKETS_MAX - 1 - i)),
+                online_seconds=float(BUCKET_INTERVAL),
+            )
+            for i in range(BUCKETS_MAX)
+        ]
+        assert len(storage._buckets["sensor.cap"]) == BUCKETS_MAX
+        storage.get_availability("sensor.cap", "7d", now)  # fills cache
+        later = now + timedelta(minutes=5)
+        # Closes old newest (100%), opens a fresh 50% in-progress, pops oldest at cap.
+        storage.record_online("sensor.cap", float(BUCKET_INTERVAL) / 2, later)
+        assert len(storage._buckets["sensor.cap"]) == BUCKETS_MAX  # len UNCHANGED
+        cached = storage.get_availability("sensor.cap", "7d", later)
+        storage._avail_sum_cache.clear()
+        truth = storage.get_availability("sensor.cap", "7d", later)
+        assert cached == truth  # newest_start caught it despite len holding
+
+    def test_completed_sum_cache_backward_clock_unsorted_safe_miss(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """A backward-clock append that leaves the list UNSORTED must never produce
+        a wrong cache HIT. bisect on an unsorted list may pick a wrong index, but
+        the len bump forces a full recompute — the value must equal the cleared
+        (ground-truth) computation, not the stale cached one.
+        """
+        newest = storage._get_interval_start(now)
+        slot_a = newest - timedelta(minutes=5)
+        slot_b = newest - timedelta(minutes=10)
+        full = float(BUCKET_INTERVAL)
+        storage._buckets["sensor.bw2"] = [
+            AvailabilityBucket(interval_start=slot_b, online_seconds=full / 2),
+            AvailabilityBucket(interval_start=slot_a, online_seconds=full),
+        ]
+        assert storage.get_availability("sensor.bw2", "24h", now) == 75.0  # fills
+        # Append an OLDER slot after the newer one → list no longer sorted.
+        storage._buckets["sensor.bw2"].append(
+            AvailabilityBucket(interval_start=slot_b, online_seconds=full)
+        )
+        cached = storage.get_availability("sensor.bw2", "24h", now)
+        storage._avail_sum_cache.clear()
+        truth = storage.get_availability("sensor.bw2", "24h", now)
+        assert cached == truth == 83.3
+
     def test_get_availability_sufficient_data(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:
