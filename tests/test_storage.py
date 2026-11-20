@@ -157,6 +157,55 @@ class TestWindowCalculation:
         result = storage.get_availability("sensor.test", "today", now)
         assert result == 100.0
 
+    def test_get_availability_bucket_exactly_on_cutoff_included(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """A bucket whose interval_start == cutoff is in-window.
+
+        The boundary is inclusive (keep iff interval_start >= cutoff). For a
+        rolling "24h" window, cutoff = now - 24h = 2024-06-14 12:30:00Z, which is
+        grid-aligned, so record_online at exactly cutoff lands a bucket with
+        interval_start == cutoff. It is completed (!= newest-start slot) and the
+        sole in-window bucket, so a 100%-online bucket makes the window read
+        100.0. Flipping the filter from `< cutoff` to `<= cutoff` would exclude
+        this bucket → relevant_count 0 → None, failing this test.
+        """
+        cutoff = now - timedelta(hours=24)
+        assert storage._get_interval_start(cutoff) == cutoff  # grid-aligned
+        storage.record_online("sensor.test", float(BUCKET_INTERVAL), cutoff)
+        result = storage.get_availability("sensor.test", "24h", now)
+        assert result == 100.0
+
+    def test_get_availability_duplicate_completed_slot_counted_individually(
+        self, storage: AvailabilityStorage, now: datetime
+    ) -> None:
+        """Two buckets on the SAME completed slot are both summed (no slot-dedup).
+
+        A backward wall-clock step (NTP / VM-resume, storage.py:265-275) can
+        append a second bucket for an already-seen slot. The single-pass
+        get_availability must accumulate per OBJECT — counting both — exactly as
+        the old per-object completed filter did. Here one completed slot holds
+        TWO 100% buckets and another completed slot holds one 50% bucket:
+          total_online = 300 + 300 + 150 = 750
+          total_time   = 300 + 300 + 300 = 900  → 83.3%
+        If the duplicate were deduped to one object, it would read
+          450 / 600 = 75.0% — this test fails under that mutation.
+        """
+        newest = storage._get_interval_start(now)  # in-progress slot (excluded)
+        slot_a = newest - timedelta(minutes=5)  # completed
+        slot_b = newest - timedelta(minutes=10)  # completed
+        full = float(BUCKET_INTERVAL)
+        buckets = [
+            AvailabilityBucket(interval_start=slot_b, online_seconds=full / 2),
+            AvailabilityBucket(interval_start=slot_a, online_seconds=full),
+            # Duplicate same-slot object for slot_a (backward-clock artifact):
+            AvailabilityBucket(interval_start=slot_a, online_seconds=full),
+        ]
+        storage._buckets["sensor.dup"] = buckets
+
+        result = storage.get_availability("sensor.dup", "24h", now)
+        assert result == 83.3
+
     def test_get_availability_sufficient_data(
         self, storage: AvailabilityStorage, now: datetime
     ) -> None:

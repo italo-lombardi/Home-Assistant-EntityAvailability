@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.5] - 2026-11-20
+
+### Changed
+- **Lower CPU for the per-window availability sensors.** The `sensor.*_availability_*` sensors recomputed every monitored entity's availability percentage twice on every coordinator update — once for the internal write-dedup comparison and again when Home Assistant read the attributes to store them — and the underlying per-entity calculation scanned each device's bucket history four times per call. A live CPU profile of a running install showed this path dominating the integration's CPU. Two changes remove the waste: the per-entity results are now computed once per coordinator update and shared between the two reads, and the per-window calculation walks each device's bucket history a single time instead of four. On a 7-day window (up to ~2000 buckets per device) this is the bulk of the integration's per-update CPU. The published state — the value and attributes Home Assistant stores each update — is identical to before; only the redundant work is removed.
+
+### Fixed
+- **`reset_statistics` reflects immediately again.** The new per-update availability cache is keyed on the coordinator's update generation; `reset_statistics` clears the history and pushes an update, but did not advance that generation, so the sensor would have kept publishing the pre-reset percentage until the next ~30-second update. The reset now advances the generation before the push, so the availability sensors drop to their cleared state at once — restoring the pre-cache behaviour.
+
 ## [0.7.4] - 2026-11-13
 
 ### Changed

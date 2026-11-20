@@ -694,6 +694,11 @@ def test_availability_sensor_dedup_writes_on_decimal_boundary(
     ):
         for i in range(3):  # 99.03, 99.13, 99.23 → 99.0, 99.1, 99.2
             tick["n"] = i
+            # Model a real coordinator tick: generation bumps before the sensor
+            # reads (coordinator.py bumps _collapse_generation per tick). The
+            # AvailabilitySensor memo is keyed on collapse_generation, so this is
+            # what makes each tick recompute instead of serving the prior value.
+            mock_coordinator._collapse_generation += 1
             states_seen.add(sensor.native_value)
             sensor._handle_coordinator_update()
 

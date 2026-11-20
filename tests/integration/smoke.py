@@ -182,6 +182,7 @@ import base64
 import itertools
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -2532,14 +2533,21 @@ print(json.dumps(out))
         if e["domain"] != "entity_availability" or "combined" in e["title"].lower():
             continue
         title = e["title"]
-        slug = title.lower().replace(" ", "_").replace(".", "_").replace("-", "_")
+        # Match the integration's own slugifier (combined_sensor.py:95,
+        # binary_sensor.py:52) EXACTLY: re.sub(r"[^a-z0-9_]+","_", lower).strip("_").
+        # A naive .replace(" .-") chain diverges on other punctuation / repeated
+        # or trailing specials, producing a canonical id that misses the group's
+        # real summary.
+        slug = re.sub(r"[^a-z0-9_]+", "_", title.lower()).strip("_")
+        # Anchor on the EXACT canonical id. A substring/endswith match collides on
+        # a slug that is a SUFFIX of a longer group's slug (e.g. a "collapse" slug
+        # would endswith-match both ..._collapse_group_summary AND
+        # ..._not_collapse_group_summary), binding to the wrong summary and
+        # mis-scoring its collapse cap. Exact-id match cannot collide, so no
+        # endswith fallback — a miss means the group genuinely has no summary yet.
+        canonical = f"sensor.entity_availability_{slug}_group_summary"
         match = next(
-            (
-                s
-                for s in summaries
-                if f"_{slug}_group_summary" in s["entity_id"]
-                or s["entity_id"].endswith(f"{slug}_group_summary")
-            ),
+            (s for s in summaries if s["entity_id"] == canonical),
             None,
         )
         if not match:
@@ -2699,6 +2707,38 @@ def _run_all_passes():
     _fix_bt = _FIX_PREFIX + "Both Tiers"
     both_tiers = _fix_bt if _fix_bt in caps else best(lambda c: c["both_tiers"])
     collapse_grp = best(lambda c: c["collapse"])
+    if collapse_grp is None:
+        # The collapse cap scores from the group_summary's entities_collapsed
+        # attr (0 < len(entities_collapsed) < len(entities)). On a cold --all,
+        # a real collapse-active group can be mid-settle at discovery time —
+        # entities_collapsed not yet populated — so it transiently scores
+        # collapse=False and the whole EC86-89/117 family goes DARK even though
+        # a collapse group exists. A smoke fixture CANNOT substitute: collapse
+        # buckets by device_id (helpers.collapse_key), and set-state entities
+        # have no device_id, so only a real registry-backed device-collapse
+        # group collapses. Retry the collapse cap read until a group settles
+        # into collapse-active (bounded) before giving up and reporting DARK.
+        _cdeadline = time.time() + max(WAIT_FOR_TIMEOUT, 60)
+        while time.time() < _cdeadline and collapse_grp is None:
+            time.sleep(5)
+            for title in caps:
+                slug = re.sub(r"[^a-z0-9_]+", "_", title.lower()).strip("_")
+                canonical = f"sensor.entity_availability_{slug}_group_summary"
+                s = next(
+                    (
+                        st
+                        for st in api("GET", "/api/states")
+                        if st["entity_id"] == canonical
+                    ),
+                    None,
+                )
+                if not s:
+                    continue
+                a = s.get("attributes", {})
+                ecoll = a.get("entities_collapsed") or []
+                ents = a.get("entities") or []
+                caps[title]["collapse"] = 0 < len(ecoll) < len(ents)
+            collapse_grp = best(lambda c: c["collapse"])
 
     # A pass = (label, target, ne_group, ec_filter set). ec_filter None = all
     # enabled ECs; an explicit set restricts the pass to those ECs.
@@ -6617,33 +6657,139 @@ for e in cfg['data']['entries']:
             if ec_enabled(89) and summary_eid_86:
                 ss(non_rep_ne_86, state_86, base_86)
                 wait(WAIT_FOR_TIMEOUT // 3 or 15)
-                u0_89 = gs(summary_eid_86).get("last_updated")
-                scalars0_89 = _combined_scalars()
+
+                # Quiescence gate (user bar: 0 skip → EC89 must reach a definitive
+                # PASS, not inconclusive). Before injecting churn, wait until the
+                # combined last_updated has been STABLE for >=2 SCAN_INTERVALs —
+                # i.e. no sibling settling is in flight. This removes the in-flight
+                # transient that the attribution guard would otherwise have to
+                # classify, so a quiescent container reaches the clean no-advance
+                # PASS instead of an inconclusive. Bounded; if quiescence isn't
+                # reached in the bound we proceed and the attribution guard below
+                # still prevents a false FAIL (falls back to inconclusive, which
+                # the 20x loop must show does NOT happen on a settled container).
+                # SCAN_INTERVAL mirrors const.py:169 (SCAN_INTERVAL = 30, the
+                # coordinator's update_interval, coordinator.py:119). smoke.py is a
+                # standalone stdlib-only HTTP script (no integration import), so
+                # this is a documented mirror, not an import. ponytail: if the
+                # integration's interval ever changes, update here too — a bare
+                # import would couple this script to the package path it is cp'd
+                # out of.
+                SCAN_INTERVAL_S = 30
+                quiesce_need = 2 * SCAN_INTERVAL_S  # 60s stable before injecting
+                # Bound must comfortably exceed quiesce_need so a quiescible
+                # container actually REACHES stable (not timeout→inconclusive):
+                # one 60s stable window + settle margin. max(WAIT_FOR_TIMEOUT, ...)
+                # alone (=90) left only 30s slack; a single sibling write resets
+                # the stable clock and the gate would time out. Give 3 extra
+                # SCAN_INTERVALs of headroom.
+                q_deadline = time.time() + max(
+                    WAIT_FOR_TIMEOUT, quiesce_need + 3 * SCAN_INTERVAL_S
+                )
+                q_lu = gs(summary_eid_86).get("last_updated")
+                q_stable_since = time.time()
+                quiesced = False
+                while time.time() < q_deadline:
+                    time.sleep(5)
+                    lu_now = gs(summary_eid_86).get("last_updated")
+                    if lu_now != q_lu:
+                        q_lu = lu_now
+                        q_stable_since = time.time()  # reset: a write just landed
+                    elif time.time() - q_stable_since >= quiesce_need:
+                        quiesced = True
+                        break
+                if not quiesced:
+                    print(
+                        "  EC89: quiescence not reached in bound — proceeding; "
+                        "attribution guard still prevents false-FAIL (may be "
+                        "inconclusive on a busy container)",
+                        flush=True,
+                    )
+
+                # Attribution model (hardened). Endpoint-only scalar compare
+                # aliased: a sibling transient that flips and settles BACK within
+                # the window advances last_updated while both endpoint scalar
+                # samples match → mis-attributed as our spurious write → false
+                # FAIL. Instead: poll (last_updated, scalars) at a short interval
+                # across the WHOLE churn window + a settle tail, OBSERVE each
+                # last_updated advance when it happens, and attribute it:
+                #   - scalars changed at that sample vs the prior sample → a
+                #     legit sibling-driven combined write → INCONCLUSIVE (the
+                #     combined aggregates N coordinators; a sibling moving is not
+                #     our churn). Skip-loud, do not fail.
+                #   - scalars identical across the advance → the advance is
+                #     attributable to our churn-only injection (state frozen,
+                #     only a non-recorded attr bumped) → a real spurious write →
+                #     FAIL.
+                # gs()/_combined_scalars() are each a ~1-15ms REST GET on this
+                # container, so a 1s poll across ~45s is trivial load and does not
+                # perturb timing. Interval 1s; widen to 2s if jitter appears.
+                POLL = 1.0
+                last_updated = gs(summary_eid_86).get("last_updated")
+                last_scalars = _combined_scalars()
+                sibling_moved = False  # any advance coincided with a scalar change
+                spurious_write = False  # an advance with scalars unchanged (churn)
+
+                def _sample_once() -> None:
+                    nonlocal last_updated, last_scalars, sibling_moved
+                    nonlocal spurious_write
+                    lu = gs(summary_eid_86).get("last_updated")
+                    sc = _combined_scalars()
+                    if lu != last_updated:
+                        # A combined write landed. Attribute it.
+                        if sc != last_scalars:
+                            sibling_moved = True  # legit sibling write
+                        else:
+                            spurious_write = True  # churn-attributable spurious
+                    last_updated = lu
+                    last_scalars = sc
+
+                # Inject churn (state FROZEN, only a non-recorded attr bumps) and
+                # tight-poll through each injection + its settle tail.
                 for i in range(3):
                     bumped = dict(base_86)
                     bumped["_ea_smoke_churn"] = i
                     ss(non_rep_ne_86, state_86, bumped)
-                    wait(WAIT_FOR_TIMEOUT // 3 or 15)
-                u1_89 = gs(summary_eid_86).get("last_updated")
-                scalars1_89 = _combined_scalars()
-                # Sibling-noise guard: combined aggregates N coordinators. If any
-                # sibling moved during the churn window its recorded scalars
-                # change → the summary legitimately rewrote and the freeze check
-                # is inconclusive (not a dedup failure). Skip-loud in that case.
-                if scalars0_89 != scalars1_89:
-                    print(
-                        "  EC89: inconclusive (a sibling entity moved during the "
-                        f"churn window — scalars {scalars0_89} -> {scalars1_89}); "
-                        "re-run on a quiescent fixture",
-                        flush=True,
-                    )
-                else:
+                    _tail = time.time() + (WAIT_FOR_TIMEOUT // 3 or 15)
+                    while time.time() < _tail:
+                        time.sleep(POLL)
+                        _sample_once()
+                # Final settle tail so a late-landing churn write is observed.
+                _tail = time.time() + (WAIT_FOR_TIMEOUT // 3 or 15)
+                while time.time() < _tail:
+                    time.sleep(POLL)
+                    _sample_once()
+
+                if spurious_write:
+                    # A combined write advanced with NO scalar change during a
+                    # churn injection → the spurious write this EC guards against.
                     chk(
                         "EC89 combined_summary last_updated shows no spurious "
                         "write on churn-only attr bumps",
-                        u1_89,
-                        u0_89,
-                        f"u0={u0_89} u1={u1_89}",
+                        False,
+                        True,
+                        "a combined write advanced with scalars unchanged during "
+                        "churn-only injection (spurious write detected)",
+                    )
+                elif sibling_moved:
+                    # Every observed advance coincided with a sibling scalar move
+                    # → legit aggregation writes, not our churn. Inconclusive, not
+                    # a dedup failure. Skip-loud (matches the original intent).
+                    print(
+                        "  EC89: inconclusive (a sibling entity moved during the "
+                        "churn window — observed combined write(s) coincided with "
+                        "scalar changes); re-run on a quiescent fixture",
+                        flush=True,
+                    )
+                else:
+                    # No combined write advanced across the whole churn window →
+                    # the dedup held: churn-only bumps produced no spurious write.
+                    chk(
+                        "EC89 combined_summary last_updated shows no spurious "
+                        "write on churn-only attr bumps",
+                        True,
+                        True,
+                        f"last_updated frozen at {last_updated} across churn",
                     )
                 ss(non_rep_ne_86, state_86, base_86)
 
@@ -7798,21 +7944,37 @@ for e in cfg['data']['entries']:
                 restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
-    # EC143: reset_statistics service clears a group's availability history +
-    # reliability counters (services.py:211, coordinator.py:268-294). The cleanest
-    # observable is availability_today: it has a value on a group that accrued
-    # history, and goes to None/unknown immediately after the buckets are cleared
-    # (until the next poll rebuilds a fresh in-progress bucket). Covers the only
-    # smoke-untested service (suppress/suppress_indefinitely/unsuppress are covered).
+    # EC143: reset_statistics clears a group's availability history + reliability
+    # counters (services.py:211, coordinator.py:316-342).
+    #
+    # Asserts TWO deterministic cleared-observables; runs ONCE (the flake was
+    # assertion-INCOMPLETENESS — it pinned one terminal state when reality has
+    # several — NOT a timing race, so a 20x loop proves nothing and would also
+    # destroy its own before>0 precondition each iteration, re-accruing a
+    # completed bucket is ~5 min wall-clock; the complete assertion is the fix):
+    #
+    #   (a) availability_today ∈ {unknown/None, 0.0}. After reset with entities
+    #       offline the window shows unknown (fresh offline in-progress bucket,
+    #       total_time path → None) OR 0.0 (once an offline bucket completes,
+    #       0/300) — WHICH one depends on un-pinnable bucket-completion timing, so
+    #       accept the whole cleared-set. Stability = 2 consecutive reads IN THE
+    #       SET (a read may move unknown→0.0 as the bucket completes; both in-set,
+    #       so require 2 consecutive in-set, not 2 identical).
+    #   (b) the MTBF sensor's total_offline_events attr → 0. reset zeroes
+    #       offline_event_count (coordinator.py:330), which feeds total_offline_events
+    #       (sensor.py). History-independent, no bucket timing, no unknown/0.0
+    #       ambiguity — the clean deterministic proof. MTBF sensor is
+    #       disabled-by-default; assert (b) only if it is REST-present, else lean
+    #       on (a).
     # ------------------------------------------------------------------
     if ec_enabled(143):
         print(
-            "\n=== EC143: reset_statistics clears availability history ===",
+            "\n=== EC143: reset_statistics clears history + reliability counters "
+            "(availability_today → cleared; total_offline_events → 0) ===",
             flush=True,
         )
         today_eid = f"{ctx['prefix']}_availability_today"
-        before = gs_safe(today_eid)
-        before_state = before.get("state") if before else None
+        mtbf_eid = f"{ctx['prefix']}_mtbf"
 
         def _numeric(x):
             try:
@@ -7821,46 +7983,179 @@ for e in cfg['data']['entries']:
             except (TypeError, ValueError):
                 return False
 
-        if not _numeric(before_state):
-            # No availability value to reset (window deselected / brand-new) — the
-            # reset is unobservable on this sensor. Ensure at least a settled value
-            # by restoring + waiting one coordinator tick, then re-read.
+        def _today_val():
+            s = gs_safe(today_eid)
+            st = s.get("state") if s else None
+            return float(st) if _numeric(st) else None
+
+        def _today_cleared() -> bool:
+            # In the cleared-set: unknown/None/unavailable OR exactly 0.0.
+            s = gs_safe(today_eid)
+            st = s.get("state") if s else None
+            if st in (None, "unknown", "unavailable"):
+                return True
+            return _numeric(st) and float(st) == 0.0
+
+        def _offline_events():
+            s = gs_safe(mtbf_eid)
+            if s is None:
+                return None  # MTBF sensor not present (disabled-by-default)
+            return s.get("attributes", {}).get("total_offline_events")
+
+        # Thresholds for the delta-based clear proof (see the (a) assertion).
+        # FLOOR must exceed MARGIN so a REAL reset just above the floor still
+        # passes: before>FLOOR, after→0/unknown, and the delta needs
+        # after < before-MARGIN, i.e. before-MARGIN > FLOOR-MARGIN > 0, so
+        # after==0 satisfies it. FLOOR<=MARGIN would false-FAIL a real reset near
+        # the floor (before-MARGIN<=0, 0<that is false).
+        CLEAR_FLOOR = 10.0
+        CLEAR_MARGIN = 5.0
+
+        before_val = _today_val()
+        if before_val is None or before_val <= CLEAR_FLOOR:
+            # Need accrued ONLINE history well above the floor so the clear is
+            # observable as a MATERIAL drop (not aliasable to already-near-zero).
             restore_and_wait(ctx)
             wait(WAIT_FOR_TIMEOUT // 2 or 20)
-            before = gs_safe(today_eid)
-            before_state = before.get("state") if before else None
+            before_val = _today_val()
+        # LOAD-BEARING precondition: a 0/None/near-zero start makes the clear
+        # unobservable (after≈before, or already in the cleared-set) → a no-op
+        # reset would falsely pass. Require before > FLOOR so "cleared" is
+        # unambiguously distinct from "was already near zero". Fail loudly.
         chk(
-            "EC143 precondition: availability_today has a numeric value to reset",
-            _numeric(before_state),
+            "EC143 precondition: availability_today > floor before reset "
+            "(real, materially-nonzero history to clear)",
+            before_val is not None and before_val > CLEAR_FLOOR,
             True,
-            f"before={before_state!r}",
+            f"before={before_val} floor={CLEAR_FLOOR}",
         )
-        if _numeric(before_state):
+        if before_val is not None and before_val > CLEAR_FLOOR:
+            # Drive entities offline; wait until EACH reads unavailable in HA's
+            # state machine (per-entity, not an offline_count==len equality a
+            # suppressed/NE member could make unreachable).
+            saved_states = {e: gs_safe(e) for e in ctx["entities"]}
+            for e in ctx["entities"]:
+                ss(e, "unavailable", {"friendly_name": e.split(".")[-1]})
+            for e in ctx["entities"]:
+                wait_for(lambda e=e: (gs_safe(e) or {}).get("state"), "unavailable")
+
+            events_before = _offline_events()
+
             api(
                 "POST",
                 "/api/services/entity_availability/reset_statistics",
                 {"group": ctx["title"]},
             )
 
-            # Buckets cleared → availability_today drops to None/unknown until the
-            # next poll rebuilds a fresh bucket. Poll briefly for the drop.
-            def _reset_observed() -> bool:
-                s = gs_safe(today_eid)
-                return s is None or s.get("state") in (None, "unknown", "unavailable")
+            # (b) total_offline_events → 0, read IMMEDIATELY after the reset POST
+            # — BEFORE (a)'s clear-poll and before any restore. Why here: the
+            # offline-event counter is incremented when an outage OPENS
+            # (coordinator.py:1101, the went-offline branch), so driving the
+            # entities offline in step 1 already raised it; reset then zeroes it
+            # (coordinator.py:330 zeroes offline_event_count, :338 sets
+            # offline_since=now). Reading it right after reset — entities still
+            # offline, nothing recovered yet — sees the zeroed value. Reading it
+            # after (a)'s 60s poll + the restore would instead catch FRESH events
+            # the test's own offline→online recovery re-books on restore
+            # (observed: before=4 → "after"=2, two recovered entities). DELTA,
+            # not bare ==0: assert events_before > 0 AND
+            # events_after == 0, so a no-op that left an already-0 counter can't
+            # pass vacuously. MTBF-GATED: disabled-by-default, so skip-loud when
+            # the sensor is absent (events_before is None) — that is the test not
+            # asserting on an ABSENT sensor, NOT a skip of EC143's purpose; (a) is
+            # the always-run core clear-proof. Skip-loud too if events_before==0
+            # (nothing to zero → can't prove a zeroing).
+            if events_before is None:
+                print(
+                    "  EC143: total_offline_events check skipped "
+                    "(MTBF sensor disabled/not present on this group)",
+                    flush=True,
+                )
+            elif not (isinstance(events_before, (int, float)) and events_before > 0):
+                print(
+                    f"  EC143: total_offline_events delta skipped "
+                    f"(events_before={events_before} not > 0 — no nonzero counter "
+                    f"to prove the zeroing)",
+                    flush=True,
+                )
+            else:
+                after_events = _offline_events()
+                chk(
+                    "EC143 reset zeroes total_offline_events (nonzero → 0, "
+                    "read immediately post-reset before recovery re-books)",
+                    isinstance(after_events, (int, float))
+                    and after_events == 0
+                    and events_before > 0,
+                    True,
+                    f"before={events_before} after={after_events}",
+                )
 
-            observed = False
-            _deadline = time.time() + max(WAIT_FOR_TIMEOUT, 30)
+            # (a) CLEAR PROOF — membership AND a material DOWNWARD delta.
+            # get_availability uses COMPLETED buckets only, so forcing entities
+            # offline adds an EXCLUDED in-progress bucket and leaves the completed
+            # average untouched: a REAL reset empties the completed set → after
+            # drops to the cleared-set (unknown/None, or 0.0 once an offline
+            # bucket completes); a NO-OP reset leaves after ≈ before_val. So we
+            # require BOTH:
+            #   (1) after ∈ cleared-set {unknown/None/unavailable, 0.0}, stable on
+            #       2 consecutive reads (unknown→0.0 is an in-set move, not a reset
+            #       of the counter), AND
+            #   (2) after is MATERIALLY below before: numeric-after < before-MARGIN
+            #       (an unknown/None read is treated as 0 → trivially below). This
+            #       closes the alias hole: a no-op leaves after≈before → delta
+            #       fails even when before is low; only a real wipe drops after
+            #       below before-MARGIN. Combined with before>FLOOR (>MARGIN), a
+            #       real reset near the floor still passes (before-MARGIN>0 so
+            #       after=0 satisfies it). This replaces the earlier
+            #       fresh-recovery (d) attempt — strictly stronger, no extra poll.
+            def _after_numeric():
+                # Numeric value of availability_today, or 0.0 for a cleared
+                # unknown/None/unavailable read (cleared == effectively below any
+                # positive before_val for the delta check).
+                s = gs_safe(today_eid)
+                st = s.get("state") if s else None
+                if st in (None, "unknown", "unavailable"):
+                    return 0.0
+                return float(st) if _numeric(st) else None
+
+            stable = 0
+            after_today = None
+            after_num = None
+            _deadline = time.time() + max(WAIT_FOR_TIMEOUT, 60)
             while time.time() < _deadline:
-                if _reset_observed():
-                    observed = True
-                    break
-                time.sleep(3)
-            chk(
-                "EC143 availability_today cleared after reset_statistics",
-                observed,
-                True,
-                f"before={before_state} after={(gs_safe(today_eid) or {}).get('state')}",
+                after_today = (gs_safe(today_eid) or {}).get("state")
+                after_num = _after_numeric()  # every read, so the delta reflects
+                # the last-seen value regardless of exit path (a no-op reset never
+                # enters the cleared branch → without this, after_num stays unbound
+                # and the material_drop line would NameError instead of cleanly
+                # FAILing — a crash is not a clean red).
+                if _today_cleared():
+                    stable += 1
+                    if stable >= 2:
+                        break
+                else:
+                    stable = 0
+                time.sleep(5)
+            in_cleared_set = stable >= 2
+            material_drop = (
+                after_num is not None and after_num < before_val - CLEAR_MARGIN
             )
+            chk(
+                "EC143 reset clears availability_today (→ cleared-set AND "
+                "materially below pre-reset: proves history wiped, not just offline)",
+                in_cleared_set and material_drop,
+                True,
+                f"before={before_val} after={after_today} after_num={after_num} "
+                f"in_cleared_set={in_cleared_set} material_drop={material_drop} "
+                f"(no-op reset would leave after≈before)",
+            )
+
+            # Restore entities we drove offline, then the normal group restore.
+            for e, saved in saved_states.items():
+                if saved and _numeric(saved.get("state")):
+                    ss(e, saved["state"], saved.get("attributes") or {})
+                else:
+                    ss(e, "100", {"friendly_name": e.split(".")[-1]})
             restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
