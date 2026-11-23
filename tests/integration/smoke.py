@@ -6616,48 +6616,6 @@ for e in cfg['data']['entries']:
                 ss(non_rep_ne_86, state_86, base_86)
                 wait_for(lambda: non_rep_ne_86 not in _ne_offline_ids(), True)
 
-            # Combined recorded scalars — used by EC88 landing signal and EC89
-            # sibling-noise guard. combined_summary aggregates N coordinators, so
-            # any sibling entity moving during the observation window can rewrite
-            # it; these scalars let EC89 detect that and skip-loud instead of
-            # false-failing.
-            # Snapshot EVERY recorded scalar the combined view publishes — not
-            # just the three EC88 drives. combined_summary aggregates N
-            # coordinators; on an --all run an earlier EC can leave a sibling
-            # settling (a stale flip, a battery/suppress change, a poor-signal
-            # move) DURING EC89's 85 s churn window. Any such move is a LEGIT
-            # combined rewrite that advances last_updated, but is invisible to a
-            # 3-field guard — so EC89 false-FAILs ("spurious write") on --all
-            # while passing in isolation. Watch the full scalar set so any
-            # sibling move trips the skip-loud path instead. Deliberately EXCLUDE
-            # the volatile maps (last_seen / battery_levels / signal_levels /
-            # signal_units / offline_since / suppressed_until / display_names):
-            # WriteDedupMixin strips those from the dedup view so they do NOT
-            # advance last_updated — guarding them would over-fire and make EC89
-            # skip every run.
-            _SCALAR_KEYS = (
-                "offline",
-                "online",
-                "non_essential",
-                "non_essential_offline",
-                "non_essential_online",
-                "non_essential_suppressed",
-                "suppressed",
-                "stale",
-                "poor_signal",
-                "low_battery",
-                "battery_powered",
-                "total_entities",
-                "status",
-                "status_color",
-            )
-
-            def _combined_scalars():
-                a = gs(summary_eid_86).get("attributes", {})
-                return (gs(summary_eid_86).get("state"),) + tuple(
-                    a.get(k) for k in _SCALAR_KEYS
-                )
-
             # EC88: positive control. A real member-touching settle (drive the
             # non-rep NE member offline) MUST advance combined_summary
             # last_updated. Moving signal = the non_essential_offline scalar
@@ -6782,43 +6740,59 @@ for e in cfg['data']['entries']:
                         flush=True,
                     )
 
-                # Attribution model (hardened). Endpoint-only scalar compare
-                # aliased: a sibling transient that flips and settles BACK within
-                # the window advances last_updated while both endpoint scalar
-                # samples match → mis-attributed as our spurious write → false
-                # FAIL. Instead: poll (last_updated, scalars) at a short interval
-                # across the WHOLE churn window + a settle tail, OBSERVE each
-                # last_updated advance when it happens, and attribute it:
-                #   - scalars changed at that sample vs the prior sample → a
-                #     legit sibling-driven combined write → INCONCLUSIVE (the
-                #     combined aggregates N coordinators; a sibling moving is not
-                #     our churn). Skip-loud, do not fail.
-                #   - scalars identical across the advance → the advance is
-                #     attributable to our churn-only injection (state frozen,
-                #     only a non-recorded attr bumped) → a real spurious write →
-                #     FAIL.
-                # gs()/_combined_scalars() are each a ~1-15ms REST GET on this
-                # container, so a 1s poll across ~45s is trivial load and does not
-                # perturb timing. Interval 1s; widen to 2s if jitter appears.
+                # Attribution model (v2 — PASS/INCONCLUSIVE only, no FAIL branch).
+                # WHY no FAIL over HTTP: the combined re-aggregates from each
+                # coordinator's LIVE representative_states_matching + a CROSS-GROUP
+                # _device_map_cached collapse (combined_sensor.py). A cross-group
+                # collapse shift advances the combined's last_updated with NO source
+                # group_summary advancing — and collapse_generation (the combined's
+                # own change signal) is an in-process int, not exposed over
+                # /api/states. So a smoke FAIL branch cannot soundly distinguish our
+                # churn from a legit cross-group write (confirmed: the --all fixture
+                # has cross-group collapse + shared entities). The genuine
+                # spurious-write guard lives in a UNIT test instead
+                # (test_combined_sensor.py::test_combined_attr_churn_does_not_write,
+                # with full in-process observability + a break-the-dedup mutant).
+                #
+                # This EC is therefore a smoke CANARY:
+                #   PASS         = combined last_updated did NOT advance across the
+                #                  churn window → churn changed no aggregated state,
+                #                  the dedup held (the common quiescent path).
+                #   INCONCLUSIVE = combined advanced → some real driver existed; we
+                #                  cannot attribute it to the churn over HTTP. The
+                #                  per-sibling last_updated snapshot below is a
+                #                  DIAGNOSTIC only (names the likely driver), never a
+                #                  verdict input. No FAIL — 0-skip holds (PASS or
+                #                  INCONCLUSIVE, both non-failing).
+                #
+                # Per-sibling snapshot: each source group_summary (combined
+                # `groups` dict value's `entity_id`, combined_sensor.py:952) has its
+                # own monotonic last_updated. Poll EACH every cycle with max-seen so
+                # a sibling that flips & settles back between polls is still caught
+                # (no sub-poll alias one level down). A there-and-back can't hide:
+                # the sibling published twice, each advancing its own last_updated.
                 POLL = 1.0
-                last_updated = gs(summary_eid_86).get("last_updated")
-                last_scalars = _combined_scalars()
-                sibling_moved = False  # any advance coincided with a scalar change
-                spurious_write = False  # an advance with scalars unchanged (churn)
+                _src_summaries = [
+                    g.get("entity_id")
+                    for g in (
+                        gs(summary_eid_86).get("attributes", {}).get("groups") or {}
+                    ).values()
+                    if g.get("entity_id")
+                ]
+                combined_lu0 = gs(summary_eid_86).get("last_updated")
+                src_seen = {eid: gs(eid).get("last_updated") for eid in _src_summaries}
+                combined_advanced = False
+                sibling_advanced = False
 
                 def _sample_once() -> None:
-                    nonlocal last_updated, last_scalars, sibling_moved
-                    nonlocal spurious_write
-                    lu = gs(summary_eid_86).get("last_updated")
-                    sc = _combined_scalars()
-                    if lu != last_updated:
-                        # A combined write landed. Attribute it.
-                        if sc != last_scalars:
-                            sibling_moved = True  # legit sibling write
-                        else:
-                            spurious_write = True  # churn-attributable spurious
-                    last_updated = lu
-                    last_scalars = sc
+                    nonlocal combined_advanced, sibling_advanced
+                    for eid in _src_summaries:
+                        lu = gs(eid).get("last_updated")
+                        if lu != src_seen[eid]:
+                            sibling_advanced = True
+                            src_seen[eid] = lu
+                    if gs(summary_eid_86).get("last_updated") != combined_lu0:
+                        combined_advanced = True  # monotonic: once true, stays true
 
                 # Inject churn (state FROZEN, only a non-recorded attr bumps) and
                 # tight-poll through each injection + its settle tail.
@@ -6830,42 +6804,42 @@ for e in cfg['data']['entries']:
                     while time.time() < _tail:
                         time.sleep(POLL)
                         _sample_once()
-                # Final settle tail so a late-landing churn write is observed.
+                # Final settle tail so a late-landing combined write is observed.
                 _tail = time.time() + (WAIT_FOR_TIMEOUT // 3 or 15)
                 while time.time() < _tail:
                     time.sleep(POLL)
                     _sample_once()
 
-                if spurious_write:
-                    # A combined write advanced with NO scalar change during a
-                    # churn injection → the spurious write this EC guards against.
+                if not combined_advanced:
+                    # Combined correctly deduped the churn — THE proof.
                     chk(
                         "EC89 combined_summary last_updated shows no spurious "
                         "write on churn-only attr bumps",
-                        False,
                         True,
-                        "a combined write advanced with scalars unchanged during "
-                        "churn-only injection (spurious write detected)",
-                    )
-                elif sibling_moved:
-                    # Every observed advance coincided with a sibling scalar move
-                    # → legit aggregation writes, not our churn. Inconclusive, not
-                    # a dedup failure. Skip-loud (matches the original intent).
-                    print(
-                        "  EC89: inconclusive (a sibling entity moved during the "
-                        "churn window — observed combined write(s) coincided with "
-                        "scalar changes); re-run on a quiescent fixture",
-                        flush=True,
+                        True,
+                        f"combined last_updated frozen at {combined_lu0} across "
+                        f"churn (real spurious-write guard = unit test "
+                        f"test_combined_attr_churn_does_not_write)",
                     )
                 else:
-                    # No combined write advanced across the whole churn window →
-                    # the dedup held: churn-only bumps produced no spurious write.
-                    chk(
-                        "EC89 combined_summary last_updated shows no spurious "
-                        "write on churn-only attr bumps",
-                        True,
-                        True,
-                        f"last_updated frozen at {last_updated} across churn",
+                    # Combined advanced — a real driver existed. Cannot attribute
+                    # to churn over HTTP (cross-group collapse is invisible here).
+                    # Diagnostic only: did any source group_summary also advance?
+                    why = (
+                        "a source group_summary last_updated also advanced "
+                        "(real member write drove the aggregation)"
+                        if sibling_advanced
+                        else "no source group_summary advanced — likely a "
+                        "cross-group collapse re-aggregation, or a sibling flip the "
+                        "first poll missed (neither observable over HTTP; this is "
+                        "why there is no FAIL branch)"
+                    )
+                    print(
+                        f"  EC89: inconclusive (combined last_updated advanced "
+                        f"during the churn window — {why}); re-run on a quiescent "
+                        f"fixture. Genuine spurious-write regression is covered by "
+                        f"the unit test, not this canary.",
+                        flush=True,
                     )
                 ss(non_rep_ne_86, state_86, base_86)
 

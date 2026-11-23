@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- **Test-only + docs:** reworked the EC89 live smoke check (combined-summary churn-only write-dedup) to a PASS/INCONCLUSIVE canary — it no longer has a FAIL branch, because a combined-summary write cannot be soundly attributed to attribute churn over HTTP (a legitimate cross-group collapse re-aggregation advances the combined with no observable source-group change). The genuine spurious-write guard now lives in a deterministic unit test (`test_combined_attr_churn_does_not_write`) with full in-process observability and a break-the-dedup mutant. Fixes a ~1-in-7 false failure under `--all` load; no product code changed. Also corrected one README sentence to match CHANGELOG + BEHAVIOR_REFERENCE §11 (a suppression-spanning outage counts its observed portion before **and** after suppression, not just before).
+
 ## [0.7.6] - 2026-11-23
 
 ### Fixed

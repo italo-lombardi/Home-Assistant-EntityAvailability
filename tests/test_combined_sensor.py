@@ -636,6 +636,76 @@ class TestCombinedGroupSensor:
             "group rename must change the dedup signature so state writes"
         )
 
+    def test_combined_attr_churn_does_not_write(self, mock_hass):
+        """Churn-only tick (an UNRECORDED attr changes, count + structure frozen)
+        must NOT advance the combined's write-dedup signature — the live-smoke
+        analogue of EC89, but deterministic and fully observable in-process.
+
+        This is the genuine spurious-write guard: EC89 over HTTP can only be a
+        PASS/INCONCLUSIVE canary (it cannot distinguish our churn from a legit
+        cross-group collapse write without in-process access to collapse state).
+        Here we have that access, so we can assert the real invariant: a change to
+        a field the combined publishes ONLY as an unrecorded attr (battery_levels)
+        is stripped from `_ea_dedup_attrs` → no write. The companion mutant
+        (removing `battery_levels` from `_unrecorded_attributes`) makes this red,
+        proving the unrecorded set is load-bearing for churn-stability.
+        """
+        entry_a = _make_group_entry("wa", "Group A", ["binary_sensor.w1"])
+        combined = _make_combined_entry("wc", "W", ["wa"])
+        with patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ):
+            coord_a = EntityAvailabilityCoordinator(mock_hass, entry_a)
+            coord_a._device_states = {
+                "binary_sensor.w1": DeviceState(
+                    entity_id="binary_sensor.w1",
+                    is_offline=False,
+                    battery_level=80,
+                ),
+            }
+        mock_hass.data[DOMAIN] = {"wa": coord_a}
+        sensor = CombinedGroupSensor(mock_hass, combined, "W", "w", ["wa"])
+
+        # Baseline: capture native_value + the dedup signature before churn.
+        count_before = sensor.native_value
+        before = sensor._ea_dedup_attrs()
+        # Prime the write-dedup: first call publishes, second is the stable
+        # baseline (should_write False when nothing changed).
+        assert sensor._ea_should_write() is True  # first publish
+        assert sensor._ea_should_write() is False  # stable, nothing changed
+
+        # Pure churn: mutate ONLY an unrecorded field (battery_level → the
+        # battery_levels map, which is in _unrecorded_attributes). Do NOT touch
+        # is_offline/is_suppressed/collapse inputs and do NOT bump the collapse
+        # generation. Force a dedup rebuild (the attrs memo is keyed on
+        # entry_ids + collapse generations, so without a bump it would hit the
+        # stale memo instead of re-reading the live device_state).
+        coord_a._device_states["binary_sensor.w1"].battery_level = 15
+        sensor._dm_cache_key = None
+        sensor._dm_full_cache = None
+        after = sensor._ea_dedup_attrs()
+        count_after = sensor.native_value
+
+        # Guard against this silently becoming a STATE-MOVE test (the exact alias
+        # the EC89 rework kills, one layer down): the rep count must be identical
+        # pre/post. If a future edit makes the churn flip a collapse input, count
+        # moves and the dedup SHOULD advance — but then it's not churn.
+        assert count_after == count_before, (
+            "churn must not change native_value; if it does this is a state move, "
+            "not a churn-only tick"
+        )
+        # The dedup signature must be unchanged → no write on churn-only.
+        assert after == before, (
+            "an unrecorded-attr churn must not advance the combined write-dedup "
+            "signature (battery_levels is in _unrecorded_attributes)"
+        )
+        # And the dedup decision itself: a churn-only tick must NOT write. (Reds
+        # the sanity mutant _ea_should_write→always-True, complementing the
+        # unrecorded-set-completeness mutant the `after == before` assert catches.)
+        assert sensor._ea_should_write() is False, (
+            "churn-only tick must not trigger a combined write"
+        )
+
     def test_row_groups_collapsed_device_unions_member_groups(self, mock_hass):
         """A device collapsed from two source groups shows the UNION of both
         groups on its single representative row (the fold-onto-rep path)."""
