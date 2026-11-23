@@ -60,6 +60,7 @@ from .const import (
     SIGNAL_NETWORK_TYPES,
 )
 from .helpers import (
+    as_label_list,
     detect_battery_entity,
     resolve_label_members,
 )
@@ -670,7 +671,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
                 vol.Optional(
                     CONF_NON_ESSENTIAL_LABEL,
-                    default=current.get(CONF_NON_ESSENTIAL_LABEL, []),
+                    default=as_label_list(current.get(CONF_NON_ESSENTIAL_LABEL)),
                 ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
             }
         else:

@@ -10,10 +10,21 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.const import DOMAIN
 from custom_components.entity_availability.helpers import (
+    as_label_list,
     build_signal_map,
     infer_network_type,
     resolve_label_members,
 )
+
+
+def test_as_label_list_coerces_legacy_shapes() -> None:
+    """A pre-release entry stored the NE label as a STRING; coerce defensively so it
+    is never iterated char-by-char. None/'' → [], 'id' → ['id'], list passes through."""
+    assert as_label_list(None) == []
+    assert as_label_list("") == []
+    assert as_label_list("label_x") == ["label_x"]
+    assert as_label_list(["a", "b"]) == ["a", "b"]
+    assert as_label_list([]) == []
 
 
 async def test_resolve_label_members_union_dedup(hass: HomeAssistant) -> None:

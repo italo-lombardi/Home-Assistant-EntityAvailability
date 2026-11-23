@@ -76,7 +76,12 @@ from .const import (
     STORAGE_VERSION,
     SignalQuality,
 )
-from .helpers import build_signal_map, collapse_representatives, resolve_label_members
+from .helpers import (
+    as_label_list,
+    build_signal_map,
+    collapse_representatives,
+    resolve_label_members,
+)
 from .models import DeviceState, EntityAvailabilityData
 from .storage import AvailabilityStorage
 
@@ -126,9 +131,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         self.entry = entry
         self._is_label_group = entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_LABEL
-        self._label_ids: list[str] = entry.data.get(CONF_LABELS, [])
-        self._non_essential_label: list[str] = entry.data.get(
-            CONF_NON_ESSENTIAL_LABEL, []
+        self._label_ids: list[str] = as_label_list(entry.data.get(CONF_LABELS))
+        self._non_essential_label: list[str] = as_label_list(
+            entry.data.get(CONF_NON_ESSENTIAL_LABEL)
         )
         self._bad_states: list[str] = entry.data.get(
             CONF_BAD_STATES, DEFAULT_BAD_STATES

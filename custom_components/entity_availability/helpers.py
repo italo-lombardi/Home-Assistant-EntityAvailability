@@ -27,6 +27,21 @@ _SIGNAL_SUFFIX_NETWORK_TYPE: dict[str, str] = {
 }
 
 
+def as_label_list(value: object) -> list[str]:
+    """Coerce a stored label-config value to a list of label_ids.
+
+    CONF_LABELS / CONF_NON_ESSENTIAL_LABEL are lists, but a pre-release build stored
+    the non-essential label as a single STRING (or omitted it). Coerce defensively so
+    an old-shaped entry is not iterated char-by-char: "" -> [], "id" -> ["id"],
+    None -> [], a list passes through.
+    """
+    if not value:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
 def resolve_label_members(hass: HomeAssistant, label_ids: list[str]) -> list[str]:
     """Resolve HA label_ids to a deduped, ordered list of monitored entity_ids.
 

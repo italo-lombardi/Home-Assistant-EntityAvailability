@@ -8662,7 +8662,10 @@ async def test_label_group_empty_resolve_drops_deleted_member(hass: HomeAssistan
     ent_reg.async_update_entity(gone.entity_id, labels={lbl})
     ent_reg.async_update_entity(stays.entity_id, labels={lbl})
     coord = _make_label_group(hass, [lbl])
-    assert set(coord.monitored_entities) == {"binary_sensor.gone", "binary_sensor.stays"}
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.gone",
+        "binary_sensor.stays",
+    }
 
     # Delete 'gone' from the registry AND strip the label from 'stays' so resolve
     # returns [] (empty-guard path). 'gone' no longer exists → dropped; 'stays'
@@ -8671,6 +8674,68 @@ async def test_label_group_empty_resolve_drops_deleted_member(hass: HomeAssistan
     ent_reg.async_update_entity(stays.entity_id, labels=set())
     coord._resolve_label_membership()
     assert coord.monitored_entities == ["binary_sensor.stays"]
+
+
+async def test_label_group_legacy_str_ne_label_coerced(hass: HomeAssistant):
+    """A pre-release entry stored CONF_NON_ESSENTIAL_LABEL as a STRING. The coordinator
+    must coerce it to a list on load, not iterate it char-by-char (which would make
+    every character a bogus label_id)."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    from custom_components.entity_availability.const import (
+        CONF_ENTRY_TYPE,
+        CONF_GROUP_NAME,
+        CONF_LABELS,
+        CONF_NON_ESSENTIAL_LABEL,
+        ENTRY_TYPE_LABEL,
+    )
+
+    main = lr.async_get(hass).async_create("LegMain").label_id
+    ne = lr.async_get(hass).async_create("LegNE").label_id
+    ent_reg = er.async_get(hass)
+    a = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "leg_a", suggested_object_id="leg_a"
+    )
+    b = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "leg_b", suggested_object_id="leg_b"
+    )
+    ent_reg.async_update_entity(a.entity_id, labels={main})
+    ent_reg.async_update_entity(b.entity_id, labels={main, ne})
+
+    # OLD shape: CONF_NON_ESSENTIAL_LABEL is a bare string, not a list.
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Legacy Label Group",
+        entry_id="legacy_lbl",
+        data={
+            CONF_GROUP_NAME: "Legacy",
+            CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
+            CONF_LABELS: [main],
+            CONF_NON_ESSENTIAL_LABEL: ne,  # legacy STRING, not [ne]
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
+            CONF_BATTERY_ENTITY_MAP: {},
+        },
+    )
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    assert coord._non_essential_label == [ne]  # coerced to a list
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.leg_a",
+        "binary_sensor.leg_b",
+    }
+    # NE resolved correctly from the coerced single label (not char-iterated).
+    assert coord._non_essential == ["binary_sensor.leg_b"]
 
 
 async def test_label_group_reresolve_prunes_ghost_device_state(hass: HomeAssistant):
