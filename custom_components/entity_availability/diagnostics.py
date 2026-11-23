@@ -21,7 +21,6 @@ from .const import (
     CONF_NON_ESSENTIAL_LABEL,
     CONF_RECOVERY_WINDOW,
     CONF_SIGNAL_ENABLED,
-    CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
@@ -113,7 +112,7 @@ async def async_get_config_entry_diagnostics(
                 "essential": essential,
                 "non_essential": non_essential,
                 "battery_entity_map": data.get(CONF_BATTERY_ENTITY_MAP, {}),
-                "signal_entity_map": data.get(CONF_SIGNAL_ENTITY_MAP, {}),
+                "signal_entity_map": coordinator.signal_map,
             },
             "counts": {
                 "total": len(states),

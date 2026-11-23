@@ -256,3 +256,6 @@ async def test_diagnostics_label_entry(mock_hass: HomeAssistant):
     assert result["entry_type"] == "label_group"
     assert result["config"]["labels"] == [main]
     assert result["config"]["non_essential_labels"] == [ne]
+    # Signal map is the coordinator's LIVE effective map (auto-detect + overlay),
+    # not the config-time entry.data snapshot — so diagnostics show real bindings.
+    assert result["entities"]["signal_entity_map"] == coord.signal_map

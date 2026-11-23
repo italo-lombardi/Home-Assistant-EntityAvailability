@@ -8951,6 +8951,7 @@ async def test_handle_registry_update_filters_and_debounces(hass: HomeAssistant)
     from unittest.mock import MagicMock
 
     from homeassistant.core import Event
+    from homeassistant.helpers import device_registry as dr
     from homeassistant.helpers import entity_registry as er
     from homeassistant.helpers import label_registry as lr
 
@@ -8974,6 +8975,27 @@ async def test_handle_registry_update_filters_and_debounces(hass: HomeAssistant)
         )
     )
     assert coord._label_refresh_timer is not None
+    coord._label_refresh_timer()  # cancel before the next assertions
+    coord._label_refresh_timer = None
+
+    # A non-label DEVICE update (e.g. rename/area) is ALSO ignored — the filter
+    # applies to device events too, not just entity events.
+    coord._handle_registry_update(
+        Event(
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            {"action": "update", "device_id": "d", "changes": {"name_by_user": "x"}},
+        )
+    )
+    assert coord._label_refresh_timer is None
+
+    # A label-touching DEVICE update arms the debounce.
+    coord._handle_registry_update(
+        Event(
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            {"action": "update", "device_id": "d", "changes": {"labels": set()}},
+        )
+    )
+    assert coord._label_refresh_timer is not None
 
     # A second event cancels the first timer and arms a new one. Cancel the real
     # timer armed above first (we're about to replace the handle with a mock).
@@ -8982,8 +9004,8 @@ async def test_handle_registry_update_filters_and_debounces(hass: HomeAssistant)
     coord._label_refresh_timer = first
     coord._handle_registry_update(
         Event(
-            er.EVENT_ENTITY_REGISTRY_UPDATED,
-            {"action": "create", "entity_id": "z"},
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            {"action": "create", "device_id": "z"},
         )
     )
     first.assert_called_once()  # prior timer cancelled

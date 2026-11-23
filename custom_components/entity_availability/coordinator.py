@@ -235,6 +235,16 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         return self._non_essential
 
     @property
+    def signal_map(self) -> dict[str, dict[str, str]]:
+        """Return the EFFECTIVE signal entity map in use (live for label groups).
+
+        For a label group this is the auto-detected map with manual overrides
+        overlaid — which differs from the config-time entry.data snapshot — so
+        diagnostics report the real bindings monitoring is using.
+        """
+        return self._signal_map
+
+    @property
     def device_states(self) -> dict[str, DeviceState]:
         """Return current device states."""
         return self._device_states
@@ -1031,15 +1041,15 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         """Debounce registry churn, then re-resolve label membership.
 
         Bulk label edits (UI multi-select) fire a burst of events; coalesce them into
-        one re-resolve via a trailing-edge timer (mirrors _handle_state_change). For
-        entity-registry updates we cheaply skip events whose change set does not touch
-        labels; device-registry update payloads do not carry a reliable per-field
-        change set here, so those always re-resolve (bounded by the debounce).
+        one re-resolve via a trailing-edge timer (mirrors _handle_state_change). Both
+        the entity- and device-registry UPDATE payloads carry a ``changes`` dict, so an
+        'update' that does not touch ``labels`` is skipped cheaply (it can't change
+        membership). create/remove carry no changes dict and always re-resolve (a new
+        or removed entity/device may join or leave the label set). A non-label device
+        edit (rename, area change) therefore no longer triggers a re-resolve.
         """
-        if (
-            event.event_type == er.EVENT_ENTITY_REGISTRY_UPDATED
-            and event.data.get("action") == "update"
-            and "labels" not in event.data.get("changes", {})
+        if event.data.get("action") == "update" and "labels" not in event.data.get(
+            "changes", {}
         ):
             return
         if self._label_refresh_timer is not None:
