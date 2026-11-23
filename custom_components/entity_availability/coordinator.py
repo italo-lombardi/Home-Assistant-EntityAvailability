@@ -948,17 +948,33 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         would otherwise freeze forever — the label removed from its last entity, which
         was then deleted — without reinstating the history-wipe the guard prevents.
         """
-        resolved = resolve_label_members(self.hass, self._label_ids)
-        if not resolved and self._label_ids and self._entities:
+        # Full membership = main labels UNION non-essential labels (NE labels ADD
+        # members, parity with a classic group's non-essential entity field). The NE
+        # set is every resolved member carrying any NE label.
+        main_members = resolve_label_members(self.hass, self._label_ids)
+        ne_members = (
+            resolve_label_members(self.hass, self._non_essential_label)
+            if self._non_essential_label
+            else []
+        )
+        resolved = list(dict.fromkeys([*main_members, *ne_members]))
+        ne = set(ne_members)
+        configured = bool(self._label_ids or self._non_essential_label)
+
+        # Hiccup guard: a non-empty label config resolving to ZERO entities is treated
+        # as a transient registry hiccup — keep prior membership rather than wipe
+        # history. Still drop held members that no longer EXIST in the registry
+        # (deleted, async_get→None) vs merely untagged (keeps the frozen-forever case
+        # from stalling).
+        if not resolved and configured and self._entities:
             ent_reg = er.async_get(self.hass)
             still_exist = [
                 e for e in self._entities if ent_reg.async_get(e) is not None
             ]
             if still_exist != self._entities:
                 _LOGGER.debug(
-                    "[%s] Empty resolve for %s; dropped %d deleted member(s), kept %d",
+                    "[%s] Empty resolve; dropped %d deleted member(s), kept %d",
                     self.group_name,
-                    self._label_ids,
                     len(self._entities) - len(still_exist),
                     len(still_exist),
                 )
@@ -968,18 +984,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 ]
             else:
                 _LOGGER.debug(
-                    "[%s] Label resolve returned empty for %s; keeping prior %d members",
+                    "[%s] Label resolve empty; keeping prior %d members",
                     self.group_name,
-                    self._label_ids,
                     len(self._entities),
                 )
             return
         self._entities = resolved
-        if self._non_essential_label:
-            ne = set(resolve_label_members(self.hass, self._non_essential_label))
-            self._non_essential = [e for e in resolved if e in ne]
-        else:
-            self._non_essential = []
+        self._non_essential = [e for e in resolved if e in ne]
         # Auto-detect a signal sensor per member (no per-entity wizard for a dynamic
         # set), then overlay any stored manual override: a user's explicit
         # signal-sensor/network-type for a member set in options WINS over auto, while
@@ -1050,20 +1061,28 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         """
         self._label_refresh_timer = None
         before = set(self._entities)
+        before_ne = set(self._non_essential)
         self._resolve_label_membership()
         after = set(self._entities)
-        if before == after:
+        after_ne = set(self._non_essential)
+        # Refresh when EITHER the membership set OR the essential/non-essential split
+        # changed. Tagging an existing member with the NE label (or removing it) leaves
+        # the membership set identical but flips its tier — a real change the card must
+        # reflect, so membership-only comparison would wrongly skip it.
+        if before == after and before_ne == after_ne:
             return
         departed = before - after
         for eid in departed:
             self._device_states.pop(eid, None)
             self._suppressed.pop(eid, None)
         _LOGGER.debug(
-            "[%s] Label membership changed: +%d -%d (now %d)",
+            "[%s] Label membership changed: +%d -%d (now %d), non_essential %d->%d",
             self.group_name,
             len(after - before),
             len(departed),
             len(after),
+            len(before_ne),
+            len(after_ne),
         )
         self._invalidate_collapse()
         self._setup_state_listeners()

@@ -218,11 +218,13 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 members = resolve_label_members(self.hass, labels)
-                ne = (
-                    set(resolve_label_members(self.hass, ne_labels))
-                    if ne_labels
-                    else set()
+                ne_members = (
+                    resolve_label_members(self.hass, ne_labels) if ne_labels else []
                 )
+                ne = set(ne_members)
+                # Non-essential labels ADD members (parity with the classic NE field):
+                # union main + NE, then flag the NE ones.
+                members = list(dict.fromkeys(members + ne_members))
                 self._data[CONF_ENTRY_TYPE] = ENTRY_TYPE_LABEL
                 self._data[CONF_GROUP_NAME] = group_name
                 self._data[CONF_LABELS] = labels
@@ -604,11 +606,12 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 labels = user_input.pop(CONF_LABELS, [])
                 ne_labels = user_input.pop(CONF_NON_ESSENTIAL_LABEL, [])
                 members = resolve_label_members(self.hass, labels)
-                ne = (
-                    set(resolve_label_members(self.hass, ne_labels))
-                    if ne_labels
-                    else set()
+                ne_members = (
+                    resolve_label_members(self.hass, ne_labels) if ne_labels else []
                 )
+                ne = set(ne_members)
+                # NE labels ADD members (parity with the classic NE field).
+                members = list(dict.fromkeys(members + ne_members))
                 monitored_raw = members
                 non_essential_raw = [e for e in members if e in ne]
             else:

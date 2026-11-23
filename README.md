@@ -96,7 +96,7 @@ Membership is driven by Home Assistant **labels** instead of a hand-picked list.
 |-------|-------------|
 | Group Name | A descriptive name for this group (e.g., "Critical Sensors") |
 | Labels to Monitor | One or more labels. The group monitors every entity carrying any of them (direct entity label or its device's label). |
-| Non-Essential Label | *(optional)* Members that also carry this label are treated as non-essential — shown and counted in totals, but excluded from all KPIs and alerts. Leave empty to treat every member as essential. |
+| Non-Essential Labels | *(optional)* Entities carrying any of these labels are monitored **as non-essential** — shown and counted in totals, but excluded from all KPIs and alerts. They are added as members even if they carry none of the main labels (same as a classic group's non-essential field). Leave empty to treat every member as essential. |
 
 After this step the wizard continues through the **same** monitoring, battery, and signal steps as a static group. Because the member set is dynamic, battery and signal sensors are **auto-detected per member**; open the group's options any time to review or override the bindings for the currently-resolved members.
 

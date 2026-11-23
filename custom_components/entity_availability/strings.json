@@ -38,7 +38,7 @@
                 },
                 "data_description": {
                     "labels": "Every entity carrying one of these labels — directly or through its device — is monitored. The group re-resolves automatically when you tag or untag entities and devices.",
-                    "non_essential_label": "Members that also carry ANY of these labels are treated as non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Leave empty to treat every member as essential."
+                    "non_essential_label": "Entities carrying any of these labels are monitored AS non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. They are added as members even without a main label. Leave empty to treat every member as essential."
                 }
             },
             "monitoring": {
@@ -125,7 +125,7 @@
                     "entities": "Entities to track for availability. These are fully monitored and included in all KPIs and alerts.",
                     "non_essential_entities": "Entities that don't affect your group's health score. Visible on the card and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Use for devices where downtime is acceptable — a TV, a printer, a seasonal device.",
                     "labels": "Every entity carrying one of these labels — directly or through its device — is monitored. The group re-resolves automatically when you tag or untag entities and devices.",
-                    "non_essential_label": "Members that also carry ANY of these labels are treated as non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Leave empty to treat every member as essential.",
+                    "non_essential_label": "Entities carrying any of these labels are monitored AS non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. They are added as members even without a main label. Leave empty to treat every member as essential.",
                     "bad_states": "Entity states that indicate an entity is offline (e.g., unavailable, unknown).",
                     "cooldown": "How long (in seconds) an entity must stay in a bad state before it is marked offline. Prevents false alarms from brief disconnections.",
                     "staleness_threshold": "If an entity hasn't changed state for this many minutes, mark it as degraded. Set to 0 to disable.",

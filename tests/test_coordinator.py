@@ -8596,8 +8596,10 @@ async def test_label_group_resolves_direct_and_device_labels(hass: HomeAssistant
     }
 
 
-async def test_label_group_non_essential_label_subsets_members(hass: HomeAssistant):
-    """NE = members that ALSO carry the non-essential label; never adds a non-member."""
+async def test_label_group_non_essential_label_adds_and_flags(hass: HomeAssistant):
+    """NE labels ADD members (parity with the classic NE field): an entity carrying
+    only the NE label is monitored as non-essential; a main-label member carrying the
+    NE label too is flagged NE; a main-only member stays essential."""
     from homeassistant.helpers import entity_registry as er
     from homeassistant.helpers import label_registry as lr
 
@@ -8608,15 +8610,19 @@ async def test_label_group_non_essential_label_subsets_members(hass: HomeAssista
 
     a = ent_reg.async_get_or_create("binary_sensor", "t", "a", suggested_object_id="a")
     b = ent_reg.async_get_or_create("binary_sensor", "t", "b", suggested_object_id="b")
-    ent_reg.async_update_entity(a.entity_id, labels={main})
-    ent_reg.async_update_entity(b.entity_id, labels={main, ne})
-    # carries only the NE label, not the main one → not a member at all
+    ent_reg.async_update_entity(a.entity_id, labels={main})  # essential member
+    ent_reg.async_update_entity(b.entity_id, labels={main, ne})  # member, flagged NE
+    # carries ONLY the NE label → now a monitored non-essential member (ADD semantics)
     c = ent_reg.async_get_or_create("binary_sensor", "t", "c", suggested_object_id="c")
     ent_reg.async_update_entity(c.entity_id, labels={ne})
 
     coord = _make_label_group(hass, [main], ne_labels=[ne])
-    assert set(coord.monitored_entities) == {"binary_sensor.a", "binary_sensor.b"}
-    assert coord._non_essential == ["binary_sensor.b"]
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.a",
+        "binary_sensor.b",
+        "binary_sensor.c",
+    }
+    assert set(coord._non_essential) == {"binary_sensor.b", "binary_sensor.c"}
 
 
 async def test_label_group_multiple_ne_labels_union(hass: HomeAssistant):
@@ -9036,3 +9042,77 @@ async def test_label_group_shutdown_tears_down_listeners_and_timer(
     assert coord._unsub_registry == []
     assert coord._label_refresh_timer is None
     save.assert_not_called()
+
+
+async def test_label_group_live_reclassify_essential_to_ne_refreshes(
+    hass: HomeAssistant,
+):
+    """Tagging an EXISTING member with the NE label (membership set unchanged) must
+    still flip its tier AND push a refresh — the membership-only early-return would
+    wrongly skip it. Regression guard for the reported 'NE added but card didn't
+    update' bug."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    reg = lr.async_get(hass)
+    main = reg.async_create("RcMain").label_id
+    ne = reg.async_create("RcNE").label_id
+    ent_reg = er.async_get(hass)
+    e = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "rc", suggested_object_id="rc"
+    )
+    ent_reg.async_update_entity(e.entity_id, labels={main})
+
+    coord = _make_label_group(hass, [main], ne_labels=[ne])
+    assert coord.monitored_entities == ["binary_sensor.rc"]
+    assert coord._non_essential == []  # essential at first
+
+    # Add the NE label to the same (already-member) entity: membership set identical,
+    # tier flips essential→non-essential. Re-resolve must detect the NE change + refresh.
+    ent_reg.async_update_entity(e.entity_id, labels={main, ne})
+    scheduled = []
+
+    def _capture(coro):
+        scheduled.append(coro)
+        coro.close()
+        return MagicMock()
+
+    with patch.object(hass, "async_create_task", side_effect=_capture):
+        coord._reresolve_membership(None)
+
+    assert coord.monitored_entities == ["binary_sensor.rc"]  # still a member
+    assert coord._non_essential == ["binary_sensor.rc"]  # now flagged NE
+    assert len(scheduled) == 1  # refresh pushed despite membership set unchanged
+
+
+async def test_label_group_live_ne_only_entity_joins(hass: HomeAssistant):
+    """Tagging an entity with ONLY the NE label makes it JOIN as a non-essential
+    member live (ADD semantics) — the exact live scenario the user reported."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    reg = lr.async_get(hass)
+    main = reg.async_create("JnMain").label_id
+    ne = reg.async_create("JnNE").label_id
+    ent_reg = er.async_get(hass)
+    m = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "jm", suggested_object_id="jm"
+    )
+    ent_reg.async_update_entity(m.entity_id, labels={main})
+    # an entity with no group labels yet
+    j = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "jn", suggested_object_id="jn"
+    )
+
+    coord = _make_label_group(hass, [main], ne_labels=[ne])
+    assert coord.monitored_entities == ["binary_sensor.jm"]
+
+    # Tag 'jn' with ONLY the NE label → must join as a non-essential member.
+    ent_reg.async_update_entity(j.entity_id, labels={ne})
+    with patch.object(
+        hass, "async_create_task", side_effect=lambda c: (c.close(), MagicMock())[1]
+    ):
+        coord._reresolve_membership(None)
+
+    assert set(coord.monitored_entities) == {"binary_sensor.jm", "binary_sensor.jn"}
+    assert coord._non_essential == ["binary_sensor.jn"]
