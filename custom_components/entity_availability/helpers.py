@@ -46,9 +46,9 @@ def resolve_label_members(hass: HomeAssistant, label_ids: list[str]) -> list[str
     """Resolve HA label_ids to a deduped, ordered list of monitored entity_ids.
 
     Membership = union of entities carrying a label DIRECTLY and every entity of a
-    DEVICE carrying a label. Order is deterministic: direct entities first (in
-    registry order per label), then device-derived entities, dedup preserving first
-    sight.
+    DEVICE carrying a label. Order is deterministic: labels are processed in the given
+    order and, within each label, directly-labeled entities come before that label's
+    device-derived entities; dedup preserves first sight across the whole walk.
 
     DISABLED entities are excluded. On the DIRECT path ``async_entries_for_label``
     returns disabled entities, so we filter ``disabled_by is None`` explicitly; on the

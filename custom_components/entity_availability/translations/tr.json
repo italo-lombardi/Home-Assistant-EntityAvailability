@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Grup Adı",
           "labels": "İzlenecek Etiketler",
-          "non_essential_label": "Kritik Olmayan Etiketi"
+          "non_essential_label": "Kritik Olmayan Etiketler"
         },
         "data_description": {
           "labels": "Bu etiketlerden birini — doğrudan veya cihazı aracılığıyla — taşıyan her varlık izlenir. Varlıkları ve cihazları etiketlediğinizde veya etiketlerini kaldırdığınızda grup otomatik olarak yeniden çözümlenir.",
-          "non_essential_label": "Ayrıca bu etiketi taşıyan üyeler kritik olmayan olarak değerlendirilir: toplamlarda gösterilir ve sayılır, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) ve uyarılardan hariç tutulur. Her üyeyi kritik olarak değerlendirmek için boş bırakın."
+          "non_essential_label": "Ayrıca bu etiketlerden herhangi birini taşıyan üyeler kritik olmayan olarak değerlendirilir: toplamlarda gösterilir ve sayılır, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) ve uyarılardan hariç tutulur. Her üyeyi kritik olarak değerlendirmek için boş bırakın."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "İzlenecek Varlıklar",
           "non_essential_entities": "Kritik Olmayan Varlıklar",
           "labels": "İzlenecek Etiketler",
-          "non_essential_label": "Kritik Olmayan Etiketi",
+          "non_essential_label": "Kritik Olmayan Etiketler",
           "bad_states": "Çevrimdışı sayılan durumlar",
           "cooldown": "Bekleme süresi (saniye)",
           "staleness_threshold": "Güncellik eşiği (dakika, 0 = devre dışı)",
@@ -125,7 +125,7 @@
           "entities": "Kullanılabilirlik için takip edilecek varlıklar. Bunlar tam olarak izlenir ve tüm KPI'lara ve uyarılara dahil edilir.",
           "non_essential_entities": "Grubunuzun sağlık puanını etkilemeyen varlıklar. Kartta görünür ve toplamlara dahil edilir, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) hariç tutulur ve hiçbir zaman uyarı tetiklemez. Kapalı kalmanın kabul edilebilir olduğu cihazlar için kullanın — bir TV, yazıcı, mevsimlik cihaz.",
           "labels": "Bu etiketlerden birini — doğrudan veya cihazı aracılığıyla — taşıyan her varlık izlenir. Varlıkları ve cihazları etiketlediğinizde veya etiketlerini kaldırdığınızda grup otomatik olarak yeniden çözümlenir.",
-          "non_essential_label": "Ayrıca bu etiketi taşıyan üyeler kritik olmayan olarak değerlendirilir: toplamlarda gösterilir ve sayılır, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) ve uyarılardan hariç tutulur. Her üyeyi kritik olarak değerlendirmek için boş bırakın.",
+          "non_essential_label": "Ayrıca bu etiketlerden herhangi birini taşıyan üyeler kritik olmayan olarak değerlendirilir: toplamlarda gösterilir ve sayılır, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) ve uyarılardan hariç tutulur. Her üyeyi kritik olarak değerlendirmek için boş bırakın.",
           "bad_states": "Bir varlığın çevrimdışı olduğunu gösteren durumlar (ör. kullanılamaz, bilinmiyor).",
           "cooldown": "Çevrimdışı olarak işaretlenmeden önce bir varlığın kötü bir durumda kalması gereken süre (saniye cinsinden). Kısa bağlantı kesintilerinden kaynaklanan yanlış alarmları önler.",
           "staleness_threshold": "Bir varlık bu kadar dakika boyunca durum değiştirmediyse, düşürülmüş olarak işaretleyin. Devre dışı bırakmak için 0 olarak ayarlayın.",

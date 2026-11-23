@@ -980,7 +980,19 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             self._non_essential = [e for e in resolved if e in ne]
         else:
             self._non_essential = []
-        self._signal_map = build_signal_map(self.hass, resolved)
+        # Auto-detect a signal sensor per member (no per-entity wizard for a dynamic
+        # set), then overlay any stored manual override: a user's explicit
+        # signal-sensor/network-type for a member set in options WINS over auto, while
+        # members with no override (incl. freshly auto-joined ones) keep auto-detect.
+        # Restricted to current members so a stale override for an absent entity stays
+        # inert (it re-applies if that entity rejoins).
+        auto = build_signal_map(self.hass, resolved)
+        stored = self.entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
+        members = set(resolved)
+        for eid, mapping in stored.items():
+            if eid in members and mapping:
+                auto[eid] = mapping
+        self._signal_map = auto
 
     @callback
     def _setup_registry_listeners(self) -> None:

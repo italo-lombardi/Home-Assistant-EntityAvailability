@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Numele grupului",
           "labels": "Etichete de monitorizat",
-          "non_essential_label": "Etichetă neesențial"
+          "non_essential_label": "Etichete neesențiale"
         },
         "data_description": {
           "labels": "Fiecare entitate care poartă una dintre aceste etichete — direct sau prin dispozitivul său — este monitorizată. Grupul se recompune automat când adăugați sau eliminați etichete de pe entități și dispozitive.",
-          "non_essential_label": "Membrii care poartă și această etichetă sunt tratați ca neesențiali: afișați și incluși în totaluri, dar excluși din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și din alerte. Lăsați gol pentru a trata fiecare membru ca esențial."
+          "non_essential_label": "Membrii care poartă și oricare dintre aceste etichete sunt tratați ca neesențiali: afișați și incluși în totaluri, dar excluși din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și din alerte. Lăsați gol pentru a trata fiecare membru ca esențial."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Entități de monitorizat",
           "non_essential_entities": "Entități neesențiale",
           "labels": "Etichete de monitorizat",
-          "non_essential_label": "Etichetă neesențial",
+          "non_essential_label": "Etichete neesențiale",
           "bad_states": "Stări considerate offline",
           "cooldown": "Timp de așteptare (secunde)",
           "staleness_threshold": "Prag de expirare (minute, 0 = dezactivat)",
@@ -125,7 +125,7 @@
           "entities": "Entitățile urmărite pentru disponibilitate. Acestea sunt monitorizate complet și incluse în toți KPI-ii și alertele.",
           "non_essential_entities": "Entități care nu afectează scorul de sănătate al grupului. Sunt vizibile pe card și incluse în totaluri, dar excluse din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și nu declanșează niciodată alerte. Folosiți pentru dispozitive unde timpul de nefuncționare este acceptabil — un televizor, o imprimantă, un dispozitiv sezonier.",
           "labels": "Fiecare entitate care poartă una dintre aceste etichete — direct sau prin dispozitivul său — este monitorizată. Grupul se recompune automat când adăugați sau eliminați etichete de pe entități și dispozitive.",
-          "non_essential_label": "Membrii care poartă și această etichetă sunt tratați ca neesențiali: afișați și incluși în totaluri, dar excluși din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și din alerte. Lăsați gol pentru a trata fiecare membru ca esențial.",
+          "non_essential_label": "Membrii care poartă și oricare dintre aceste etichete sunt tratați ca neesențiali: afișați și incluși în totaluri, dar excluși din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și din alerte. Lăsați gol pentru a trata fiecare membru ca esențial.",
           "bad_states": "Stările entităților care indică faptul că acestea sunt offline (ex.: unavailable, unknown).",
           "cooldown": "Cât timp (în secunde) trebuie să rămână o entitate într-o stare proastă înainte de a fi marcată offline. Previne alarmele false cauzate de deconectări scurte.",
           "staleness_threshold": "Dacă o entitate nu și-a schimbat starea de atâtea minute, o marcăm ca degradată. Setați la 0 pentru a dezactiva.",

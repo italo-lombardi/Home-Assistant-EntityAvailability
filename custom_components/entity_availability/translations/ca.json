@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Nom del grup",
           "labels": "Etiquetes a supervisar",
-          "non_essential_label": "Etiqueta de no essencial"
+          "non_essential_label": "Etiquetes de no essencial"
         },
         "data_description": {
           "labels": "Se supervisa cada entitat que porta una d'aquestes etiquetes — directament o a través del seu dispositiu. El grup es torna a resoldre automàticament quan etiqueteu o desetiqueteu entitats i dispositius.",
-          "non_essential_label": "Els membres que també porten aquesta etiqueta es tracten com a no essencials: es mostren i es compten en els totals, però s'exclouen de tots els KPI (disponibilitat %, recompte fora de línia, MTBF, MTTR) i alertes. Deixeu-ho buit per tractar tots els membres com a essencials."
+          "non_essential_label": "Els membres que també porten qualsevol d'aquestes etiquetes es tracten com a no essencials: es mostren i es compten en els totals, però s'exclouen de tots els KPI (disponibilitat %, recompte fora de línia, MTBF, MTTR) i alertes. Deixeu-ho buit per tractar tots els membres com a essencials."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Entitats a supervisar",
           "non_essential_entities": "Entitats no essencials",
           "labels": "Etiquetes a supervisar",
-          "non_essential_label": "Etiqueta de no essencial",
+          "non_essential_label": "Etiquetes de no essencial",
           "bad_states": "Estats considerats fora de línia",
           "cooldown": "Espera (segons)",
           "staleness_threshold": "Llindar d'inactivitat (minuts, 0 = desactivat)",
@@ -125,7 +125,7 @@
           "entities": "Entitats per fer el seguiment de la disponibilitat. Es supervisen completament i s'inclouen en tots els KPI i alertes.",
           "non_essential_entities": "Entitats que no afecten la puntuació de salut del grup. Visibles a la targeta i comptades en els totals, però excloses de tots els KPI (disponibilitat %, recompte fora de línia, MTBF, MTTR) i mai activen alertes. Useu-les per a dispositius on el temps d'inactivitat és acceptable — una TV, una impressora, un dispositiu estacional.",
           "labels": "Se supervisa cada entitat que porta una d'aquestes etiquetes — directament o a través del seu dispositiu. El grup es torna a resoldre automàticament quan etiqueteu o desetiqueteu entitats i dispositius.",
-          "non_essential_label": "Els membres que també porten aquesta etiqueta es tracten com a no essencials: es mostren i es compten en els totals, però s'exclouen de tots els KPI (disponibilitat %, recompte fora de línia, MTBF, MTTR) i alertes. Deixeu-ho buit per tractar tots els membres com a essencials.",
+          "non_essential_label": "Els membres que també porten qualsevol d'aquestes etiquetes es tracten com a no essencials: es mostren i es compten en els totals, però s'exclouen de tots els KPI (disponibilitat %, recompte fora de línia, MTBF, MTTR) i alertes. Deixeu-ho buit per tractar tots els membres com a essencials.",
           "bad_states": "Estats d'entitat que indiquen que una entitat és fora de línia (p. ex., no disponible, desconegut).",
           "cooldown": "Temps (en segons) que una entitat ha de romandre en un estat incorrecte abans de marcar-la com a fora de línia. Evita falses alarmes per desconnexions breus.",
           "staleness_threshold": "Si una entitat no ha canviat d'estat durant aquest nombre de minuts, marca-la com a degradada. Establiu 0 per desactivar.",

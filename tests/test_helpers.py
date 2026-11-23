@@ -72,6 +72,40 @@ async def test_resolve_label_members_empty_label_list(hass: HomeAssistant) -> No
     assert resolve_label_members(hass, []) == []
 
 
+async def test_resolve_label_members_order_direct_before_device(
+    hass: HomeAssistant,
+) -> None:
+    """Order contract: per label, directly-labeled entities precede that label's
+    device-derived entities; dedup preserves first sight (asserts the UNSORTED
+    sequence so swapping the two loops would be caught)."""
+    lbl = lr.async_get(hass).async_create("Ord").label_id
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    reg = MockConfigEntry(domain=DOMAIN, entry_id="ord_reg", title="R")
+    reg.add_to_hass(hass)
+
+    # directly-labeled entity
+    d1 = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "d1", suggested_object_id="d1"
+    )
+    ent_reg.async_update_entity(d1.entity_id, labels={lbl})
+    # labeled device with an entity
+    device = dev_reg.async_get_or_create(
+        config_entry_id="ord_reg", identifiers={(DOMAIN, "od")}, name="OD"
+    )
+    dev_reg.async_update_device(device.id, labels={lbl})
+    v1 = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "v1", suggested_object_id="v1"
+    )
+    ent_reg.async_update_entity(v1.entity_id, device_id=device.id)
+
+    # Direct (d1) must come before device-derived (v1) — exact order, not sorted.
+    assert resolve_label_members(hass, [lbl]) == [
+        "binary_sensor.d1",
+        "binary_sensor.v1",
+    ]
+
+
 async def test_resolve_label_members_excludes_disabled(hass: HomeAssistant) -> None:
     """A DISABLED entity is excluded on BOTH the direct and the device path.
 

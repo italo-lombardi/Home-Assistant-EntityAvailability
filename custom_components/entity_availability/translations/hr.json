@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Naziv grupe",
           "labels": "Oznake za praćenje",
-          "non_essential_label": "Oznaka za nebitno"
+          "non_essential_label": "Oznake za nebitno"
         },
         "data_description": {
           "labels": "Prati se svaki entitet koji nosi jednu od ovih oznaka — izravno ili preko svog uređaja. Grupa se automatski ponovno razrješava kada označite ili uklonite oznaku s entiteta i uređaja.",
-          "non_essential_label": "Članovi koji nose i ovu oznaku tretiraju se kao nebitni: prikazani su i uračunati u ukupne zbroje, ali isključeni iz svih KPI-ja (dostupnost %, broj offline, MTBF, MTTR) i upozorenja. Ostavite prazno da bi svi članovi bili tretirani kao bitni."
+          "non_essential_label": "Članovi koji nose i bilo koju od ovih oznaka tretiraju se kao nebitni: prikazani su i uračunati u ukupne zbroje, ali isključeni iz svih KPI-ja (dostupnost %, broj offline, MTBF, MTTR) i upozorenja. Ostavite prazno da bi svi članovi bili tretirani kao bitni."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Entiteti za praćenje",
           "non_essential_entities": "Nebitni entiteti",
           "labels": "Oznake za praćenje",
-          "non_essential_label": "Oznaka za nebitno",
+          "non_essential_label": "Oznake za nebitno",
           "bad_states": "Stanja koja se smatraju offline",
           "cooldown": "Čekanje (sekunde)",
           "staleness_threshold": "Prag zastarjelosti (minute, 0 = deaktivirano)",
@@ -125,7 +125,7 @@
           "entities": "Entiteti čija se dostupnost prati. Potpuno su praćeni i uključeni u sve KPI-je i upozorenja.",
           "non_essential_entities": "Entiteti koji ne utječu na ocjenu zdravlja grupe. Vidljivi su na kartici i uračunati u ukupne zbroje, ali isključeni iz svih KPI-ja (dostupnost %, broj offline, MTBF, MTTR) i nikad ne aktiviraju upozorenja. Koristite za uređaje kod kojih su prekidi prihvatljivi — televizor, pisač, sezonski uređaj.",
           "labels": "Prati se svaki entitet koji nosi jednu od ovih oznaka — izravno ili preko svog uređaja. Grupa se automatski ponovno razrješava kada označite ili uklonite oznaku s entiteta i uređaja.",
-          "non_essential_label": "Članovi koji nose i ovu oznaku tretiraju se kao nebitni: prikazani su i uračunati u ukupne zbroje, ali isključeni iz svih KPI-ja (dostupnost %, broj offline, MTBF, MTTR) i upozorenja. Ostavite prazno da bi svi članovi bili tretirani kao bitni.",
+          "non_essential_label": "Članovi koji nose i bilo koju od ovih oznaka tretiraju se kao nebitni: prikazani su i uračunati u ukupne zbroje, ali isključeni iz svih KPI-ja (dostupnost %, broj offline, MTBF, MTTR) i upozorenja. Ostavite prazno da bi svi članovi bili tretirani kao bitni.",
           "bad_states": "Stanja entiteta koja označavaju da je entitet offline (npr. nedostupan, nepoznat).",
           "cooldown": "Koliko dugo (u sekundama) entitet mora ostati u lošem stanju prije nego se označi offline. Sprječava lažna upozorenja od kratkih prekida.",
           "staleness_threshold": "Ako entitet nije promijenio stanje toliko minuta, označit će se kao degradiran. Postavite na 0 za deaktiviranje.",

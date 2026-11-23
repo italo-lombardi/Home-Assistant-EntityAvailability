@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Csoport neve",
           "labels": "Figyelendő címkék",
-          "non_essential_label": "Nem kritikus címke"
+          "non_essential_label": "Nem kritikus címkék"
         },
         "data_description": {
           "labels": "Minden entitás, amely e címkék valamelyikét viseli — közvetlenül vagy az eszközén keresztül — figyelve lesz. A csoport automatikusan újraértékelődik, amikor entitásokat és eszközöket ellát vagy megfoszt címkével.",
-          "non_essential_label": "Azok a tagok, amelyek ezt a címkét is viselik, nem kritikusként kezelendők: megjelennek és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR) és a riasztásokból. Hagyja üresen, ha minden tagot kritikusként szeretne kezelni."
+          "non_essential_label": "Azok a tagok, amelyek e címkék bármelyikét is viselik, nem kritikusként kezelendők: megjelennek és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR) és a riasztásokból. Hagyja üresen, ha minden tagot kritikusként szeretne kezelni."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Figyelendő entitások",
           "non_essential_entities": "Nem kritikus entitások",
           "labels": "Figyelendő címkék",
-          "non_essential_label": "Nem kritikus címke",
+          "non_essential_label": "Nem kritikus címkék",
           "bad_states": "Offline állapotnak számító státuszok",
           "cooldown": "Várakozási idő (másodperc)",
           "staleness_threshold": "Elavultsági küszöb (perc, 0 = letiltva)",
@@ -125,7 +125,7 @@
           "entities": "Az elérhetőség szempontjából nyomon követendő entitások. Ezek teljes körűen figyeltek, és minden KPI-ba és riasztásba beleszámítanak.",
           "non_essential_entities": "Olyan entitások, amelyek nem befolyásolják a csoport egészségi állapotát. Megjelennek a kártyán és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR), és soha nem váltanak ki riasztást. Olyan eszközökhöz használható, ahol az állásidő elfogadható — például TV, nyomtató, szezonális eszköz.",
           "labels": "Minden entitás, amely e címkék valamelyikét viseli — közvetlenül vagy az eszközén keresztül — figyelve lesz. A csoport automatikusan újraértékelődik, amikor entitásokat és eszközöket ellát vagy megfoszt címkével.",
-          "non_essential_label": "Azok a tagok, amelyek ezt a címkét is viselik, nem kritikusként kezelendők: megjelennek és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR) és a riasztásokból. Hagyja üresen, ha minden tagot kritikusként szeretne kezelni.",
+          "non_essential_label": "Azok a tagok, amelyek e címkék bármelyikét is viselik, nem kritikusként kezelendők: megjelennek és beleszámítanak az összesítésekbe, de ki vannak zárva az összes KPI-ból (elérhetőség %, offline darabszám, MTBF, MTTR) és a riasztásokból. Hagyja üresen, ha minden tagot kritikusként szeretne kezelni.",
           "bad_states": "Azok az entitásállapotok, amelyek offline állapotot jeleznek (pl. unavailable, unknown).",
           "cooldown": "Mennyi ideig (másodpercben) kell egy entitásnak rossz állapotban maradnia, mielőtt offline-nak jelölik. Megakadályozza a hamis riasztásokat rövid kapcsolódási problémák esetén.",
           "staleness_threshold": "Ha egy entitás ennyi percig nem változtatott állapotot, elavultként jelöljük meg. 0 értékre állítva letiltható.",

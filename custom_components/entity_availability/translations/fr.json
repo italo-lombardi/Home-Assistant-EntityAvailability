@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Nom du groupe",
           "labels": "Étiquettes à surveiller",
-          "non_essential_label": "Étiquette non essentielle"
+          "non_essential_label": "Étiquettes non essentielles"
         },
         "data_description": {
           "labels": "Chaque entité portant l'une de ces étiquettes — directement ou via son appareil — est surveillée. Le groupe se recompose automatiquement lorsque vous ajoutez ou retirez des étiquettes sur des entités et des appareils.",
-          "non_essential_label": "Les membres portant également cette étiquette sont traités comme non essentiels : affichés et comptés dans les totaux, mais exclus de tous les KPI (disponibilité %, nombre hors ligne, MTBF, MTTR) et des alertes. Laissez vide pour traiter chaque membre comme essentiel."
+          "non_essential_label": "Les membres portant également l'une de ces étiquettes sont traités comme non essentiels : affichés et comptés dans les totaux, mais exclus de tous les KPI (disponibilité %, nombre hors ligne, MTBF, MTTR) et des alertes. Laissez vide pour traiter chaque membre comme essentiel."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Entités à surveiller",
           "non_essential_entities": "Entités non essentielles",
           "labels": "Étiquettes à surveiller",
-          "non_essential_label": "Étiquette non essentielle",
+          "non_essential_label": "Étiquettes non essentielles",
           "bad_states": "États considérés comme hors ligne",
           "cooldown": "Délai (secondes)",
           "staleness_threshold": "Seuil d'obsolescence (minutes, 0 = désactivé)",
@@ -124,7 +124,7 @@
         "data_description": {
           "non_essential_entities": "Entités affichées et comptées sur la carte mais exclues de tous les KPI (nombre hors ligne, disponibilité %, MTBF, MTTR) et alertes. Utile pour les appareils attendus hors ligne (TV en veille, imprimante éteinte entre les tâches).",
           "labels": "Chaque entité portant l'une de ces étiquettes — directement ou via son appareil — est surveillée. Le groupe se recompose automatiquement lorsque vous ajoutez ou retirez des étiquettes sur des entités et des appareils.",
-          "non_essential_label": "Les membres portant également cette étiquette sont traités comme non essentiels : affichés et comptés dans les totaux, mais exclus de tous les KPI (disponibilité %, nombre hors ligne, MTBF, MTTR) et des alertes. Laissez vide pour traiter chaque membre comme essentiel.",
+          "non_essential_label": "Les membres portant également l'une de ces étiquettes sont traités comme non essentiels : affichés et comptés dans les totaux, mais exclus de tous les KPI (disponibilité %, nombre hors ligne, MTBF, MTTR) et des alertes. Laissez vide pour traiter chaque membre comme essentiel.",
           "bad_states": "États d'entité indiquant qu'une entité est hors ligne (p. ex. unavailable, unknown).",
           "cooldown": "Durée (en secondes) pendant laquelle une entité doit rester dans un mauvais état avant d'être marquée hors ligne. Évite les fausses alarmes lors de déconnexions brèves.",
           "staleness_threshold": "Si une entité n'a pas changé d'état depuis ce nombre de minutes, elle est marquée comme dégradée. Définir à 0 pour désactiver.",

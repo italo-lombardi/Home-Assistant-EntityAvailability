@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Grupės pavadinimas",
           "labels": "Stebimos žymos",
-          "non_essential_label": "Neesminių žyma"
+          "non_essential_label": "Neesminių žymos"
         },
         "data_description": {
           "labels": "Stebimas kiekvienas objektas, turintis vieną iš šių žymų — tiesiogiai arba per savo įrenginį. Grupė automatiškai perskaičiuojama, kai objektams ir įrenginiams priskiriate arba pašalinate žymas.",
-          "non_essential_label": "Nariai, kurie taip pat turi šią žymą, laikomi neesminiais: jie rodomi ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir įspėjimus. Palikite tuščią, kad visi nariai būtų laikomi esminiais."
+          "non_essential_label": "Nariai, kurie taip pat turi bet kurią iš šių žymų, laikomi neesminiais: jie rodomi ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir įspėjimus. Palikite tuščią, kad visi nariai būtų laikomi esminiais."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Stebimi objektai",
           "non_essential_entities": "Neesminiai objektai",
           "labels": "Stebimos žymos",
-          "non_essential_label": "Neesminių žyma",
+          "non_essential_label": "Neesminių žymos",
           "bad_states": "Būsenos, laikomos neprisijungusiomis",
           "cooldown": "Laukimo laikas (sekundės)",
           "staleness_threshold": "Paseno duomenų riba (minutės, 0 = išjungta)",
@@ -125,7 +125,7 @@
           "entities": "Objektai, kurių pasiekiamumas bus sekamas. Jie yra visiškai stebimi ir įtraukiami į visus KPI bei įspėjimus.",
           "non_essential_entities": "Objektai, kurie neveikia jūsų grupės sveikatos baalo. Matomi kortelėje ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir niekada neaktyvina įspėjimų. Naudokite įrenginiams, kurių prastova yra priimtina — televizoriui, spausdintuvui, sezoniniams įrenginiams.",
           "labels": "Stebimas kiekvienas objektas, turintis vieną iš šių žymų — tiesiogiai arba per savo įrenginį. Grupė automatiškai perskaičiuojama, kai objektams ir įrenginiams priskiriate arba pašalinate žymas.",
-          "non_essential_label": "Nariai, kurie taip pat turi šią žymą, laikomi neesminiais: jie rodomi ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir įspėjimus. Palikite tuščią, kad visi nariai būtų laikomi esminiais.",
+          "non_essential_label": "Nariai, kurie taip pat turi bet kurią iš šių žymų, laikomi neesminiais: jie rodomi ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir įspėjimus. Palikite tuščią, kad visi nariai būtų laikomi esminiais.",
           "bad_states": "Objektų būsenos, reiškiančios, kad objektas yra neprisijungęs (pvz., nepasiekiamas, nežinomas).",
           "cooldown": "Kiek laiko (sekundėmis) objektas turi išbūti blogoje būsenoje, prieš jį pažymint neprisijungusiu. Apsaugo nuo klaidingų įspėjimų dėl trumpų atjungimų.",
           "staleness_threshold": "Jei objektas nepakeitė būsenos šį skaičių minučių, jis pažymimas kaip degradavęs. Nustatykite 0, kad išjungtumėte.",

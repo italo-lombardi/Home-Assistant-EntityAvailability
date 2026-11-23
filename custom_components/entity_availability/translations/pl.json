@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Nazwa grupy",
           "labels": "Etykiety do monitorowania",
-          "non_essential_label": "Etykieta nieistotnych"
+          "non_essential_label": "Etykiety nieistotnych"
         },
         "data_description": {
           "labels": "Każda encja z jedną z tych etykiet — bezpośrednio lub poprzez jej urządzenie — jest monitorowana. Grupa jest automatycznie ustalana na nowo, gdy dodajesz lub usuwasz etykiety na encjach i urządzeniach.",
-          "non_essential_label": "Elementy, które mają także tę etykietę, są traktowane jako nieistotne: wyświetlane i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i alertów. Pozostaw puste, aby traktować każdy element jako istotny."
+          "non_essential_label": "Elementy, które mają także dowolną z tych etykiet, są traktowane jako nieistotne: wyświetlane i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i alertów. Pozostaw puste, aby traktować każdy element jako istotny."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Encje do monitorowania",
           "non_essential_entities": "Nieistotne encje",
           "labels": "Etykiety do monitorowania",
-          "non_essential_label": "Etykieta nieistotnych",
+          "non_essential_label": "Etykiety nieistotnych",
           "bad_states": "Stany uznawane za offline",
           "cooldown": "Czas oczekiwania (sekundy)",
           "staleness_threshold": "Próg nieaktywności (minuty, 0 = wyłączony)",
@@ -124,7 +124,7 @@
         "data_description": {
           "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI (liczba offline, dostępność %, MTBF, MTTR) i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami).",
           "labels": "Każda encja z jedną z tych etykiet — bezpośrednio lub poprzez jej urządzenie — jest monitorowana. Grupa jest automatycznie ustalana na nowo, gdy dodajesz lub usuwasz etykiety na encjach i urządzeniach.",
-          "non_essential_label": "Elementy, które mają także tę etykietę, są traktowane jako nieistotne: wyświetlane i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i alertów. Pozostaw puste, aby traktować każdy element jako istotny.",
+          "non_essential_label": "Elementy, które mają także dowolną z tych etykiet, są traktowane jako nieistotne: wyświetlane i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i alertów. Pozostaw puste, aby traktować każdy element jako istotny.",
           "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
           "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom przy krótkich rozłączeniach.",
           "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, jest oznaczana jako zdegradowana. Ustaw 0, aby wyłączyć.",

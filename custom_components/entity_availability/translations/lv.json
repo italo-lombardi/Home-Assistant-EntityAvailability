@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Grupas nosaukums",
           "labels": "Uzraugāmās iezīmes",
-          "non_essential_label": "Nebūtiskā iezīme"
+          "non_essential_label": "Nebūtiskās iezīmes"
         },
         "data_description": {
           "labels": "Tiek uzraudzīta katra entitāte, kurai ir kāda no šīm iezīmēm — tieši vai caur tās ierīci. Grupa automātiski pārrēķina dalību, kad piešķirat vai noņemat iezīmes entitātēm un ierīcēm.",
-          "non_essential_label": "Dalībnieki, kuriem ir arī šī iezīme, tiek uzskatīti par nebūtiskiem: tie ir redzami un ieskaitīti kopsummās, bet izslēgti no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un brīdinājumiem. Atstājiet tukšu, lai visus dalībniekus uzskatītu par būtiskiem."
+          "non_essential_label": "Dalībnieki, kuriem ir arī kāda no šīm iezīmēm, tiek uzskatīti par nebūtiskiem: tie ir redzami un ieskaitīti kopsummās, bet izslēgti no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un brīdinājumiem. Atstājiet tukšu, lai visus dalībniekus uzskatītu par būtiskiem."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Uzraugāmās entitātes",
           "non_essential_entities": "Nebūtiskās entitātes",
           "labels": "Uzraugāmās iezīmes",
-          "non_essential_label": "Nebūtiskā iezīme",
+          "non_essential_label": "Nebūtiskās iezīmes",
           "bad_states": "Stāvokļi, kas tiek uzskatīti par bezsaistē",
           "cooldown": "Gaidīšanas laiks (sekundes)",
           "staleness_threshold": "Novecošanas slieksnis (minūtes, 0 = atspējots)",
@@ -125,7 +125,7 @@
           "entities": "Entitātes, kuru pieejamība tiks izsekota. Tās tiek pilnībā uzraudzītas un iekļautas visos KPI un brīdinājumos.",
           "non_essential_entities": "Entitātes, kas neietekmē jūsu grupas veselības rādītāju. Redzamas kartē un ieskaitītas kopsummās, bet izslēgtas no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un nekad neaktivizē brīdinājumus. Izmantojiet ierīcēm, kur dīkstāve ir pieņemama — televizoram, printerim, sezonālai ierīcei.",
           "labels": "Tiek uzraudzīta katra entitāte, kurai ir kāda no šīm iezīmēm — tieši vai caur tās ierīci. Grupa automātiski pārrēķina dalību, kad piešķirat vai noņemat iezīmes entitātēm un ierīcēm.",
-          "non_essential_label": "Dalībnieki, kuriem ir arī šī iezīme, tiek uzskatīti par nebūtiskiem: tie ir redzami un ieskaitīti kopsummās, bet izslēgti no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un brīdinājumiem. Atstājiet tukšu, lai visus dalībniekus uzskatītu par būtiskiem.",
+          "non_essential_label": "Dalībnieki, kuriem ir arī kāda no šīm iezīmēm, tiek uzskatīti par nebūtiskiem: tie ir redzami un ieskaitīti kopsummās, bet izslēgti no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un brīdinājumiem. Atstājiet tukšu, lai visus dalībniekus uzskatītu par būtiskiem.",
           "bad_states": "Entitāšu stāvokļi, kas norāda, ka entitāte ir bezsaistē (piemēram, nepieejama, nezināma).",
           "cooldown": "Cik ilgi (sekundēs) entitātei jāpaliek slikta stāvoklī, pirms tā tiek atzīmēta kā bezsaistē esoša. Novērš viltus trauksmes īsu atvienojumu gadījumā.",
           "staleness_threshold": "Ja entitāte nav mainījusi stāvokli šo minūšu skaitu, tā tiek atzīmēta kā degradēta. Iestatiet 0, lai atspējotu.",

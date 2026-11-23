@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Názov skupiny",
           "labels": "Štítky na sledovanie",
-          "non_essential_label": "Štítok pre nedôležité"
+          "non_essential_label": "Štítky pre nedôležité"
         },
         "data_description": {
           "labels": "Každá entita, ktorá nesie niektorý z týchto štítkov — priamo alebo prostredníctvom svojho zariadenia — je monitorovaná. Skupina sa automaticky znovu vyhodnotí, keď entitám a zariadeniam pridáte alebo odoberiete štítok.",
-          "non_essential_label": "Členovia, ktorí zároveň nesú tento štítok, sa považujú za nedôležitých: zobrazujú sa a počítajú sa do celkových súčtov, ale sú vylúčení zo všetkých KPI (dostupnosť %, počet offline, MTBF, MTTR) a upozornení. Ponechajte prázdne, ak majú byť všetci členovia považovaní za dôležitých."
+          "non_essential_label": "Členovia, ktorí zároveň nesú niektorý z týchto štítkov, sa považujú za nedôležitých: zobrazujú sa a počítajú sa do celkových súčtov, ale sú vylúčení zo všetkých KPI (dostupnosť %, počet offline, MTBF, MTTR) a upozornení. Ponechajte prázdne, ak majú byť všetci členovia považovaní za dôležitých."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Entity na sledovanie",
           "non_essential_entities": "Nedôležité entity",
           "labels": "Štítky na sledovanie",
-          "non_essential_label": "Štítok pre nedôležité",
+          "non_essential_label": "Štítky pre nedôležité",
           "bad_states": "Stavy považované za offline",
           "cooldown": "Prodleva (sekundy)",
           "staleness_threshold": "Prah zastarania (minúty, 0 = vypnuté)",
@@ -125,7 +125,7 @@
           "entities": "Entity sledované z hľadiska dostupnosti. Sú plne monitorované a zahrnuté do všetkých KPI a upozornení.",
           "non_essential_entities": "Entity zobrazené a započítané na karte, ale vylúčené zo všetkých KPI (počet offline, dostupnosť %, MTBF, MTTR) a upozornení. Vhodné pre zariadenia, ktoré majú byť offline (TV v pohotovostnom režime, tlačiareň vypnutá medzi úlohami).",
           "labels": "Každá entita, ktorá nesie niektorý z týchto štítkov — priamo alebo prostredníctvom svojho zariadenia — je monitorovaná. Skupina sa automaticky znovu vyhodnotí, keď entitám a zariadeniam pridáte alebo odoberiete štítok.",
-          "non_essential_label": "Členovia, ktorí zároveň nesú tento štítok, sa považujú za nedôležitých: zobrazujú sa a počítajú sa do celkových súčtov, ale sú vylúčení zo všetkých KPI (dostupnosť %, počet offline, MTBF, MTTR) a upozornení. Ponechajte prázdne, ak majú byť všetci členovia považovaní za dôležitých.",
+          "non_essential_label": "Členovia, ktorí zároveň nesú niektorý z týchto štítkov, sa považujú za nedôležitých: zobrazujú sa a počítajú sa do celkových súčtov, ale sú vylúčení zo všetkých KPI (dostupnosť %, počet offline, MTBF, MTTR) a upozornení. Ponechajte prázdne, ak majú byť všetci členovia považovaní za dôležitých.",
           "bad_states": "Stavy entity označujúce, že je entita offline (napr. unavailable, unknown).",
           "cooldown": "Ako dlho (v sekundách) musí entita zostať v zlom stave, kým je označená ako offline. Zabraňuje falošným poplachom pri krátkych výpadkoch.",
           "staleness_threshold": "Ak entita nezmenila stav po tento počet minút, je označená ako degradovaná. Nastavte na 0 pre vypnutie.",

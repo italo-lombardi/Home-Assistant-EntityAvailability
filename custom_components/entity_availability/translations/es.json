@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Nombre del grupo",
           "labels": "Etiquetas a supervisar",
-          "non_essential_label": "Etiqueta de no esencial"
+          "non_essential_label": "Etiquetas de no esencial"
         },
         "data_description": {
           "labels": "Se supervisa toda entidad que lleve una de estas etiquetas — directamente o a través de su dispositivo. El grupo se vuelve a resolver automáticamente cuando etiqueta o desetiqueta entidades y dispositivos.",
-          "non_essential_label": "Los miembros que además lleven esta etiqueta se tratan como no esenciales: se muestran y se cuentan en los totales, pero se excluyen de todos los KPIs (disponibilidad %, recuento sin conexión, MTBF, MTTR) y alertas. Déjelo vacío para tratar a todos los miembros como esenciales."
+          "non_essential_label": "Los miembros que además lleven cualquiera de estas etiquetas se tratan como no esenciales: se muestran y se cuentan en los totales, pero se excluyen de todos los KPIs (disponibilidad %, recuento sin conexión, MTBF, MTTR) y alertas. Déjelo vacío para tratar a todos los miembros como esenciales."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Entidades a supervisar",
           "non_essential_entities": "Entidades no esenciales",
           "labels": "Etiquetas a supervisar",
-          "non_essential_label": "Etiqueta de no esencial",
+          "non_essential_label": "Etiquetas de no esencial",
           "bad_states": "Estados considerados sin conexión",
           "cooldown": "Tiempo de espera (segundos)",
           "staleness_threshold": "Umbral de obsolescencia (minutos, 0 = desactivado)",
@@ -134,7 +134,7 @@
           "staleness_use_last_updated": "Cuando está activado, cualquier actualización de la entidad — incluidos los cambios que solo afectan a atributos o los informes repetidos con el mismo valor — reinicia el temporizador de obsolescencia. Cuando está desactivado (predeterminado), solo cuenta un cambio en el estado principal. Actívelo para dispositivos que informan a menudo pero rara vez cambian de valor (p. ej. temperatura o potencia que se mantiene estable).",
           "entities": "Entidades a monitorizar para disponibilidad. Estas se monitorizan completamente y se incluyen en todos los KPIs y alertas.",
           "labels": "Se supervisa toda entidad que lleve una de estas etiquetas — directamente o a través de su dispositivo. El grupo se vuelve a resolver automáticamente cuando etiqueta o desetiqueta entidades y dispositivos.",
-          "non_essential_label": "Los miembros que además lleven esta etiqueta se tratan como no esenciales: se muestran y se cuentan en los totales, pero se excluyen de todos los KPIs (disponibilidad %, recuento sin conexión, MTBF, MTTR) y alertas. Déjelo vacío para tratar a todos los miembros como esenciales.",
+          "non_essential_label": "Los miembros que además lleven cualquiera de estas etiquetas se tratan como no esenciales: se muestran y se cuentan en los totales, pero se excluyen de todos los KPIs (disponibilidad %, recuento sin conexión, MTBF, MTTR) y alertas. Déjelo vacío para tratar a todos los miembros como esenciales.",
           "signal_enabled": "Rastrear la intensidad de señal (dBm) para las entidades monitoreadas y alertar cuando la calidad de señal cae a 'deficiente'. Tras habilitar, se le pedirá vincular un sensor de señal y seleccionar el tipo de red para cada entidad."
         }
       },

@@ -8619,6 +8619,115 @@ async def test_label_group_non_essential_label_subsets_members(hass: HomeAssista
     assert coord._non_essential == ["binary_sensor.b"]
 
 
+async def test_label_group_multiple_ne_labels_union(hass: HomeAssistant):
+    """NE label is a LIST: a member carrying ANY of the NE labels is non-essential
+    (union across all NE labels), still intersected with monitored membership."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    reg = lr.async_get(hass)
+    main = reg.async_create("MultiMain").label_id
+    ne1 = reg.async_create("Ne1").label_id
+    ne2 = reg.async_create("Ne2").label_id
+    ent_reg = er.async_get(hass)
+
+    a = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "ma", suggested_object_id="ma"
+    )
+    b = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "mb", suggested_object_id="mb"
+    )
+    c = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "mc", suggested_object_id="mc"
+    )
+    ent_reg.async_update_entity(a.entity_id, labels={main, ne1})  # NE via ne1
+    ent_reg.async_update_entity(b.entity_id, labels={main, ne2})  # NE via ne2
+    ent_reg.async_update_entity(c.entity_id, labels={main})  # essential
+
+    coord = _make_label_group(hass, [main], ne_labels=[ne1, ne2])
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.ma",
+        "binary_sensor.mb",
+        "binary_sensor.mc",
+    }
+    # Both ne1 and ne2 members are non-essential (union); the main-only one is not.
+    assert set(coord._non_essential) == {"binary_sensor.ma", "binary_sensor.mb"}
+
+
+async def test_label_group_signal_override_overlays_auto(hass: HomeAssistant):
+    """A stored manual signal override for a label-group member WINS over auto-detect;
+    members without an override keep auto-detect. Closes the 'override editable but
+    ineffective' gap — the label path overlays CONF_SIGNAL_ENTITY_MAP on the auto map."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    from custom_components.entity_availability.const import (
+        CONF_ENTRY_TYPE,
+        CONF_GROUP_NAME,
+        CONF_LABELS,
+        CONF_SIGNAL_ENTITY_MAP,
+        ENTRY_TYPE_LABEL,
+    )
+
+    lbl = lr.async_get(hass).async_create("SigOv").label_id
+    ent_reg = er.async_get(hass)
+    ov = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "ov", suggested_object_id="ov"
+    )
+    au = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "au", suggested_object_id="au"
+    )
+    ent_reg.async_update_entity(ov.entity_id, labels={lbl})
+    ent_reg.async_update_entity(au.entity_id, labels={lbl})
+    # auto-detectable signal sensor for 'au' (naming convention)
+    hass.states.async_set("sensor.au_rssi", "-70", {"device_class": "signal_strength"})
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Sig Override",
+        entry_id="sig_ov",
+        data={
+            CONF_GROUP_NAME: "Sig Override",
+            CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
+            CONF_LABELS: [lbl],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
+            CONF_BATTERY_ENTITY_MAP: {},
+            # manual override for 'ov' only
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.ov": {
+                    "sensor": "sensor.custom_ov_signal",
+                    "network_type": "wifi",
+                },
+                # stale override for an entity NOT in the label set → stays inert
+                "binary_sensor.absent": {
+                    "sensor": "sensor.absent_signal",
+                    "network_type": "zigbee",
+                },
+            },
+        },
+    )
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    # Override wins for 'ov'; auto-detect for 'au'.
+    assert coord._signal_map["binary_sensor.ov"] == {
+        "sensor": "sensor.custom_ov_signal",
+        "network_type": "wifi",
+    }
+    assert coord._signal_map["binary_sensor.au"]["sensor"] == "sensor.au_rssi"
+    # the stale override for an absent entity is NOT injected
+    assert "binary_sensor.absent" not in coord._signal_map
+
+
 async def test_label_group_empty_resolve_keeps_prior_membership(hass: HomeAssistant):
     """A non-empty label set momentarily resolving to nothing (registry hiccup) must
     NOT wipe membership — that would prune every entity's stored history."""

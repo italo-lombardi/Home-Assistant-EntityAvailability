@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Gruppnamn",
           "labels": "Etiketter att övervaka",
-          "non_essential_label": "Icke-väsentlig etikett"
+          "non_essential_label": "Icke-väsentliga etiketter"
         },
         "data_description": {
           "labels": "Varje entitet som bär någon av dessa etiketter — direkt eller via sin enhet — övervakas. Gruppen löses upp på nytt automatiskt när du märker eller avmärker entiteter och enheter.",
-          "non_essential_label": "Medlemmar som även bär denna etikett behandlas som icke-väsentliga: visas och räknas i totaler, men utesluts från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och aviseringar. Lämna tomt för att behandla varje medlem som väsentlig."
+          "non_essential_label": "Medlemmar som även bär någon av dessa etiketter behandlas som icke-väsentliga: visas och räknas i totaler, men utesluts från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och aviseringar. Lämna tomt för att behandla varje medlem som väsentlig."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Entiteter att övervaka",
           "non_essential_entities": "Icke-väsentliga enheter",
           "labels": "Etiketter att övervaka",
-          "non_essential_label": "Icke-väsentlig etikett",
+          "non_essential_label": "Icke-väsentliga etiketter",
           "bad_states": "Tillstånd som anses offline",
           "cooldown": "Väntetid (sekunder)",
           "staleness_threshold": "Inaktivitetsgräns (minuter, 0 = inaktiverad)",
@@ -124,7 +124,7 @@
         "data_description": {
           "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och aviseringar. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb).",
           "labels": "Varje entitet som bär någon av dessa etiketter — direkt eller via sin enhet — övervakas. Gruppen löses upp på nytt automatiskt när du märker eller avmärker entiteter och enheter.",
-          "non_essential_label": "Medlemmar som även bär denna etikett behandlas som icke-väsentliga: visas och räknas i totaler, men utesluts från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och aviseringar. Lämna tomt för att behandla varje medlem som väsentlig.",
+          "non_essential_label": "Medlemmar som även bär någon av dessa etiketter behandlas som icke-väsentliga: visas och räknas i totaler, men utesluts från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och aviseringar. Lämna tomt för att behandla varje medlem som väsentlig.",
           "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
           "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
           "staleness_threshold": "Om en entitet inte har ändrat tillstånd på detta antal minuter markeras den som försämrad. Ställ in 0 för att inaktivera.",

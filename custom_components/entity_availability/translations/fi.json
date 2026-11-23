@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Ryhmän nimi",
           "labels": "Seurattavat tunnisteet",
-          "non_essential_label": "Ei-kriittinen tunniste"
+          "non_essential_label": "Ei-kriittiset tunnisteet"
         },
         "data_description": {
           "labels": "Jokaista entiteettiä, jolla on jokin näistä tunnisteista — joko suoraan tai laitteensa kautta — seurataan. Ryhmä muodostetaan uudelleen automaattisesti, kun lisäät tunnisteita entiteetteihin ja laitteisiin tai poistat niitä.",
-          "non_essential_label": "Jäsenet, joilla on myös tämä tunniste, käsitellään ei-kriittisinä: ne näkyvät ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) ja hälytyksistä. Jätä tyhjäksi, jotta jokaista jäsentä kohdellaan kriittisenä."
+          "non_essential_label": "Jäsenet, joilla on myös jokin näistä tunnisteista, käsitellään ei-kriittisinä: ne näkyvät ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) ja hälytyksistä. Jätä tyhjäksi, jotta jokaista jäsentä kohdellaan kriittisenä."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Seurattavat entiteetit",
           "non_essential_entities": "Ei-kriittiset entiteetit",
           "labels": "Seurattavat tunnisteet",
-          "non_essential_label": "Ei-kriittinen tunniste",
+          "non_essential_label": "Ei-kriittiset tunnisteet",
           "bad_states": "Offline-tilana pidettävät tilat",
           "cooldown": "Jäähdytysaika (sekunteina)",
           "staleness_threshold": "Vanhentumiskynnys (minuuttia, 0 = poistettu käytöstä)",
@@ -125,7 +125,7 @@
           "entities": "Entiteetit, joiden saatavuutta seurataan. Nämä ovat täysin valvottuja ja mukana kaikissa KPI-mittareissa ja hälytyksistä.",
           "non_essential_entities": "Entiteetit, jotka eivät vaikuta ryhmän terveyspisteytykseen. Näkyvät kortilla ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) eivätkä koskaan laukaise hälytyksiä. Käytä laitteissa, joissa seisokkiaika on hyväksyttävää — televisio, tulostin tai kausiluonteinen laite.",
           "labels": "Jokaista entiteettiä, jolla on jokin näistä tunnisteista — joko suoraan tai laitteensa kautta — seurataan. Ryhmä muodostetaan uudelleen automaattisesti, kun lisäät tunnisteita entiteetteihin ja laitteisiin tai poistat niitä.",
-          "non_essential_label": "Jäsenet, joilla on myös tämä tunniste, käsitellään ei-kriittisinä: ne näkyvät ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) ja hälytyksistä. Jätä tyhjäksi, jotta jokaista jäsentä kohdellaan kriittisenä.",
+          "non_essential_label": "Jäsenet, joilla on myös jokin näistä tunnisteista, käsitellään ei-kriittisinä: ne näkyvät ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) ja hälytyksistä. Jätä tyhjäksi, jotta jokaista jäsentä kohdellaan kriittisenä.",
           "bad_states": "Entiteetin tilat, jotka tarkoittavat, että entiteetti on offline (esim. ei saatavilla, tuntematon).",
           "cooldown": "Kuinka kauan (sekunteina) entiteetin täytyy pysyä huonossa tilassa ennen kuin se merkitään offline-tilaan. Estää vääriä hälytyksiä lyhyiden katkosten aikana.",
           "staleness_threshold": "Jos entiteetti ei ole muuttanut tilaansa tänä monta minuuttia, merkitse se heikentyneen tilaan. Aseta 0 poistaaksesi käytöstä.",

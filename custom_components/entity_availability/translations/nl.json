@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Groepsnaam",
           "labels": "Te bewaken labels",
-          "non_essential_label": "Niet-essentieel label"
+          "non_essential_label": "Niet-essentiële labels"
         },
         "data_description": {
           "labels": "Elke entiteit die een van deze labels draagt — rechtstreeks of via zijn apparaat — wordt bewaakt. De groep wordt automatisch opnieuw samengesteld wanneer je entiteiten en apparaten labelt of een label verwijdert.",
-          "non_essential_label": "Leden die ook dit label dragen, worden als niet-essentieel behandeld: ze worden weergegeven en meegeteld in totalen, maar uitgesloten van alle KPI's (beschikbaarheid %, aantal offline, MTBF, MTTR) en waarschuwingen. Laat leeg om elk lid als essentieel te behandelen."
+          "non_essential_label": "Leden die ook een van deze labels dragen, worden als niet-essentieel behandeld: ze worden weergegeven en meegeteld in totalen, maar uitgesloten van alle KPI's (beschikbaarheid %, aantal offline, MTBF, MTTR) en waarschuwingen. Laat leeg om elk lid als essentieel te behandelen."
         }
       },
       "monitoring": {
@@ -109,7 +109,7 @@
           "entities": "Te bewaken entiteiten",
           "non_essential_entities": "Niet-essentiële entiteiten",
           "labels": "Te bewaken labels",
-          "non_essential_label": "Niet-essentieel label",
+          "non_essential_label": "Niet-essentiële labels",
           "bad_states": "Statussen die als offline worden beschouwd",
           "cooldown": "Wachttijd (seconden)",
           "staleness_threshold": "Inactiviteitsdrempel (minuten, 0 = uitgeschakeld)",
@@ -124,7 +124,7 @@
         "data_description": {
           "non_essential_entities": "Entiteiten die worden weergegeven en geteld op de kaart maar worden uitgesloten van alle KPI's (aantal offline, beschikbaarheid %, MTBF, MTTR) en meldingen. Handig voor apparaten die naar verwachting offline zijn (tv in standby, printer uit tussen taken).",
           "labels": "Elke entiteit die een van deze labels draagt — rechtstreeks of via zijn apparaat — wordt bewaakt. De groep wordt automatisch opnieuw samengesteld wanneer je entiteiten en apparaten labelt of een label verwijdert.",
-          "non_essential_label": "Leden die ook dit label dragen, worden als niet-essentieel behandeld: ze worden weergegeven en meegeteld in totalen, maar uitgesloten van alle KPI's (beschikbaarheid %, aantal offline, MTBF, MTTR) en waarschuwingen. Laat leeg om elk lid als essentieel te behandelen.",
+          "non_essential_label": "Leden die ook een van deze labels dragen, worden als niet-essentieel behandeld: ze worden weergegeven en meegeteld in totalen, maar uitgesloten van alle KPI's (beschikbaarheid %, aantal offline, MTBF, MTTR) en waarschuwingen. Laat leeg om elk lid als essentieel te behandelen.",
           "bad_states": "Entiteitsstatussen die aangeven dat een entiteit offline is (bijv. unavailable, unknown).",
           "cooldown": "Hoe lang (in seconden) een entiteit in een slechte status moet blijven voordat deze als offline wordt gemarkeerd. Voorkomt valse alarmen bij korte verbindingsonderbrekingen.",
           "staleness_threshold": "Als een entiteit dit aantal minuten niet van staat is veranderd, wordt deze gemarkeerd als verslechterd. Stel in op 0 om uit te schakelen.",

@@ -34,11 +34,11 @@
         "data": {
           "group_name": "Gruppenavn",
           "labels": "Etiketter at overvåge",
-          "non_essential_label": "Ikke-essentiel etiket"
+          "non_essential_label": "Ikke-essentielle etiketter"
         },
         "data_description": {
           "labels": "Alle entiteter med en af disse etiketter — direkte eller via deres enhed — overvåges. Gruppen genberegnes automatisk, når du tilføjer eller fjerner etiketter på entiteter og enheder.",
-          "non_essential_label": "Medlemmer, der også har denne etiket, behandles som ikke-essentielle: de vises og tælles med i totaler, men ekskluderes fra alle KPI'er (tilgængelighed %, offline antal, MTBF, MTTR) og advarsler. Lad stå tom for at behandle alle medlemmer som essentielle."
+          "non_essential_label": "Medlemmer, der også har en af disse etiketter, behandles som ikke-essentielle: de vises og tælles med i totaler, men ekskluderes fra alle KPI'er (tilgængelighed %, offline antal, MTBF, MTTR) og advarsler. Lad stå tom for at behandle alle medlemmer som essentielle."
         }
       },
       "monitoring": {
@@ -110,7 +110,7 @@
           "entities": "Entiteter at overvåge",
           "non_essential_entities": "Ikke-essentielle entiteter",
           "labels": "Etiketter at overvåge",
-          "non_essential_label": "Ikke-essentiel etiket",
+          "non_essential_label": "Ikke-essentielle etiketter",
           "bad_states": "Tilstande betragtet som offline",
           "cooldown": "Ventetid (sekunder)",
           "staleness_threshold": "Inaktivitetstærskel (minutter, 0 = deaktiveret)",
@@ -136,7 +136,7 @@
           "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter eller gentagne rapporter med samme værdi — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil).",
           "entities": "Enheder der overvåges for tilgængelighed. Disse er fuldt overvåget og inkluderet i alle KPI'er og advarsler.",
           "labels": "Alle entiteter med en af disse etiketter — direkte eller via deres enhed — overvåges. Gruppen genberegnes automatisk, når du tilføjer eller fjerner etiketter på entiteter og enheder.",
-          "non_essential_label": "Medlemmer, der også har denne etiket, behandles som ikke-essentielle: de vises og tælles med i totaler, men ekskluderes fra alle KPI'er (tilgængelighed %, offline antal, MTBF, MTTR) og advarsler. Lad stå tom for at behandle alle medlemmer som essentielle."
+          "non_essential_label": "Medlemmer, der også har en af disse etiketter, behandles som ikke-essentielle: de vises og tælles med i totaler, men ekskluderes fra alle KPI'er (tilgængelighed %, offline antal, MTBF, MTTR) og advarsler. Lad stå tom for at behandle alle medlemmer som essentielle."
         }
       },
       "combined_init": {
