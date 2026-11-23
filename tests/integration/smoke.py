@@ -579,6 +579,27 @@ def discover_label_group(title):
     return list(ents.get("essential", [])) + list(ents.get("non_essential", []))
 
 
+def pick_real_entities(n):
+    """Return n distinct existing entity_ids suitable for labeling in EC149-151.
+    Independent of any group fixture. Prefers binary_sensor/sensor entities that
+    currently have a real (non-unknown/unavailable) state so labeling them yields
+    a monitorable member. Returns fewer than n only if HA genuinely lacks them."""
+    out = []
+    for s in api("GET", "/api/states"):
+        eid = s.get("entity_id", "")
+        if not eid.startswith(("binary_sensor.", "sensor.")):
+            continue
+        if s.get("state") in (None, "unknown", "unavailable"):
+            continue
+        # avoid our own integration's sensors + anything already label-tagged by a sibling EC
+        if eid.startswith("sensor.entity_availability") or "entity_availability" in eid:
+            continue
+        out.append(eid)
+        if len(out) >= n:
+            break
+    return out
+
+
 def discover(group_filter=None):
     """Return (entry_id, entities, battery_map, group_sensor_prefix, combined_entry_id).
 
@@ -2949,6 +2970,16 @@ def _run_all_passes():
     #    poor_signal_count + signal_entity_map round-trip).
     if signal_grp:
         passes.append(("signal-fixture", signal_grp, "", signal_ecs))
+    # 6) Label-group ECs (EC149 live membership; EC150 combined-over-mix; EC151
+    #    combined-over-label-only). These SELF-PROVISION their own label(s) +
+    #    label_group entry via websocket + the config flow, so they don't need a
+    #    capability-matched target — any discovered group satisfies discover(). They
+    #    skip-loud if websocket-client is absent. Routed to their own pass so --all
+    #    actually runs them (ec_enabled is False for them inside any other pass).
+    label_group_ecs = {149, 150, 151}
+    _any_grp = ess_batt or signal_grp or numeric_batt or both_tiers or collapse_grp
+    if _any_grp:
+        passes.append(("label-group", _any_grp, "", label_group_ecs))
 
     # DARK report: a family whose target is missing.
     dark = []
@@ -8443,13 +8474,19 @@ for e in cfg['data']['entries']:
             "\n=== EC149: label group — live dynamic membership from HA labels ===",
             flush=True,
         )
+        _picks = pick_real_entities(2) if _WS_AVAILABLE else []
         if not _WS_AVAILABLE:
             print("  EC149: SKIP — websocket-client not installed", flush=True)
-        elif len(ctx["entities"]) < 2:
-            print("  EC149: SKIP — need >= 2 entities in the fixture", flush=True)
+        elif len(_picks) < 2:
+            print(
+                "  EC149: SKIP — HA lacks >= 2 real sensor/binary_sensor entities",
+                flush=True,
+            )
         else:
-            e_in = ctx["entities"][0]  # labeled up front → must be a member
-            e_join = ctx["entities"][1]  # labeled live → must join
+            e_in, e_join = (
+                _picks[0],
+                _picks[1],
+            )  # [0] labeled up front; [1] labeled live
             lbl_name = "ea_smoke_ec149"
             label_eid = None
             try:
@@ -8608,14 +8645,18 @@ for e in cfg['data']['entries']:
             "\n=== EC150: combined group over a classic + label group (live move) ===",
             flush=True,
         )
+        _picks = pick_real_entities(3) if _WS_AVAILABLE else []
         if not _WS_AVAILABLE:
             print("  EC150: SKIP — websocket-client not installed", flush=True)
-        elif len(ctx["entities"]) < 3:
-            print("  EC150: SKIP — need >= 3 entities in the fixture", flush=True)
+        elif len(_picks) < 3:
+            print(
+                "  EC150: SKIP — HA lacks >= 3 real sensor/binary_sensor entities",
+                flush=True,
+            )
         else:
-            e_a = ctx["entities"][0]  # pre-labeled → in the label group up front
-            e_classic = ctx["entities"][1]  # static member of the classic group
-            e_c = ctx["entities"][2]  # labeled live → label group gains it
+            e_a = _picks[0]  # pre-labeled → in the label group up front
+            e_classic = _picks[1]  # static member of the classic group
+            e_c = _picks[2]  # labeled live → label group gains it
 
             def _combined_total(name):
                 """total_entities of the combined summary whose friendly_name
@@ -8866,13 +8907,17 @@ for e in cfg['data']['entries']:
             "\n=== EC151: combined group over two label groups only ===",
             flush=True,
         )
+        _picks = pick_real_entities(2) if _WS_AVAILABLE else []
         if not _WS_AVAILABLE:
             print("  EC151: SKIP — websocket-client not installed", flush=True)
-        elif len(ctx["entities"]) < 2:
-            print("  EC151: SKIP — need >= 2 entities in the fixture", flush=True)
+        elif len(_picks) < 2:
+            print(
+                "  EC151: SKIP — HA lacks >= 2 real sensor/binary_sensor entities",
+                flush=True,
+            )
         else:
-            e_a = ctx["entities"][0]  # labeled with L2 → label group A
-            e_b = ctx["entities"][1]  # labeled with L3 → label group B
+            e_a = _picks[0]  # labeled with L2 → label group A
+            e_b = _picks[1]  # labeled with L3 → label group B
 
             def _combined_total(name):
                 """total_entities of the combined summary whose friendly_name
