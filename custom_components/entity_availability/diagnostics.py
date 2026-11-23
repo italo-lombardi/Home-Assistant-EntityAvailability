@@ -16,9 +16,7 @@ from .const import (
     CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_COOLDOWN,
-    CONF_ENTITIES,
     CONF_ENTRY_TYPE,
-    CONF_NON_ESSENTIAL_ENTITIES,
     CONF_RECOVERY_WINDOW,
     CONF_SIGNAL_ENABLED,
     CONF_SIGNAL_ENTITY_MAP,
@@ -63,12 +61,12 @@ async def async_get_config_entry_diagnostics(
 
     data = entry.data
     states = coordinator.device_states
-    essential = [
-        e
-        for e in data.get(CONF_ENTITIES, [])
-        if e not in data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
-    ]
-    non_essential = data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+    # Live membership: for a label group the monitored set re-resolves at runtime,
+    # so read it from the coordinator (not entry.data, which holds only the
+    # config-time snapshot). For a static group the two are identical.
+    monitored = coordinator.monitored_entities
+    non_essential = [e for e in monitored if e in coordinator.non_essential_entities]
+    essential = [e for e in monitored if e not in non_essential]
 
     return async_redact_data(
         {

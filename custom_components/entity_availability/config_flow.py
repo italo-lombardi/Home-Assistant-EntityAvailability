@@ -7,7 +7,6 @@ import logging
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigEntryState,
@@ -16,7 +15,6 @@ from homeassistant.config_entries import (
     OptionsFlow,
 )
 from homeassistant.core import callback
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import selector
 
 from .const import (
@@ -32,7 +30,9 @@ from .const import (
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_LABELS,
     CONF_NON_ESSENTIAL_ENTITIES,
+    CONF_NON_ESSENTIAL_LABEL,
     CONF_RECOVERY_WINDOW,
     CONF_SIGNAL_ENABLED,
     CONF_SIGNAL_ENTITY_MAP,
@@ -52,11 +52,22 @@ from .const import (
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
+    ENTRY_TYPE_LABEL,
     NE_OVERRIDE_ALL_ESSENTIAL,
     NE_OVERRIDE_ALL_NON_ESSENTIAL,
     NE_OVERRIDE_EXCLUDED,
     NE_OVERRIDE_KEEP,
     SIGNAL_NETWORK_TYPES,
+)
+from .helpers import (
+    detect_battery_entity,
+    resolve_label_members,
+)
+from .helpers import (
+    detect_signal_entity as _detect_signal_entity,
+)
+from .helpers import (
+    infer_network_type as _infer_network_type,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -66,65 +77,6 @@ _SIGNAL_NETWORK_TYPE_OPTIONS = [
     selector.SelectOptionDict(value=k, label=v["label"])
     for k, v in sorted(SIGNAL_NETWORK_TYPES.items(), key=lambda x: x[1]["label"])
 ]
-
-
-# Suffix → network type inference. Only unambiguous mappings (LQI = Zigbee).
-_SIGNAL_SUFFIX_NETWORK_TYPE: dict[str, str] = {
-    "_linkquality": "zigbee_lqi",
-    "_lqi": "zigbee_lqi",
-}
-
-
-def _infer_network_type(signal_entity_id: str) -> str:
-    """Infer network type from signal sensor entity_id suffix. Returns 'generic' if unknown."""
-    for suffix, nt in _SIGNAL_SUFFIX_NETWORK_TYPE.items():
-        if signal_entity_id.endswith(suffix):
-            return nt
-    return "generic"
-
-
-def _detect_signal_entity(hass: Any, entity_id: str) -> str:
-    """Auto-detect signal sensor for an entity. Returns entity_id or empty string.
-
-    Detection order:
-    1. Device registry sibling with device_class=SIGNAL_STRENGTH
-    2. Naming convention on slug: *_linkquality, *_signal_strength, *_rssi, *_lqi, *_signal
-    3. Same as 2 but with known HA suffixes (_last_seen, _last_updated) stripped first
-    """
-    ent_reg = er.async_get(hass)
-    entry = ent_reg.async_get(entity_id)
-    if entry and entry.device_id:
-        for ent in er.async_entries_for_device(ent_reg, entry.device_id):
-            if ent.entity_id == entity_id:
-                continue
-            if (
-                ent.original_device_class == SensorDeviceClass.SIGNAL_STRENGTH
-                or ent.device_class == SensorDeviceClass.SIGNAL_STRENGTH
-            ):
-                return ent.entity_id
-
-    parts = entity_id.split(".", 1)
-    if len(parts) == 2:  # pragma: no branch
-        slug = parts[1]
-        signal_suffixes = (
-            "_linkquality",
-            "_signal_strength",
-            "_rssi",
-            "_lqi",
-            "_signal",
-        )
-        slugs_to_try = [slug]
-        for strip_suffix in ("_last_seen", "_last_updated"):
-            if slug.endswith(strip_suffix):
-                slugs_to_try.append(slug[: -len(strip_suffix)])
-                break
-        for base in slugs_to_try:
-            for suffix in signal_suffixes:
-                candidate = f"sensor.{base}{suffix}"
-                if hass.states.get(candidate):
-                    return candidate
-
-    return ""
 
 
 def _build_signal_map_from_input(
@@ -159,6 +111,8 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             if user_input["entry_type"] == ENTRY_TYPE_COMBINED:
                 return await self.async_step_combined()
+            if user_input["entry_type"] == ENTRY_TYPE_LABEL:
+                return await self.async_step_label_group()
             return await self.async_step_group()
 
         return self.async_show_form(
@@ -169,7 +123,11 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                         "entry_type", default=ENTRY_TYPE_GROUP
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=[ENTRY_TYPE_GROUP, ENTRY_TYPE_COMBINED],
+                            options=[
+                                ENTRY_TYPE_GROUP,
+                                ENTRY_TYPE_LABEL,
+                                ENTRY_TYPE_COMBINED,
+                            ],
                             translation_key="entry_type",
                             mode=selector.SelectSelectorMode.LIST,
                         )
@@ -237,6 +195,69 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_label_group(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Step 1c: Label-driven group — name + label(s), membership resolved live."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            group_name = user_input[CONF_GROUP_NAME].strip()
+            labels = user_input.get(CONF_LABELS, [])
+            ne_label = user_input.get(CONF_NON_ESSENTIAL_LABEL, "")
+
+            if not group_name:
+                errors[CONF_GROUP_NAME] = "empty_group_name"
+            elif not labels:
+                errors[CONF_LABELS] = "no_labels"
+            else:
+                await self.async_set_unique_id(
+                    f"{DOMAIN}_{group_name.lower().replace(' ', '_')}"
+                )
+                self._abort_if_unique_id_configured()
+
+                members = resolve_label_members(self.hass, labels)
+                ne = (
+                    set(resolve_label_members(self.hass, [ne_label]))
+                    if ne_label
+                    else set()
+                )
+                self._data[CONF_ENTRY_TYPE] = ENTRY_TYPE_LABEL
+                self._data[CONF_GROUP_NAME] = group_name
+                self._data[CONF_LABELS] = labels
+                self._data[CONF_NON_ESSENTIAL_LABEL] = ne_label
+                # Materialize current membership so the shared wizard steps
+                # (monitoring/advanced/battery/signal) and the coordinator read it
+                # exactly like a static group. The coordinator re-resolves live.
+                self._data[CONF_ENTITIES] = members
+                self._data[CONF_NON_ESSENTIAL_ENTITIES] = [
+                    e for e in members if e in ne
+                ]
+                return await self.async_step_monitoring()
+
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_GROUP_NAME,
+                    default=(user_input or {}).get(CONF_GROUP_NAME, ""),
+                ): str,
+                vol.Optional(
+                    CONF_LABELS,
+                    default=(user_input or {}).get(CONF_LABELS, []),
+                ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
+                vol.Optional(
+                    CONF_NON_ESSENTIAL_LABEL,
+                    default=(user_input or {}).get(CONF_NON_ESSENTIAL_LABEL, ""),
+                ): selector.LabelSelector(selector.LabelSelectorConfig()),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="label_group",
+            data_schema=data_schema,
+            errors=errors,
+        )
+
     async def async_step_combined(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -247,7 +268,8 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
             [
                 e
                 for e in self.hass.config_entries.async_entries(DOMAIN)
-                if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
+                if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP)
+                in (ENTRY_TYPE_GROUP, ENTRY_TYPE_LABEL)
                 and e.state == ConfigEntryState.LOADED
             ],
             key=lambda e: e.title,
@@ -509,24 +531,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _detect_battery_entity(self, entity_id: str) -> str:
         """Auto-detect battery entity for a monitored entity."""
-        ent_reg = er.async_get(self.hass)
-        entry = ent_reg.async_get(entity_id)
-        if entry and entry.device_id:
-            for ent in er.async_entries_for_device(ent_reg, entry.device_id):
-                if ent.entity_id == entity_id:
-                    continue
-                if ent.original_device_class == SensorDeviceClass.BATTERY or (
-                    ent.device_class == SensorDeviceClass.BATTERY
-                ):
-                    return ent.entity_id
-
-        parts = entity_id.split(".", 1)
-        if len(parts) == 2:  # pragma: no branch
-            battery_entity = f"sensor.{parts[1]}_battery"
-            if self.hass.states.get(battery_entity):
-                return battery_entity
-
-        return ""
+        return detect_battery_entity(self.hass, entity_id)
 
     async def async_step_signal_mapping(
         self, user_input: dict[str, Any] | None = None
@@ -593,11 +598,30 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            monitored_raw = user_input.get(CONF_ENTITIES, [])
-            non_essential_raw = user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+            is_label = self.config_entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_LABEL
+            if is_label:
+                labels = user_input.pop(CONF_LABELS, [])
+                ne_label = user_input.pop(CONF_NON_ESSENTIAL_LABEL, "")
+                members = resolve_label_members(self.hass, labels)
+                ne = (
+                    set(resolve_label_members(self.hass, [ne_label]))
+                    if ne_label
+                    else set()
+                )
+                monitored_raw = members
+                non_essential_raw = [e for e in members if e in ne]
+            else:
+                monitored_raw = user_input.get(CONF_ENTITIES, [])
+                non_essential_raw = user_input.get(CONF_NON_ESSENTIAL_ENTITIES, [])
 
-            if set(monitored_raw) & set(non_essential_raw):
+            # For a label group, non-essential members are a SUBSET of monitored
+            # members by construction (both derive from labels), so they overlap by
+            # design — the duplicate guard only applies to the static flow's two
+            # independent entity lists.
+            if not is_label and set(monitored_raw) & set(non_essential_raw):
                 errors[CONF_ENTITIES] = "duplicate_entities"
+            elif is_label and not labels:
+                errors[CONF_LABELS] = "no_labels"
             elif user_input.get(CONF_COLLAPSE_DEVICES) and not user_input.get(
                 CONF_USE_DEVICE_NAMES
             ):
@@ -609,6 +633,9 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                     dict.fromkeys(monitored_raw + non_essential)
                 )
                 self._data[CONF_NON_ESSENTIAL_ENTITIES] = non_essential
+                if is_label:
+                    self._data[CONF_LABELS] = labels
+                    self._data[CONF_NON_ESSENTIAL_LABEL] = ne_label
 
                 if self._data.get(CONF_BATTERY_THRESHOLD, 0) > 0:
                     return await self.async_step_battery_mapping()
@@ -634,8 +661,20 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             e for e in current.get(CONF_ENTITIES, []) if e not in current_non_essential
         ]
 
-        data_schema = vol.Schema(
-            {
+        # Membership fields differ by entry type: a static group edits explicit
+        # entity lists; a label group edits label(s) and re-resolves on save.
+        if current.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_LABEL:
+            membership_fields: dict[Any, Any] = {
+                vol.Optional(
+                    CONF_LABELS, default=current.get(CONF_LABELS, [])
+                ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
+                vol.Optional(
+                    CONF_NON_ESSENTIAL_LABEL,
+                    default=current.get(CONF_NON_ESSENTIAL_LABEL, ""),
+                ): selector.LabelSelector(selector.LabelSelectorConfig()),
+            }
+        else:
+            membership_fields = {
                 vol.Optional(
                     CONF_ENTITIES, default=current_monitored
                 ): selector.EntitySelector(
@@ -647,6 +686,11 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True)
                 ),
+            }
+
+        data_schema = vol.Schema(
+            {
+                **membership_fields,
                 vol.Required(
                     CONF_BAD_STATES,
                     default=current.get(CONF_BAD_STATES, DEFAULT_BAD_STATES),
@@ -871,24 +915,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
 
     def _detect_battery_entity(self, entity_id: str) -> str:
         """Auto-detect battery entity for a monitored entity."""
-        ent_reg = er.async_get(self.hass)
-        entry = ent_reg.async_get(entity_id)
-        if entry and entry.device_id:
-            for ent in er.async_entries_for_device(ent_reg, entry.device_id):
-                if ent.entity_id == entity_id:
-                    continue
-                if ent.original_device_class == SensorDeviceClass.BATTERY or (
-                    ent.device_class == SensorDeviceClass.BATTERY
-                ):
-                    return ent.entity_id
-
-        parts = entity_id.split(".", 1)
-        if len(parts) == 2:  # pragma: no branch
-            battery_entity = f"sensor.{parts[1]}_battery"
-            if self.hass.states.get(battery_entity):
-                return battery_entity
-
-        return ""
+        return detect_battery_entity(self.hass, entity_id)
 
 
 class CombinedGroupOptionsFlow(OptionsFlow):
@@ -906,7 +933,8 @@ class CombinedGroupOptionsFlow(OptionsFlow):
             [
                 e
                 for e in self.hass.config_entries.async_entries(DOMAIN)
-                if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
+                if e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP)
+                in (ENTRY_TYPE_GROUP, ENTRY_TYPE_LABEL)
                 and e.state == ConfigEntryState.LOADED
             ],
             key=lambda e: e.title,

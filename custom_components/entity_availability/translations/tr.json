@@ -28,6 +28,19 @@
           "combined_name": "Birleşik Grup Adı"
         }
       },
+      "label_group": {
+        "title": "Etiket Grubu Oluştur",
+        "description": "Bir etiket taşıyan her varlığı izleyin. Varlıklara ve cihazlara etiketi ekledikçe veya kaldırdıkça üyelik otomatik olarak güncellenir.",
+        "data": {
+          "group_name": "Grup Adı",
+          "labels": "İzlenecek Etiketler",
+          "non_essential_label": "Kritik Olmayan Etiketi"
+        },
+        "data_description": {
+          "labels": "Bu etiketlerden birini — doğrudan veya cihazı aracılığıyla — taşıyan her varlık izlenir. Varlıkları ve cihazları etiketlediğinizde veya etiketlerini kaldırdığınızda grup otomatik olarak yeniden çözümlenir.",
+          "non_essential_label": "Ayrıca bu etiketi taşıyan üyeler kritik olmayan olarak değerlendirilir: toplamlarda gösterilir ve sayılır, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) ve uyarılardan hariç tutulur. Her üyeyi kritik olarak değerlendirmek için boş bırakın."
+        }
+      },
       "monitoring": {
         "title": "İzleme Ayarları",
         "description": "Varlıkların nasıl izleneceğini yapılandırın.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Grup adı boş olamaz.",
       "no_entities": "En az bir varlık seçmelisiniz.",
+      "no_labels": "En az bir etiket seçmelisiniz.",
       "duplicate_entities": "Aynı varlık her iki listede de görünemez. Kaydetmeden önce tekrar edilenleri kaldırın.",
       "not_enough_groups_selected": "Birleştirmek için en az iki grup seçin.",
       "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "İzlenecek Varlıklar",
           "non_essential_entities": "Kritik Olmayan Varlıklar",
+          "labels": "İzlenecek Etiketler",
+          "non_essential_label": "Kritik Olmayan Etiketi",
           "bad_states": "Çevrimdışı sayılan durumlar",
           "cooldown": "Bekleme süresi (saniye)",
           "staleness_threshold": "Güncellik eşiği (dakika, 0 = devre dışı)",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "Kullanılabilirlik için takip edilecek varlıklar. Bunlar tam olarak izlenir ve tüm KPI'lara ve uyarılara dahil edilir.",
           "non_essential_entities": "Grubunuzun sağlık puanını etkilemeyen varlıklar. Kartta görünür ve toplamlara dahil edilir, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) hariç tutulur ve hiçbir zaman uyarı tetiklemez. Kapalı kalmanın kabul edilebilir olduğu cihazlar için kullanın — bir TV, yazıcı, mevsimlik cihaz.",
+          "labels": "Bu etiketlerden birini — doğrudan veya cihazı aracılığıyla — taşıyan her varlık izlenir. Varlıkları ve cihazları etiketlediğinizde veya etiketlerini kaldırdığınızda grup otomatik olarak yeniden çözümlenir.",
+          "non_essential_label": "Ayrıca bu etiketi taşıyan üyeler kritik olmayan olarak değerlendirilir: toplamlarda gösterilir ve sayılır, ancak tüm KPI'lardan (kullanılabilirlik %, çevrimdışı sayısı, MTBF, MTTR) ve uyarılardan hariç tutulur. Her üyeyi kritik olarak değerlendirmek için boş bırakın.",
           "bad_states": "Bir varlığın çevrimdışı olduğunu gösteren durumlar (ör. kullanılamaz, bilinmiyor).",
           "cooldown": "Çevrimdışı olarak işaretlenmeden önce bir varlığın kötü bir durumda kalması gereken süre (saniye cinsinden). Kısa bağlantı kesintilerinden kaynaklanan yanlış alarmları önler.",
           "staleness_threshold": "Bir varlık bu kadar dakika boyunca durum değiştirmediyse, düşürülmüş olarak işaretleyin. Devre dışı bırakmak için 0 olarak ayarlayın.",
@@ -284,7 +302,8 @@
     "entry_type": {
       "options": {
         "group": "Varlıkları izle",
-        "combined_group": "Grupları birleştir"
+        "combined_group": "Grupları birleştir",
+        "label_group": "Etikete göre izle"
       }
     },
     "combined_group_override": {

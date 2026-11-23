@@ -28,6 +28,19 @@
           "combined_name": "Namn på kombinerad grupp"
         }
       },
+      "label_group": {
+        "title": "Skapa etikettgrupp",
+        "description": "Övervaka varje entitet som bär en etikett. Medlemskapet uppdateras automatiskt när du lägger till eller tar bort etiketten på entiteter och enheter.",
+        "data": {
+          "group_name": "Gruppnamn",
+          "labels": "Etiketter att övervaka",
+          "non_essential_label": "Icke-väsentlig etikett"
+        },
+        "data_description": {
+          "labels": "Varje entitet som bär någon av dessa etiketter — direkt eller via sin enhet — övervakas. Gruppen löses upp på nytt automatiskt när du märker eller avmärker entiteter och enheter.",
+          "non_essential_label": "Medlemmar som även bär denna etikett behandlas som icke-väsentliga: visas och räknas i totaler, men utesluts från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och aviseringar. Lämna tomt för att behandla varje medlem som väsentlig."
+        }
+      },
       "monitoring": {
         "title": "Övervakningsinställningar",
         "description": "Konfigurera hur entiteter övervakas.",
@@ -77,6 +90,7 @@
       "empty_group_name": "Gruppnamnet kan inte vara tomt.",
       "no_entities": "Du måste välja minst en entitet.",
       "not_enough_groups_selected": "Välj minst två grupper att kombinera.",
+      "no_labels": "Du måste välja minst en etikett.",
       "duplicate_entities": "Samma entitet kan inte finnas i båda listorna. Ta bort dubbletter innan du sparar.",
       "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget.",
       "already_configured": "En grupp med detta namn finns redan."
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entiteter att övervaka",
           "non_essential_entities": "Icke-väsentliga enheter",
+          "labels": "Etiketter att övervaka",
+          "non_essential_label": "Icke-väsentlig etikett",
           "bad_states": "Tillstånd som anses offline",
           "cooldown": "Väntetid (sekunder)",
           "staleness_threshold": "Inaktivitetsgräns (minuter, 0 = inaktiverad)",
@@ -107,6 +123,8 @@
         },
         "data_description": {
           "non_essential_entities": "Enheter som visas och räknas på kortet men utesluts från alla KPI:er (antal offline, tillgänglighet %, MTBF, MTTR) och aviseringar. Användbart för enheter som förväntas vara offline (TV i standby, skrivare avstängd mellan jobb).",
+          "labels": "Varje entitet som bär någon av dessa etiketter — direkt eller via sin enhet — övervakas. Gruppen löses upp på nytt automatiskt när du märker eller avmärker entiteter och enheter.",
+          "non_essential_label": "Medlemmar som även bär denna etikett behandlas som icke-väsentliga: visas och räknas i totaler, men utesluts från alla KPI:er (tillgänglighet %, antal offline, MTBF, MTTR) och aviseringar. Lämna tomt för att behandla varje medlem som väsentlig.",
           "bad_states": "Entitetstillstånd som indikerar att en entitet är offline (t.ex. unavailable, unknown).",
           "cooldown": "Hur länge (i sekunder) en entitet måste vara i ett dåligt tillstånd innan den markeras som offline. Förhindrar falska larm vid korta frånkopplingar.",
           "staleness_threshold": "Om en entitet inte har ändrat tillstånd på detta antal minuter markeras den som försämrad. Ställ in 0 för att inaktivera.",
@@ -284,7 +302,8 @@
     "entry_type": {
       "options": {
         "group": "Övervaka entiteter",
-        "combined_group": "Kombinera grupper"
+        "combined_group": "Kombinera grupper",
+        "label_group": "Övervaka efter etikett"
       }
     },
     "combined_group_override": {

@@ -22,6 +22,9 @@ from custom_components.entity_availability.const import (
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
+    CONF_LABELS,
+    CONF_NON_ESSENTIAL_ENTITIES,
+    CONF_NON_ESSENTIAL_LABEL,
     CONF_STALENESS_THRESHOLD,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
@@ -32,6 +35,7 @@ from custom_components.entity_availability.const import (
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
+    ENTRY_TYPE_LABEL,
     NE_OVERRIDE_ALL_ESSENTIAL,
     NE_OVERRIDE_ALL_NON_ESSENTIAL,
     NE_OVERRIDE_EXCLUDED,
@@ -1291,11 +1295,11 @@ async def test_battery_auto_detection_via_device_registry(
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_self_entry, mock_bat_entry],
         ),
     ):
@@ -1371,11 +1375,11 @@ async def test_battery_auto_detection_via_device_registry_options_flow(
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_self_entry, mock_other_entry],
         ),
     ):
@@ -1437,11 +1441,11 @@ async def test_battery_auto_detection_registry_success_options_flow(
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_bat_entry],
         ),
     ):
@@ -1703,11 +1707,11 @@ async def test_detect_battery_entity_device_has_no_battery_entity(
     # No guessed battery state
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_self_entry, mock_sibling],
         ),
     ):
@@ -1751,7 +1755,7 @@ async def test_detect_battery_entity_guessed_name_found_in_config_flow(
     hass.states.async_set("sensor.motion_sensor_battery", "42")
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await _init_flow(hass)
@@ -1809,7 +1813,7 @@ async def test_options_flow_detect_battery_entity_no_existing_map(
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
     ):
@@ -1847,7 +1851,7 @@ async def test_detect_battery_entity_no_device_id_no_guessed_state(
     # Do NOT set sensor.no_bat_sensor_battery state
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await _init_flow(hass)
@@ -1899,7 +1903,7 @@ async def test_options_flow_detect_battery_no_guessed_state(
         await hass.async_block_till_done()
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await hass.config_entries.options.async_init(
@@ -1946,11 +1950,11 @@ async def test_detect_battery_entity_guessed_state_absent_returns_empty(
     # No guessed state (sensor.door_lock_battery not set)
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_sibling],
         ),
     ):
@@ -2067,7 +2071,7 @@ async def test_options_flow_no_guessed_state_returns_empty(
         await hass.async_block_till_done()
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await hass.config_entries.options.async_init(
@@ -2749,11 +2753,11 @@ async def test_detect_signal_entity_via_device_class(hass: HomeAssistant) -> Non
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             side_effect=_entries_for_device,
         ),
     ):
@@ -2809,7 +2813,7 @@ async def test_detect_signal_entity_via_naming_convention_linkquality(
     hass.states.async_set("sensor.boiler_high_flood_sensor_linkquality", "120")
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await _init_flow(hass)
@@ -2853,7 +2857,7 @@ async def test_detect_signal_entity_strips_last_updated_suffix(
     hass.states.async_set("sensor.boiler_high_flood_sensor_linkquality", "120")
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         from custom_components.entity_availability.config_flow import (
@@ -2876,7 +2880,7 @@ async def test_detect_signal_entity_no_match_returns_empty(
     mock_ent_reg.async_get.return_value = None
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await _init_flow(hass)
@@ -2928,7 +2932,7 @@ async def test_options_flow_detect_signal_entity_naming_convention(
     mock_ent_reg.async_get.return_value = None
 
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await hass.config_entries.options.async_init(
@@ -2975,11 +2979,11 @@ async def test_detect_signal_entity_skips_self_in_registry(hass: HomeAssistant) 
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_self, mock_signal],
         ),
     ):
@@ -3046,11 +3050,11 @@ async def test_options_detect_signal_entity_skips_self_in_registry(
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_self, mock_signal],
         ),
     ):
@@ -3180,11 +3184,11 @@ async def test_options_detect_signal_entity_non_signal_sibling_skipped(
     # No naming convention match either → empty suggestion
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_non_signal],
         ),
     ):
@@ -3220,7 +3224,7 @@ async def test_detect_signal_entity_no_naming_convention_match(
 
     # No *_linkquality, *_rssi etc. sensors in state
     with patch(
-        "custom_components.entity_availability.config_flow.er.async_get",
+        "custom_components.entity_availability.helpers.er.async_get",
         return_value=mock_ent_reg,
     ):
         result = await _init_flow(hass)
@@ -3272,11 +3276,11 @@ async def test_detect_signal_entity_only_self_in_registry_falls_through(
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_self],
         ),
     ):
@@ -3328,11 +3332,11 @@ async def test_detect_signal_entity_non_signal_sibling_then_naming(
 
     with (
         patch(
-            "custom_components.entity_availability.config_flow.er.async_get",
+            "custom_components.entity_availability.helpers.er.async_get",
             return_value=mock_ent_reg,
         ),
         patch(
-            "custom_components.entity_availability.config_flow.er.async_entries_for_device",
+            "custom_components.entity_availability.helpers.er.async_entries_for_device",
             return_value=[mock_temp],
         ),
     ):
@@ -3631,3 +3635,256 @@ async def test_options_flow_accepts_24h_window(
     )
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert mock_config_entry.data[CONF_AVAILABILITY_WINDOWS] == ["24h"]
+
+
+# ---------------------------------------------------------------------------
+# Label-group config + options flow
+# ---------------------------------------------------------------------------
+
+
+def _make_label(hass: HomeAssistant, name: str) -> str:
+    """Create an HA label and return its id."""
+    from homeassistant.helpers import label_registry as lr
+
+    return lr.async_get(hass).async_create(name).label_id
+
+
+def _label_entity(hass: HomeAssistant, obj_id: str, labels: set[str]) -> str:
+    """Register a binary_sensor carrying *labels*; return its entity_id."""
+    from homeassistant.helpers import entity_registry as er
+
+    reg = MockConfigEntry(domain=DOMAIN, entry_id=f"reg_{obj_id}", title="R")
+    reg.add_to_hass(hass)
+    ent_reg = er.async_get(hass)
+    entry = ent_reg.async_get_or_create(
+        "binary_sensor", "t", obj_id, suggested_object_id=obj_id
+    )
+    ent_reg.async_update_entity(entry.entity_id, labels=labels)
+    return entry.entity_id
+
+
+async def test_step_user_label_goes_to_label_group(hass: HomeAssistant) -> None:
+    """Choosing 'label_group' advances to the label_group step."""
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_LABEL}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "label_group"
+
+
+async def test_step_label_group_shows_form(hass: HomeAssistant) -> None:
+    """The label_group step renders a form with LabelSelector fields."""
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_LABEL}
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "label_group"
+    _schema_marker(result["data_schema"], CONF_LABELS)
+    _schema_marker(result["data_schema"], CONF_NON_ESSENTIAL_LABEL)
+
+
+async def test_step_label_group_empty_name(hass: HomeAssistant) -> None:
+    """Blank group name → empty_group_name error."""
+    lbl = _make_label(hass, "Crit")
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_LABEL}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_GROUP_NAME: "   ", CONF_LABELS: [lbl]},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_GROUP_NAME: "empty_group_name"}
+
+
+async def test_step_label_group_no_labels(hass: HomeAssistant) -> None:
+    """No labels selected → no_labels error."""
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_LABEL}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_GROUP_NAME: "Label Group", CONF_LABELS: []},
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {CONF_LABELS: "no_labels"}
+
+
+async def test_step_label_group_valid_resolves_and_advances(
+    hass: HomeAssistant,
+) -> None:
+    """Valid label input resolves membership, sets a non-essential subset, advances."""
+    main = _make_label(hass, "Main")
+    ne = _make_label(hass, "NonEssential")
+    # member carrying only the main label
+    e_main = _label_entity(hass, "main_only", {main})
+    # member carrying BOTH labels → ends up in the non-essential subset
+    e_both = _label_entity(hass, "both", {main, ne})
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_LABEL}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_GROUP_NAME: "My Labels",
+            CONF_LABELS: [main],
+            CONF_NON_ESSENTIAL_LABEL: ne,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "monitoring"
+
+    # monitoring → advanced
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    assert result["step_id"] == "advanced"
+
+    # advanced (battery 0 → skip battery mapping) → create entry
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    data = result["result"].data
+    assert data[CONF_ENTRY_TYPE] == ENTRY_TYPE_LABEL
+    assert data[CONF_LABELS] == [main]
+    assert data[CONF_NON_ESSENTIAL_LABEL] == ne
+    assert set(data[CONF_ENTITIES]) == {e_main, e_both}
+    assert data[CONF_NON_ESSENTIAL_ENTITIES] == [e_both]
+
+
+def _label_options_entry(hass: HomeAssistant, labels, ne_label=""):
+    """Build + register a LABEL options-flow config entry."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Label Group",
+        data={
+            CONF_GROUP_NAME: "Label Group",
+            CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
+            CONF_LABELS: labels,
+            CONF_NON_ESSENTIAL_LABEL: ne_label,
+            CONF_ENTITIES: [],
+            CONF_NON_ESSENTIAL_ENTITIES: [],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+        },
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+async def _setup_label_options(hass: HomeAssistant, entry) -> dict:
+    """Open the options flow init step for a label entry."""
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    return await hass.config_entries.options.async_init(entry.entry_id)
+
+
+async def test_options_label_form_shows_label_fields(hass: HomeAssistant) -> None:
+    """A label entry's options form offers LabelSelector fields, not entity lists."""
+    lbl = _make_label(hass, "Opt")
+    entry = _label_options_entry(hass, [lbl])
+    result = await _setup_label_options(hass, entry)
+    assert result["step_id"] == "init"
+    _schema_marker(result["data_schema"], CONF_LABELS)
+    _schema_marker(result["data_schema"], CONF_NON_ESSENTIAL_LABEL)
+
+
+async def test_options_label_submit_reresolves(hass: HomeAssistant) -> None:
+    """Submitting a label entry re-resolves membership and writes CONF_ENTITIES."""
+    main = _make_label(hass, "OptMain")
+    e_main = _label_entity(hass, "opt_main", {main})
+    e_two = _label_entity(hass, "opt_two", {main})
+    entry = _label_options_entry(hass, [main])
+
+    result = await _setup_label_options(hass, entry)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_LABELS: [main],
+            CONF_NON_ESSENTIAL_LABEL: "",
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert set(entry.data[CONF_ENTITIES]) == {e_main, e_two}
+    assert entry.data[CONF_NON_ESSENTIAL_ENTITIES] == []
+    assert entry.data[CONF_LABELS] == [main]
+    assert entry.data[CONF_NON_ESSENTIAL_LABEL] == ""
+
+
+async def test_options_label_submit_with_ne_subset(hass: HomeAssistant) -> None:
+    """Options submit with a non-essential label that resolves to a SUBSET of members
+    succeeds — the NE-is-subset-of-monitored overlap is by design for a label group
+    and must NOT trip the static-flow duplicate_entities guard."""
+    main = _make_label(hass, "NeMain")
+    ne = _make_label(hass, "NeOpt")
+    e_a = _label_entity(hass, "ne_a", {main})
+    e_b = _label_entity(hass, "ne_b", {main, ne})  # member AND non-essential
+    entry = _label_options_entry(hass, [main], ne_label=ne)
+
+    result = await _setup_label_options(hass, entry)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_LABELS: [main],
+            CONF_NON_ESSENTIAL_LABEL: ne,
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+        },
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert set(entry.data[CONF_ENTITIES]) == {e_a, e_b}
+    assert entry.data[CONF_NON_ESSENTIAL_ENTITIES] == [e_b]
+
+
+async def test_options_label_empty_labels_errors(hass: HomeAssistant) -> None:
+    """Submitting a label entry with no labels → no_labels error."""
+    lbl = _make_label(hass, "OptEmpty")
+    entry = _label_options_entry(hass, [lbl])
+
+    result = await _setup_label_options(hass, entry)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_LABELS: [],
+            CONF_NON_ESSENTIAL_LABEL: "",
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+            CONF_BATTERY_THRESHOLD: 0,
+            CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+        },
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "init"
+    assert result["errors"] == {CONF_LABELS: "no_labels"}

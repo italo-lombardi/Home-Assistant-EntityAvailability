@@ -28,6 +28,19 @@
           "combined_name": "Název kombinované skupiny"
         }
       },
+      "label_group": {
+        "title": "Vytvořit skupinu podle štítku",
+        "description": "Sledujte každou entitu, která nese štítek. Složení skupiny se aktualizuje automaticky, jakmile štítek na entitách a zařízeních přidáte nebo odeberete.",
+        "data": {
+          "group_name": "Název skupiny",
+          "labels": "Štítky ke sledování",
+          "non_essential_label": "Štítek nedůležitosti"
+        },
+        "data_description": {
+          "labels": "Sledována je každá entita, která nese některý z těchto štítků — ať už přímo, nebo prostřednictvím svého zařízení. Skupina se automaticky přepočítá, když entitám a zařízením štítky přidáte nebo odeberete.",
+          "non_essential_label": "Členové, kteří nesou i tento štítek, jsou považováni za nedůležité: zobrazují se a započítávají do celkových součtů, ale jsou vyloučeni ze všech KPI (dostupnost %, počet offline, MTBF, MTTR) i upozornění. Ponechte prázdné, chcete-li každého člena považovat za základního."
+        }
+      },
       "monitoring": {
         "title": "Nastavení monitorování",
         "description": "Nakonfigurujte způsob sledování entit.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Název skupiny nesmí být prázdný.",
       "no_entities": "Musíte vybrat alespoň jednu entity.",
+      "no_labels": "Musíte vybrat alespoň jeden štítek.",
       "duplicate_entities": "Stejná entity nemůže být v obou seznamech. Před uložením odstraňte duplicity.",
       "not_enough_groups_selected": "Vyberte alespoň dvě skupiny ke kombinování.",
       "collapse_requires_device_names": "Sloučení entit podle zařízení vyžaduje zapnuté „Zobrazovat názvy zařízení“.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entity ke sledování",
           "non_essential_entities": "Nedůležité entity",
+          "labels": "Štítky ke sledování",
+          "non_essential_label": "Štítek nedůležitosti",
           "bad_states": "Stavy považované za offline",
           "cooldown": "Prodleva (sekundy)",
           "staleness_threshold": "Práh zastarání (minuty, 0 = vypnuto)",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "Entity sledované z hlediska dostupnosti. Jsou plně monitorovány a zahrnuty do všech KPI a upozornění.",
           "non_essential_entities": "Entity zobrazené a započítané na kartě, ale vyloučené ze všech KPI (počet offline, dostupnost %, MTBF, MTTR) a upozornění. Vhodné pro zařízení, která mají být offline (TV v pohotovostním režimu, tiskárna vypnutá mezi úlohami).",
+          "labels": "Sledována je každá entita, která nese některý z těchto štítků — ať už přímo, nebo prostřednictvím svého zařízení. Skupina se automaticky přepočítá, když entitám a zařízením štítky přidáte nebo odeberete.",
+          "non_essential_label": "Členové, kteří nesou i tento štítek, jsou považováni za nedůležité: zobrazují se a započítávají do celkových součtů, ale jsou vyloučeni ze všech KPI (dostupnost %, počet offline, MTBF, MTTR) i upozornění. Ponechte prázdné, chcete-li každého člena považovat za základního.",
           "bad_states": "Stavy entity označující, že je entity offline (např. unavailable, unknown).",
           "cooldown": "Jak dlouho (v sekundách) musí entity setrvat ve špatném stavu, než je označena jako offline. Zabraňuje falešným poplachům při krátkých výpadcích.",
           "staleness_threshold": "Pokud entity nezměnila stav po tento počet minut, je označena jako degradovaná. Nastavte na 0 pro vypnutí.",
@@ -284,7 +302,8 @@
     "entry_type": {
       "options": {
         "group": "Monitorovat entity",
-        "combined_group": "Kombinovat skupiny"
+        "combined_group": "Kombinovat skupiny",
+        "label_group": "Monitorovat podle štítku"
       }
     },
     "combined_group_override": {

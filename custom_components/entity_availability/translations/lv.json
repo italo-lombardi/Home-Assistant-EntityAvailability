@@ -28,6 +28,19 @@
           "combined_name": "Apvienotās grupas nosaukums"
         }
       },
+      "label_group": {
+        "title": "Izveidot iezīmju grupu",
+        "description": "Uzraugiet katru entitāti, kurai ir piešķirta iezīme. Dalība tiek atjaunināta automātiski, kad pievienojat vai noņemat iezīmi entitātēm un ierīcēm.",
+        "data": {
+          "group_name": "Grupas nosaukums",
+          "labels": "Uzraugāmās iezīmes",
+          "non_essential_label": "Nebūtiskā iezīme"
+        },
+        "data_description": {
+          "labels": "Tiek uzraudzīta katra entitāte, kurai ir kāda no šīm iezīmēm — tieši vai caur tās ierīci. Grupa automātiski pārrēķina dalību, kad piešķirat vai noņemat iezīmes entitātēm un ierīcēm.",
+          "non_essential_label": "Dalībnieki, kuriem ir arī šī iezīme, tiek uzskatīti par nebūtiskiem: tie ir redzami un ieskaitīti kopsummās, bet izslēgti no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un brīdinājumiem. Atstājiet tukšu, lai visus dalībniekus uzskatītu par būtiskiem."
+        }
+      },
       "monitoring": {
         "title": "Uzraudzības iestatījumi",
         "description": "Konfigurējiet, kā entitātes tiek uzraudzītas.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Grupas nosaukums nedrīkst būt tukšs.",
       "no_entities": "Jums jāizvēlas vismaz viena entitāte.",
+      "no_labels": "Jums jāizvēlas vismaz viena iezīme.",
       "duplicate_entities": "Viena un tā pati entitāte nevar parādīties abos sarakstos. Pirms saglabāšanas noņemiet dublikātus.",
       "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai.",
       "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Uzraugāmās entitātes",
           "non_essential_entities": "Nebūtiskās entitātes",
+          "labels": "Uzraugāmās iezīmes",
+          "non_essential_label": "Nebūtiskā iezīme",
           "bad_states": "Stāvokļi, kas tiek uzskatīti par bezsaistē",
           "cooldown": "Gaidīšanas laiks (sekundes)",
           "staleness_threshold": "Novecošanas slieksnis (minūtes, 0 = atspējots)",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "Entitātes, kuru pieejamība tiks izsekota. Tās tiek pilnībā uzraudzītas un iekļautas visos KPI un brīdinājumos.",
           "non_essential_entities": "Entitātes, kas neietekmē jūsu grupas veselības rādītāju. Redzamas kartē un ieskaitītas kopsummās, bet izslēgtas no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un nekad neaktivizē brīdinājumus. Izmantojiet ierīcēm, kur dīkstāve ir pieņemama — televizoram, printerim, sezonālai ierīcei.",
+          "labels": "Tiek uzraudzīta katra entitāte, kurai ir kāda no šīm iezīmēm — tieši vai caur tās ierīci. Grupa automātiski pārrēķina dalību, kad piešķirat vai noņemat iezīmes entitātēm un ierīcēm.",
+          "non_essential_label": "Dalībnieki, kuriem ir arī šī iezīme, tiek uzskatīti par nebūtiskiem: tie ir redzami un ieskaitīti kopsummās, bet izslēgti no visiem KPI (pieejamība %, bezsaistē esošo skaits, MTBF, MTTR) un brīdinājumiem. Atstājiet tukšu, lai visus dalībniekus uzskatītu par būtiskiem.",
           "bad_states": "Entitāšu stāvokļi, kas norāda, ka entitāte ir bezsaistē (piemēram, nepieejama, nezināma).",
           "cooldown": "Cik ilgi (sekundēs) entitātei jāpaliek slikta stāvoklī, pirms tā tiek atzīmēta kā bezsaistē esoša. Novērš viltus trauksmes īsu atvienojumu gadījumā.",
           "staleness_threshold": "Ja entitāte nav mainījusi stāvokli šo minūšu skaitu, tā tiek atzīmēta kā degradēta. Iestatiet 0, lai atspējotu.",
@@ -284,7 +302,8 @@
     "entry_type": {
       "options": {
         "group": "Uzraudzīt entitātes",
-        "combined_group": "Apvienot grupas"
+        "combined_group": "Apvienot grupas",
+        "label_group": "Uzraudzīt pēc iezīmes"
       }
     },
     "combined_group_override": {

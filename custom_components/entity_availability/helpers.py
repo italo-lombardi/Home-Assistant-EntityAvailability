@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import (
     area_registry as ar,
@@ -17,6 +18,132 @@ from homeassistant.helpers import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from .models import DeviceState
+
+
+# Suffix → network type inference. Only unambiguous mappings (LQI = Zigbee).
+_SIGNAL_SUFFIX_NETWORK_TYPE: dict[str, str] = {
+    "_linkquality": "zigbee_lqi",
+    "_lqi": "zigbee_lqi",
+}
+
+
+def resolve_label_members(hass: HomeAssistant, label_ids: list[str]) -> list[str]:
+    """Resolve HA label_ids to a deduped, ordered list of monitored entity_ids.
+
+    Membership = union of entities carrying a label DIRECTLY and every entity of a
+    DEVICE carrying a label. Order is deterministic: direct entities first (in
+    registry order per label), then device-derived entities, dedup preserving first
+    sight.
+
+    Returns [] when label_ids is empty (a label group with no labels monitors
+    nothing). Note the empty-but-labels-set guard lives in the CALLER: an empty
+    result for a non-empty label set can be a transient registry hiccup and must not
+    trigger a history-pruning membership shrink.
+    """
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    seen: dict[str, None] = {}  # insertion-ordered set
+    for label_id in label_ids:
+        for ent in er.async_entries_for_label(ent_reg, label_id):
+            seen.setdefault(ent.entity_id, None)
+        for device in dr.async_entries_for_label(dev_reg, label_id):
+            for ent in er.async_entries_for_device(ent_reg, device.id):
+                seen.setdefault(ent.entity_id, None)
+    return list(seen)
+
+
+def infer_network_type(signal_entity_id: str) -> str:
+    """Infer network type from signal sensor entity_id suffix. 'generic' if unknown."""
+    for suffix, nt in _SIGNAL_SUFFIX_NETWORK_TYPE.items():
+        if signal_entity_id.endswith(suffix):
+            return nt
+    return "generic"
+
+
+def detect_signal_entity(hass: HomeAssistant, entity_id: str) -> str:
+    """Auto-detect signal sensor for an entity. Returns entity_id or empty string.
+
+    Detection order:
+    1. Device registry sibling with device_class=SIGNAL_STRENGTH
+    2. Naming convention on slug: *_linkquality, *_signal_strength, *_rssi, *_lqi, *_signal
+    3. Same as 2 but with known HA suffixes (_last_seen, _last_updated) stripped first
+    """
+    ent_reg = er.async_get(hass)
+    entry = ent_reg.async_get(entity_id)
+    if entry and entry.device_id:
+        for ent in er.async_entries_for_device(ent_reg, entry.device_id):
+            if ent.entity_id == entity_id:
+                continue
+            if (
+                ent.original_device_class == SensorDeviceClass.SIGNAL_STRENGTH
+                or ent.device_class == SensorDeviceClass.SIGNAL_STRENGTH
+            ):
+                return ent.entity_id
+
+    parts = entity_id.split(".", 1)
+    if len(parts) == 2:  # pragma: no branch
+        slug = parts[1]
+        signal_suffixes = (
+            "_linkquality",
+            "_signal_strength",
+            "_rssi",
+            "_lqi",
+            "_signal",
+        )
+        slugs_to_try = [slug]
+        for strip_suffix in ("_last_seen", "_last_updated"):
+            if slug.endswith(strip_suffix):
+                slugs_to_try.append(slug[: -len(strip_suffix)])
+                break
+        for base in slugs_to_try:
+            for suffix in signal_suffixes:
+                candidate = f"sensor.{base}{suffix}"
+                if hass.states.get(candidate):
+                    return candidate
+
+    return ""
+
+
+def detect_battery_entity(hass: HomeAssistant, entity_id: str) -> str:
+    """Auto-detect battery entity for a monitored entity. Returns entity_id or ''."""
+    ent_reg = er.async_get(hass)
+    entry = ent_reg.async_get(entity_id)
+    if entry and entry.device_id:
+        for ent in er.async_entries_for_device(ent_reg, entry.device_id):
+            if ent.entity_id == entity_id:
+                continue
+            if ent.original_device_class == SensorDeviceClass.BATTERY or (
+                ent.device_class == SensorDeviceClass.BATTERY
+            ):
+                return ent.entity_id
+
+    parts = entity_id.split(".", 1)
+    if len(parts) == 2:  # pragma: no branch
+        battery_entity = f"sensor.{parts[1]}_battery"
+        if hass.states.get(battery_entity):
+            return battery_entity
+
+    return ""
+
+
+def build_signal_map(
+    hass: HomeAssistant, entities: list[str]
+) -> dict[str, dict[str, str]]:
+    """Auto-build a signal entity map for entities with a detectable signal sensor.
+
+    Used at runtime for label-group members (no per-entity wizard input available).
+    Only entities whose signal sensor auto-detects get an entry; others are omitted
+    (no signal monitoring, same as an unmapped static-group entity).
+    """
+    signal_map: dict[str, dict[str, str]] = {}
+    for entity_id in entities:
+        sensor = detect_signal_entity(hass, entity_id)
+        if sensor:
+            signal_map[entity_id] = {
+                "sensor": sensor,
+                "network_type": infer_network_type(sensor),
+            }
+    return signal_map
 
 
 def resolve_area_name(hass: HomeAssistant, entity_id: str) -> str | None:

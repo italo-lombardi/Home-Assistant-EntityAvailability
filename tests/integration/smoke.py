@@ -485,6 +485,57 @@ def enable_entity(entity_id: str, timeout: int = 10) -> bool:
     return result["ok"]
 
 
+def ws_cmds(commands, timeout: int = 10):
+    """Run a sequence of websocket commands after auth; return list of result msgs.
+
+    commands: list of dicts WITHOUT an "id" (ids are assigned here). Each is sent
+    only after the previous one's result arrives, so later commands can depend on
+    earlier ones (e.g. create a label, then assign it). Returns the result message
+    for each command in order, or [] if websocket-client is unavailable. Used by the
+    label-group EC to create a label and set entity/device labels — there is no REST
+    route for the label registry, only websocket (mirrors enable_entity).
+    """
+    if not _WS_AVAILABLE:
+        return []
+    ws_url = (
+        BASE.replace("http://", "ws://").replace("https://", "wss://")
+        + "/api/websocket"
+    )
+    results: list = []
+    done = threading.Event()
+    state = {"i": 0}
+
+    def _send_next(ws):
+        if state["i"] >= len(commands):
+            done.set()
+            return
+        cmd = dict(commands[state["i"]])
+        cmd["id"] = 100 + state["i"]
+        ws.send(json.dumps(cmd))
+
+    def on_message(ws, raw):
+        try:
+            msg = json.loads(raw)
+        except Exception:
+            return
+        mtype = msg.get("type")
+        if mtype == "auth_required":
+            ws.send(json.dumps({"type": "auth", "access_token": TOKEN}))
+        elif mtype == "auth_ok":
+            _send_next(ws)
+        elif mtype == "result" and msg.get("id") == 100 + state["i"]:
+            results.append(msg)
+            state["i"] += 1
+            _send_next(ws)
+
+    ws = _ws_lib.WebSocketApp(ws_url, on_message=on_message, on_error=lambda *a: None)
+    t = threading.Thread(target=lambda: ws.run_forever(), daemon=True)
+    t.start()
+    done.wait(timeout)
+    ws.close()
+    return results
+
+
 # ---------------------------------------------------------------------------
 # Test tracking
 # ---------------------------------------------------------------------------
@@ -506,6 +557,26 @@ def chk(label, got, exp, note=""):
 # ---------------------------------------------------------------------------
 # Discovery — no hardcoded IDs
 # ---------------------------------------------------------------------------
+
+
+def discover_label_group(title):
+    """Return the LIVE monitored entity_ids of a label group by title, via the
+    diagnostics endpoint (coordinator.monitored_entities — reflects live label
+    re-resolution, unlike entry.data). Empty list if not found. Used by EC149."""
+    entries = api("GET", "/api/config/config_entries/entry")
+    entry = next(
+        (
+            e
+            for e in entries
+            if e["domain"] == "entity_availability" and e["title"] == title
+        ),
+        None,
+    )
+    if not entry:
+        return []
+    diag = api("GET", f"/api/diagnostics/config_entry/{entry['entry_id']}")
+    ents = (diag or {}).get("data", diag).get("entities", {}) if diag else {}
+    return list(ents.get("essential", [])) + list(ents.get("non_essential", []))
 
 
 def discover(group_filter=None):
@@ -8358,6 +8429,170 @@ for e in cfg['data']['entries']:
             {"group": ctx["title"]},
         )
         restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC149: label group — dynamic membership resolves live from HA labels.
+    # Isolated-only (EA_SMOKE_EC=149): creates a label + a label_group entry,
+    # proves (a) a labeled entity is monitored, (b) labeling a NEW entity makes it
+    # join live (no restart), (c) de-labeling drops it. Label registry has no REST
+    # route, so this uses websocket (ws_cmds); skip-loud if websocket-client absent.
+    # Self-cleans its config entry. Needs >= 2 real entities (reuses ctx group's).
+    # ------------------------------------------------------------------
+    if ec_enabled(149):
+        print(
+            "\n=== EC149: label group — live dynamic membership from HA labels ===",
+            flush=True,
+        )
+        if not _WS_AVAILABLE:
+            print("  EC149: SKIP — websocket-client not installed", flush=True)
+        elif len(ctx["entities"]) < 2:
+            print("  EC149: SKIP — need >= 2 entities in the fixture", flush=True)
+        else:
+            e_in = ctx["entities"][0]  # labeled up front → must be a member
+            e_join = ctx["entities"][1]  # labeled live → must join
+            lbl_name = "ea_smoke_ec149"
+            label_eid = None
+            try:
+                # 1) Create the label, capture its label_id.
+                res = ws_cmds(
+                    [{"type": "config/label_registry/create", "name": lbl_name}]
+                )
+                label_eid = (
+                    (res[0].get("result", {}) or {}).get("label_id") if res else None
+                )
+                if not (res and res[0].get("success") and label_eid):
+                    chk("EC149 label created via websocket", False, True, str(res))
+                else:
+                    # 2) Label the first entity BEFORE creating the group.
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_in,
+                                "labels": [label_eid],
+                            }
+                        ]
+                    )
+                    # 3) Provision a label_group entry via the config flow.
+                    r = api(
+                        "POST",
+                        "/api/config/config_entries/flow",
+                        {"handler": "entity_availability"},
+                    )
+                    fid = r["flow_id"]
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"entry_type": "label_group"},
+                    )
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"group_name": "EC149 Label Group", "labels": [label_eid]},
+                    )
+                    # monitoring step (defaults)
+                    api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                    # advanced step: battery 0 + signal off → creates directly
+                    r_done = api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "battery_threshold": 0,
+                            "signal_enabled": False,
+                            "availability_windows": ["today"],
+                            "recovery_window": 5,
+                            "use_device_names": False,
+                            "collapse_devices": False,
+                        },
+                    )
+                    lg_entry = (r_done.get("result") or {}).get("entry_id")
+                    if r_done.get("type") != "create_entry" or not lg_entry:
+                        chk("EC149 label_group entry created", False, True, str(r_done))
+                    else:
+                        wait(5)
+                        lg = next(
+                            (e for e in discover_label_group("EC149 Label Group")),
+                            None,
+                        )
+                        # (a) the pre-labeled entity is a member.
+                        chk(
+                            "EC149 pre-labeled entity is monitored",
+                            e_in in lg,
+                            True,
+                            f"members={lg}",
+                        )
+                        # (b) label a NEW entity live → it must join within a debounce.
+                        ws_cmds(
+                            [
+                                {
+                                    "type": "config/entity_registry/update",
+                                    "entity_id": e_join,
+                                    "labels": [label_eid],
+                                }
+                            ]
+                        )
+                        joined = wait_for(
+                            lambda: e_join in discover_label_group("EC149 Label Group"),
+                            True,
+                        )
+                        chk(
+                            "EC149 newly-labeled entity joins live (no restart)",
+                            joined,
+                            True,
+                            f"entity={e_join}",
+                        )
+                        # (c) de-label it → it must drop back out.
+                        ws_cmds(
+                            [
+                                {
+                                    "type": "config/entity_registry/update",
+                                    "entity_id": e_join,
+                                    "labels": [],
+                                }
+                            ]
+                        )
+                        dropped = wait_for(
+                            lambda: (
+                                e_join not in discover_label_group("EC149 Label Group")
+                            ),
+                            True,
+                        )
+                        chk(
+                            "EC149 de-labeled entity drops from the group",
+                            dropped,
+                            True,
+                            f"entity={e_join}",
+                        )
+                    # Clean up the label_group entry.
+                    if lg_entry:
+                        api(
+                            "DELETE",
+                            f"/api/config/config_entries/entry/{lg_entry}",
+                        )
+            except Exception as e:
+                chk("EC149 label-group flow completed", False, True, str(e))
+            finally:
+                # Always strip the test label from the entities and delete it so a
+                # re-run (or other ECs) start clean.
+                for _e in (e_in, e_join):
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": _e,
+                                "labels": [],
+                            }
+                        ]
+                    )
+                if label_eid:
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/label_registry/delete",
+                                "label_id": label_eid,
+                            }
+                        ]
+                    )
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed

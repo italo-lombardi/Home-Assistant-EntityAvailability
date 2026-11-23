@@ -28,6 +28,19 @@
           "combined_name": "合并组名"
         }
       },
+      "label_group": {
+        "title": "创建标签组",
+        "description": "监控所有带有某标签的实体。当你为实体和设备添加或移除标签时，成员会自动更新。",
+        "data": {
+          "group_name": "组名",
+          "labels": "要监控的标签",
+          "non_essential_label": "非必要标签"
+        },
+        "data_description": {
+          "labels": "凡是带有这些标签之一的实体——无论是直接带有，还是通过其设备带有——都会被监控。当你为实体和设备添加或移除标签时，组成员会自动重新解析。",
+          "non_essential_label": "同时带有此标签的成员会被视为非必要：在卡片上可见并计入总数，但不纳入任何 KPI（可用性 %、离线数量、MTBF、MTTR），也不会触发告警。留空则将所有成员都视为必要。"
+        }
+      },
       "monitoring": {
         "title": "监控设置",
         "description": "配置实体的监控方式。",
@@ -79,6 +92,7 @@
       "duplicate_entities": "同一实体不能同时出现在两个列表中。保存前请移除重复项。",
       "not_enough_groups_selected": "至少选择两个组进行合并。",
       "collapse_requires_device_names": "按设备合并实体需要先启用“显示设备名称”。",
+      "no_labels": "必须至少选择一个标签。",
       "already_configured": "已存在同名组。"
     },
     "abort": {
@@ -94,6 +108,8 @@
         "data": {
           "entities": "要监控的实体",
           "non_essential_entities": "非必要实体",
+          "labels": "要监控的标签",
+          "non_essential_label": "非必要标签",
           "bad_states": "视为离线的状态",
           "cooldown": "冷却时间（秒）",
           "staleness_threshold": "数据过期阈值（分钟，0 = 禁用）",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "要跟踪可用性的实体。这些实体会被完整监控，并纳入所有 KPI 和告警。",
           "non_essential_entities": "不影响组健康评分的实体。在卡片上可见并计入总数，但不纳入任何 KPI（可用性 %、离线数量、MTBF、MTTR），也不会触发告警。适用于允许停机的设备——如电视、打印机、季节性设备。",
+          "labels": "凡是带有这些标签之一的实体——无论是直接带有，还是通过其设备带有——都会被监控。当你为实体和设备添加或移除标签时，组成员会自动重新解析。",
+          "non_essential_label": "同时带有此标签的成员会被视为非必要：在卡片上可见并计入总数，但不纳入任何 KPI（可用性 %、离线数量、MTBF、MTTR），也不会触发告警。留空则将所有成员都视为必要。",
           "bad_states": "表示实体离线的状态（例如 unavailable、unknown）。",
           "cooldown": "实体需持续处于异常状态多长时间（秒）才会被标记为离线。可防止因短暂断连引发的误报。",
           "staleness_threshold": "若实体在指定分钟数内未发生状态变化，则将其标记为降级。设为 0 表示禁用。",
@@ -284,7 +302,8 @@
     "entry_type": {
       "options": {
         "group": "监控实体",
-        "combined_group": "合并组"
+        "combined_group": "合并组",
+        "label_group": "按标签监控"
       }
     },
     "combined_group_override": {

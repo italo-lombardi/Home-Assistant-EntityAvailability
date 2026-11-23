@@ -22,11 +22,14 @@ CONF_AVAILABILITY_WINDOWS = "availability_windows"
 CONF_USE_DEVICE_NAMES = "use_device_names"
 CONF_COLLAPSE_DEVICES = "collapse_devices"
 CONF_NON_ESSENTIAL_ENTITIES = "non_essential_entities"
+CONF_LABELS = "labels"
+CONF_NON_ESSENTIAL_LABEL = "non_essential_label"
 
 # Entry types
 CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_GROUP = "group"
 ENTRY_TYPE_COMBINED = "combined_group"
+ENTRY_TYPE_LABEL = "label_group"
 CONF_COMBINED_GROUPS = "combined_groups"
 CONF_COMBINED_GROUPS_OVERRIDES = "combined_groups_overrides"
 

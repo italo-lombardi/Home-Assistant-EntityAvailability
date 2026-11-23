@@ -28,6 +28,19 @@
           "combined_name": "Kombineret gruppenavn"
         }
       },
+      "label_group": {
+        "title": "Opret etiketgruppe",
+        "description": "Overvåg alle entiteter med en bestemt etiket. Medlemskabet opdateres automatisk, efterhånden som du tilføjer eller fjerner etiketten på entiteter og enheder.",
+        "data": {
+          "group_name": "Gruppenavn",
+          "labels": "Etiketter at overvåge",
+          "non_essential_label": "Ikke-essentiel etiket"
+        },
+        "data_description": {
+          "labels": "Alle entiteter med en af disse etiketter — direkte eller via deres enhed — overvåges. Gruppen genberegnes automatisk, når du tilføjer eller fjerner etiketter på entiteter og enheder.",
+          "non_essential_label": "Medlemmer, der også har denne etiket, behandles som ikke-essentielle: de vises og tælles med i totaler, men ekskluderes fra alle KPI'er (tilgængelighed %, offline antal, MTBF, MTTR) og advarsler. Lad stå tom for at behandle alle medlemmer som essentielle."
+        }
+      },
       "monitoring": {
         "title": "Overvågningsindstillinger",
         "description": "Konfigurer hvordan entiteter overvåges.",
@@ -77,6 +90,7 @@
     "error": {
       "empty_group_name": "Gruppenavnet kan ikke være tomt.",
       "no_entities": "Du skal vælge mindst én entitet.",
+      "no_labels": "Du skal vælge mindst én etiket.",
       "not_enough_groups_selected": "Vælg mindst to grupper at kombinere.",
       "duplicate_entities": "Den samme entitet kan ikke optræde på begge lister. Fjern dubletter, inden du gemmer.",
       "collapse_requires_device_names": "Saml entiteter efter enhed kræver, at „Vis enhedsnavne“ er slået til.",
@@ -95,6 +109,8 @@
         "data": {
           "entities": "Entiteter at overvåge",
           "non_essential_entities": "Ikke-essentielle entiteter",
+          "labels": "Etiketter at overvåge",
+          "non_essential_label": "Ikke-essentiel etiket",
           "bad_states": "Tilstande betragtet som offline",
           "cooldown": "Ventetid (sekunder)",
           "staleness_threshold": "Inaktivitetstærskel (minutter, 0 = deaktiveret)",
@@ -118,7 +134,9 @@
           "use_device_names": "Vis HA-enhedsnavnet i stedet for entitetens visningsnavn i sensor-tilstandene offline/genoprettet. Falder tilbage til visningsnavn for entiteter, der ikke er tilknyttet en enhed.",
           "collapse_devices": "Virker kun, når 'Vis enhedsnavne' er aktiveret. Når slået til, tælles flere entiteter, der tilhører den samme fysiske enhed, som én i hver sensorværdi, liste og hændelse (offline, lavt batteri, inaktiv, dårligt signal). Entiteter samles kun, når de deler den samme enhed, batteriniveau og signal — entiteter, der ikke er tilknyttet en enhed, samles aldrig, og entiteter på den samme enhed med forskelligt batteri- eller signalniveau forbliver separate. Tilgængelighed %, MTBF og MTTR forbliver pr. entitet. Bemærk: hvis denne gruppe er inkluderet i en kombineret gruppe, anvendes dens samlingsindstilling automatisk i den kombinerede visning — ingen ekstra konfiguration er nødvendig.",
           "staleness_use_last_updated": "Når slået til, nulstiller enhver opdatering fra entiteten — inklusive ændringer af kun attributter eller gentagne rapporter med samme værdi — inaktivitetstimeren. Når slået fra (standard), tæller kun en ændring i hovedtilstanden. Slå til for enheder, der rapporterer ofte, men sjældent ændrer værdi (f.eks. temperatur eller effekt, der holder sig stabil).",
-          "entities": "Enheder der overvåges for tilgængelighed. Disse er fuldt overvåget og inkluderet i alle KPI'er og advarsler."
+          "entities": "Enheder der overvåges for tilgængelighed. Disse er fuldt overvåget og inkluderet i alle KPI'er og advarsler.",
+          "labels": "Alle entiteter med en af disse etiketter — direkte eller via deres enhed — overvåges. Gruppen genberegnes automatisk, når du tilføjer eller fjerner etiketter på entiteter og enheder.",
+          "non_essential_label": "Medlemmer, der også har denne etiket, behandles som ikke-essentielle: de vises og tælles med i totaler, men ekskluderes fra alle KPI'er (tilgængelighed %, offline antal, MTBF, MTTR) og advarsler. Lad stå tom for at behandle alle medlemmer som essentielle."
         }
       },
       "combined_init": {
@@ -285,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Overvåg entiteter",
-        "combined_group": "Kombiner grupper"
+        "combined_group": "Kombiner grupper",
+        "label_group": "Overvåg via etiket"
       }
     },
     "combined_group_override": {
