@@ -648,10 +648,10 @@ def test_availability_sensor_dedup_catches_sub_percent_drift(
     tick = {"n": 0}
 
     def _drifting(_eid, _window, _now):
-        return 99.5 + (tick["n"] * 30 / 86400)
+        return (99.5 + (tick["n"] * 30 / 86400), 100.0)
 
     with (
-        patch.object(storage, "get_availability", side_effect=_drifting),
+        patch.object(storage, "availability_components", side_effect=_drifting),
         patch.object(sensor, "async_write_ha_state") as write,
     ):
         for i in range(1000):
@@ -685,11 +685,11 @@ def test_availability_sensor_dedup_writes_on_decimal_boundary(
     def _drifting(_eid, _window, _now):
         # Step 0.1 per tick, offset 0.03 so each value sits cleanly inside a
         # rounding bucket: 99.03 → 99.0, 99.13 → 99.1, 99.23 → 99.2, ...
-        return 99.03 + (tick["n"] * 0.1)
+        return (99.03 + (tick["n"] * 0.1), 100.0)
 
     states_seen: set[float] = set()
     with (
-        patch.object(storage, "get_availability", side_effect=_drifting),
+        patch.object(storage, "availability_components", side_effect=_drifting),
         patch.object(sensor, "async_write_ha_state") as write,
     ):
         for i in range(3):  # 99.03, 99.13, 99.23 → 99.0, 99.1, 99.2
