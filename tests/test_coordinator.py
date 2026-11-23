@@ -4622,6 +4622,780 @@ def test_reliability_stats_never_recovered_is_none(
     assert stats["offline_events"] == 1
 
 
+async def test_reliability_stats_in_progress_clamped_to_monitored(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F1: an outage whose offline_since (backdated to cooldown_start=last_changed)
+    predates monitored_since must book ONLY the in-window portion, not the
+    pre-monitoring span. Drives a real offline→recover with last_changed well before
+    the first poll and asserts total_offline_seconds is the in-window duration.
+
+    This exercises the recovery BOOKING clamp (the observable one) — the
+    reliability_stats in_progress clamp alone is masked by the max(uptime,0) floor
+    (uptime is already negative once an open outage's offline_since<monitored_since),
+    so the booking path is where F1's clamp actually changes a reported number.
+    """
+    hass = mock_hass
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    # Entity already unavailable, last_changed 2h BEFORE monitoring starts.
+    hass.states.async_set(
+        "binary_sensor.device_a",
+        STATE_UNAVAILABLE,
+        {"friendly_name": "device_a"},
+    )
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()  # first poll → monitored_since=t0
+            device_a = coord.device_states["binary_sensor.device_a"]
+            # offline_since backdated to 2h before monitoring began.
+            device_a.cooldown_start = t0 - timedelta(hours=2)
+            await coord._async_update_data()  # outage opens, offline_since=t0-2h
+        assert device_a.is_offline is True
+        assert device_a.offline_since == t0 - timedelta(hours=2)  # true start kept
+        # Recover 10 min after monitoring began.
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 + timedelta(minutes=10)):
+            await coord._async_update_data()
+    # Booked downtime = in-window [monitored_since=t0, recover=t0+10m] = 600s,
+    # NOT the 2h+10m from the true offline_since. Without the F1 clamp this would
+    # book ~7800s (the pre-monitoring 2h included).
+    assert device_a.total_offline_seconds == pytest.approx(600.0, abs=2.0)
+    # But the event payload downtime_seconds (last_downtime_seconds) stays FULL
+    # physical: ~2h10m from the true offline_since.
+    assert device_a.last_downtime_seconds == pytest.approx(7800.0, abs=3.0)
+
+
+def test_reliability_in_progress_no_clamp_when_offline_after_monitored(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F1 in_progress clamp, the non-binding side: when offline_since >=
+    monitored_since the clamp does NOT move eff_start (covers the
+    `monitored_since > eff_start` False branch in reliability_stats).
+    """
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    now = datetime.now(timezone.utc)
+    from custom_components.entity_availability.models import DeviceState
+
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        offline_event_count=2,
+        total_offline_seconds=600.0,
+        is_offline=True,
+        offline_since=now - timedelta(minutes=8),
+        monitored_since=now - timedelta(hours=10),
+    )
+    stats = coord.reliability_stats("binary_sensor.device_a", now)
+    # eff_start = offline_since (monitored_since older → clamp doesn't bind).
+    # in_progress = 480s. uptime = 36000 - 600 - 480 = 34920 → MTBF 9.7h.
+    assert stats["mttr_minutes"] == 10.0
+    assert stats["mtbf_hours"] == pytest.approx(9.7, abs=0.1)
+    # And the monitored_since-None short-circuit: in_progress still computes from
+    # offline_since, uptime stays 0 (no monitored window) → MTBF 0.0.
+    coord._device_states["binary_sensor.device_b"] = DeviceState(
+        entity_id="binary_sensor.device_b",
+        offline_event_count=2,
+        total_offline_seconds=600.0,
+        is_offline=True,
+        offline_since=now - timedelta(minutes=8),
+        monitored_since=None,
+    )
+    stats_b = coord.reliability_stats("binary_sensor.device_b", now)
+    assert stats_b["mttr_minutes"] == 10.0
+    assert stats_b["mtbf_hours"] == 0.0
+    # And the clamp-BINDS side in reliability_stats: offline_since predates
+    # monitored_since → eff_start moves up to monitored_since (covers the True
+    # branch of the in_progress clamp).
+    coord._device_states["binary_sensor.device_c"] = DeviceState(
+        entity_id="binary_sensor.device_c",
+        offline_event_count=2,
+        total_offline_seconds=600.0,
+        is_offline=True,
+        offline_since=now - timedelta(hours=2),
+        monitored_since=now - timedelta(minutes=30),
+    )
+    stats_c = coord.reliability_stats("binary_sensor.device_c", now)
+    # eff_start clamps to monitored_since: in_progress=1800s, uptime=1800-600-1800
+    # =-600→max(0)=0 → MTBF 0.0; MTTR still the completed 600s = 10.0.
+    assert stats_c["mttr_minutes"] == 10.0
+    assert stats_c["mtbf_hours"] == 0.0
+
+
+def test_reliability_mttr_never_negative(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F4 (:mttr output guard): a pre-negative total_offline_seconds (corrupt/
+    restored) must never surface as a negative MTTR — the max(0,...) guard holds.
+    """
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    now = datetime.now(timezone.utc)
+    from custom_components.entity_availability.models import DeviceState
+
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        offline_event_count=1,
+        total_offline_seconds=-500.0,
+        monitored_since=now - timedelta(hours=5),
+    )
+    stats = coord.reliability_stats("binary_sensor.device_a", now)
+    assert stats["mttr_minutes"] == 0.0
+
+
+async def test_reliability_backward_clock_floors_downtime(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F4: a backward wall-clock jump during an outage must book 0 downtime, not a
+    negative that would inflate MTBF / produce negative MTTR.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(seconds=61)
+            await coord._async_update_data()  # opens outage, offline_since≈t0-61s
+        # Clock jumps BACK 1h, then the device recovers.
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 - timedelta(hours=1)):
+            await coord._async_update_data()
+    assert device_a.offline_event_count == 1
+    assert device_a.total_offline_seconds == 0.0  # floored, not negative
+
+
+async def test_reliability_resuppress_keeps_original_onset(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2: re-suppressing an already-suppressed entity must NOT reset suppressed_at
+    (covers the `if not device.is_suppressed` false branch) — the original onset is
+    load-bearing for observed-portion booking.
+    """
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    t1 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with freeze_time(t1):
+        coord.suppress_entity("binary_sensor.device_a")
+    device_a = coord.device_states["binary_sensor.device_a"]
+    assert device_a.suppressed_at == t1
+    # Re-suppress (e.g. extend `until`) 1h later — onset must stay t1.
+    with freeze_time(t1 + timedelta(hours=1)):
+        coord.suppress_entity("binary_sensor.device_a", t1 + timedelta(hours=2))
+    assert device_a.suppressed_at == t1  # unchanged
+
+
+async def test_reliability_suppressed_recovery_books_observed(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2: a device that recovers while suppressed books the OBSERVED (pre-
+    suppression) portion of the outage and keeps its count — not a 0-second phantom.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(seconds=61)
+            await coord._async_update_data()  # outage opens, offline_since=t0-61s
+        assert device_a.is_offline is True
+        offline_since = device_a.offline_since
+        # Observed 10 min after t0, THEN suppress.
+        with freeze_time(t0 + timedelta(minutes=10)):
+            coord.suppress_entity("binary_sensor.device_a")
+        assert device_a.suppressed_at is not None
+        # Recovers while still suppressed, 2h later.
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 + timedelta(hours=2)):
+            await coord._async_update_data()
+    assert device_a.is_offline is False
+    assert device_a.offline_event_count == 1  # count kept
+    # Observed = suppressed_at(t0+10m) - eff_start. eff_start clamps to
+    # monitored_since (=t0, first poll) per F1 — the 61s before t0 is pre-monitoring
+    # and excluded — so observed = 10min = 600s, NOT the full 2h and NOT 661s.
+    assert device_a.total_offline_seconds == pytest.approx(600.0, abs=2.0)
+    assert offline_since is not None  # real backdated start kept on the device
+
+
+async def test_reliability_reset_mid_outage_carries_outage(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F3 (finish-B): reset_statistics while offline keeps the live outage as
+    post-reset outage #1 — its recovery books post-reset seconds against count=1,
+    not orphan seconds against count=0.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(seconds=61)
+            await coord._async_update_data()  # outage opens
+        assert device_a.is_offline is True
+        # Reset while offline.
+        with freeze_time(t0 + timedelta(minutes=5)):
+            coord.reset_statistics(["binary_sensor.device_a"])
+        assert device_a.offline_event_count == 1  # live outage carried as #1
+        assert device_a.total_offline_seconds == 0.0
+        # Recover 30 min after reset.
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 + timedelta(minutes=35)):
+            await coord._async_update_data()
+    # Post-reset outage #1 booked ~30 min, with its owning count.
+    assert device_a.offline_event_count == 1
+    assert device_a.total_offline_seconds == pytest.approx(1800.0, abs=2.0)
+    stats = coord.reliability_stats(
+        "binary_sensor.device_a", t0 + timedelta(minutes=35)
+    )
+    assert stats["mttr_minutes"] == 30.0  # not inflated by orphan seconds
+
+
+async def test_reliability_reset_then_recover_suppressed_drops_outage(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2↔F3 coupling: reset a down-AND-suppressed device, then it recovers still
+    suppressed. Its re-clocked outage was never observed unsuppressed → count
+    decrements (floored) back to 0, MTBF/MTTR return to None. No phantom.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(seconds=61)
+            await coord._async_update_data()  # outage opens
+        # Suppress AFTER the outage opened.
+        with freeze_time(t0 + timedelta(minutes=5)):
+            coord.suppress_entity("binary_sensor.device_a")
+        # Reset while down+suppressed: re-clocks offline_since to now, count=1.
+        with freeze_time(t0 + timedelta(minutes=10)):
+            coord.reset_statistics(["binary_sensor.device_a"])
+        assert device_a.offline_event_count == 1
+        # Recover while still suppressed. suppressed_at (t0+5m) <= re-clocked
+        # offline_since (t0+10m) → entirely-within-suppression → decrement.
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 + timedelta(minutes=30)):
+            await coord._async_update_data()
+    assert device_a.offline_event_count == 0  # floored decrement, no phantom
+    assert device_a.total_offline_seconds == 0.0
+    stats = coord.reliability_stats(
+        "binary_sensor.device_a", t0 + timedelta(minutes=30)
+    )
+    assert stats["mttr_minutes"] is None
+
+
+async def test_reliability_recover_after_suppression_expires_books_observed_only(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Finding 1 (expiry variant): outage opens, suppression starts mid-outage,
+    suppression EXPIRES while still offline, then the device recovers. Only the
+    observed portions [open, suppress] + [expiry, recover] are booked — the
+    suppressed span is excluded (the normal-recovery path must NOT book it).
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()  # monitored_since=t0
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(
+                seconds=61
+            )  # offline_since backdated
+            await coord._async_update_data()  # outage opens
+        assert device_a.is_offline is True
+        # Suppress at t0+5m, expiring at t0+15m.
+        with freeze_time(t0 + timedelta(minutes=5)):
+            coord.suppress_entity("binary_sensor.device_a", t0 + timedelta(minutes=15))
+        # A tick at t0+20m: suppression has expired; device still unavailable →
+        # expiry books observed pre-portion [t0, t0+5m]=300s + advances the marker.
+        with freeze_time(t0 + timedelta(minutes=20)):
+            await coord._async_update_data()
+        assert device_a.is_suppressed is False
+        assert device_a.total_offline_seconds == pytest.approx(300.0, abs=5.0)
+        assert device_a.reliability_booked_until is not None
+        # Still offline post-expiry; recover at t0+25m → books remainder
+        # [t0+20m, t0+25m]=300s. Suppressed [t0+5m, t0+20m] excluded.
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 + timedelta(minutes=25)):
+            await coord._async_update_data()
+    assert device_a.is_offline is False
+    assert device_a.offline_event_count == 1  # one event throughout
+    # 300 (pre) + 300 (post) = 600, NOT the full 25min (1500s) incl suppressed span.
+    assert device_a.total_offline_seconds == pytest.approx(600.0, abs=15.0)
+    assert device_a.reliability_booked_until is None  # cleared at recovery
+
+
+async def test_reliability_recover_after_unsuppress_books_observed_only(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Finding 1 (explicit-unsuppress variant): same as the expiry case but
+    suppression is lifted via unsuppress_entity (out-of-loop) while still offline.
+    The pre-portion is booked at unsuppress; the suppressed span is excluded.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(
+                seconds=61
+            )  # offline_since backdated
+            await coord._async_update_data()  # outage opens
+        with freeze_time(t0 + timedelta(minutes=5)):
+            coord.suppress_entity("binary_sensor.device_a")  # suppressed_at=t0+5m
+        # Unsuppress at t0+20m while still offline → books [t0, t0+5m]=300s.
+        with freeze_time(t0 + timedelta(minutes=20)):
+            coord.unsuppress_entity("binary_sensor.device_a")
+        assert device_a.total_offline_seconds == pytest.approx(300.0, abs=5.0)
+        assert device_a.reliability_booked_until is not None
+        assert device_a.offline_since == t0 - timedelta(seconds=61)  # true start kept
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 + timedelta(minutes=25)):
+            await coord._async_update_data()  # books [t0+20m, t0+25m]=300s
+    assert device_a.offline_event_count == 1
+    assert device_a.total_offline_seconds == pytest.approx(600.0, abs=15.0)
+    # Event payload downtime_seconds stays FULL physical (t0-61s..t0+25m ≈ 1561s).
+    assert device_a.last_downtime_seconds == pytest.approx(1561.0, abs=15.0)
+
+
+async def test_reliability_booked_until_survives_restart(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Finding 1 persist: a restart AFTER a mid-outage unsuppress (pre-portion
+    booked, device still offline) restores reliability_booked_until so the post-
+    restart recovery books only the remainder, never re-adding the pre-portion.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    onset = "2026-01-01T12:00:00+00:00"
+    booked = "2026-01-01T12:20:00+00:00"
+    stored = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": True,
+                "offline_since": onset,
+                "monitored_since": onset,
+                "reliability_booked_until": booked,  # pre-portion already booked
+                "offline_event_count": 1,
+                "total_offline_seconds": 300.0,  # the booked pre-portion
+            }
+        },
+    }
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored)
+    coord._store.async_save = AsyncMock()
+    await coord._async_load_storage()
+    device_a = coord._device_states["binary_sensor.device_a"]
+    assert device_a.reliability_booked_until == datetime.fromisoformat(booked)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord._last_update = None
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(datetime(2026, 1, 1, 12, 25, 0, tzinfo=timezone.utc)):
+            await coord._async_update_data()  # recover → books [12:20, 12:25]=300s
+    # 300 restored + 300 remainder = 600; the pre-portion is NOT re-walked from
+    # offline_since (which would give 300 + 1500 = 1800).
+    assert device_a.total_offline_seconds == pytest.approx(600.0, abs=15.0)
+
+
+async def test_reliability_multi_cycle_resuppress_no_double_book(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Finding 1 multi-cycle: within ONE outage, suppress→unsuppress→re-suppress→
+    recover-while-suppressed must book only the two OBSERVED gaps, never re-walking
+    the first observed span or the first suppressed span. Reds without the
+    reliability_booked_until fence on the observed computation (both the helper and
+    the in-loop suppressed-recovery block).
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()  # monitored_since=t0
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(
+                seconds=61
+            )  # offline_since backdated
+            await coord._async_update_data()  # outage opens
+        assert device_a.is_offline is True
+        # Cycle 1: suppress t0+5m, unsuppress t0+10m (books observed [t0, t0+5m]=300).
+        with freeze_time(t0 + timedelta(minutes=5)):
+            coord.suppress_entity("binary_sensor.device_a")
+        with freeze_time(t0 + timedelta(minutes=10)):
+            coord.unsuppress_entity("binary_sensor.device_a")
+        assert device_a.total_offline_seconds == pytest.approx(300.0, abs=5.0)
+        # Cycle 2: re-suppress t0+20m (observed gap [t0+10m, t0+20m]=600), then
+        # recover WHILE suppressed at t0+30m. The in-loop block must book only
+        # [booked_until=t0+10m, suppressed_at=t0+20m]=600, NOT [t0, t0+20m].
+        with freeze_time(t0 + timedelta(minutes=20)):
+            coord.suppress_entity("binary_sensor.device_a")
+        hass.states.async_set("binary_sensor.device_a", STATE_ON)
+        with freeze_time(t0 + timedelta(minutes=30)):
+            await coord._async_update_data()
+    assert device_a.is_offline is False
+    assert device_a.offline_event_count == 1
+    # Observed only: [t0,t0+5m]=300 + [t0+10m,t0+20m]=600 = 900. The suppressed
+    # spans [t0+5m,t0+10m] and [t0+20m,t0+30m] excluded. Without the fence the
+    # cycle-2 booking would re-walk from t0 → 300 + 1200 = 1500 (wrong).
+    assert device_a.total_offline_seconds == pytest.approx(900.0, abs=15.0)
+
+
+async def test_reliability_multi_cycle_second_unsuppress_no_double_book(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Finding 1 multi-cycle via the HELPER path: suppress→unsuppress→re-suppress→
+    unsuppress (both ends via unsuppress_entity) must fence the SECOND helper
+    booking by reliability_booked_until — covers the helper's
+    `reliability_booked_until > eff_start` True branch.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(seconds=61)
+            await coord._async_update_data()  # outage opens
+        assert device_a.is_offline is True
+        # Cycle 1: suppress t0+5m → unsuppress t0+10m (books [t0, t0+5m]=300).
+        with freeze_time(t0 + timedelta(minutes=5)):
+            coord.suppress_entity("binary_sensor.device_a")
+        with freeze_time(t0 + timedelta(minutes=10)):
+            coord.unsuppress_entity("binary_sensor.device_a")
+        assert device_a.total_offline_seconds == pytest.approx(300.0, abs=5.0)
+        # Cycle 2: re-suppress t0+20m → unsuppress t0+25m. The helper's SECOND
+        # booking must start from reliability_booked_until (t0+10m), not t0, so it
+        # books only [t0+10m, t0+20m]=600 — exercising the helper clamp's True side.
+        with freeze_time(t0 + timedelta(minutes=20)):
+            coord.suppress_entity("binary_sensor.device_a")
+        with freeze_time(t0 + timedelta(minutes=25)):
+            coord.unsuppress_entity("binary_sensor.device_a")
+    # 300 + 600 = 900; without the helper fence the 2nd booking re-walks from t0 →
+    # [t0, t0+20m]=1200 → 300+1200=1500 (wrong, re-adds [t0,t0+10m]).
+    assert device_a.total_offline_seconds == pytest.approx(900.0, abs=15.0)
+    assert device_a.reliability_booked_until == t0 + timedelta(minutes=25)
+
+
+async def test_reliability_unsuppress_observed_nonpositive_no_double_book(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """Finding 1 helper edge: unsuppress while offline when suppressed_at <= eff_start
+    (reset re-clocked offline_since past the suppression onset) books NOTHING but
+    still advances the marker — covers the observed<=0 branch and the
+    monitored_since-not-greater clamp side of _book_observed_pre_suppression.
+    """
+    from custom_components.entity_availability.models import DeviceState
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(mock_hass, mock_config_entry)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    # offline_since AFTER monitored_since (so the monitored_since>eff_start clamp is
+    # False), and suppressed_at BEFORE offline_since (so observed<=0).
+    coord._device_states["binary_sensor.device_a"] = DeviceState(
+        entity_id="binary_sensor.device_a",
+        is_offline=True,
+        offline_since=t0 + timedelta(minutes=10),
+        monitored_since=t0,
+        suppressed_at=t0 + timedelta(minutes=5),
+        is_suppressed=True,
+        offline_event_count=1,
+        total_offline_seconds=0.0,
+    )
+    coord._suppressed["binary_sensor.device_a"] = None
+    with freeze_time(t0 + timedelta(minutes=20)):
+        coord.unsuppress_entity("binary_sensor.device_a")
+    d = coord._device_states["binary_sensor.device_a"]
+    assert d.total_offline_seconds == 0.0  # observed<=0 → nothing booked
+    assert d.reliability_booked_until == t0 + timedelta(minutes=20)  # marker advanced
+    assert d.suppressed_at is None  # cleared
+
+
+async def test_reliability_suppressed_at_survives_restart(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2 persist/restore + :576 gate: the suppression onset survives a restart, so
+    observed-portion booking after restart uses the TRUE onset, not restart-time.
+    """
+    hass = mock_hass
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    device_states_captured: dict = {}
+
+    async def _capture_save(self) -> None:
+        for eid, device in self._device_states.items():
+            device_states_captured[eid] = {
+                "is_offline": device.is_offline,
+                "offline_since": device.offline_since.isoformat()
+                if device.offline_since
+                else None,
+                "monitored_since": device.monitored_since.isoformat()
+                if device.monitored_since
+                else None,
+                "suppressed_at": device.suppressed_at.isoformat()
+                if device.suppressed_at
+                else None,
+                "offline_event_count": device.offline_event_count,
+                "total_offline_seconds": device.total_offline_seconds,
+            }
+
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", _capture_save
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.cooldown_start = t0 - timedelta(seconds=61)
+            await coord._async_update_data()  # outage opens at t0-61s
+        with freeze_time(t0 + timedelta(minutes=10)):
+            coord.suppress_entity("binary_sensor.device_a")  # onset = t0+10m
+        await coord._async_save_storage()
+    # suppressed_at persisted + in the gate-written dict.
+    assert device_states_captured["binary_sensor.device_a"]["suppressed_at"] is not None
+    restored_onset = datetime.fromisoformat(
+        device_states_captured["binary_sensor.device_a"]["suppressed_at"]
+    )
+    assert restored_onset == t0 + timedelta(minutes=10)
+
+
+async def test_reliability_restore_prefers_persisted_onset(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2 restore: a persisted suppressed_at is read back and PREFERRED over the
+    :968 fallback — covers the restore read and the `suppressed_at is None` False
+    branch (device rebuilt with the onset already set, so reapply does NOT re-stamp).
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_UNAVAILABLE)
+    onset = "2026-01-01T12:10:00+00:00"
+    stored = {
+        "availability": {},
+        "suppressed": {"binary_sensor.device_a": None},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": True,
+                "offline_since": "2026-01-01T12:00:00+00:00",
+                "monitored_since": "2026-01-01T12:00:00+00:00",
+                "suppressed_at": onset,
+                "offline_event_count": 1,
+                "total_offline_seconds": 0.0,
+            }
+        },
+    }
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored)
+    coord._store.async_save = AsyncMock()
+    await coord._async_load_storage()
+    device_a = coord._device_states["binary_sensor.device_a"]
+    assert device_a.suppressed_at == datetime.fromisoformat(onset)
+    # A refresh re-applies suppression (is_suppressed was not persisted on the
+    # device) but must NOT overwrite the restored onset with `now`.
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord._last_update = None
+        with freeze_time(datetime(2026, 1, 1, 13, 0, 0, tzinfo=timezone.utc)):
+            await coord._async_update_data()
+    assert device_a.is_suppressed is True
+    assert device_a.suppressed_at == datetime.fromisoformat(onset)  # kept, not now
+
+
+async def test_reliability_restore_suppressed_at_naive_and_missing(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2 restore branches: a tz-naive persisted suppressed_at gets UTC attached,
+    and a device row with no suppressed_at key restores it as None — covers the
+    tzinfo guard and the missing-key else of the suppressed_at restore block. Same
+    three variants for reliability_booked_until (Finding 1 fix persist).
+    """
+    hass = mock_hass
+    stored = {
+        "availability": {},
+        "suppressed": {},
+        "device_states": {
+            "binary_sensor.device_a": {
+                "is_offline": False,
+                "monitored_since": "2026-01-01T12:00:00+00:00",
+                "suppressed_at": "2026-01-01T12:10:00",  # NAIVE (no offset)
+                "reliability_booked_until": "2026-01-01T12:20:00",  # NAIVE
+                "offline_event_count": 0,
+                "total_offline_seconds": 0.0,
+            },
+            "binary_sensor.device_b": {
+                "is_offline": False,
+                "monitored_since": "2026-01-01T12:00:00+00:00",
+                # no suppressed_at / reliability_booked_until keys at all
+                "offline_event_count": 0,
+                "total_offline_seconds": 0.0,
+            },
+            "binary_sensor.device_c": {
+                "is_offline": False,
+                "monitored_since": "2026-01-01T12:00:00+00:00",
+                "suppressed_at": "not-a-timestamp",  # malformed → except → None
+                "reliability_booked_until": "also-bad",  # malformed → except → None
+                "offline_event_count": 0,
+                "total_offline_seconds": 0.0,
+            },
+        },
+    }
+    coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+    coord._store = MagicMock()
+    coord._store.async_load = AsyncMock(return_value=stored)
+    coord._store.async_save = AsyncMock()
+    await coord._async_load_storage()
+    a = coord._device_states["binary_sensor.device_a"]
+    b = coord._device_states["binary_sensor.device_b"]
+    c = coord._device_states["binary_sensor.device_c"]
+    assert a.suppressed_at == datetime(2026, 1, 1, 12, 10, 0, tzinfo=timezone.utc)
+    assert b.suppressed_at is None
+    assert c.suppressed_at is None  # malformed value swallowed by except
+    assert a.reliability_booked_until == datetime(
+        2026, 1, 1, 12, 20, 0, tzinfo=timezone.utc
+    )
+    assert b.reliability_booked_until is None
+    assert c.reliability_booked_until is None  # malformed swallowed by except
+
+
+async def test_reliability_cold_restore_fallback_stamps_onset(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2 fallback: a device suppressed in self._suppressed but with NO persisted
+    suppressed_at (suppression predates the field) gets stamped `now` on the cold
+    re-apply — covers the `if device.suppressed_at is None` fallback branch.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_ON)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        # Suppression known in the map, but no suppressed_at persisted on the device.
+        coord._suppressed["binary_sensor.device_a"] = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+    assert device_a.is_suppressed is True
+    assert device_a.suppressed_at == t0  # fallback stamp used restart-time
+
+
+async def test_reliability_suppressed_recovery_no_offline_since(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2 defensive: a device is_offline=True but suppressed_at=None (corrupt
+    restore) recovering while suppressed must not crash and must book nothing —
+    covers the `suppressed_at is not None` false branch (observed = 0.0).
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_ON)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        coord._suppressed["binary_sensor.device_a"] = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.is_offline = True
+            device_a.offline_since = t0 - timedelta(minutes=5)
+            device_a.offline_event_count = 1
+            device_a.suppressed_at = None  # corrupt: suppressed but no onset stamp
+            await coord._async_update_data()  # suppressed recovery, suppressed_at None
+    assert device_a.is_offline is False
+    assert device_a.total_offline_seconds == 0.0  # observed=0.0, nothing booked
+    assert device_a.offline_event_count == 0  # observed<=0 → decrement path
+
+
+async def test_reliability_suppressed_recovery_offline_since_none(
+    mock_hass: HomeAssistant, mock_config_entry
+) -> None:
+    """F2 defensive: is_offline=True with offline_since=None (corrupt restore)
+    recovering while suppressed skips booking entirely and clears the flag —
+    covers the `if device.offline_since is not None` false branch.
+    """
+    hass = mock_hass
+    hass.states.async_set("binary_sensor.device_a", STATE_ON)
+    t0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, mock_config_entry)
+        coord._last_update = None
+        coord._suppressed["binary_sensor.device_a"] = None
+        with freeze_time(t0):
+            await coord._async_update_data()
+            device_a = coord.device_states["binary_sensor.device_a"]
+            device_a.is_offline = True
+            device_a.offline_since = None  # corrupt: offline flag without a start
+            await coord._async_update_data()
+    assert device_a.is_offline is False
+    assert device_a.total_offline_seconds == 0.0
+
+
 def test_reset_statistics(mock_hass: HomeAssistant, mock_config_entry) -> None:
     """reset_statistics clears buckets and counters, marks dirty."""
     with patch.object(
@@ -4769,7 +5543,9 @@ def test_reset_statistics_skips_non_coordinator(
 def test_reset_statistics_offline_entity_restarts_clock(
     mock_hass: HomeAssistant, mock_config_entry
 ) -> None:
-    """Resetting an offline entity restarts its downtime clock (no pre-reset accrual)."""
+    """Resetting an offline entity restarts its downtime clock and carries the live
+    outage as post-reset outage #1 (count=1), so its eventual recovery books
+    post-reset seconds against an owning event (F3 finish-B)."""
     from custom_components.entity_availability.models import DeviceState
 
     with patch.object(
@@ -4788,7 +5564,7 @@ def test_reset_statistics_offline_entity_restarts_clock(
     d = coord._device_states["binary_sensor.device_a"]
     assert d.is_offline is True  # still offline — not a fake recovery
     assert d.total_offline_seconds == 0.0
-    assert d.offline_event_count == 0
+    assert d.offline_event_count == 1  # live outage carried as post-reset #1
     assert d.offline_since is not None
     assert d.offline_since > old  # clock restarted to ~now
 

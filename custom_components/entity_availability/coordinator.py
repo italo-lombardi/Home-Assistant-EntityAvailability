@@ -234,8 +234,14 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         _LOGGER.debug("[%s] Suppressing %s until %s", self.group_name, entity_id, until)
         if entity_id not in self._device_states:
             self._device_states[entity_id] = DeviceState(entity_id=entity_id)
-        self._device_states[entity_id].is_suppressed = True
-        self._device_states[entity_id].suppress_until = until
+        device = self._device_states[entity_id]
+        # Stamp suppression onset once, on the False→True edge only, so re-suppressing
+        # an already-suppressed entity (or extending `until`) doesn't reset the clock
+        # and lose the real start. Feeds observed-portion booking in reliability.
+        if not device.is_suppressed:
+            device.suppressed_at = datetime.now(timezone.utc)
+        device.is_suppressed = True
+        device.suppress_until = until
         self._suppressed[entity_id] = until
         self._dirty = True
         self._invalidate_collapse()
@@ -244,11 +250,54 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         """Resume monitoring for an entity."""
         _LOGGER.debug("[%s] Unsuppressing %s", self.group_name, entity_id)
         if entity_id in self._device_states:
-            self._device_states[entity_id].is_suppressed = False
-            self._device_states[entity_id].suppress_until = None
+            device = self._device_states[entity_id]
+            # If the device is STILL offline when suppression is lifted, book the
+            # observed pre-suppression portion of the ongoing outage NOW, before
+            # clearing suppressed_at — otherwise the eventual normal recovery would
+            # book the whole [offline_since, now] span, counting the suppressed
+            # (un-observed) interval as downtime (would disagree with availability%).
+            self._book_observed_pre_suppression(device, datetime.now(timezone.utc))
+            device.is_suppressed = False
+            device.suppress_until = None
+            device.suppressed_at = None
         self._suppressed.pop(entity_id, None)
         self._dirty = True
         self._invalidate_collapse()
+
+    def _book_observed_pre_suppression(
+        self, device: DeviceState, now: datetime
+    ) -> None:
+        """Book an offline device's observed pre-suppression downtime at the moment
+        suppression ends (expiry or unsuppress) while it is still offline.
+
+        Books `[eff_start, suppressed_at]` (observed, pre-suppression) into
+        total_offline_seconds and advances reliability_booked_until to `now`, so the
+        eventual normal recovery books only the post-suppression remainder and the
+        suppressed span is never counted. No-op if the device isn't in a booked
+        outage-while-suppressed state. offline_since is NOT touched (card/display/
+        payload keep the true physical start); the count is unchanged (one event).
+        """
+        if not (device.is_offline and device.offline_since and device.suppressed_at):
+            return
+        eff_start = device.offline_since
+        if device.monitored_since and device.monitored_since > eff_start:
+            eff_start = device.monitored_since
+        # Multi-cycle: a prior suppress→unsuppress cycle of THIS outage already
+        # booked up to reliability_booked_until — start from there so a second
+        # cycle books only the newly-observed [booked_until, suppressed_at] and
+        # never re-walks the earlier observed or suppressed spans.
+        if (
+            device.reliability_booked_until
+            and device.reliability_booked_until > eff_start
+        ):
+            eff_start = device.reliability_booked_until
+        observed = (device.suppressed_at - eff_start).total_seconds()
+        if observed > 0:
+            device.total_offline_seconds += observed
+        # Mark progress to `now` even when observed<=0 so the post-suppression
+        # remainder (booked at recovery) starts here, never re-walking the
+        # suppressed span.
+        device.reliability_booked_until = now
 
     def _invalidate_collapse(self) -> None:
         """Drop the per-tick collapse memo and bump the generation.
@@ -283,11 +332,17 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             return {"mtbf_hours": None, "mttr_minutes": None, "offline_events": 0}
         # An open outage bumped the count at OPEN but has booked no seconds yet.
         completed = device.offline_event_count - (1 if device.is_offline else 0)
-        in_progress = (
-            (now - device.offline_since).total_seconds()
-            if device.is_offline and device.offline_since
-            else 0.0
-        )
+        # Clamp the outage start to the monitored window (F1: an outage can't count as
+        # downtime before we began watching) and floor at 0 (F4: a backward wall-clock
+        # jump must never make in_progress negative and inflate uptime). Uses a LOCAL
+        # effective start — never mutate device.offline_since (the bucket path and live
+        # display read the real, cooldown-backdated value).
+        in_progress = 0.0
+        if device.is_offline and device.offline_since:
+            eff_start = device.offline_since
+            if device.monitored_since and device.monitored_since > eff_start:
+                eff_start = device.monitored_since
+            in_progress = max(0.0, (now - eff_start).total_seconds())
         if completed <= 0:
             return {
                 "mtbf_hours": None,
@@ -308,8 +363,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             # MTTR = mean time to REPAIR = mean of COMPLETED repairs only. The
             # open outage isn't repaired yet, so its elapsed time is NOT in the
             # numerator (that would bias MTTR); only total_offline_seconds
-            # (recovery-booked) counts, divided by the completed count.
-            "mttr_minutes": round(device.total_offline_seconds / completed / 60, 1),
+            # (recovery-booked) counts, divided by the completed count. max(0, …) is
+            # belt-and-braces: the booking floor keeps total_offline_seconds ≥0, but
+            # a corrupt/restored negative must never surface as a negative MTTR (F4).
+            "mttr_minutes": round(
+                max(0.0, device.total_offline_seconds) / completed / 60, 1
+            ),
             "offline_events": device.offline_event_count,
         }
 
@@ -319,6 +378,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         entity_ids=None resets every monitored entity in this group, including
         suppressed ones — a group reset means "forget this group's history",
         and suppression only gates alerting/averaging, not whether history exists.
+
+        "History" is the PAST: completed outages, booked downtime, availability
+        buckets — all cleared. A device that is offline RIGHT NOW is the present,
+        not history: its live outage carries across the reset as post-reset outage
+        #1 (offline_event_count=1), re-clocked so only post-reset downtime books.
         """
         targets = entity_ids if entity_ids is not None else list(self._entities)
         now = datetime.now(timezone.utc)
@@ -330,12 +394,19 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             device.offline_event_count = 0
             device.total_offline_seconds = 0.0
             device.last_downtime_seconds = None
+            device.reliability_booked_until = None
             device.monitored_since = now
-            # If offline right now, restart the downtime clock so the eventual
-            # recovery only accrues post-reset downtime — otherwise pre-reset
-            # time would be added against a zeroed counter and lost/skewed.
+            # If offline right now, keep the live outage as post-reset outage #1:
+            # restart the downtime clock (so only post-reset time books) AND set the
+            # count to 1 so the eventual recovery's booked seconds have an owning
+            # event. Without count=1 the recovery books seconds against a zeroed
+            # counter → orphan seconds that inflate MTTR once a later outage makes
+            # completed>0. (If the device is also suppressed, its recovery takes the
+            # suppressed-recovery path, which books the observed portion and keeps
+            # the count consistent — see that block.)
             if device.is_offline and device.offline_since is not None:
                 device.offline_since = now
+                device.offline_event_count = 1
         _LOGGER.debug("[%s] Reset statistics for %s", self.group_name, targets)
         self._dirty = True
         # Bump the collapse generation so per-tick memos keyed on it (the
@@ -481,6 +552,28 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     except (ValueError, TypeError):
                         device.monitored_since = None
                     try:
+                        raw_sa = ds.get("suppressed_at")
+                        if raw_sa:
+                            ts = datetime.fromisoformat(raw_sa)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            device.suppressed_at = ts
+                        else:
+                            device.suppressed_at = None
+                    except (ValueError, TypeError):
+                        device.suppressed_at = None
+                    try:
+                        raw_bu = ds.get("reliability_booked_until")
+                        if raw_bu:
+                            ts = datetime.fromisoformat(raw_bu)
+                            if ts.tzinfo is None:
+                                ts = ts.replace(tzinfo=timezone.utc)
+                            device.reliability_booked_until = ts
+                        else:
+                            device.reliability_booked_until = None
+                    except (ValueError, TypeError):
+                        device.reliability_booked_until = None
+                    try:
                         raw_lc = ds.get("last_changed")
                         if raw_lc:
                             ts = datetime.fromisoformat(raw_lc)
@@ -577,6 +670,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 or device.monitored_since is not None
                 or device.is_low_battery
                 or device.last_changed is not None
+                or device.suppressed_at is not None
             ):
                 device_states_data[entity_id] = {
                     "is_offline": device.is_offline,
@@ -591,6 +685,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     else None,
                     "monitored_since": device.monitored_since.isoformat()
                     if device.monitored_since
+                    else None,
+                    "suppressed_at": device.suppressed_at.isoformat()
+                    if device.suppressed_at
+                    else None,
+                    "reliability_booked_until": device.reliability_booked_until.isoformat()
+                    if device.reliability_booked_until
                     else None,
                     "offline_event_count": device.offline_event_count,
                     "total_offline_seconds": device.total_offline_seconds,
@@ -925,6 +1025,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             if entity_id in self._suppressed and not device.is_suppressed:
                 device.is_suppressed = True
                 device.suppress_until = self._suppressed[entity_id]
+                # Fallback onset stamp: the persisted suppressed_at (restored above)
+                # is the TRUE onset and is preferred. Only stamp `now` when none was
+                # persisted (e.g. suppression predates this field) — otherwise a cold
+                # restore would reset the clock to restart-time and over-count the
+                # observed outage window.
+                if device.suppressed_at is None:
+                    device.suppressed_at = now
 
             # Check suppression expiry
             if (
@@ -935,8 +1042,13 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 _LOGGER.debug(
                     "[%s] Suppression expired for %s", self.group_name, entity_id
                 )
+                # Book the observed pre-suppression portion now (if still offline),
+                # before clearing suppressed_at — else the normal recovery below
+                # would book the suppressed span too (Finding 1).
+                self._book_observed_pre_suppression(device, now)
                 device.is_suppressed = False
                 device.suppress_until = None
+                device.suppressed_at = None
                 self._suppressed.pop(entity_id, None)
                 self._dirty = True
 
@@ -947,13 +1059,63 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                 device.is_stale = False
                 device.is_low_battery = False
                 # Clear stale offline flag if entity recovered while suppressed;
-                # done silently — no event fires for a suppressed transition.
+                # done silently — no event fires for a suppressed transition. Book
+                # the OBSERVED (pre-suppression) portion of the outage into the
+                # reliability counters so a suppressed-spanning outage isn't a 0-second
+                # phantom repair (which would drag MTTR to 0) — but NOT the suppressed
+                # portion, since the availability%/bucket path records nothing while
+                # suppressed (counting it would make MTTR disagree with availability%).
                 is_bad = state is None or state.state in self._bad_states
                 if not is_bad and device.is_offline:
+                    if device.offline_since is not None:
+                        # Observed window = [eff_start, suppressed_at]. eff_start
+                        # clamps to monitored_since (F1) and the delta floors at 0
+                        # (F4). suppressed_at None (shouldn't happen while suppressed,
+                        # but be safe) ⇒ treat as no observed downtime.
+                        eff_start = device.offline_since
+                        if (
+                            device.monitored_since
+                            and device.monitored_since > eff_start
+                        ):
+                            eff_start = device.monitored_since
+                        # Multi-cycle: if an earlier observed portion of THIS outage
+                        # was already booked (a prior suppress→unsuppress cycle set
+                        # reliability_booked_until), start from there so we don't
+                        # re-book it or re-walk the earlier suppressed span (mirrors
+                        # the normal-recovery clamp).
+                        if (
+                            device.reliability_booked_until
+                            and device.reliability_booked_until > eff_start
+                        ):
+                            eff_start = device.reliability_booked_until
+                        if device.suppressed_at is not None:
+                            observed = (
+                                device.suppressed_at - eff_start
+                            ).total_seconds()
+                        else:
+                            observed = 0.0
+                        if observed > 0:
+                            # Outage opened and was observed before suppression began:
+                            # a real (partial) outage. Book the observed seconds; the
+                            # count bumped at OPEN stays as its owning event.
+                            device.last_downtime_seconds = observed
+                            device.total_offline_seconds += observed
+                        else:
+                            # Outage never observed unsuppressed (suppressed_at <=
+                            # eff_start — only reachable when reset_statistics
+                            # re-clocked offline_since past an earlier suppression).
+                            # Treat as never-opened: remove the counted event. max(0)
+                            # floors the counter — several interacting fixes must keep
+                            # it ≥0, and a negative would feed completed = count −
+                            # (1 if offline) → divide-by-negative → garbage.
+                            device.offline_event_count = max(
+                                0, device.offline_event_count - 1
+                            )
                     device.is_offline = False
                     device.offline_since = None
                     device.recently_offline_at = None
                     device.cooldown_start = None
+                    device.reliability_booked_until = None
                 _LOGGER.debug(
                     "[%s] Skipping suppressed entity %s (until=%s)",
                     self.group_name,
@@ -1166,13 +1328,40 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
                     )
                     device.last_recovery = now
                     if device.offline_since:
+                        # downtime_seconds on the event payload is the FULL physical
+                        # outage (backdated to cooldown start, BEHAVIOR_REFERENCE
+                        # §3). The reliability booking, though, clamps the start to
+                        # the monitored window (F1 — can't be down before we watched)
+                        # and floors the delta at 0 (F4 — a backward clock jump must
+                        # never book negative downtime). Local eff_start, never mutate
+                        # offline_since (bucket path + payload read the real value).
                         device.last_downtime_seconds = (
                             now - device.offline_since
                         ).total_seconds()
-                        device.total_offline_seconds += device.last_downtime_seconds
+                        eff_start = device.offline_since
+                        if (
+                            device.monitored_since
+                            and device.monitored_since > eff_start
+                        ):
+                            eff_start = device.monitored_since
+                        # If a mid-outage suppression already booked the observed
+                        # pre-suppression portion (reliability_booked_until set at
+                        # the suppression-END edge), book only the remainder from
+                        # there — never re-walk the suppressed span or re-add the
+                        # pre-portion (Finding 1 fix, option C).
+                        book_start = eff_start
+                        if (
+                            device.reliability_booked_until
+                            and device.reliability_booked_until > book_start
+                        ):
+                            book_start = device.reliability_booked_until
+                        device.total_offline_seconds += max(
+                            0.0, (now - book_start).total_seconds()
+                        )
                     device.is_offline = False
                     device.offline_since = None
                     device.recently_offline_at = None
+                    device.reliability_booked_until = None
                     pending_events.append(
                         (
                             EVENT_RECOVERED,

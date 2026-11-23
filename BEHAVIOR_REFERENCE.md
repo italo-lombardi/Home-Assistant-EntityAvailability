@@ -526,3 +526,52 @@ path).
 > later does **not** bring that history back — it only begins retaining the longer
 > span from that point. An options edit reloads the group from the persisted file,
 > so the file is the single source of truth across any window change.
+
+---
+
+## 11. Reliability (MTBF / MTTR)
+
+Two **opt-in** per-group sensors (disabled by default — enable in the entity
+settings): **MTBF** (mean hours of uptime between failures) and **MTTR** (mean
+minutes to repair an outage). They summarize the group's physical reliability,
+separate from the availability percentage.
+
+```
+completed    = offline_event_count − (1 if currently offline else 0)
+MTBF (hours) = observed uptime / completed
+MTTR (min)   = total booked downtime / completed
+```
+
+Both read `None` until at least one outage has fully completed (opened **and**
+recovered). An in-progress outage bumps the count at OPEN but books no seconds
+until recovery, so it is excluded from the divisor — a currently-open outage never
+skews the mean.
+
+**The invariant.** Every outage that is *counted* must book exactly one recovery
+of a **non-negative, in-window** downtime. The rules below all serve it:
+
+- **In-window only.** An outage's start is backdated to the cooldown start for the
+  `downtime_seconds` event payload (§3), but the reliability booking is floored to
+  when monitoring began — a device cannot count as down before the integration was
+  watching it (e.g. an entity already dead at a fresh install).
+- **Backward clock.** A downtime delta can never be negative; a backward wall-clock
+  jump (NTP correction, RTC-less host) books zero, never a negative that would
+  inflate MTBF or show a negative MTTR.
+- **Suppressed outages are counted, but only the observed part.** If a device goes
+  down and recovers while suppressed, the outage **does** count toward reliability
+  (suppression gates alerting and fleet averages, not a device's physical truth —
+  otherwise suppressing a flaky device during its worst outages would launder it
+  into good numbers). Only the portion observed **outside** suppression is booked as
+  downtime — the part before suppression began **and** any part after it ends if the
+  device is still down — because the availability percentage records nothing during
+  suppression; counting the suppressed span would make the two metrics disagree on
+  the same outage. An outage can never *open* while suppressed. The device's
+  displayed "offline since" and the recovery event's `downtime_seconds` stay the full
+  physical outage; only the reliability counter excludes the suppressed interval.
+- **Reset while down.** `reset_statistics` forgets the past (completed outages,
+  booked downtime, buckets) but not the present: a device offline at reset time
+  carries its live outage across as post-reset outage #1. One corollary — if that
+  device is also suppressed at reset time and later recovers while still suppressed,
+  its (never-observed-unsuppressed) outage is dropped and MTBF/MTTR return to `None`
+  until the next real outage. That is correct, not a regression: nothing was
+  observed after the reset.

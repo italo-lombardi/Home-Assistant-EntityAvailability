@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.7.6] - 2026-11-23
+
+### Fixed
+- **MTBF / MTTR now compute correctly across suppression, reset, fresh installs, and clock jumps.** The reliability sensors (both opt-in, disabled by default) shared one flawed assumption: that every counted outage would later book exactly one non-negative, in-window recovery. Four cases broke it, each producing silently wrong numbers for the users who enable these sensors:
+  - **An entity already offline before monitoring began** (routine on a fresh install, or after reloading the integration while a device is unavailable) booked downtime measured from when the device *actually* dropped — which could predate when the integration started watching it. The out-of-window downtime drove computed uptime negative, masking MTBF to `0.0` and inflating MTTR many-fold. The reliability booking is now floored to the moment monitoring began (the event payload's `downtime_seconds` still reports the full physical outage, unchanged).
+  - **A device that recovered while suppressed** booked zero seconds yet kept its outage count — a permanent "instant repair" that dragged MTTR toward `0.0` and inflated MTBF forever. Suppressed-spanning outages now count with their real **observed** duration (the portion monitored before suppression began, and any portion after it ends); the suppressed span itself is excluded, matching the availability percentage, which also records nothing while suppressed.
+  - **`reset_statistics` called while a device was offline** left the live outage's eventual recovery booking seconds against a zeroed counter, inflating MTTR once a later outage completed. The live outage now carries across the reset as post-reset outage #1.
+  - **A backward wall-clock jump** (NTP correction, a host without a real-time clock) during an outage could book negative downtime, producing a negative MTTR and inflated MTBF. Downtime deltas are now floored at zero, matching the clamp the availability/bucket path already applied.
+- No effect on installs that leave MTBF/MTTR disabled (the default): the computation only ever runs for an enabled sensor, and the always-on offline/recovery bookkeeping it shares is unchanged.
+
+### Changed
+- **New behavior reference section for reliability.** `BEHAVIOR_REFERENCE.md` now documents the MTBF/MTTR formulas and the rules above (in-window booking, observed-only suppression, reset-carries-the-live-outage, clock-jump floor), including the one intended corollary that a reset of a down-and-suppressed device can return MTBF/MTTR to `None` until the next real outage.
+
 ## [0.7.5] - 2026-11-20
 
 ### Changed

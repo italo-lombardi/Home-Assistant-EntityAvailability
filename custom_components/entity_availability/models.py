@@ -51,6 +51,22 @@ class DeviceState:
     monitored_since: datetime | None = None
     offline_event_count: int = 0
     total_offline_seconds: float = 0.0
+    # Wall-clock instant suppression began for this device (None = not suppressed).
+    # Stamped at suppression onset, persisted so it survives restart. Used to book
+    # only the OBSERVED (pre-suppression) portion of an outage that recovers while
+    # suppressed — suppressed time is a gap in the availability metric, so counting
+    # it as downtime would make MTTR disagree with availability%.
+    suppressed_at: datetime | None = None
+    # How far (wall-clock) the CURRENT outage's downtime has already been booked
+    # into total_offline_seconds (None = nothing booked yet this outage). Set when
+    # an outage's observed pre-suppression portion is booked at the suppression-END
+    # edge (expiry/unsuppress while still offline); the eventual normal recovery
+    # then books only the remainder [booked_until, now], never re-adding the
+    # pre-portion. Keeps offline_since the TRUE physical start (card/display/payload
+    # read it) while the reliability counter tracks its own progress. Cleared when
+    # the outage ends. Persisted so a restart mid-post-suppression outage doesn't
+    # re-book the pre-portion.
+    reliability_booked_until: datetime | None = None
 
 
 @dataclass
