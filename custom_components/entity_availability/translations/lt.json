@@ -28,6 +28,19 @@
           "combined_name": "Jungtinės grupės pavadinimas"
         }
       },
+      "label_group": {
+        "title": "Kurti žymų grupę",
+        "description": "Stebėkite kiekvieną objektą, turintį žymą. Narystė atnaujinama automatiškai, kai objektams ir įrenginiams priskiriate arba pašalinate žymą.",
+        "data": {
+          "group_name": "Grupės pavadinimas",
+          "labels": "Stebimos žymos",
+          "non_essential_label": "Neesminių žymos"
+        },
+        "data_description": {
+          "labels": "Stebimas kiekvienas objektas, turintis vieną iš šių žymų — tiesiogiai arba per savo įrenginį. Grupė automatiškai perskaičiuojama, kai objektams ir įrenginiams priskiriate arba pašalinate žymas.",
+          "non_essential_label": "Nariai, kurie taip pat turi bet kurią iš šių žymų, laikomi neesminiais: jie rodomi ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir įspėjimus. Palikite tuščią, kad visi nariai būtų laikomi esminiais."
+        }
+      },
       "monitoring": {
         "title": "Stebėjimo nustatymai",
         "description": "Konfigūruokite, kaip stebimi objektai.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
       "no_entities": "Turite pasirinkti bent vieną objektą.",
+      "no_labels": "Turite pasirinkti bent vieną žymą.",
       "duplicate_entities": "Tas pats objektas negali būti abiejuose sąrašuose. Prieš įrašydami pašalinkite pasikartojančius.",
       "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui.",
       "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Stebimi objektai",
           "non_essential_entities": "Neesminiai objektai",
+          "labels": "Stebimos žymos",
+          "non_essential_label": "Neesminių žymos",
           "bad_states": "Būsenos, laikomos neprisijungusiomis",
           "cooldown": "Laukimo laikas (sekundės)",
           "staleness_threshold": "Paseno duomenų riba (minutės, 0 = išjungta)",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "Objektai, kurių pasiekiamumas bus sekamas. Jie yra visiškai stebimi ir įtraukiami į visus KPI bei įspėjimus.",
           "non_essential_entities": "Objektai, kurie neveikia jūsų grupės sveikatos baalo. Matomi kortelėje ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir niekada neaktyvina įspėjimų. Naudokite įrenginiams, kurių prastova yra priimtina — televizoriui, spausdintuvui, sezoniniams įrenginiams.",
+          "labels": "Stebimas kiekvienas objektas, turintis vieną iš šių žymų — tiesiogiai arba per savo įrenginį. Grupė automatiškai perskaičiuojama, kai objektams ir įrenginiams priskiriate arba pašalinate žymas.",
+          "non_essential_label": "Nariai, kurie taip pat turi bet kurią iš šių žymų, laikomi neesminiais: jie rodomi ir įskaičiuojami į bendrus skaičius, tačiau neįtraukiami į jokius KPI (pasiekiamumas %, neprisijungusių skaičius, MTBF, MTTR) ir įspėjimus. Palikite tuščią, kad visi nariai būtų laikomi esminiais.",
           "bad_states": "Objektų būsenos, reiškiančios, kad objektas yra neprisijungęs (pvz., nepasiekiamas, nežinomas).",
           "cooldown": "Kiek laiko (sekundėmis) objektas turi išbūti blogoje būsenoje, prieš jį pažymint neprisijungusiu. Apsaugo nuo klaidingų įspėjimų dėl trumpų atjungimų.",
           "staleness_threshold": "Jei objektas nepakeitė būsenos šį skaičių minučių, jis pažymimas kaip degradavęs. Nustatykite 0, kad išjungtumėte.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
       "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
       "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
-      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui."
+      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui.",
+      "no_labels": "Turite pasirinkti bent vieną žymą."
     },
     "abort": {
       "not_enough_groups": "Šioje jungtinėje grupėje nebėra pakankamai šaltinio grupių. Pirmiausia pridėkite daugiau grupių."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Stebėti objektus",
-        "combined_group": "Sujungti grupes"
+        "combined_group": "Sujungti grupes",
+        "label_group": "Stebėti pagal žymą"
       }
     },
     "combined_group_override": {

@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant, State
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.entity_availability.const import (
+    CONF_BAD_STATES,
     CONF_BATTERY_ENTITY_MAP,
     CONF_BATTERY_THRESHOLD,
     CONF_ENTITIES,
@@ -8513,3 +8514,627 @@ class TestSaveRetentionFiltering:
         assert saved == {}
         # and RAM pruned to nothing too (retention 0 clears)
         assert coord._availability_storage._buckets == {}
+
+
+def _make_label_group(hass, labels, *, ne_labels=None, entry_id="lbl_group"):
+    """Build a label-group MockConfigEntry + coordinator (storage mocked)."""
+    from custom_components.entity_availability.const import (
+        CONF_ENTRY_TYPE,
+        CONF_GROUP_NAME,
+        CONF_LABELS,
+        CONF_NON_ESSENTIAL_LABEL,
+        ENTRY_TYPE_LABEL,
+    )
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Label Group",
+        entry_id=entry_id,
+        data={
+            CONF_GROUP_NAME: "Label Group",
+            CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
+            CONF_LABELS: labels,
+            CONF_NON_ESSENTIAL_LABEL: ne_labels or [],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
+            CONF_BATTERY_ENTITY_MAP: {},
+        },
+    )
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+    return coord
+
+
+async def test_label_group_resolves_direct_and_device_labels(hass: HomeAssistant):
+    """Label membership = union of directly-labeled entities and entities of a
+    labeled device, deduped — resolved at coordinator init."""
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("Critical").label_id
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    reg_entry = MockConfigEntry(domain=DOMAIN, entry_id="lbl_reg", title="R")
+    reg_entry.add_to_hass(hass)
+
+    # (1) directly-labeled entity
+    direct = ent_reg.async_get_or_create(
+        "binary_sensor", "test", "direct", suggested_object_id="direct"
+    )
+    ent_reg.async_update_entity(direct.entity_id, labels={lbl})
+
+    # (2) labeled DEVICE with two entities — both join via the device label
+    device = dev_reg.async_get_or_create(
+        config_entry_id="lbl_reg", identifiers={(DOMAIN, "ldev")}, name="LDev"
+    )
+    dev_reg.async_update_device(device.id, labels={lbl})
+    for obj in ("dev_a", "dev_b"):
+        e = ent_reg.async_get_or_create(
+            "binary_sensor", "test", obj, suggested_object_id=obj
+        )
+        ent_reg.async_update_entity(e.entity_id, device_id=device.id)
+
+    # (3) an unlabeled entity that must NOT appear
+    ent_reg.async_get_or_create(
+        "binary_sensor", "test", "nope", suggested_object_id="nope"
+    )
+
+    coord = _make_label_group(hass, [lbl])
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.direct",
+        "binary_sensor.dev_a",
+        "binary_sensor.dev_b",
+    }
+
+
+async def test_label_group_non_essential_label_adds_and_flags(hass: HomeAssistant):
+    """NE labels ADD members (parity with the classic NE field): an entity carrying
+    only the NE label is monitored as non-essential; a main-label member carrying the
+    NE label too is flagged NE; a main-only member stays essential."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    reg = lr.async_get(hass)
+    main = reg.async_create("Watched").label_id
+    ne = reg.async_create("Optional").label_id
+    ent_reg = er.async_get(hass)
+
+    a = ent_reg.async_get_or_create("binary_sensor", "t", "a", suggested_object_id="a")
+    b = ent_reg.async_get_or_create("binary_sensor", "t", "b", suggested_object_id="b")
+    ent_reg.async_update_entity(a.entity_id, labels={main})  # essential member
+    ent_reg.async_update_entity(b.entity_id, labels={main, ne})  # member, flagged NE
+    # carries ONLY the NE label → now a monitored non-essential member (ADD semantics)
+    c = ent_reg.async_get_or_create("binary_sensor", "t", "c", suggested_object_id="c")
+    ent_reg.async_update_entity(c.entity_id, labels={ne})
+
+    coord = _make_label_group(hass, [main], ne_labels=[ne])
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.a",
+        "binary_sensor.b",
+        "binary_sensor.c",
+    }
+    assert set(coord._non_essential) == {"binary_sensor.b", "binary_sensor.c"}
+
+
+async def test_label_group_multiple_ne_labels_union(hass: HomeAssistant):
+    """NE label is a LIST: a member carrying ANY of the NE labels is non-essential
+    (union across all NE labels), still intersected with monitored membership."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    reg = lr.async_get(hass)
+    main = reg.async_create("MultiMain").label_id
+    ne1 = reg.async_create("Ne1").label_id
+    ne2 = reg.async_create("Ne2").label_id
+    ent_reg = er.async_get(hass)
+
+    a = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "ma", suggested_object_id="ma"
+    )
+    b = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "mb", suggested_object_id="mb"
+    )
+    c = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "mc", suggested_object_id="mc"
+    )
+    ent_reg.async_update_entity(a.entity_id, labels={main, ne1})  # NE via ne1
+    ent_reg.async_update_entity(b.entity_id, labels={main, ne2})  # NE via ne2
+    ent_reg.async_update_entity(c.entity_id, labels={main})  # essential
+
+    coord = _make_label_group(hass, [main], ne_labels=[ne1, ne2])
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.ma",
+        "binary_sensor.mb",
+        "binary_sensor.mc",
+    }
+    # Both ne1 and ne2 members are non-essential (union); the main-only one is not.
+    assert set(coord._non_essential) == {"binary_sensor.ma", "binary_sensor.mb"}
+
+
+async def test_label_group_signal_override_overlays_auto(hass: HomeAssistant):
+    """A stored manual signal override for a label-group member WINS over auto-detect;
+    members without an override keep auto-detect. Closes the 'override editable but
+    ineffective' gap — the label path overlays CONF_SIGNAL_ENTITY_MAP on the auto map."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    from custom_components.entity_availability.const import (
+        CONF_ENTRY_TYPE,
+        CONF_GROUP_NAME,
+        CONF_LABELS,
+        CONF_SIGNAL_ENTITY_MAP,
+        ENTRY_TYPE_LABEL,
+    )
+
+    lbl = lr.async_get(hass).async_create("SigOv").label_id
+    ent_reg = er.async_get(hass)
+    ov = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "ov", suggested_object_id="ov"
+    )
+    au = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "au", suggested_object_id="au"
+    )
+    ent_reg.async_update_entity(ov.entity_id, labels={lbl})
+    ent_reg.async_update_entity(au.entity_id, labels={lbl})
+    # auto-detectable signal sensor for 'au' (naming convention)
+    hass.states.async_set("sensor.au_rssi", "-70", {"device_class": "signal_strength"})
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Sig Override",
+        entry_id="sig_ov",
+        data={
+            CONF_GROUP_NAME: "Sig Override",
+            CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
+            CONF_LABELS: [lbl],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
+            CONF_BATTERY_ENTITY_MAP: {},
+            # manual override for 'ov' only
+            CONF_SIGNAL_ENTITY_MAP: {
+                "binary_sensor.ov": {
+                    "sensor": "sensor.custom_ov_signal",
+                    "network_type": "wifi",
+                },
+                # stale override for an entity NOT in the label set → stays inert
+                "binary_sensor.absent": {
+                    "sensor": "sensor.absent_signal",
+                    "network_type": "zigbee",
+                },
+            },
+        },
+    )
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    # Override wins for 'ov'; auto-detect for 'au'.
+    assert coord._signal_map["binary_sensor.ov"] == {
+        "sensor": "sensor.custom_ov_signal",
+        "network_type": "wifi",
+    }
+    assert coord._signal_map["binary_sensor.au"]["sensor"] == "sensor.au_rssi"
+    # the stale override for an absent entity is NOT injected
+    assert "binary_sensor.absent" not in coord._signal_map
+
+
+async def test_label_group_empty_resolve_keeps_prior_membership(hass: HomeAssistant):
+    """A non-empty label set momentarily resolving to nothing (registry hiccup) must
+    NOT wipe membership — that would prune every entity's stored history."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("Keep").label_id
+    ent_reg = er.async_get(hass)
+    e = ent_reg.async_get_or_create("binary_sensor", "t", "k", suggested_object_id="k")
+    ent_reg.async_update_entity(e.entity_id, labels={lbl})
+
+    coord = _make_label_group(hass, [lbl])
+    assert coord.monitored_entities == ["binary_sensor.k"]
+
+    # Simulate a transient empty resolve: patch the resolver to return nothing, then
+    # re-resolve — prior membership must survive.
+    with patch(
+        "custom_components.entity_availability.coordinator.resolve_label_members",
+        return_value=[],
+    ):
+        coord._resolve_label_membership()
+    assert coord.monitored_entities == ["binary_sensor.k"]
+
+
+async def test_label_group_empty_resolve_drops_deleted_member(hass: HomeAssistant):
+    """When resolve is empty (label gone) AND a held member no longer EXISTS in the
+    registry (deleted, not merely untagged), the hiccup guard still drops it — closing
+    the freeze where a label removed from its last-then-deleted entity would be
+    monitored forever. A held member that STILL exists (transient hiccup) is kept."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("Del").label_id
+    ent_reg = er.async_get(hass)
+    gone = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "gone", suggested_object_id="gone"
+    )
+    stays = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "stays", suggested_object_id="stays"
+    )
+    ent_reg.async_update_entity(gone.entity_id, labels={lbl})
+    ent_reg.async_update_entity(stays.entity_id, labels={lbl})
+    coord = _make_label_group(hass, [lbl])
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.gone",
+        "binary_sensor.stays",
+    }
+
+    # Delete 'gone' from the registry AND strip the label from 'stays' so resolve
+    # returns [] (empty-guard path). 'gone' no longer exists → dropped; 'stays'
+    # still exists (just untagged) → kept as a possible transient hiccup.
+    ent_reg.async_remove(gone.entity_id)
+    ent_reg.async_update_entity(stays.entity_id, labels=set())
+    coord._resolve_label_membership()
+    assert coord.monitored_entities == ["binary_sensor.stays"]
+
+
+async def test_label_group_legacy_str_ne_label_coerced(hass: HomeAssistant):
+    """A pre-release entry stored CONF_NON_ESSENTIAL_LABEL as a STRING. The coordinator
+    must coerce it to a list on load, not iterate it char-by-char (which would make
+    every character a bogus label_id)."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    from custom_components.entity_availability.const import (
+        CONF_ENTRY_TYPE,
+        CONF_GROUP_NAME,
+        CONF_LABELS,
+        CONF_NON_ESSENTIAL_LABEL,
+        ENTRY_TYPE_LABEL,
+    )
+
+    main = lr.async_get(hass).async_create("LegMain").label_id
+    ne = lr.async_get(hass).async_create("LegNE").label_id
+    ent_reg = er.async_get(hass)
+    a = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "leg_a", suggested_object_id="leg_a"
+    )
+    b = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "leg_b", suggested_object_id="leg_b"
+    )
+    ent_reg.async_update_entity(a.entity_id, labels={main})
+    ent_reg.async_update_entity(b.entity_id, labels={main, ne})
+
+    # OLD shape: CONF_NON_ESSENTIAL_LABEL is a bare string, not a list.
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Legacy Label Group",
+        entry_id="legacy_lbl",
+        data={
+            CONF_GROUP_NAME: "Legacy",
+            CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
+            CONF_LABELS: [main],
+            CONF_NON_ESSENTIAL_LABEL: ne,  # legacy STRING, not [ne]
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
+            CONF_BATTERY_ENTITY_MAP: {},
+        },
+    )
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+
+    assert coord._non_essential_label == [ne]  # coerced to a list
+    assert set(coord.monitored_entities) == {
+        "binary_sensor.leg_a",
+        "binary_sensor.leg_b",
+    }
+    # NE resolved correctly from the coerced single label (not char-iterated).
+    assert coord._non_essential == ["binary_sensor.leg_b"]
+
+
+async def test_label_group_reresolve_prunes_ghost_device_state(hass: HomeAssistant):
+    """When a member leaves the label set, its DeviceState/suppressed entry is pruned
+    so it cannot linger as a ghost row in collapse maps / count sensors."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    from custom_components.entity_availability.models import DeviceState
+
+    lbl = lr.async_get(hass).async_create("Churn").label_id
+    ent_reg = er.async_get(hass)
+    keep = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "keep", suggested_object_id="keep"
+    )
+    drop = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "drop", suggested_object_id="drop"
+    )
+    ent_reg.async_update_entity(keep.entity_id, labels={lbl})
+    ent_reg.async_update_entity(drop.entity_id, labels={lbl})
+
+    coord = _make_label_group(hass, [lbl])
+    assert set(coord.monitored_entities) == {"binary_sensor.keep", "binary_sensor.drop"}
+    # Seed per-entity state as the sweep would.
+    coord._device_states["binary_sensor.keep"] = DeviceState(
+        entity_id="binary_sensor.keep"
+    )
+    coord._device_states["binary_sensor.drop"] = DeviceState(
+        entity_id="binary_sensor.drop"
+    )
+    coord._suppressed["binary_sensor.drop"] = None
+
+    # drop loses the label → membership shrinks; re-resolve + prune ghosts.
+    ent_reg.async_update_entity(drop.entity_id, labels=set())
+    # Capture the scheduled task instead of letting it run. The push MUST be
+    # scheduled via hass.async_create_task — a bare async_request_refresh() in this
+    # sync callback would create an un-awaited coroutine that never runs. Close the
+    # captured coroutine so it doesn't warn.
+    scheduled = []
+
+    def _capture(coro):
+        scheduled.append(coro)
+        coro.close()
+        return MagicMock()
+
+    with patch.object(hass, "async_create_task", side_effect=_capture):
+        coord._reresolve_membership(None)
+
+    assert coord.monitored_entities == ["binary_sensor.keep"]
+    assert "binary_sensor.drop" not in coord._device_states
+    assert "binary_sensor.drop" not in coord._suppressed
+    assert len(scheduled) == 1  # the refresh was actually scheduled, not dropped
+    assert scheduled[0].__qualname__.endswith("async_request_refresh")
+
+
+async def test_label_group_setup_registry_listeners(hass: HomeAssistant):
+    """A label group subscribes to entity+device registry events; a static one does not."""
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("S").label_id
+    coord = _make_label_group(hass, [lbl])
+    coord._setup_registry_listeners()
+    assert len(coord._unsub_registry) == 2
+
+    # Static group: no subscriptions.
+    from custom_components.entity_availability.const import CONF_GROUP_NAME
+
+    static = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Static",
+        entry_id="static_g",
+        data={
+            CONF_GROUP_NAME: "Static",
+            CONF_ENTITIES: ["binary_sensor.device_a"],
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
+            CONF_BATTERY_ENTITY_MAP: {},
+        },
+    )
+    with (
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_load_storage", new_callable=AsyncMock
+        ),
+        patch.object(
+            EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+        ),
+    ):
+        scoord = EntityAvailabilityCoordinator(hass, static)
+    scoord._setup_registry_listeners()
+    assert scoord._unsub_registry == []
+    assert scoord._is_label_group is False
+
+
+async def test_handle_registry_update_filters_and_debounces(hass: HomeAssistant):
+    """Label-only entity updates arm the debounce; non-label updates are ignored; a
+    second event cancels and re-arms the pending timer."""
+    from unittest.mock import MagicMock
+
+    from homeassistant.core import Event
+    from homeassistant.helpers import device_registry as dr
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("D").label_id
+    coord = _make_label_group(hass, [lbl])
+
+    # Non-label entity update → ignored, no timer armed.
+    coord._handle_registry_update(
+        Event(
+            er.EVENT_ENTITY_REGISTRY_UPDATED,
+            {"action": "update", "entity_id": "x", "changes": {"name": "y"}},
+        )
+    )
+    assert coord._label_refresh_timer is None
+
+    # Label-touching update → timer armed.
+    coord._handle_registry_update(
+        Event(
+            er.EVENT_ENTITY_REGISTRY_UPDATED,
+            {"action": "update", "entity_id": "x", "changes": {"labels": set()}},
+        )
+    )
+    assert coord._label_refresh_timer is not None
+    coord._label_refresh_timer()  # cancel before the next assertions
+    coord._label_refresh_timer = None
+
+    # A non-label DEVICE update (e.g. rename/area) is ALSO ignored — the filter
+    # applies to device events too, not just entity events.
+    coord._handle_registry_update(
+        Event(
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            {"action": "update", "device_id": "d", "changes": {"name_by_user": "x"}},
+        )
+    )
+    assert coord._label_refresh_timer is None
+
+    # A label-touching DEVICE update arms the debounce.
+    coord._handle_registry_update(
+        Event(
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            {"action": "update", "device_id": "d", "changes": {"labels": set()}},
+        )
+    )
+    assert coord._label_refresh_timer is not None
+
+    # A second event cancels the first timer and arms a new one. Cancel the real
+    # timer armed above first (we're about to replace the handle with a mock).
+    coord._label_refresh_timer()
+    first = MagicMock()
+    coord._label_refresh_timer = first
+    coord._handle_registry_update(
+        Event(
+            dr.EVENT_DEVICE_REGISTRY_UPDATED,
+            {"action": "create", "device_id": "z"},
+        )
+    )
+    first.assert_called_once()  # prior timer cancelled
+    assert coord._label_refresh_timer is not None
+    coord._label_refresh_timer()  # cleanup: cancel the real timer
+
+
+async def test_reresolve_membership_no_change_is_noop(hass: HomeAssistant):
+    """If the resolved set is unchanged, re-resolve returns early (no refresh push)."""
+    from unittest.mock import MagicMock
+
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("N").label_id
+    ent_reg = er.async_get(hass)
+    e = ent_reg.async_get_or_create("binary_sensor", "t", "n", suggested_object_id="n")
+    ent_reg.async_update_entity(e.entity_id, labels={lbl})
+
+    coord = _make_label_group(hass, [lbl])
+    coord.async_request_refresh = MagicMock()
+    coord._reresolve_membership(None)
+    coord.async_request_refresh.assert_not_called()
+
+
+async def test_label_group_shutdown_tears_down_listeners_and_timer(
+    hass: HomeAssistant,
+):
+    """async_shutdown unsubscribes registry listeners and cancels the label timer."""
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("Teardown").label_id
+    coord = _make_label_group(hass, [lbl])
+
+    # Populate registry subscriptions (two: entity + device) and a pending timer.
+    coord._setup_registry_listeners()
+    assert len(coord._unsub_registry) == 2
+    # Swap the opaque real unsub callables for mocks so we can assert each fires;
+    # call the real ones first so nothing is left subscribed.
+    for real_unsub in coord._unsub_registry:
+        real_unsub()
+    unsub_a, unsub_b = MagicMock(), MagicMock()
+    coord._unsub_registry = [unsub_a, unsub_b]
+    timer = MagicMock()
+    coord._label_refresh_timer = timer
+    coord._dirty = False  # skip the dirty-save branch
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ) as save:
+        await coord.async_shutdown()
+
+    unsub_a.assert_called_once()
+    unsub_b.assert_called_once()
+    timer.assert_called_once()
+    assert coord._unsub_registry == []
+    assert coord._label_refresh_timer is None
+    save.assert_not_called()
+
+
+async def test_label_group_live_reclassify_essential_to_ne_refreshes(
+    hass: HomeAssistant,
+):
+    """Tagging an EXISTING member with the NE label (membership set unchanged) must
+    still flip its tier AND push a refresh — the membership-only early-return would
+    wrongly skip it. Regression guard for the reported 'NE added but card didn't
+    update' bug."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    reg = lr.async_get(hass)
+    main = reg.async_create("RcMain").label_id
+    ne = reg.async_create("RcNE").label_id
+    ent_reg = er.async_get(hass)
+    e = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "rc", suggested_object_id="rc"
+    )
+    ent_reg.async_update_entity(e.entity_id, labels={main})
+
+    coord = _make_label_group(hass, [main], ne_labels=[ne])
+    assert coord.monitored_entities == ["binary_sensor.rc"]
+    assert coord._non_essential == []  # essential at first
+
+    # Add the NE label to the same (already-member) entity: membership set identical,
+    # tier flips essential→non-essential. Re-resolve must detect the NE change + refresh.
+    ent_reg.async_update_entity(e.entity_id, labels={main, ne})
+    scheduled = []
+
+    def _capture(coro):
+        scheduled.append(coro)
+        coro.close()
+        return MagicMock()
+
+    with patch.object(hass, "async_create_task", side_effect=_capture):
+        coord._reresolve_membership(None)
+
+    assert coord.monitored_entities == ["binary_sensor.rc"]  # still a member
+    assert coord._non_essential == ["binary_sensor.rc"]  # now flagged NE
+    assert len(scheduled) == 1  # refresh pushed despite membership set unchanged
+
+
+async def test_label_group_live_ne_only_entity_joins(hass: HomeAssistant):
+    """Tagging an entity with ONLY the NE label makes it JOIN as a non-essential
+    member live (ADD semantics) — the exact live scenario the user reported."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    reg = lr.async_get(hass)
+    main = reg.async_create("JnMain").label_id
+    ne = reg.async_create("JnNE").label_id
+    ent_reg = er.async_get(hass)
+    m = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "jm", suggested_object_id="jm"
+    )
+    ent_reg.async_update_entity(m.entity_id, labels={main})
+    # an entity with no group labels yet
+    j = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "jn", suggested_object_id="jn"
+    )
+
+    coord = _make_label_group(hass, [main], ne_labels=[ne])
+    assert coord.monitored_entities == ["binary_sensor.jm"]
+
+    # Tag 'jn' with ONLY the NE label → must join as a non-essential member.
+    ent_reg.async_update_entity(j.entity_id, labels={ne})
+    with patch.object(
+        hass, "async_create_task", side_effect=lambda c: (c.close(), MagicMock())[1]
+    ):
+        coord._reresolve_membership(None)
+
+    assert set(coord.monitored_entities) == {"binary_sensor.jm", "binary_sensor.jn"}
+    assert coord._non_essential == ["binary_sensor.jn"]

@@ -28,6 +28,19 @@
           "combined_name": "Nome do Grupo Combinado"
         }
       },
+      "label_group": {
+        "title": "Criar Grupo por Etiquetas",
+        "description": "Monitorize todas as entidades que tenham uma etiqueta. A composição do grupo atualiza-se automaticamente à medida que adiciona ou remove a etiqueta em entidades e dispositivos.",
+        "data": {
+          "group_name": "Nome do Grupo",
+          "labels": "Etiquetas a Monitorizar",
+          "non_essential_label": "Etiquetas de Não Essencial"
+        },
+        "data_description": {
+          "labels": "Todas as entidades que tenham uma destas etiquetas — diretamente ou através do seu dispositivo — são monitorizadas. O grupo volta a resolver-se automaticamente quando adiciona ou remove etiquetas em entidades e dispositivos.",
+          "non_essential_label": "Os membros que também tenham qualquer uma destas etiquetas são tratados como não essenciais: exibidos e contados nos totais, mas excluídos de todos os KPIs (disponibilidade %, contagem offline, MTBF, MTTR) e alertas. Deixe vazio para tratar todos os membros como essenciais."
+        }
+      },
       "monitoring": {
         "title": "Definições de Monitorização",
         "description": "Configure como as entidades são monitorizadas.",
@@ -79,7 +92,8 @@
       "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar.",
       "duplicate_entities": "A mesma entidade não pode aparecer em ambas as listas. Remova os duplicados antes de guardar.",
       "collapse_requires_device_names": "Agrupar entidades por dispositivo requer que «Mostrar nomes de dispositivo» esteja ativado.",
-      "already_configured": "Já existe um grupo com este nome."
+      "already_configured": "Já existe um grupo com este nome.",
+      "no_labels": "Deve selecionar pelo menos uma etiqueta."
     },
     "abort": {
       "already_configured": "Já existe um grupo com este nome.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entidades a Monitorizar",
           "non_essential_entities": "Entidades não essenciais",
+          "labels": "Etiquetas a Monitorizar",
+          "non_essential_label": "Etiquetas de Não Essencial",
           "bad_states": "Estados considerados offline",
           "cooldown": "Tempo de espera (segundos)",
           "staleness_threshold": "Limiar de inatividade (minutos, 0 = desativado)",
@@ -107,6 +123,8 @@
         },
         "data_description": {
           "non_essential_entities": "Entidades exibidas e contadas no cartão, mas excluídas de todos os KPIs (contagem offline, disponibilidade %, MTBF, MTTR) e alertas. Útil para dispositivos que se espera que estejam offline (TV em standby, impressora desligada entre tarefas).",
+          "labels": "Todas as entidades que tenham uma destas etiquetas — diretamente ou através do seu dispositivo — são monitorizadas. O grupo volta a resolver-se automaticamente quando adiciona ou remove etiquetas em entidades e dispositivos.",
+          "non_essential_label": "Os membros que também tenham qualquer uma destas etiquetas são tratados como não essenciais: exibidos e contados nos totais, mas excluídos de todos os KPIs (disponibilidade %, contagem offline, MTBF, MTTR) e alertas. Deixe vazio para tratar todos os membros como essenciais.",
           "bad_states": "Estados de entidade que indicam que uma entidade está offline (ex. unavailable, unknown).",
           "cooldown": "Quanto tempo (em segundos) uma entidade deve permanecer num estado mau antes de ser marcada como offline. Evita falsos alarmes por desconexões breves.",
           "staleness_threshold": "Se uma entidade não mudou de estado durante este número de minutos, é marcada como degradada. Defina 0 para desativar.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Agrupar entidades por dispositivo requer que «Mostrar nomes de dispositivo» esteja ativado.",
       "already_configured": "Já existe um grupo com este nome.",
       "empty_group_name": "O nome do grupo não pode estar vazio.",
-      "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar."
+      "not_enough_groups_selected": "Selecione pelo menos dois grupos para combinar.",
+      "no_labels": "Deve selecionar pelo menos uma etiqueta."
     },
     "abort": {
       "not_enough_groups": "Este grupo combinado já não tem grupos de origem suficientes carregados. Adicione mais grupos primeiro."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Monitorizar entidades",
-        "combined_group": "Combinar grupos"
+        "combined_group": "Combinar grupos",
+        "label_group": "Monitorizar por etiqueta"
       }
     },
     "combined_group_override": {

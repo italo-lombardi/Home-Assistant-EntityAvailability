@@ -28,6 +28,19 @@
           "combined_name": "Názov kombinovanej skupiny"
         }
       },
+      "label_group": {
+        "title": "Vytvoriť skupinu podľa štítka",
+        "description": "Monitorujte každú entitu, ktorá nesie štítok. Členstvo sa aktualizuje automaticky, keď pridáte alebo odstránite štítok na entitách a zariadeniach.",
+        "data": {
+          "group_name": "Názov skupiny",
+          "labels": "Štítky na sledovanie",
+          "non_essential_label": "Štítky pre nedôležité"
+        },
+        "data_description": {
+          "labels": "Každá entita, ktorá nesie niektorý z týchto štítkov — priamo alebo prostredníctvom svojho zariadenia — je monitorovaná. Skupina sa automaticky znovu vyhodnotí, keď entitám a zariadeniam pridáte alebo odoberiete štítok.",
+          "non_essential_label": "Členovia, ktorí zároveň nesú niektorý z týchto štítkov, sa považujú za nedôležitých: zobrazujú sa a počítajú sa do celkových súčtov, ale sú vylúčení zo všetkých KPI (dostupnosť %, počet offline, MTBF, MTTR) a upozornení. Ponechajte prázdne, ak majú byť všetci členovia považovaní za dôležitých."
+        }
+      },
       "monitoring": {
         "title": "Nastavenia monitorovania",
         "description": "Nakonfigurujte spôsob sledovania entít.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Názov skupiny nesmie byť prázdny.",
       "no_entities": "Musíte vybrať aspoň jednu entitu.",
+      "no_labels": "Musíte vybrať aspoň jeden štítok.",
       "duplicate_entities": "Rovnaká entita nemôže byť v oboch zoznamoch. Pred uložením odstráňte duplicity.",
       "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie.",
       "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entity na sledovanie",
           "non_essential_entities": "Nedôležité entity",
+          "labels": "Štítky na sledovanie",
+          "non_essential_label": "Štítky pre nedôležité",
           "bad_states": "Stavy považované za offline",
           "cooldown": "Prodleva (sekundy)",
           "staleness_threshold": "Prah zastarania (minúty, 0 = vypnuté)",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "Entity sledované z hľadiska dostupnosti. Sú plne monitorované a zahrnuté do všetkých KPI a upozornení.",
           "non_essential_entities": "Entity zobrazené a započítané na karte, ale vylúčené zo všetkých KPI (počet offline, dostupnosť %, MTBF, MTTR) a upozornení. Vhodné pre zariadenia, ktoré majú byť offline (TV v pohotovostnom režime, tlačiareň vypnutá medzi úlohami).",
+          "labels": "Každá entita, ktorá nesie niektorý z týchto štítkov — priamo alebo prostredníctvom svojho zariadenia — je monitorovaná. Skupina sa automaticky znovu vyhodnotí, keď entitám a zariadeniam pridáte alebo odoberiete štítok.",
+          "non_essential_label": "Členovia, ktorí zároveň nesú niektorý z týchto štítkov, sa považujú za nedôležitých: zobrazujú sa a počítajú sa do celkových súčtov, ale sú vylúčení zo všetkých KPI (dostupnosť %, počet offline, MTBF, MTTR) a upozornení. Ponechajte prázdne, ak majú byť všetci členovia považovaní za dôležitých.",
           "bad_states": "Stavy entity označujúce, že je entita offline (napr. unavailable, unknown).",
           "cooldown": "Ako dlho (v sekundách) musí entita zostať v zlom stave, kým je označená ako offline. Zabraňuje falošným poplachom pri krátkych výpadkoch.",
           "staleness_threshold": "Ak entita nezmenila stav po tento počet minút, je označená ako degradovaná. Nastavte na 0 pre vypnutie.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Zlúčenie entít podľa zariadenia vyžaduje zapnuté „Zobrazovať názvy zariadení“.",
       "already_configured": "Skupina s týmto názvom už existuje.",
       "empty_group_name": "Názov skupiny nesmie byť prázdny.",
-      "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie."
+      "not_enough_groups_selected": "Vyberte aspoň dve skupiny na kombinovanie.",
+      "no_labels": "Musíte vybrať aspoň jeden štítok."
     },
     "abort": {
       "not_enough_groups": "Táto kombinovaná skupina už nemá dostatok načítaných zdrojových skupín. Najprv pridajte ďalšie skupiny."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Monitorovať entity",
-        "combined_group": "Kombinovať skupiny"
+        "combined_group": "Kombinovať skupiny",
+        "label_group": "Monitorovať podľa štítka"
       }
     },
     "combined_group_override": {

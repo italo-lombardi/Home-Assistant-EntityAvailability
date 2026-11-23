@@ -28,6 +28,19 @@
           "combined_name": "Name der kombinierten Gruppe"
         }
       },
+      "label_group": {
+        "title": "Label-Gruppe erstellen",
+        "description": "Überwachen Sie jede Entität, die ein bestimmtes Label trägt. Die Mitgliedschaft wird automatisch aktualisiert, wenn Sie das Label bei Entitäten und Geräten hinzufügen oder entfernen.",
+        "data": {
+          "group_name": "Gruppenname",
+          "labels": "Zu überwachende Labels",
+          "non_essential_label": "Nicht-wesentliche Labels"
+        },
+        "data_description": {
+          "labels": "Jede Entität, die eines dieser Labels trägt — direkt oder über ihr Gerät — wird überwacht. Die Gruppe löst sich automatisch neu auf, wenn Sie Entitäten und Geräte mit einem Label versehen oder das Label entfernen.",
+          "non_essential_label": "Mitglieder, die zusätzlich eines dieser Labels tragen, werden als nicht-wesentlich behandelt: auf der Karte angezeigt und in Gesamtzahlen gezählt, aber von allen KPIs (Verfügbarkeit %, Offline-Anzahl, MTBF, MTTR) und Warnungen ausgeschlossen. Leer lassen, um jedes Mitglied als wesentlich zu behandeln."
+        }
+      },
       "monitoring": {
         "title": "Überwachungseinstellungen",
         "description": "Konfigurieren Sie, wie Entitäten überwacht werden.",
@@ -79,6 +92,7 @@
       "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus.",
       "duplicate_entities": "Dieselbe Entität darf nicht in beiden Listen erscheinen. Entfernen Sie Duplikate, bevor Sie speichern.",
       "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
+      "no_labels": "Sie müssen mindestens ein Label auswählen.",
       "already_configured": "Eine Gruppe mit diesem Namen existiert bereits."
     },
     "abort": {
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Zu überwachende Entitäten",
           "non_essential_entities": "Nicht-wesentliche Entitäten",
+          "labels": "Zu überwachende Labels",
+          "non_essential_label": "Nicht-wesentliche Labels",
           "bad_states": "Zustände, die als offline gelten",
           "cooldown": "Abklingzeit (Sekunden)",
           "staleness_threshold": "Veralterungsschwelle (Minuten, 0 = deaktiviert)",
@@ -107,6 +123,8 @@
         },
         "data_description": {
           "non_essential_entities": "Entitäten, die auf der Karte angezeigt und gezählt werden, aber von allen KPIs (Offline-Anzahl, Verfügbarkeit %, MTBF, MTTR) und Benachrichtigungen ausgeschlossen sind. Nützlich für Geräte, die erwartungsgemäß offline sind (Fernseher im Standby, Drucker zwischen Aufträgen).",
+          "labels": "Jede Entität, die eines dieser Labels trägt — direkt oder über ihr Gerät — wird überwacht. Die Gruppe löst sich automatisch neu auf, wenn Sie Entitäten und Geräte mit einem Label versehen oder das Label entfernen.",
+          "non_essential_label": "Mitglieder, die zusätzlich eines dieser Labels tragen, werden als nicht-wesentlich behandelt: auf der Karte angezeigt und in Gesamtzahlen gezählt, aber von allen KPIs (Verfügbarkeit %, Offline-Anzahl, MTBF, MTTR) und Warnungen ausgeschlossen. Leer lassen, um jedes Mitglied als wesentlich zu behandeln.",
           "bad_states": "Entitätszustände, die anzeigen, dass eine Entität offline ist (z. B. unavailable, unknown).",
           "cooldown": "Wie lange (in Sekunden) eine Entität in einem schlechten Zustand bleiben muss, bevor sie als offline markiert wird. Verhindert Fehlalarme bei kurzen Verbindungsunterbrechungen.",
           "staleness_threshold": "Wenn eine Entität sich für diese Anzahl von Minuten nicht geändert hat, wird sie als beeinträchtigt markiert. Auf 0 setzen zum Deaktivieren.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
       "already_configured": "Eine Gruppe mit diesem Namen existiert bereits.",
       "empty_group_name": "Der Gruppenname darf nicht leer sein.",
-      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus."
+      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus.",
+      "no_labels": "Sie müssen mindestens ein Label auswählen."
     },
     "abort": {
       "not_enough_groups": "Diese kombinierte Gruppe hat nicht mehr genügend geladene Quellgruppen. Fügen Sie zuerst weitere Gruppen hinzu."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Entitäten überwachen",
-        "combined_group": "Gruppen kombinieren"
+        "combined_group": "Gruppen kombinieren",
+        "label_group": "Nach Label überwachen"
       }
     },
     "combined_group_override": {

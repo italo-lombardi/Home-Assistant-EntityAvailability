@@ -15,6 +15,7 @@ from typing import Any
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_call_later,
@@ -34,7 +35,10 @@ from .const import (
     CONF_COLLAPSE_DEVICES,
     CONF_COOLDOWN,
     CONF_ENTITIES,
+    CONF_ENTRY_TYPE,
+    CONF_LABELS,
     CONF_NON_ESSENTIAL_ENTITIES,
+    CONF_NON_ESSENTIAL_LABEL,
     CONF_RECOVERY_WINDOW,
     CONF_SIGNAL_ENABLED,
     CONF_SIGNAL_ENTITY_MAP,
@@ -51,6 +55,7 @@ from .const import (
     DEFAULT_STALENESS_THRESHOLD,
     DEFAULT_STALENESS_USE_LAST_UPDATED,
     DEFAULT_USE_DEVICE_NAMES,
+    ENTRY_TYPE_LABEL,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
     EVENT_OFFLINE,
@@ -71,7 +76,12 @@ from .const import (
     STORAGE_VERSION,
     SignalQuality,
 )
-from .helpers import collapse_representatives
+from .helpers import (
+    as_label_list,
+    build_signal_map,
+    collapse_representatives,
+    resolve_label_members,
+)
 from .models import DeviceState, EntityAvailabilityData
 from .storage import AvailabilityStorage
 
@@ -120,8 +130,11 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             config_entry=entry,
         )
         self.entry = entry
-        self._entities: list[str] = entry.data.get(CONF_ENTITIES, [])
-        self._non_essential: list[str] = entry.data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+        self._is_label_group = entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_LABEL
+        self._label_ids: list[str] = as_label_list(entry.data.get(CONF_LABELS))
+        self._non_essential_label: list[str] = as_label_list(
+            entry.data.get(CONF_NON_ESSENTIAL_LABEL)
+        )
         self._bad_states: list[str] = entry.data.get(
             CONF_BAD_STATES, DEFAULT_BAD_STATES
         )
@@ -138,9 +151,21 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._signal_enabled: bool = entry.data.get(
             CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED
         )
-        self._signal_map: dict[str, dict[str, str]] = entry.data.get(
-            CONF_SIGNAL_ENTITY_MAP, {}
-        )
+        # Membership source. Static groups read the explicit entity list from config.
+        # Label groups resolve it live from HA labels (and auto-build the signal map,
+        # since there is no per-entity wizard for an unknown/changing member set).
+        if self._is_label_group:
+            self._entities: list[str] = []
+            self._non_essential: list[str] = []
+            self._signal_map: dict[str, dict[str, str]] = {}
+            self._resolve_label_membership()
+        else:
+            self._entities = entry.data.get(CONF_ENTITIES, [])
+            self._non_essential = entry.data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+            self._signal_map = entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
+        # Registry listeners for live label re-resolution (label groups only).
+        self._unsub_registry: list[CALLBACK_TYPE] = []
+        self._label_refresh_timer: CALLBACK_TYPE | None = None
         self._availability_storage = AvailabilityStorage()
         store_kwargs = (
             {"serialize_in_event_loop": False} if _STORE_HAS_SERIALIZE_FLAG else {}
@@ -203,6 +228,21 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
     def monitored_entities(self) -> list[str]:
         """Return list of monitored entity IDs."""
         return self._entities
+
+    @property
+    def non_essential_entities(self) -> list[str]:
+        """Return the current non-essential entity IDs (live for label groups)."""
+        return self._non_essential
+
+    @property
+    def signal_map(self) -> dict[str, dict[str, str]]:
+        """Return the EFFECTIVE signal entity map in use (live for label groups).
+
+        For a label group this is the auto-detected map with manual overrides
+        overlaid — which differs from the config-time entry.data snapshot — so
+        diagnostics report the real bindings monitoring is using.
+        """
+        return self._signal_map
 
     @property
     def device_states(self) -> dict[str, DeviceState]:
@@ -435,6 +475,7 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         await super().async_config_entry_first_refresh()
         self._setup_state_listeners()
+        self._setup_registry_listeners()
 
     async def async_shutdown(self) -> None:
         """Clean up on unload."""
@@ -442,6 +483,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         if self._unsub_state_change is not None:
             self._unsub_state_change()
             self._unsub_state_change = None
+        for unsub in self._unsub_registry:
+            unsub()
+        self._unsub_registry = []
+        if self._label_refresh_timer is not None:
+            self._label_refresh_timer()
+            self._label_refresh_timer = None
         # Cancel any pending debounce timer and stop the coalesced-refresh loop
         # from re-running (_refresh_again=False). An in-flight refresh task is
         # left to complete its current pass — it is short-lived and nulls
@@ -889,6 +936,172 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._unsub_state_change = async_track_state_change_event(
             self.hass, tracked, self._handle_state_change
         )
+
+    @callback
+    def _resolve_label_membership(self) -> None:
+        """Recompute _entities / _non_essential / _signal_map from labels.
+
+        Membership = union of entities carrying one of the group's labels and
+        entities of devices carrying one. Non-essential = members that ALSO carry
+        the NE label. Signal map is auto-built per member (no per-entity wizard for
+        a dynamic set). All synchronous — callers mutate coordinator state without an
+        await in between so a refresh/state-change callback can never interleave a
+        partial membership (HA's loop is single-threaded).
+
+        Guard: a non-empty label set resolving to ZERO entities is treated as a
+        transient registry hiccup — keep the prior membership rather than wipe to
+        empty (which would prune every entity's stored history). A genuinely empty
+        group is expressed by configuring no labels at all (self._label_ids == []).
+        The guard still drops any held member that no longer EXISTS in the entity
+        registry (deleted, not merely untagged — ``async_get`` returns None for a
+        deletion but an entry for an untag): this frees the one case the hiccup guard
+        would otherwise freeze forever — the label removed from its last entity, which
+        was then deleted — without reinstating the history-wipe the guard prevents.
+        """
+        # Full membership = main labels UNION non-essential labels (NE labels ADD
+        # members, parity with a classic group's non-essential entity field). The NE
+        # set is every resolved member carrying any NE label.
+        main_members = resolve_label_members(self.hass, self._label_ids)
+        ne_members = (
+            resolve_label_members(self.hass, self._non_essential_label)
+            if self._non_essential_label
+            else []
+        )
+        resolved = list(dict.fromkeys([*main_members, *ne_members]))
+        ne = set(ne_members)
+        configured = bool(self._label_ids or self._non_essential_label)
+
+        # Hiccup guard: a non-empty label config resolving to ZERO entities is treated
+        # as a transient registry hiccup — keep prior membership rather than wipe
+        # history. Still drop held members that no longer EXIST in the registry
+        # (deleted, async_get→None) vs merely untagged (keeps the frozen-forever case
+        # from stalling).
+        if not resolved and configured and self._entities:
+            ent_reg = er.async_get(self.hass)
+            still_exist = [
+                e for e in self._entities if ent_reg.async_get(e) is not None
+            ]
+            if still_exist != self._entities:
+                _LOGGER.debug(
+                    "[%s] Empty resolve; dropped %d deleted member(s), kept %d",
+                    self.group_name,
+                    len(self._entities) - len(still_exist),
+                    len(still_exist),
+                )
+                self._entities = still_exist
+                self._non_essential = [
+                    e for e in self._non_essential if e in still_exist
+                ]
+            else:
+                _LOGGER.debug(
+                    "[%s] Label resolve empty; keeping prior %d members",
+                    self.group_name,
+                    len(self._entities),
+                )
+            return
+        self._entities = resolved
+        self._non_essential = [e for e in resolved if e in ne]
+        # Auto-detect a signal sensor per member (no per-entity wizard for a dynamic
+        # set), then overlay any stored manual override: a user's explicit
+        # signal-sensor/network-type for a member set in options WINS over auto, while
+        # members with no override (incl. freshly auto-joined ones) keep auto-detect.
+        # Restricted to current members so a stale override for an absent entity stays
+        # inert (it re-applies if that entity rejoins).
+        auto = build_signal_map(self.hass, resolved)
+        stored = self.entry.data.get(CONF_SIGNAL_ENTITY_MAP, {})
+        members = set(resolved)
+        for eid, mapping in stored.items():
+            if eid in members and mapping:
+                auto[eid] = mapping
+        self._signal_map = auto
+
+    @callback
+    def _setup_registry_listeners(self) -> None:
+        """Subscribe to registry events so label membership re-resolves live.
+
+        Only label groups listen. Entity- and device-label assignments surface as
+        EVENT_ENTITY_REGISTRY_UPDATED / EVENT_DEVICE_REGISTRY_UPDATED (NOT the label
+        registry event, which fires only on label create/rename/delete). We listen to
+        all three: the two assignment events drive membership, the label event covers
+        a monitored label being deleted/renamed.
+        """
+        if not self._is_label_group:
+            return
+        self._unsub_registry = [
+            self.hass.bus.async_listen(
+                er.EVENT_ENTITY_REGISTRY_UPDATED, self._handle_registry_update
+            ),
+            self.hass.bus.async_listen(
+                dr.EVENT_DEVICE_REGISTRY_UPDATED, self._handle_registry_update
+            ),
+        ]
+
+    @callback
+    def _handle_registry_update(self, event: Event) -> None:
+        """Debounce registry churn, then re-resolve label membership.
+
+        Bulk label edits (UI multi-select) fire a burst of events; coalesce them into
+        one re-resolve via a trailing-edge timer (mirrors _handle_state_change). Both
+        the entity- and device-registry UPDATE payloads carry a ``changes`` dict, so an
+        'update' that does not touch ``labels`` is skipped cheaply (it can't change
+        membership). create/remove carry no changes dict and always re-resolve (a new
+        or removed entity/device may join or leave the label set). A non-label device
+        edit (rename, area change) therefore no longer triggers a re-resolve.
+        """
+        if event.data.get("action") == "update" and "labels" not in event.data.get(
+            "changes", {}
+        ):
+            return
+        if self._label_refresh_timer is not None:
+            self._label_refresh_timer()
+        self._label_refresh_timer = async_call_later(
+            self.hass, _STATE_CHANGE_DEBOUNCE, self._reresolve_membership
+        )
+
+    @callback
+    def _reresolve_membership(self, _now: Any) -> None:
+        """Re-resolve membership and, if it changed, re-arm everything.
+
+        Synchronous end to end (no await): re-resolve, prune per-entity state for
+        departed members (_device_states / _suppressed would otherwise keep ghost
+        rows that still surface in collapse maps and count sensors), re-arm state
+        listeners over the new set, and push a refresh. Departed members' on-disk
+        history is pruned on the next save (same as removing an entity from a static
+        group) — accepted v1 behavior.
+        """
+        self._label_refresh_timer = None
+        before = set(self._entities)
+        before_ne = set(self._non_essential)
+        self._resolve_label_membership()
+        after = set(self._entities)
+        after_ne = set(self._non_essential)
+        # Refresh when EITHER the membership set OR the essential/non-essential split
+        # changed. Tagging an existing member with the NE label (or removing it) leaves
+        # the membership set identical but flips its tier — a real change the card must
+        # reflect, so membership-only comparison would wrongly skip it.
+        if before == after and before_ne == after_ne:
+            return
+        departed = before - after
+        for eid in departed:
+            self._device_states.pop(eid, None)
+            self._suppressed.pop(eid, None)
+        _LOGGER.debug(
+            "[%s] Label membership changed: +%d -%d (now %d), non_essential %d->%d",
+            self.group_name,
+            len(after - before),
+            len(departed),
+            len(after),
+            len(before_ne),
+            len(after_ne),
+        )
+        self._invalidate_collapse()
+        self._setup_state_listeners()
+        # Schedule the async refresh as a task — this is a sync @callback, so a bare
+        # async_request_refresh() call would create an un-awaited coroutine that never
+        # runs (and warns), dropping the push until the next poll. A full refresh (not
+        # async_set_updated_data) is required: the sweep must run to build DeviceStates
+        # for newly-joined members before their state is published.
+        self.hass.async_create_task(self.async_request_refresh())
 
     @callback
     def _handle_state_change(self, event: Event) -> None:

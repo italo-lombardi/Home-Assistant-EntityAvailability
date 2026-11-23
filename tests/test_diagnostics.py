@@ -205,3 +205,57 @@ async def test_diagnostics_group_defaults(mock_hass: HomeAssistant):
     assert result["entities"]["signal_entity_map"] == {}
     assert result["config"]["signal_enabled"] is False
     assert result["counts"]["total"] == 0
+
+
+async def test_diagnostics_label_entry(mock_hass: HomeAssistant):
+    """A label group's diagnostics report entry_type 'label_group' plus the label
+    config (labels + non_essential_labels) so the resolved membership is explainable."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    from custom_components.entity_availability.const import (
+        CONF_LABELS,
+        CONF_NON_ESSENTIAL_LABEL,
+        ENTRY_TYPE_LABEL,
+    )
+
+    hass = mock_hass
+    main = lr.async_get(hass).async_create("DiagMain").label_id
+    ne = lr.async_get(hass).async_create("DiagNE").label_id
+    ent_reg = er.async_get(hass)
+    e = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "diag_lbl", suggested_object_id="diag_lbl"
+    )
+    ent_reg.async_update_entity(e.entity_id, labels={main})
+
+    entry = MockConfigEntry(
+        version=1,
+        domain=DOMAIN,
+        title="Diag Label Group",
+        data={
+            CONF_GROUP_NAME: "Diag Label Group",
+            CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
+            CONF_LABELS: [main],
+            CONF_NON_ESSENTIAL_LABEL: [ne],
+            "bad_states": ["unavailable", "unknown"],
+        },
+        entry_id="diag_label_entry",
+        unique_id=f"{DOMAIN}_diag_label",
+    )
+    entry.add_to_hass(hass)
+
+    with patch.object(
+        EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
+    ):
+        coord = EntityAvailabilityCoordinator(hass, entry)
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN]["diag_label_entry"] = coord
+
+    result = await async_get_config_entry_diagnostics(hass, entry)
+
+    assert result["entry_type"] == "label_group"
+    assert result["config"]["labels"] == [main]
+    assert result["config"]["non_essential_labels"] == [ne]
+    # Signal map is the coordinator's LIVE effective map (auto-detect + overlay),
+    # not the config-time entry.data snapshot — so diagnostics show real bindings.
+    assert result["entities"]["signal_entity_map"] == coord.signal_map

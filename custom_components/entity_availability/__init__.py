@@ -19,6 +19,7 @@ from .const import (
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
+    ENTRY_TYPE_LABEL,
     STORAGE_KEY_PREFIX,
     STORAGE_VERSION,
 )
@@ -222,7 +223,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if e.state is ConfigEntryState.LOADED and e.entry_id != entry.entry_id
     ]
     if not any(
-        e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP) == ENTRY_TYPE_GROUP
+        e.data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP)
+        in (ENTRY_TYPE_GROUP, ENTRY_TYPE_LABEL)
         for e in remaining
     ):
         async_unload_services(hass)

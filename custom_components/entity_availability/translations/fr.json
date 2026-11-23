@@ -28,6 +28,19 @@
           "combined_name": "Nom du groupe combiné"
         }
       },
+      "label_group": {
+        "title": "Créer un groupe d'étiquettes",
+        "description": "Surveillez chaque entité portant une étiquette. L'appartenance au groupe se met à jour automatiquement lorsque vous ajoutez ou retirez l'étiquette sur des entités et des appareils.",
+        "data": {
+          "group_name": "Nom du groupe",
+          "labels": "Étiquettes à surveiller",
+          "non_essential_label": "Étiquettes non essentielles"
+        },
+        "data_description": {
+          "labels": "Chaque entité portant l'une de ces étiquettes — directement ou via son appareil — est surveillée. Le groupe se recompose automatiquement lorsque vous ajoutez ou retirez des étiquettes sur des entités et des appareils.",
+          "non_essential_label": "Les membres portant également l'une de ces étiquettes sont traités comme non essentiels : affichés et comptés dans les totaux, mais exclus de tous les KPI (disponibilité %, nombre hors ligne, MTBF, MTTR) et des alertes. Laissez vide pour traiter chaque membre comme essentiel."
+        }
+      },
       "monitoring": {
         "title": "Paramètres de surveillance",
         "description": "Configurez la façon dont les entités sont surveillées.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Le nom du groupe ne peut pas être vide.",
       "no_entities": "Vous devez sélectionner au moins une entité.",
+      "no_labels": "Vous devez sélectionner au moins une étiquette.",
       "not_enough_groups_selected": "Sélectionnez au moins deux groupes à combiner.",
       "duplicate_entities": "La même entité ne peut pas apparaître dans les deux listes. Supprimez les doublons avant d'enregistrer.",
       "collapse_requires_device_names": "Regrouper les entités par appareil nécessite que « Afficher les noms d'appareils » soit activé.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entités à surveiller",
           "non_essential_entities": "Entités non essentielles",
+          "labels": "Étiquettes à surveiller",
+          "non_essential_label": "Étiquettes non essentielles",
           "bad_states": "États considérés comme hors ligne",
           "cooldown": "Délai (secondes)",
           "staleness_threshold": "Seuil d'obsolescence (minutes, 0 = désactivé)",
@@ -107,6 +123,8 @@
         },
         "data_description": {
           "non_essential_entities": "Entités affichées et comptées sur la carte mais exclues de tous les KPI (nombre hors ligne, disponibilité %, MTBF, MTTR) et alertes. Utile pour les appareils attendus hors ligne (TV en veille, imprimante éteinte entre les tâches).",
+          "labels": "Chaque entité portant l'une de ces étiquettes — directement ou via son appareil — est surveillée. Le groupe se recompose automatiquement lorsque vous ajoutez ou retirez des étiquettes sur des entités et des appareils.",
+          "non_essential_label": "Les membres portant également l'une de ces étiquettes sont traités comme non essentiels : affichés et comptés dans les totaux, mais exclus de tous les KPI (disponibilité %, nombre hors ligne, MTBF, MTTR) et des alertes. Laissez vide pour traiter chaque membre comme essentiel.",
           "bad_states": "États d'entité indiquant qu'une entité est hors ligne (p. ex. unavailable, unknown).",
           "cooldown": "Durée (en secondes) pendant laquelle une entité doit rester dans un mauvais état avant d'être marquée hors ligne. Évite les fausses alarmes lors de déconnexions brèves.",
           "staleness_threshold": "Si une entité n'a pas changé d'état depuis ce nombre de minutes, elle est marquée comme dégradée. Définir à 0 pour désactiver.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Regrouper les entités par appareil nécessite que « Afficher les noms d'appareils » soit activé.",
       "already_configured": "Un groupe avec ce nom existe déjà.",
       "empty_group_name": "Le nom du groupe ne peut pas être vide.",
-      "not_enough_groups_selected": "Sélectionnez au moins deux groupes à combiner."
+      "not_enough_groups_selected": "Sélectionnez au moins deux groupes à combiner.",
+      "no_labels": "Vous devez sélectionner au moins une étiquette."
     },
     "abort": {
       "not_enough_groups": "Ce groupe combiné n'a plus suffisamment de groupes sources chargés. Ajoutez d'abord d'autres groupes."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Surveiller des entités",
-        "combined_group": "Combiner des groupes"
+        "combined_group": "Combiner des groupes",
+        "label_group": "Surveiller par étiquette"
       }
     },
     "combined_group_override": {

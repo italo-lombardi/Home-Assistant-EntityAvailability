@@ -28,6 +28,19 @@
           "combined_name": "Numele grupului combinat"
         }
       },
+      "label_group": {
+        "title": "Creare grup după etichetă",
+        "description": "Monitorizați fiecare entitate care poartă o etichetă. Componența se actualizează automat pe măsură ce adăugați sau eliminați eticheta de pe entități și dispozitive.",
+        "data": {
+          "group_name": "Numele grupului",
+          "labels": "Etichete de monitorizat",
+          "non_essential_label": "Etichete neesențiale"
+        },
+        "data_description": {
+          "labels": "Fiecare entitate care poartă una dintre aceste etichete — direct sau prin dispozitivul său — este monitorizată. Grupul se recompune automat când adăugați sau eliminați etichete de pe entități și dispozitive.",
+          "non_essential_label": "Membrii care poartă și oricare dintre aceste etichete sunt tratați ca neesențiali: afișați și incluși în totaluri, dar excluși din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și din alerte. Lăsați gol pentru a trata fiecare membru ca esențial."
+        }
+      },
       "monitoring": {
         "title": "Setări de monitorizare",
         "description": "Configurați modul în care sunt monitorizate entitățile.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Numele grupului nu poate fi gol.",
       "no_entities": "Trebuie să selectați cel puțin o entitate.",
+      "no_labels": "Trebuie să selectați cel puțin o etichetă.",
       "duplicate_entities": "Aceeași entitate nu poate apărea în ambele liste. Eliminați duplicatele înainte de salvare.",
       "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare.",
       "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entități de monitorizat",
           "non_essential_entities": "Entități neesențiale",
+          "labels": "Etichete de monitorizat",
+          "non_essential_label": "Etichete neesențiale",
           "bad_states": "Stări considerate offline",
           "cooldown": "Timp de așteptare (secunde)",
           "staleness_threshold": "Prag de expirare (minute, 0 = dezactivat)",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "Entitățile urmărite pentru disponibilitate. Acestea sunt monitorizate complet și incluse în toți KPI-ii și alertele.",
           "non_essential_entities": "Entități care nu afectează scorul de sănătate al grupului. Sunt vizibile pe card și incluse în totaluri, dar excluse din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și nu declanșează niciodată alerte. Folosiți pentru dispozitive unde timpul de nefuncționare este acceptabil — un televizor, o imprimantă, un dispozitiv sezonier.",
+          "labels": "Fiecare entitate care poartă una dintre aceste etichete — direct sau prin dispozitivul său — este monitorizată. Grupul se recompune automat când adăugați sau eliminați etichete de pe entități și dispozitive.",
+          "non_essential_label": "Membrii care poartă și oricare dintre aceste etichete sunt tratați ca neesențiali: afișați și incluși în totaluri, dar excluși din toți KPI-ii (disponibilitate %, număr offline, MTBF, MTTR) și din alerte. Lăsați gol pentru a trata fiecare membru ca esențial.",
           "bad_states": "Stările entităților care indică faptul că acestea sunt offline (ex.: unavailable, unknown).",
           "cooldown": "Cât timp (în secunde) trebuie să rămână o entitate într-o stare proastă înainte de a fi marcată offline. Previne alarmele false cauzate de deconectări scurte.",
           "staleness_threshold": "Dacă o entitate nu și-a schimbat starea de atâtea minute, o marcăm ca degradată. Setați la 0 pentru a dezactiva.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“.",
       "already_configured": "Există deja un grup cu acest nume.",
       "empty_group_name": "Numele grupului nu poate fi gol.",
-      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare."
+      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare.",
+      "no_labels": "Trebuie să selectați cel puțin o etichetă."
     },
     "abort": {
       "not_enough_groups": "Acest grup combinat nu mai are suficiente grupuri sursă încărcate. Adăugați mai întâi mai multe grupuri."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Monitorizare entități",
-        "combined_group": "Combinare grupuri"
+        "combined_group": "Combinare grupuri",
+        "label_group": "Monitorizare după etichetă"
       }
     },
     "combined_group_override": {

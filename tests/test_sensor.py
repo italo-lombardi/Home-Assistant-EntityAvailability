@@ -453,6 +453,46 @@ class TestAvailabilitySensor:
         value = sensor.native_value
         assert value == 100.0
 
+    def test_native_value_time_weighted_not_equal_weight(
+        self, mock_coordinator, mock_hass
+    ):
+        """Group % is TIME-WEIGHTED (Σonline/Σtotal), not an equal-weight mean of
+        per-entity %. A freshly-joined member with little history barely moves the
+        number — the whole point of the fix. Here: an established member with
+        100% over a long window + a brand-new member that is briefly 0% over a tiny
+        window. Equal-weight mean would read ~50%; time-weighted reads ~100%."""
+        storage = mock_coordinator.availability_storage
+        ents = list(mock_coordinator.monitored_entities)
+        old, new = ents[0], ents[1]
+
+        def _components(eid, _window, _now):
+            if eid == old:
+                return (86400.0, 86400.0)  # 1 day, fully online
+            if eid == new:
+                return (0.0, 30.0)  # 30s old, briefly offline
+            return None  # any other member has no data
+
+        # Make only old+new essential so the assertion is deterministic.
+        for eid in ents:
+            d = mock_coordinator.device_states.get(eid)
+            if d is not None:
+                d.is_non_essential = eid not in (old, new)
+
+        sensor = AvailabilitySensor(
+            mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
+        )
+        sensor.hass = mock_hass
+        with patch.object(storage, "availability_components", side_effect=_components):
+            value = sensor.native_value
+            attrs = sensor.extra_state_attributes
+
+        # Time-weighted: 86400 online / 86430 total = 99.96.. → 100.0 (1-dp).
+        # An equal-weight mean of {100.0, 0.0} would be 50.0 — the bug we fixed.
+        assert value == 100.0
+        # Per-device breakdown still shows each member's own %.
+        assert attrs["per_device"][old] == 100.0
+        assert attrs["per_device"][new] == 0.0
+
     def test_native_value_none_insufficient_data(self, mock_coordinator, mock_hass):
         """Test returns None when insufficient data."""
         sensor = AvailabilitySensor(
@@ -574,14 +614,14 @@ class TestAvailabilitySensor:
             for i in range(24):
                 storage.record_online(entity_id, 3600.0, now - timedelta(hours=i))
 
-        real = storage.get_availability
+        real = storage.availability_components
         calls = {"n": 0}
 
         def counting(eid, window, t):
             calls["n"] += 1
             return real(eid, window, t)
 
-        storage.get_availability = counting
+        storage.availability_components = counting
 
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
@@ -618,23 +658,25 @@ class TestAvailabilitySensor:
         storage = mock_coordinator.availability_storage
 
         def gen_keyed(_eid, _window, _now):
-            # Value tracks the live generation: 90.0 at gen g.
-            return 90.0 + float(mock_coordinator.collapse_generation)
+            # Components whose time-weighted ratio tracks the live generation:
+            # (90+g) online out of 100 total → native_value 90.0+g at gen g.
+            return (90.0 + float(mock_coordinator.collapse_generation), 100.0)
 
         sensor = AvailabilitySensor(
             mock_coordinator, "Test Group", "test_group", "today", "test_entry_id"
         )
         sensor.hass = mock_hass
 
-        with patch.object(storage, "get_availability", side_effect=gen_keyed):
+        with patch.object(storage, "availability_components", side_effect=gen_keyed):
             gen0 = mock_coordinator.collapse_generation
             first = sensor.native_value
-            # Second read, SAME generation: storage value would be identical
-            # anyway, so prove non-recompute via call count instead.
-            storage.get_availability.reset_mock()
+            # Second read, SAME generation: prove non-recompute via call count.
+            storage.availability_components.reset_mock()
             same_gen = sensor.native_value
             assert same_gen == first  # cached value reused
-            assert storage.get_availability.call_count == 0  # no recompute same gen
+            assert (
+                storage.availability_components.call_count == 0
+            )  # same gen, no recompute
 
             # New tick → generation bumps → recompute → NEW value surfaces.
             mock_coordinator._collapse_generation += 1
@@ -1735,9 +1777,9 @@ class TestAvailabilitySensorQuantization:
 
         def _drifty(_eid, _window, _now):
             # Unrounded float typical of pre-fix storage behaviour.
-            return 99.84736821
+            return (99.84736821, 100.0)
 
-        with patch.object(storage, "get_availability", side_effect=_drifty):
+        with patch.object(storage, "availability_components", side_effect=_drifty):
             per_device = sensor.extra_state_attributes["per_device"]
         for eid, value in per_device.items():
             assert value is None or value == 99.8, (
@@ -1776,10 +1818,10 @@ class TestAvailabilitySensorQuantization:
         def _drifting(_eid, _window, _now):
             # 30s/86400s ≈ 0.035% per-tick drift around 99.5% — below 0.1%
             # rounding step so the published values stay flat.
-            return 99.5 + (tick["n"] * 30 / 86400)
+            return (99.5 + (tick["n"] * 30 / 86400), 100.0)
 
         with (
-            patch.object(storage, "get_availability", side_effect=_drifting),
+            patch.object(storage, "availability_components", side_effect=_drifting),
             patch.object(sensor, "async_write_ha_state") as write,
         ):
             for i in range(1000):
@@ -1826,9 +1868,9 @@ class TestAvailabilitySensorMinuteTruncation:
 
         def _capture(_eid, _window, now):
             captured.append(now)
-            return 100.0
+            return (100.0, 100.0)
 
-        with patch.object(storage, "get_availability", side_effect=_capture):
+        with patch.object(storage, "availability_components", side_effect=_capture):
             sensor.native_value
             sensor.extra_state_attributes
 

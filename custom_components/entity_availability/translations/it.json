@@ -28,6 +28,19 @@
           "combined_name": "Nome del gruppo combinato"
         }
       },
+      "label_group": {
+        "title": "Crea gruppo per etichetta",
+        "description": "Monitora ogni entità che porta un'etichetta. L'appartenenza si aggiorna automaticamente quando aggiungi o rimuovi l'etichetta su entità e dispositivi.",
+        "data": {
+          "group_name": "Nome del gruppo",
+          "labels": "Etichette da monitorare",
+          "non_essential_label": "Etichette non essenziali"
+        },
+        "data_description": {
+          "labels": "Ogni entità che porta una di queste etichette — direttamente o tramite il suo dispositivo — viene monitorata. Il gruppo si ricalcola automaticamente quando assegni o rimuovi etichette su entità e dispositivi.",
+          "non_essential_label": "I membri che portano anche una qualsiasi di queste etichette vengono trattati come non essenziali: mostrati e conteggiati nei totali, ma esclusi da tutti i KPI (disponibilità %, conteggio offline, MTBF, MTTR) e dagli avvisi. Lascia vuoto per trattare ogni membro come essenziale."
+        }
+      },
       "monitoring": {
         "title": "Impostazioni di monitoraggio",
         "description": "Configura come vengono monitorate le entità.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Il nome del gruppo non può essere vuoto.",
       "no_entities": "Devi selezionare almeno un'entità.",
+      "no_labels": "Devi selezionare almeno un'etichetta.",
       "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare.",
       "duplicate_entities": "La stessa entità non può comparire in entrambe le liste. Rimuovi i duplicati prima di salvare.",
       "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entità da monitorare",
           "non_essential_entities": "Entità non essenziali",
+          "labels": "Etichette da monitorare",
+          "non_essential_label": "Etichette non essenziali",
           "bad_states": "Stati considerati offline",
           "cooldown": "Tempo di attesa (secondi)",
           "staleness_threshold": "Soglia di inattività (minuti, 0 = disabilitato)",
@@ -107,6 +123,8 @@
         },
         "data_description": {
           "non_essential_entities": "Entità mostrate e conteggiate nella scheda ma escluse da tutti i KPI (conteggio offline, disponibilità %, MTBF, MTTR) e avvisi. Utile per dispositivi che si prevede siano offline (TV in standby, stampante spenta tra un lavoro e l'altro).",
+          "labels": "Ogni entità che porta una di queste etichette — direttamente o tramite il suo dispositivo — viene monitorata. Il gruppo si ricalcola automaticamente quando assegni o rimuovi etichette su entità e dispositivi.",
+          "non_essential_label": "I membri che portano anche una qualsiasi di queste etichette vengono trattati come non essenziali: mostrati e conteggiati nei totali, ma esclusi da tutti i KPI (disponibilità %, conteggio offline, MTBF, MTTR) e dagli avvisi. Lascia vuoto per trattare ogni membro come essenziale.",
           "bad_states": "Stati delle entità che indicano che un'entità è offline (es. unavailable, unknown).",
           "cooldown": "Per quanto tempo (in secondi) un'entità deve rimanere in uno stato anomalo prima di essere contrassegnata come offline. Previene falsi allarmi da brevi disconnessioni.",
           "staleness_threshold": "Se un'entità non ha cambiato stato per questo numero di minuti, viene contrassegnata come degradata. Imposta 0 per disabilitare.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato.",
       "already_configured": "Un gruppo con questo nome esiste già.",
       "empty_group_name": "Il nome del gruppo non può essere vuoto.",
-      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare."
+      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare.",
+      "no_labels": "Devi selezionare almeno un'etichetta."
     },
     "abort": {
       "not_enough_groups": "Questo gruppo combinato non ha più abbastanza gruppi sorgente caricati. Aggiungi prima altri gruppi."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Monitora entità",
-        "combined_group": "Combina gruppi"
+        "combined_group": "Combina gruppi",
+        "label_group": "Monitora per etichetta"
       }
     },
     "combined_group_override": {

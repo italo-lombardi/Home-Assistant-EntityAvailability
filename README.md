@@ -73,6 +73,7 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Option | Description |
 |--------|-------------|
 | Monitor entities | Create a new group of entities to monitor |
+| Monitor by label | Create a group whose members are every entity carrying a chosen Home Assistant label, resolved live |
 | Combine groups | Aggregate two or more existing groups into one (requires at least 2 groups already created) |
 
 ![Step 1: Choose Entry Type](assets/00_create_entity.png)
@@ -86,6 +87,24 @@ Choose whether to monitor a group of entities or combine existing groups.
 | Non-Essential entities | *(optional)* Entities shown on the card and counted in totals, but excluded from all KPIs (offline count, availability %, MTBF, MTTR) and never trigger alerts. Useful for devices where downtime is acceptable — a TV, a printer, a seasonal device. At least one entity in either field is required. |
 
 ![Step 2a: Create Entity Group](assets/01_create_entity_group.png)
+
+### Step 2c: Create Label Group (Monitor by label path)
+
+Membership is driven by Home Assistant **labels** instead of a hand-picked list. Every entity carrying a selected label — directly, or through its **device** — is monitored, and the set updates automatically within seconds as you tag or untag entities and devices. No restart or re-save needed.
+
+| Field | Description |
+|-------|-------------|
+| Group Name | A descriptive name for this group (e.g., "Critical Sensors") |
+| Labels to Monitor | One or more labels. The group monitors every entity carrying any of them (direct entity label or its device's label). |
+| Non-Essential Labels | *(optional)* Entities carrying any of these labels are monitored **as non-essential** — shown and counted in totals, but excluded from all KPIs and alerts. They are added as members even if they carry none of the main labels (same as a classic group's non-essential field). Leave empty to treat every member as essential. |
+
+After this step the wizard continues through the **same** monitoring, battery, and signal steps as a static group. Because the member set is dynamic, battery and signal sensors are **auto-detected per member**; open the group's options any time to review or override the bindings for the currently-resolved members.
+
+> **Note on history:** when an entity loses the label and leaves the group, its availability history is pruned on the next save — the same as removing an entity from a static group. Re-adding the label starts its history fresh.
+
+<!-- screenshot TODO: label-group config step -->
+![Step 2c: Create Label Group](assets/01c_create_label_group.png)
+
 
 ### Step 3: Monitoring Settings
 

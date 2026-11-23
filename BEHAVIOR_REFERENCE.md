@@ -31,6 +31,32 @@ independent axes:
 Each poll, every axis is re-checked. An event fires only when an axis
 **changes state** — the moment it flips, not on every poll it stays there.
 
+**How membership is defined.** A group's members come from one of two sources,
+chosen when the group is created:
+
+- **Static** — an explicit list of entities you pick. Fixed until you edit it.
+- **By label** — one or more Home Assistant *labels*. Both the **Labels to
+  Monitor** field and the optional **Non-Essential Labels** field accept
+  MULTIPLE labels; an entity matches if it carries ANY of the labels in a field
+  (union, not intersection). Members = every entity carrying any selected
+  monitor-label **directly**, plus every entity belonging to a **device** that
+  carries one, deduped. The set is re-resolved **live**: tag an entity or device
+  and it joins within a short debounce (seconds); untag it and it leaves. No
+  restart, no re-save. The **Non-Essential Labels** field adds further members
+  that are monitored but flagged non-essential — an entity carrying any
+  non-essential label joins even if it carries none of the monitor-labels (same
+  as a classic group's non-essential entity field); a member carrying both a
+  monitor-label and a non-essential label is flagged non-essential.
+  Everything downstream (the four axes, suppression, availability
+  windows, combined-group inclusion) is identical to a static group — only the
+  membership *source* differs. Two consequences specific to label groups: (1) a
+  member that loses the label has its stored availability history pruned on the
+  next save, exactly as removing an entity from a static group would — re-adding
+  the label starts its history fresh; (2) battery and signal sensors are
+  auto-detected per member (a per-entity manual override can still be set in the
+  group's options against whatever members are resolved at that moment).
+
+
 Every event says which group it came from, in an `entry_id` field — a unique
 ID HA gives each group that never changes, even if the group is renamed. An
 automation can match on it to react to just one group; in the editor, the

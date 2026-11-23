@@ -485,6 +485,57 @@ def enable_entity(entity_id: str, timeout: int = 10) -> bool:
     return result["ok"]
 
 
+def ws_cmds(commands, timeout: int = 10):
+    """Run a sequence of websocket commands after auth; return list of result msgs.
+
+    commands: list of dicts WITHOUT an "id" (ids are assigned here). Each is sent
+    only after the previous one's result arrives, so later commands can depend on
+    earlier ones (e.g. create a label, then assign it). Returns the result message
+    for each command in order, or [] if websocket-client is unavailable. Used by the
+    label-group EC to create a label and set entity/device labels — there is no REST
+    route for the label registry, only websocket (mirrors enable_entity).
+    """
+    if not _WS_AVAILABLE:
+        return []
+    ws_url = (
+        BASE.replace("http://", "ws://").replace("https://", "wss://")
+        + "/api/websocket"
+    )
+    results: list = []
+    done = threading.Event()
+    state = {"i": 0}
+
+    def _send_next(ws):
+        if state["i"] >= len(commands):
+            done.set()
+            return
+        cmd = dict(commands[state["i"]])
+        cmd["id"] = 100 + state["i"]
+        ws.send(json.dumps(cmd))
+
+    def on_message(ws, raw):
+        try:
+            msg = json.loads(raw)
+        except Exception:
+            return
+        mtype = msg.get("type")
+        if mtype == "auth_required":
+            ws.send(json.dumps({"type": "auth", "access_token": TOKEN}))
+        elif mtype == "auth_ok":
+            _send_next(ws)
+        elif mtype == "result" and msg.get("id") == 100 + state["i"]:
+            results.append(msg)
+            state["i"] += 1
+            _send_next(ws)
+
+    ws = _ws_lib.WebSocketApp(ws_url, on_message=on_message, on_error=lambda *a: None)
+    t = threading.Thread(target=lambda: ws.run_forever(), daemon=True)
+    t.start()
+    done.wait(timeout)
+    ws.close()
+    return results
+
+
 # ---------------------------------------------------------------------------
 # Test tracking
 # ---------------------------------------------------------------------------
@@ -506,6 +557,47 @@ def chk(label, got, exp, note=""):
 # ---------------------------------------------------------------------------
 # Discovery — no hardcoded IDs
 # ---------------------------------------------------------------------------
+
+
+def discover_label_group(title):
+    """Return the LIVE monitored entity_ids of a label group by title, via the
+    diagnostics endpoint (coordinator.monitored_entities — reflects live label
+    re-resolution, unlike entry.data). Empty list if not found. Used by EC149."""
+    entries = api("GET", "/api/config/config_entries/entry")
+    entry = next(
+        (
+            e
+            for e in entries
+            if e["domain"] == "entity_availability" and e["title"] == title
+        ),
+        None,
+    )
+    if not entry:
+        return []
+    diag = api("GET", f"/api/diagnostics/config_entry/{entry['entry_id']}")
+    ents = (diag or {}).get("data", diag).get("entities", {}) if diag else {}
+    return list(ents.get("essential", [])) + list(ents.get("non_essential", []))
+
+
+def pick_real_entities(n):
+    """Return n distinct existing entity_ids suitable for labeling in EC149-151.
+    Independent of any group fixture. Prefers binary_sensor/sensor entities that
+    currently have a real (non-unknown/unavailable) state so labeling them yields
+    a monitorable member. Returns fewer than n only if HA genuinely lacks them."""
+    out = []
+    for s in api("GET", "/api/states"):
+        eid = s.get("entity_id", "")
+        if not eid.startswith(("binary_sensor.", "sensor.")):
+            continue
+        if s.get("state") in (None, "unknown", "unavailable"):
+            continue
+        # avoid our own integration's sensors + anything already label-tagged by a sibling EC
+        if eid.startswith("sensor.entity_availability") or "entity_availability" in eid:
+            continue
+        out.append(eid)
+        if len(out) >= n:
+            break
+    return out
 
 
 def discover(group_filter=None):
@@ -2878,6 +2970,16 @@ def _run_all_passes():
     #    poor_signal_count + signal_entity_map round-trip).
     if signal_grp:
         passes.append(("signal-fixture", signal_grp, "", signal_ecs))
+    # 6) Label-group ECs (EC149 live membership; EC150 combined-over-mix; EC151
+    #    combined-over-label-only). These SELF-PROVISION their own label(s) +
+    #    label_group entry via websocket + the config flow, so they don't need a
+    #    capability-matched target — any discovered group satisfies discover(). They
+    #    skip-loud if websocket-client is absent. Routed to their own pass so --all
+    #    actually runs them (ec_enabled is False for them inside any other pass).
+    label_group_ecs = {149, 150, 151}
+    _any_grp = ess_batt or signal_grp or numeric_batt or both_tiers or collapse_grp
+    if _any_grp:
+        passes.append(("label-group", _any_grp, "", label_group_ecs))
 
     # DARK report: a family whose target is missing.
     dark = []
@@ -8358,6 +8460,652 @@ for e in cfg['data']['entries']:
             {"group": ctx["title"]},
         )
         restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC149: label group — dynamic membership resolves live from HA labels.
+    # Isolated-only (EA_SMOKE_EC=149): creates a label + a label_group entry,
+    # proves (a) a labeled entity is monitored, (b) labeling a NEW entity makes it
+    # join live (no restart), (c) de-labeling drops it. Label registry has no REST
+    # route, so this uses websocket (ws_cmds); skip-loud if websocket-client absent.
+    # Self-cleans its config entry. Needs >= 2 real entities (reuses ctx group's).
+    # ------------------------------------------------------------------
+    if ec_enabled(149):
+        print(
+            "\n=== EC149: label group — live dynamic membership from HA labels ===",
+            flush=True,
+        )
+        _picks = pick_real_entities(2) if _WS_AVAILABLE else []
+        if not _WS_AVAILABLE:
+            print("  EC149: SKIP — websocket-client not installed", flush=True)
+        elif len(_picks) < 2:
+            print(
+                "  EC149: SKIP — HA lacks >= 2 real sensor/binary_sensor entities",
+                flush=True,
+            )
+        else:
+            e_in, e_join = (
+                _picks[0],
+                _picks[1],
+            )  # [0] labeled up front; [1] labeled live
+            lbl_name = "ea_smoke_ec149"
+            label_eid = None
+            try:
+                # 1) Create the label, capture its label_id.
+                res = ws_cmds(
+                    [{"type": "config/label_registry/create", "name": lbl_name}]
+                )
+                label_eid = (
+                    (res[0].get("result", {}) or {}).get("label_id") if res else None
+                )
+                if not (res and res[0].get("success") and label_eid):
+                    chk("EC149 label created via websocket", False, True, str(res))
+                else:
+                    # 2) Label the first entity BEFORE creating the group.
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_in,
+                                "labels": [label_eid],
+                            }
+                        ]
+                    )
+                    # 3) Provision a label_group entry via the config flow.
+                    r = api(
+                        "POST",
+                        "/api/config/config_entries/flow",
+                        {"handler": "entity_availability"},
+                    )
+                    fid = r["flow_id"]
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"entry_type": "label_group"},
+                    )
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"group_name": "EC149 Label Group", "labels": [label_eid]},
+                    )
+                    # monitoring step (defaults)
+                    api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                    # advanced step: battery 0 + signal off → creates directly
+                    r_done = api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "battery_threshold": 0,
+                            "signal_enabled": False,
+                            "availability_windows": ["today"],
+                            "recovery_window": 5,
+                            "use_device_names": False,
+                            "collapse_devices": False,
+                        },
+                    )
+                    lg_entry = (r_done.get("result") or {}).get("entry_id")
+                    if r_done.get("type") != "create_entry" or not lg_entry:
+                        chk("EC149 label_group entry created", False, True, str(r_done))
+                    else:
+                        wait(5)
+                        lg = next(
+                            (e for e in discover_label_group("EC149 Label Group")),
+                            None,
+                        )
+                        # (a) the pre-labeled entity is a member.
+                        chk(
+                            "EC149 pre-labeled entity is monitored",
+                            e_in in lg,
+                            True,
+                            f"members={lg}",
+                        )
+                        # (b) label a NEW entity live → it must join within a debounce.
+                        ws_cmds(
+                            [
+                                {
+                                    "type": "config/entity_registry/update",
+                                    "entity_id": e_join,
+                                    "labels": [label_eid],
+                                }
+                            ]
+                        )
+                        joined = wait_for(
+                            lambda: e_join in discover_label_group("EC149 Label Group"),
+                            True,
+                        )
+                        chk(
+                            "EC149 newly-labeled entity joins live (no restart)",
+                            joined,
+                            True,
+                            f"entity={e_join}",
+                        )
+                        # (c) de-label it → it must drop back out.
+                        ws_cmds(
+                            [
+                                {
+                                    "type": "config/entity_registry/update",
+                                    "entity_id": e_join,
+                                    "labels": [],
+                                }
+                            ]
+                        )
+                        dropped = wait_for(
+                            lambda: (
+                                e_join not in discover_label_group("EC149 Label Group")
+                            ),
+                            True,
+                        )
+                        chk(
+                            "EC149 de-labeled entity drops from the group",
+                            dropped,
+                            True,
+                            f"entity={e_join}",
+                        )
+                    # Clean up the label_group entry.
+                    if lg_entry:
+                        api(
+                            "DELETE",
+                            f"/api/config/config_entries/entry/{lg_entry}",
+                        )
+            except Exception as e:
+                chk("EC149 label-group flow completed", False, True, str(e))
+            finally:
+                # Always strip the test label from the entities and delete it so a
+                # re-run (or other ECs) start clean.
+                for _e in (e_in, e_join):
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": _e,
+                                "labels": [],
+                            }
+                        ]
+                    )
+                if label_eid:
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/label_registry/delete",
+                                "label_id": label_eid,
+                            }
+                        ]
+                    )
+
+    # ------------------------------------------------------------------
+    # EC150: combined group over a MIX — one classic (static entity-list) group
+    # AND one label group. Proves (a) the combined aggregates BOTH members'
+    # entities and (b) a LIVE label change on the label-group member moves the
+    # combined's aggregate (total_entities) up and back down with no restart.
+    # Label registry has no REST route → uses websocket (ws_cmds); skip-loud if
+    # websocket-client absent. Self-cleans all three config entries + the label.
+    # Needs >= 3 real entities (A pre-labeled, classic member, C labeled live).
+    # ------------------------------------------------------------------
+    if ec_enabled(150):
+        print(
+            "\n=== EC150: combined group over a classic + label group (live move) ===",
+            flush=True,
+        )
+        _picks = pick_real_entities(3) if _WS_AVAILABLE else []
+        if not _WS_AVAILABLE:
+            print("  EC150: SKIP — websocket-client not installed", flush=True)
+        elif len(_picks) < 3:
+            print(
+                "  EC150: SKIP — HA lacks >= 3 real sensor/binary_sensor entities",
+                flush=True,
+            )
+        else:
+            e_a = _picks[0]  # pre-labeled → in the label group up front
+            e_classic = _picks[1]  # static member of the classic group
+            e_c = _picks[2]  # labeled live → label group gains it
+
+            def _combined_total(name):
+                """total_entities of the combined summary whose friendly_name
+                matches `name`, or None if the summary is not up yet."""
+                for s in api("GET", "/api/states"):
+                    eid = s["entity_id"]
+                    if "entity_availability" in eid and eid.endswith(
+                        "_combined_summary"
+                    ):
+                        attrs = s.get("attributes", {})
+                        fn = attrs.get("friendly_name", "")
+                        if name.lower() in fn.lower():
+                            return attrs.get("total_entities")
+                return None
+
+            lbl_name = "ea_smoke_ec150"
+            label_eid = None
+            lg_entry = None
+            classic_entry = None
+            combined_entry = None
+            combined_name = "EC150 Combined"
+            try:
+                # 1) Create the label, capture its label_id.
+                res = ws_cmds(
+                    [{"type": "config/label_registry/create", "name": lbl_name}]
+                )
+                label_eid = (
+                    (res[0].get("result", {}) or {}).get("label_id") if res else None
+                )
+                if not (res and res[0].get("success") and label_eid):
+                    chk("EC150 label created via websocket", False, True, str(res))
+                else:
+                    # 2) Label entity A BEFORE building the label group.
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_a,
+                                "labels": [label_eid],
+                            }
+                        ]
+                    )
+                    # 3) Provision the label_group member.
+                    r = api(
+                        "POST",
+                        "/api/config/config_entries/flow",
+                        {"handler": "entity_availability"},
+                    )
+                    fid = r["flow_id"]
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"entry_type": "label_group"},
+                    )
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "group_name": "EC150 Label Member",
+                            "labels": [label_eid],
+                        },
+                    )
+                    api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                    r_lg = api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "battery_threshold": 0,
+                            "signal_enabled": False,
+                            "availability_windows": ["today"],
+                            "recovery_window": 5,
+                            "use_device_names": False,
+                            "collapse_devices": False,
+                        },
+                    )
+                    lg_entry = (r_lg.get("result") or {}).get("entry_id")
+                    # 4) Provision the classic (static entity-list) member.
+                    r = api(
+                        "POST",
+                        "/api/config/config_entries/flow",
+                        {"handler": "entity_availability"},
+                    )
+                    fid = r["flow_id"]
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"entry_type": "group"},
+                    )
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "group_name": "EC150 Classic Member",
+                            "entities": [e_classic],
+                        },
+                    )
+                    api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                    r_cl = api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "battery_threshold": 0,
+                            "signal_enabled": False,
+                            "availability_windows": ["today"],
+                            "recovery_window": 5,
+                            "use_device_names": False,
+                            "collapse_devices": False,
+                        },
+                    )
+                    classic_entry = (r_cl.get("result") or {}).get("entry_id")
+                    if r_lg.get("type") != "create_entry" or not lg_entry:
+                        chk("EC150 label_group member created", False, True, str(r_lg))
+                    elif r_cl.get("type") != "create_entry" or not classic_entry:
+                        chk("EC150 classic member created", False, True, str(r_cl))
+                    else:
+                        # 5) Build the combined over BOTH members (key by title).
+                        r = api(
+                            "POST",
+                            "/api/config/config_entries/flow",
+                            {"handler": "entity_availability"},
+                        )
+                        fid = r["flow_id"]
+                        r_u = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            {"entry_type": "combined_group"},
+                        )
+                        eid_title_map = json.loads(
+                            r_u.get("description_placeholders", {}).get(
+                                "eid_title_map", "{}"
+                            )
+                        )
+                        title_of = {eid: t for eid, t in eid_title_map.items()}
+                        submit = {"combined_name": combined_name}
+                        for eid in (lg_entry, classic_entry):
+                            title = title_of.get(eid)
+                            if title:
+                                submit[title] = "keep"
+                        r_c = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            submit,
+                        )
+                        combined_entry = (r_c.get("result") or {}).get("entry_id")
+                        if r_c.get("type") != "create_entry" or not combined_entry:
+                            chk("EC150 combined entry created", False, True, str(r_c))
+                        else:
+                            wait(5)
+                            # (a) the combined aggregates BOTH members (>= 2).
+                            base = wait_for(
+                                lambda: (_combined_total(combined_name) or 0) >= 2,
+                                True,
+                            )
+                            base_total = _combined_total(combined_name)
+                            chk(
+                                "EC150 combined aggregates classic + label members",
+                                base,
+                                True,
+                                f"total_entities={base_total}",
+                            )
+                            # (b) label C live → label member gains it → combined
+                            #     total must INCREASE (no restart).
+                            ws_cmds(
+                                [
+                                    {
+                                        "type": "config/entity_registry/update",
+                                        "entity_id": e_c,
+                                        "labels": [label_eid],
+                                    }
+                                ]
+                            )
+                            grew = wait_for(
+                                lambda: (
+                                    (_combined_total(combined_name) or 0)
+                                    > (base_total or 0)
+                                ),
+                                True,
+                            )
+                            chk(
+                                "EC150 live label change moves combined aggregate up",
+                                grew,
+                                True,
+                                f"before={base_total} after={_combined_total(combined_name)}",
+                            )
+                            # (c) de-label C → combined total must return to base.
+                            ws_cmds(
+                                [
+                                    {
+                                        "type": "config/entity_registry/update",
+                                        "entity_id": e_c,
+                                        "labels": [],
+                                    }
+                                ]
+                            )
+                            back = wait_for(
+                                lambda: _combined_total(combined_name) == base_total,
+                                True,
+                            )
+                            chk(
+                                "EC150 de-label returns combined aggregate to base",
+                                back,
+                                True,
+                                f"base={base_total} now={_combined_total(combined_name)}",
+                            )
+            except Exception as e:
+                chk("EC150 combined-over-mix flow completed", False, True, str(e))
+            finally:
+                # Delete combined first, then members, then strip labels + label.
+                for _entry in (combined_entry, lg_entry, classic_entry):
+                    if _entry:
+                        try:
+                            api(
+                                "DELETE",
+                                f"/api/config/config_entries/entry/{_entry}",
+                            )
+                        except Exception:  # teardown is best-effort
+                            pass
+                for _e in (e_a, e_c):
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": _e,
+                                "labels": [],
+                            }
+                        ]
+                    )
+                if label_eid:
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/label_registry/delete",
+                                "label_id": label_eid,
+                            }
+                        ]
+                    )
+
+    # ------------------------------------------------------------------
+    # EC151: combined group over TWO LABEL groups only (no classic member).
+    # Proves the combined works with label-only membership — it must aggregate
+    # both label groups' entities (total_entities >= 2). Label registry has no
+    # REST route → uses websocket (ws_cmds); skip-loud if websocket-client
+    # absent. Self-cleans all three config entries + both labels.
+    # Needs >= 2 real entities (one per label group).
+    # ------------------------------------------------------------------
+    if ec_enabled(151):
+        print(
+            "\n=== EC151: combined group over two label groups only ===",
+            flush=True,
+        )
+        _picks = pick_real_entities(2) if _WS_AVAILABLE else []
+        if not _WS_AVAILABLE:
+            print("  EC151: SKIP — websocket-client not installed", flush=True)
+        elif len(_picks) < 2:
+            print(
+                "  EC151: SKIP — HA lacks >= 2 real sensor/binary_sensor entities",
+                flush=True,
+            )
+        else:
+            e_a = _picks[0]  # labeled with L2 → label group A
+            e_b = _picks[1]  # labeled with L3 → label group B
+
+            def _combined_total(name):
+                """total_entities of the combined summary whose friendly_name
+                matches `name`, or None if the summary is not up yet."""
+                for s in api("GET", "/api/states"):
+                    eid = s["entity_id"]
+                    if "entity_availability" in eid and eid.endswith(
+                        "_combined_summary"
+                    ):
+                        attrs = s.get("attributes", {})
+                        fn = attrs.get("friendly_name", "")
+                        if name.lower() in fn.lower():
+                            return attrs.get("total_entities")
+                return None
+
+            label_a = None
+            label_b = None
+            lg_a_entry = None
+            lg_b_entry = None
+            combined_entry = None
+            combined_name = "EC151 Combined"
+
+            def _make_label_group(label_id, group_name):
+                """Create a label_group entry on [label_id]; return its entry_id."""
+                r = api(
+                    "POST",
+                    "/api/config/config_entries/flow",
+                    {"handler": "entity_availability"},
+                )
+                fid = r["flow_id"]
+                api(
+                    "POST",
+                    f"/api/config/config_entries/flow/{fid}",
+                    {"entry_type": "label_group"},
+                )
+                api(
+                    "POST",
+                    f"/api/config/config_entries/flow/{fid}",
+                    {"group_name": group_name, "labels": [label_id]},
+                )
+                api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                r_done = api(
+                    "POST",
+                    f"/api/config/config_entries/flow/{fid}",
+                    {
+                        "battery_threshold": 0,
+                        "signal_enabled": False,
+                        "availability_windows": ["today"],
+                        "recovery_window": 5,
+                        "use_device_names": False,
+                        "collapse_devices": False,
+                    },
+                )
+                if r_done.get("type") != "create_entry":
+                    return None
+                return (r_done.get("result") or {}).get("entry_id")
+
+            try:
+                # 1) Create two labels, label one entity each.
+                res = ws_cmds(
+                    [
+                        {
+                            "type": "config/label_registry/create",
+                            "name": "ea_smoke_ec151_a",
+                        },
+                        {
+                            "type": "config/label_registry/create",
+                            "name": "ea_smoke_ec151_b",
+                        },
+                    ]
+                )
+                label_a = (
+                    (res[0].get("result", {}) or {}).get("label_id")
+                    if res and len(res) > 0
+                    else None
+                )
+                label_b = (
+                    (res[1].get("result", {}) or {}).get("label_id")
+                    if res and len(res) > 1
+                    else None
+                )
+                if not (label_a and label_b):
+                    chk("EC151 two labels created via websocket", False, True, str(res))
+                else:
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_a,
+                                "labels": [label_a],
+                            },
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_b,
+                                "labels": [label_b],
+                            },
+                        ]
+                    )
+                    # 2) Provision two label_group members.
+                    lg_a_entry = _make_label_group(label_a, "EC151 Label A")
+                    lg_b_entry = _make_label_group(label_b, "EC151 Label B")
+                    if not lg_a_entry or not lg_b_entry:
+                        chk(
+                            "EC151 both label_group members created",
+                            bool(lg_a_entry and lg_b_entry),
+                            True,
+                            f"a={lg_a_entry} b={lg_b_entry}",
+                        )
+                    else:
+                        # 3) Build the combined over the TWO label groups only.
+                        r = api(
+                            "POST",
+                            "/api/config/config_entries/flow",
+                            {"handler": "entity_availability"},
+                        )
+                        fid = r["flow_id"]
+                        r_u = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            {"entry_type": "combined_group"},
+                        )
+                        eid_title_map = json.loads(
+                            r_u.get("description_placeholders", {}).get(
+                                "eid_title_map", "{}"
+                            )
+                        )
+                        title_of = {eid: t for eid, t in eid_title_map.items()}
+                        submit = {"combined_name": combined_name}
+                        for eid in (lg_a_entry, lg_b_entry):
+                            title = title_of.get(eid)
+                            if title:
+                                submit[title] = "keep"
+                        r_c = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            submit,
+                        )
+                        combined_entry = (r_c.get("result") or {}).get("entry_id")
+                        if r_c.get("type") != "create_entry" or not combined_entry:
+                            chk("EC151 combined entry created", False, True, str(r_c))
+                        else:
+                            wait(5)
+                            # Combined must aggregate both label groups (>= 2),
+                            # with NO classic member in the mix.
+                            agg = wait_for(
+                                lambda: (_combined_total(combined_name) or 0) >= 2,
+                                True,
+                            )
+                            chk(
+                                "EC151 combined aggregates two label-only members",
+                                agg,
+                                True,
+                                f"total_entities={_combined_total(combined_name)}",
+                            )
+            except Exception as e:
+                chk("EC151 combined-over-labels flow completed", False, True, str(e))
+            finally:
+                # Delete combined first, then both members, then strip + delete
+                # labels.
+                for _entry in (combined_entry, lg_a_entry, lg_b_entry):
+                    if _entry:
+                        try:
+                            api(
+                                "DELETE",
+                                f"/api/config/config_entries/entry/{_entry}",
+                            )
+                        except Exception:  # teardown is best-effort
+                            pass
+                for _e in (e_a, e_b):
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": _e,
+                                "labels": [],
+                            }
+                        ]
+                    )
+                for _lbl in (label_a, label_b):
+                    if _lbl:
+                        ws_cmds(
+                            [
+                                {
+                                    "type": "config/label_registry/delete",
+                                    "label_id": _lbl,
+                                }
+                            ]
+                        )
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed

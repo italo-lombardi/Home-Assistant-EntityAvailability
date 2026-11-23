@@ -778,56 +778,80 @@ class AvailabilitySensor(DedupCoordinatorSensor):
         # minute). ponytail: 1-slot dict, not lru_cache — one key per tick,
         # two readers; a full cache would be dead flexibility.
         self._avail_cache_gen: int = -1
-        self._avail_cache: dict[str, float | None] = {}
+        self._avail_cache: dict[str, tuple[float, float] | None] = {}
 
     @staticmethod
     def _truncated_now() -> datetime:
         return datetime.now(timezone.utc).replace(second=0, microsecond=0)
 
-    def _availability_map(self, now: datetime) -> dict[str, float | None]:
-        """Per-entity availability for the essential set, computed once per tick.
-
-        Centralizes the ``is_non_essential`` skip so native_value and
-        extra_state_attributes can never diverge on membership.
+    def _components_map(self, now: datetime) -> dict[str, tuple[float, float] | None]:
+        """Per-entity (online_seconds, total_seconds) for the essential set, once per
+        tick. Centralizes the ``is_non_essential`` skip so native_value and
+        extra_state_attributes never diverge on membership. None = insufficient data.
         """
         gen = self.coordinator.collapse_generation
         if self._avail_cache_gen == gen:
             return self._avail_cache
         storage = self.coordinator.availability_storage
-        result: dict[str, float | None] = {}
+        result: dict[str, tuple[float, float] | None] = {}
         for entity_id in self.coordinator.monitored_entities:
             d = self.coordinator.device_states.get(entity_id)
             if d and d.is_non_essential:
                 continue
-            result[entity_id] = storage.get_availability(entity_id, self._window, now)
+            result[entity_id] = storage.availability_components(
+                entity_id, self._window, now
+            )
         self._avail_cache_gen = gen
         self._avail_cache = result
         return result
 
+    @staticmethod
+    def _pct(components: tuple[float, float] | None) -> float | None:
+        """Per-entity % from its (online, total) pair, clamped + rounded like before.
+
+        availability_components only ever returns None or a pair with total > 0 (its
+        own total<=0 guard), so no division guard is needed here.
+        """
+        if components is None:
+            return None
+        online, total = components
+        return round(min(online / total, 1.0) * 100, 1)
+
     @property
     def native_value(self) -> float | None:
-        """Return group availability % (1-decimal precision)."""
-        now = self._truncated_now()
-        values = [v for v in self._availability_map(now).values() if v is not None]
-        if not values:
-            return None
+        """Return group availability % — TIME-WEIGHTED across the essential set.
 
-        return round(sum(values) / len(values), 1)
+        Sum each member's observed online-seconds and total-seconds over the window,
+        then divide ONCE: a member with little history contributes proportionally
+        little weight. This replaced an equal-weight mean of per-entity %, where a
+        freshly-joined member (seconds of history) swung the group number at the same
+        weight as a member with days of history, and the value shifted whenever the
+        member count changed. Both static and label groups use this path.
+        """
+        now = self._truncated_now()
+        total_online = 0.0
+        total_time = 0.0
+        have = False
+        for components in self._components_map(now).values():
+            if components is None:
+                continue
+            have = True
+            total_online += components[0]
+            total_time += components[1]
+        if not have or total_time <= 0:
+            return None
+        return round(min(total_online / total_time, 1.0) * 100, 1)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Return per-device availability breakdown (1-decimal precision).
-
-        Per-device values are rounded to 1 decimal to match ``native_value``.
-        Previously they were unrounded floats that drifted by ~0.035% on every
-        coordinator tick, defeating ``WriteDedupMixin`` even when the
-        group-level rounded value was stable (v5.5 audit finding F-EA-1).
-        """
+        """Return per-device availability breakdown (1-decimal %, matching the old
+        per-entity values). Rounding matches native_value's precision so the
+        WriteDedupMixin isn't defeated by sub-0.1% float drift (v5.5 F-EA-1)."""
         now = self._truncated_now()
         return {
             "per_device": {
-                eid: (round(v, 1) if v is not None else None)
-                for eid, v in self._availability_map(now).items()
+                eid: self._pct(components)
+                for eid, components in self._components_map(now).items()
             }
         }
 

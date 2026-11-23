@@ -16,12 +16,11 @@ from .const import (
     CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_COOLDOWN,
-    CONF_ENTITIES,
     CONF_ENTRY_TYPE,
-    CONF_NON_ESSENTIAL_ENTITIES,
+    CONF_LABELS,
+    CONF_NON_ESSENTIAL_LABEL,
     CONF_RECOVERY_WINDOW,
     CONF_SIGNAL_ENABLED,
-    CONF_SIGNAL_ENTITY_MAP,
     CONF_STALENESS_THRESHOLD,
     CONF_STALENESS_USE_LAST_UPDATED,
     CONF_USE_DEVICE_NAMES,
@@ -37,8 +36,11 @@ from .const import (
     DEFAULT_USE_DEVICE_NAMES,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
+    ENTRY_TYPE_GROUP,
+    ENTRY_TYPE_LABEL,
 )
 from .coordinator import EntityAvailabilityCoordinator
+from .helpers import as_label_list
 
 TO_REDACT: set[str] = set()
 
@@ -63,48 +65,54 @@ async def async_get_config_entry_diagnostics(
 
     data = entry.data
     states = coordinator.device_states
-    essential = [
-        e
-        for e in data.get(CONF_ENTITIES, [])
-        if e not in data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
-    ]
-    non_essential = data.get(CONF_NON_ESSENTIAL_ENTITIES, [])
+    # Live membership: for a label group the monitored set re-resolves at runtime,
+    # so read it from the coordinator (not entry.data, which holds only the
+    # config-time snapshot). For a static group the two are identical.
+    monitored = coordinator.monitored_entities
+    non_essential = [e for e in monitored if e in coordinator.non_essential_entities]
+    essential = [e for e in monitored if e not in non_essential]
+    entry_type = data.get(CONF_ENTRY_TYPE, ENTRY_TYPE_GROUP)
+
+    config = {
+        "cooldown_seconds": data.get(CONF_COOLDOWN, DEFAULT_COOLDOWN),
+        "staleness_threshold_minutes": data.get(
+            CONF_STALENESS_THRESHOLD, DEFAULT_STALENESS_THRESHOLD
+        ),
+        "staleness_use_last_updated": data.get(
+            CONF_STALENESS_USE_LAST_UPDATED, DEFAULT_STALENESS_USE_LAST_UPDATED
+        ),
+        "battery_threshold_pct": data.get(
+            CONF_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD
+        ),
+        "signal_enabled": data.get(CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED),
+        "recovery_window_minutes": data.get(
+            CONF_RECOVERY_WINDOW, DEFAULT_RECOVERY_WINDOW
+        ),
+        "bad_states": data.get(CONF_BAD_STATES, DEFAULT_BAD_STATES),
+        "use_device_names": data.get(CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES),
+        "collapse_devices": data.get(CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES),
+        "availability_windows": data.get(
+            CONF_AVAILABILITY_WINDOWS, DEFAULT_AVAILABILITY_WINDOWS
+        ),
+    }
+    # For a label group, surface the label config so diagnostics explain WHY the
+    # resolved membership looks the way it does (the lists above are runtime-resolved).
+    if entry_type == ENTRY_TYPE_LABEL:
+        config["labels"] = as_label_list(data.get(CONF_LABELS))
+        config["non_essential_labels"] = as_label_list(
+            data.get(CONF_NON_ESSENTIAL_LABEL)
+        )
 
     return async_redact_data(
         {
-            "entry_type": "group",
+            "entry_type": entry_type,
             "title": entry.title,
-            "config": {
-                "cooldown_seconds": data.get(CONF_COOLDOWN, DEFAULT_COOLDOWN),
-                "staleness_threshold_minutes": data.get(
-                    CONF_STALENESS_THRESHOLD, DEFAULT_STALENESS_THRESHOLD
-                ),
-                "staleness_use_last_updated": data.get(
-                    CONF_STALENESS_USE_LAST_UPDATED, DEFAULT_STALENESS_USE_LAST_UPDATED
-                ),
-                "battery_threshold_pct": data.get(
-                    CONF_BATTERY_THRESHOLD, DEFAULT_BATTERY_THRESHOLD
-                ),
-                "signal_enabled": data.get(CONF_SIGNAL_ENABLED, DEFAULT_SIGNAL_ENABLED),
-                "recovery_window_minutes": data.get(
-                    CONF_RECOVERY_WINDOW, DEFAULT_RECOVERY_WINDOW
-                ),
-                "bad_states": data.get(CONF_BAD_STATES, DEFAULT_BAD_STATES),
-                "use_device_names": data.get(
-                    CONF_USE_DEVICE_NAMES, DEFAULT_USE_DEVICE_NAMES
-                ),
-                "collapse_devices": data.get(
-                    CONF_COLLAPSE_DEVICES, DEFAULT_COLLAPSE_DEVICES
-                ),
-                "availability_windows": data.get(
-                    CONF_AVAILABILITY_WINDOWS, DEFAULT_AVAILABILITY_WINDOWS
-                ),
-            },
+            "config": config,
             "entities": {
                 "essential": essential,
                 "non_essential": non_essential,
                 "battery_entity_map": data.get(CONF_BATTERY_ENTITY_MAP, {}),
-                "signal_entity_map": data.get(CONF_SIGNAL_ENTITY_MAP, {}),
+                "signal_entity_map": coordinator.signal_map,
             },
             "counts": {
                 "total": len(states),

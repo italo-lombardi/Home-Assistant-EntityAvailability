@@ -28,6 +28,19 @@
           "combined_name": "Yhdistetyn ryhmän nimi"
         }
       },
+      "label_group": {
+        "title": "Luo tunnisteryhmä",
+        "description": "Seuraa jokaista entiteettiä, jolla on tietty tunniste. Jäsenyys päivittyy automaattisesti, kun lisäät tunnisteen entiteetteihin ja laitteisiin tai poistat sen niistä.",
+        "data": {
+          "group_name": "Ryhmän nimi",
+          "labels": "Seurattavat tunnisteet",
+          "non_essential_label": "Ei-kriittiset tunnisteet"
+        },
+        "data_description": {
+          "labels": "Jokaista entiteettiä, jolla on jokin näistä tunnisteista — joko suoraan tai laitteensa kautta — seurataan. Ryhmä muodostetaan uudelleen automaattisesti, kun lisäät tunnisteita entiteetteihin ja laitteisiin tai poistat niitä.",
+          "non_essential_label": "Jäsenet, joilla on myös jokin näistä tunnisteista, käsitellään ei-kriittisinä: ne näkyvät ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) ja hälytyksistä. Jätä tyhjäksi, jotta jokaista jäsentä kohdellaan kriittisenä."
+        }
+      },
       "monitoring": {
         "title": "Seuranta-asetukset",
         "description": "Määritä, miten entiteettejä seurataan.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Ryhmän nimi ei voi olla tyhjä.",
       "no_entities": "Sinun täytyy valita vähintään yksi entiteetti.",
+      "no_labels": "Sinun täytyy valita vähintään yksi tunniste.",
       "duplicate_entities": "Sama entiteetti ei voi esiintyä molemmilla listoilla. Poista kaksoiskappeleet ennen tallentamista.",
       "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi.",
       "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Seurattavat entiteetit",
           "non_essential_entities": "Ei-kriittiset entiteetit",
+          "labels": "Seurattavat tunnisteet",
+          "non_essential_label": "Ei-kriittiset tunnisteet",
           "bad_states": "Offline-tilana pidettävät tilat",
           "cooldown": "Jäähdytysaika (sekunteina)",
           "staleness_threshold": "Vanhentumiskynnys (minuuttia, 0 = poistettu käytöstä)",
@@ -108,6 +124,8 @@
         "data_description": {
           "entities": "Entiteetit, joiden saatavuutta seurataan. Nämä ovat täysin valvottuja ja mukana kaikissa KPI-mittareissa ja hälytyksistä.",
           "non_essential_entities": "Entiteetit, jotka eivät vaikuta ryhmän terveyspisteytykseen. Näkyvät kortilla ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) eivätkä koskaan laukaise hälytyksiä. Käytä laitteissa, joissa seisokkiaika on hyväksyttävää — televisio, tulostin tai kausiluonteinen laite.",
+          "labels": "Jokaista entiteettiä, jolla on jokin näistä tunnisteista — joko suoraan tai laitteensa kautta — seurataan. Ryhmä muodostetaan uudelleen automaattisesti, kun lisäät tunnisteita entiteetteihin ja laitteisiin tai poistat niitä.",
+          "non_essential_label": "Jäsenet, joilla on myös jokin näistä tunnisteista, käsitellään ei-kriittisinä: ne näkyvät ja lasketaan kokonaismääriin, mutta jätetään pois kaikista KPI-mittareista (saatavuus-%, offline-määrä, MTBF, MTTR) ja hälytyksistä. Jätä tyhjäksi, jotta jokaista jäsentä kohdellaan kriittisenä.",
           "bad_states": "Entiteetin tilat, jotka tarkoittavat, että entiteetti on offline (esim. ei saatavilla, tuntematon).",
           "cooldown": "Kuinka kauan (sekunteina) entiteetin täytyy pysyä huonossa tilassa ennen kuin se merkitään offline-tilaan. Estää vääriä hälytyksiä lyhyiden katkosten aikana.",
           "staleness_threshold": "Jos entiteetti ei ole muuttanut tilaansa tänä monta minuuttia, merkitse se heikentyneen tilaan. Aseta 0 poistaaksesi käytöstä.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Entiteettien yhdistäminen laitteittain edellyttää, että „Näytä laitteiden nimet“ on käytössä.",
       "already_configured": "Tällä nimellä on jo olemassa ryhmä.",
       "empty_group_name": "Ryhmän nimi ei voi olla tyhjä.",
-      "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi."
+      "not_enough_groups_selected": "Valitse vähintään kaksi ryhmää yhdistettäväksi.",
+      "no_labels": "Sinun täytyy valita vähintään yksi tunniste."
     },
     "abort": {
       "not_enough_groups": "Tässä yhdistetyssä ryhmässä ei ole enää tarpeeksi lähderyhmäjä ladattuna. Lisää ensin lisää ryhmiä."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Seuraa entiteettejä",
-        "combined_group": "Yhdistä ryhmiä"
+        "combined_group": "Yhdistä ryhmiä",
+        "label_group": "Seuraa tunnisteen mukaan"
       }
     },
     "combined_group_override": {

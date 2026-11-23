@@ -121,9 +121,34 @@ class AvailabilityStorage:
     def get_availability(
         self, entity_id: str, window: str, now: datetime
     ) -> float | None:
-        """Calculate availability % for a time window.
+        """Calculate availability % for a time window. None if insufficient data."""
+        components = self._availability_components(entity_id, window, now)
+        if components is None:
+            return None
+        total_online, total_time = components
+        # Clamp to 100%: in the elapsed-denominator (in-progress-only) path,
+        # online_seconds can marginally exceed elapsed on poll-timing skew.
+        ratio = min(total_online / total_time, 1.0)
+        return round(ratio * 100, 1)
 
-        Returns None if insufficient data.
+    def availability_components(
+        self, entity_id: str, window: str, now: datetime
+    ) -> tuple[float, float] | None:
+        """Public: (online_seconds, total_seconds) for a window, or None.
+
+        The time-weighted GROUP availability sums these across members then divides
+        once. Shares the same per-entity completed-sum cache as get_availability.
+        """
+        return self._availability_components(entity_id, window, now)
+
+    def _availability_components(
+        self, entity_id: str, window: str, now: datetime
+    ) -> tuple[float, float] | None:
+        """Return (online_seconds, total_seconds) for a window, or None if insufficient
+        data. The time-weighted group availability sums these across members then
+        divides ONCE, so a member with little history contributes proportionally
+        little weight (no equal-weight-mean swing when membership changes). The
+        single-entity percentage is this pair divided + clamped (see get_availability).
         """
         if entity_id not in self._buckets or not self._buckets[entity_id]:
             return None
@@ -332,12 +357,7 @@ class AvailabilityStorage:
         if total_time <= 0:
             return None
 
-        # Clamp to 100%: in the elapsed-denominator (in-progress-only) path,
-        # online_seconds can marginally exceed elapsed on poll-timing skew
-        # (a poll books ~30 s of online slightly before the wall clock catches up),
-        # which would otherwise print 100.x%. The completed path is already ≤100%.
-        ratio = min(total_online / total_time, 1.0)
-        return round(ratio * 100, 1)
+        return (total_online, total_time)
 
     def get_entity_availability(
         self, entity_id: str, windows: list[str], now: datetime

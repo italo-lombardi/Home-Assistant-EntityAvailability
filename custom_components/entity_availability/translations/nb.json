@@ -28,6 +28,19 @@
           "combined_name": "Navn på kombinert gruppe"
         }
       },
+      "label_group": {
+        "title": "Opprett etikettgruppe",
+        "description": "Overvåk alle entiteter som har en etikett. Medlemskapet oppdateres automatisk etter hvert som du legger til eller fjerner etiketten på entiteter og enheter.",
+        "data": {
+          "group_name": "Gruppenavn",
+          "labels": "Etiketter å overvåke",
+          "non_essential_label": "Ikke-essensielle etiketter"
+        },
+        "data_description": {
+          "labels": "Alle entiteter som har en av disse etikettene — enten direkte eller via enheten sin — overvåkes. Gruppen løses opp på nytt automatisk når du legger til eller fjerner etiketter på entiteter og enheter.",
+          "non_essential_label": "Medlemmer som også har en av disse etikettene, behandles som ikke-essensielle: de vises og telles med i totaler, men ekskluderes fra alle KPI-er (tilgjengelighet %, antall offline, MTBF, MTTR) og varsler. La stå tom for å behandle alle medlemmer som essensielle."
+        }
+      },
       "monitoring": {
         "title": "Overvåkingsinnstillinger",
         "description": "Konfigurer hvordan entiteter overvåkes.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Gruppenavnet kan ikke være tomt.",
       "no_entities": "Du må velge minst én entitet.",
+      "no_labels": "Du må velge minst én etikett.",
       "not_enough_groups_selected": "Velg minst to grupper å kombinere.",
       "duplicate_entities": "Den samme entiteten kan ikke vises i begge lister. Fjern duplikater før lagring.",
       "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Entiteter å overvåke",
           "non_essential_entities": "Ikke-essensielle enheter",
+          "labels": "Etiketter å overvåke",
+          "non_essential_label": "Ikke-essensielle etiketter",
           "bad_states": "Tilstander ansett som offline",
           "cooldown": "Ventetid (sekunder)",
           "staleness_threshold": "Inaktivitetsterskel (minutter, 0 = deaktivert)",
@@ -117,6 +133,8 @@
           "collapse_devices": "Fungerer bare når «Vis enhetsnavn» er aktivert. Når slått på, telles flere entiteter som tilhører samme fysiske enhet som én i hver sensorverdi, liste og hendelse (offline, lavt batteri, inaktiv, dårlig signal). Entiteter slås bare sammen når de deler samme enhet, batterinivå og signal — entiteter som ikke er koblet til en enhet, slås aldri sammen, og entiteter på samme enhet med ulikt batteri- eller signalnivå forblir separate. Tilgjengelighet %, MTBF og MTTR forblir per entitet. Merk: hvis denne gruppen er inkludert i en kombinert gruppe, brukes sammenslåingsinnstillingen automatisk i den kombinerte visningen — ingen ekstra konfigurasjon er nødvendig.",
           "staleness_use_last_updated": "Når slått på, tilbakestiller enhver oppdatering fra entiteten — inkludert endringer i kun attributter eller gjentatte rapporter med samme verdi — inaktivitetstidtakeren. Når slått av (standard), teller bare en endring i hovedtilstanden. Slå på for enheter som rapporterer ofte, men sjelden endrer verdi (f.eks. temperatur eller effekt som holder seg stabil).",
           "entities": "Enheter som overvåkes for tilgjengelighet. Disse er fullt overvåket og inkludert i alle KPI-er og varsler.",
+          "labels": "Alle entiteter som har en av disse etikettene — enten direkte eller via enheten sin — overvåkes. Gruppen løses opp på nytt automatisk når du legger til eller fjerner etiketter på entiteter og enheter.",
+          "non_essential_label": "Medlemmer som også har en av disse etikettene, behandles som ikke-essensielle: de vises og telles med i totaler, men ekskluderes fra alle KPI-er (tilgjengelighet %, antall offline, MTBF, MTTR) og varsler. La stå tom for å behandle alle medlemmer som essensielle.",
           "signal_enabled": "Spor signalstyrke (dBm) for overvåkede enheter og varsle når signalkvaliteten faller til «dårlig». Etter aktivering vil du bli bedt om å koble til en signalsensor og velge nettverkstype for hver enhet."
         }
       },
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Å slå sammen entiteter per enhet krever at «Vis enhetsnavn» er slått på.",
       "already_configured": "En gruppe med dette navnet finnes allerede.",
       "empty_group_name": "Gruppenavnet kan ikke være tomt.",
-      "not_enough_groups_selected": "Velg minst to grupper å kombinere."
+      "not_enough_groups_selected": "Velg minst to grupper å kombinere.",
+      "no_labels": "Du må velge minst én etikett."
     },
     "abort": {
       "not_enough_groups": "Denne kombinerte gruppen har ikke lenger nok kildegrupper lastet inn. Legg til flere grupper først."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Overvåk entiteter",
-        "combined_group": "Kombiner grupper"
+        "combined_group": "Kombiner grupper",
+        "label_group": "Overvåk via etikett"
       }
     },
     "combined_group_override": {

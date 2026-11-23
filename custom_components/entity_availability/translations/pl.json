@@ -28,6 +28,19 @@
           "combined_name": "Nazwa grupy zbiorczej"
         }
       },
+      "label_group": {
+        "title": "Utwórz grupę według etykiety",
+        "description": "Monitoruj każdą encję z określoną etykietą. Skład grupy aktualizuje się automatycznie, gdy dodajesz lub usuwasz etykietę na encjach i urządzeniach.",
+        "data": {
+          "group_name": "Nazwa grupy",
+          "labels": "Etykiety do monitorowania",
+          "non_essential_label": "Etykiety nieistotnych"
+        },
+        "data_description": {
+          "labels": "Każda encja z jedną z tych etykiet — bezpośrednio lub poprzez jej urządzenie — jest monitorowana. Grupa jest automatycznie ustalana na nowo, gdy dodajesz lub usuwasz etykiety na encjach i urządzeniach.",
+          "non_essential_label": "Elementy, które mają także dowolną z tych etykiet, są traktowane jako nieistotne: wyświetlane i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i alertów. Pozostaw puste, aby traktować każdy element jako istotny."
+        }
+      },
       "monitoring": {
         "title": "Ustawienia monitorowania",
         "description": "Skonfiguruj sposób monitorowania encji.",
@@ -76,6 +89,7 @@
     "error": {
       "empty_group_name": "Nazwa grupy nie może być pusta.",
       "no_entities": "Musisz wybrać co najmniej jedną encję.",
+      "no_labels": "Musisz wybrać co najmniej jedną etykietę.",
       "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia.",
       "duplicate_entities": "Ta sama encja nie może pojawić się na obu listach. Usuń duplikaty przed zapisaniem.",
       "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“.",
@@ -94,6 +108,8 @@
         "data": {
           "entities": "Encje do monitorowania",
           "non_essential_entities": "Nieistotne encje",
+          "labels": "Etykiety do monitorowania",
+          "non_essential_label": "Etykiety nieistotnych",
           "bad_states": "Stany uznawane za offline",
           "cooldown": "Czas oczekiwania (sekundy)",
           "staleness_threshold": "Próg nieaktywności (minuty, 0 = wyłączony)",
@@ -107,6 +123,8 @@
         },
         "data_description": {
           "non_essential_entities": "Encje wyświetlane i liczone na karcie, ale wykluczone ze wszystkich KPI (liczba offline, dostępność %, MTBF, MTTR) i alertów. Przydatne dla urządzeń, które mają być offline (TV w trybie standby, drukarka wyłączona między zadaniami).",
+          "labels": "Każda encja z jedną z tych etykiet — bezpośrednio lub poprzez jej urządzenie — jest monitorowana. Grupa jest automatycznie ustalana na nowo, gdy dodajesz lub usuwasz etykiety na encjach i urządzeniach.",
+          "non_essential_label": "Elementy, które mają także dowolną z tych etykiet, są traktowane jako nieistotne: wyświetlane i wliczane do sum, ale wykluczone ze wszystkich KPI (dostępność %, liczba offline, MTBF, MTTR) i alertów. Pozostaw puste, aby traktować każdy element jako istotny.",
           "bad_states": "Stany encji wskazujące, że encja jest offline (np. unavailable, unknown).",
           "cooldown": "Jak długo (w sekundach) encja musi pozostawać w złym stanie, zanim zostanie oznaczona jako offline. Zapobiega fałszywym alarmom przy krótkich rozłączeniach.",
           "staleness_threshold": "Jeśli encja nie zmieniła stanu przez tę liczbę minut, jest oznaczana jako zdegradowana. Ustaw 0, aby wyłączyć.",
@@ -145,7 +163,8 @@
       "collapse_requires_device_names": "Scalanie encji według urządzenia wymaga włączenia opcji „Pokaż nazwy urządzeń“.",
       "already_configured": "Grupa o tej nazwie już istnieje.",
       "empty_group_name": "Nazwa grupy nie może być pusta.",
-      "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia."
+      "not_enough_groups_selected": "Wybierz co najmniej dwie grupy do połączenia.",
+      "no_labels": "Musisz wybrać co najmniej jedną etykietę."
     },
     "abort": {
       "not_enough_groups": "Ta grupa zbiorcza nie ma już wystarczającej liczby załadowanych grup źródłowych. Najpierw dodaj więcej grup."
@@ -284,7 +303,8 @@
     "entry_type": {
       "options": {
         "group": "Monitoruj encje",
-        "combined_group": "Połącz grupy"
+        "combined_group": "Połącz grupy",
+        "label_group": "Monitoruj według etykiety"
       }
     },
     "combined_group_override": {
