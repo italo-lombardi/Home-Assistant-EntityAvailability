@@ -85,6 +85,10 @@ What is tested (covers PRs #37, #41, #50, #52, #53, #54, #68, core, feat/non-ess
   EC145 v0.7.1 follow-up (issue #145): save-timing diagnostics split cpu vs wall
        (last_save_onloop_cpu_ms + _wall_ms + save_stall_count; old _onloop_ms gone;
        healthy save → stall_count 0, cpu well under the warn threshold)
+  EC147 v0.7.6: reset_statistics mid-outage carries the live outage as post-reset
+       outage #1 (down→reset→recover → total_offline_events == 1, not 0 orphan)
+  EC148 v0.7.6: suppress-mid-outage recovery books the observed outage (no
+       0-second MTTR phantom; no spurious recovery event; group stays healthy)
   EC65 low_battery count cleared when entity is suppressed (stale/degraded flags reset)
 
   PR#76 recorder payload reduction (EC69-EC71):
@@ -429,6 +433,56 @@ def capture_events(
     ws.close()
     done.set()
     return captured
+
+
+def enable_entity(entity_id: str, timeout: int = 10) -> bool:
+    """Clear disabled_by on a registry entity (enable a disabled-by-default sensor).
+
+    The MTBF/MTTR sensors are `_attr_entity_registry_enabled_default = False`, so
+    they are not REST-present until enabled. There is no REST route for this — it is
+    a websocket `config/entity_registry/update` command. Returns True on success.
+    Falls back to False (not fatal) when websocket-client is unavailable or the
+    update does not confirm, so callers can skip-loud rather than crash.
+    """
+    if not _WS_AVAILABLE:
+        return False
+    ws_url = (
+        BASE.replace("http://", "ws://").replace("https://", "wss://")
+        + "/api/websocket"
+    )
+    result = {"ok": False}
+    done = threading.Event()
+    req_id = 7
+
+    def on_message(ws, raw):
+        try:
+            msg = json.loads(raw)
+        except Exception:
+            return
+        mtype = msg.get("type")
+        if mtype == "auth_required":
+            ws.send(json.dumps({"type": "auth", "access_token": TOKEN}))
+        elif mtype == "auth_ok":
+            ws.send(
+                json.dumps(
+                    {
+                        "id": req_id,
+                        "type": "config/entity_registry/update",
+                        "entity_id": entity_id,
+                        "disabled_by": None,
+                    }
+                )
+            )
+        elif mtype == "result" and msg.get("id") == req_id:
+            result["ok"] = bool(msg.get("success"))
+            done.set()
+
+    ws = _ws_lib.WebSocketApp(ws_url, on_message=on_message, on_error=lambda *a: None)
+    t = threading.Thread(target=lambda: ws.run_forever(), daemon=True)
+    t.start()
+    done.wait(timeout)
+    ws.close()
+    return result["ok"]
 
 
 # ---------------------------------------------------------------------------
@@ -2645,6 +2699,28 @@ def run_all():
             timeout=WAIT_FOR_TIMEOUT,
         )
 
+    # Enable the MTBF/MTTR sensors on the battery-level pass target so the
+    # reliability ECs (EC143-b, EC147, EC148) can assert instead of skip-loud —
+    # these sensors are _attr_entity_registry_enabled_default=False, so they are
+    # absent until enabled, and the harness has no other enable path. Enabling via
+    # the registry triggers a config-entry reload, so wait for each to become
+    # REST-present before the passes run. Best-effort: if websocket-client is
+    # missing or the enable does not confirm, the ECs fall back to their skip-loud
+    # branches rather than crashing.
+    mtbf_eid = "sensor.entity_availability_ea_fix_numeric_battery_mtbf"
+    mttr_eid = "sensor.entity_availability_ea_fix_numeric_battery_mttr"
+    for _eid in (mtbf_eid, mttr_eid):
+        if enable_entity(_eid):
+            wait_for(
+                lambda e=_eid: gs_safe(e) is not None, True, timeout=WAIT_FOR_TIMEOUT
+            )
+            print(f"  --all: enabled {_eid}", flush=True)
+        else:
+            print(
+                f"  --all: could not enable {_eid} (reliability ECs will skip-loud)",
+                flush=True,
+            )
+
     try:
         _run_all_passes()
     finally:
@@ -2760,7 +2836,7 @@ def _run_all_passes():
     # need the numeric-battery fixture — EC144 drives the mapped battery below then
     # above threshold to fire the real entity_availability_battery_ok event, EC143
     # resets stats on a group that has accrued availability history.
-    battery_level_ecs = {59, 90, 143, 144}
+    battery_level_ecs = {59, 90, 143, 144, 147, 148}
     # Signal ECs that need a signal-mapped group: EC50 (any_poor_signal reachable),
     # EC52 (_last_seen suffix strip), EC47 (poor_signal_count reachable), EC51
     # (signal_entity_map round-trip). The pass-1 target (EA Fix Numeric Battery)
@@ -8157,6 +8233,157 @@ for e in cfg['data']['entries']:
                 else:
                     ss(e, "100", {"friendly_name": e.split(".")[-1]})
             restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC147: reset_statistics while a device is OFFLINE carries the live outage as
+    # post-reset outage #1 (coordinator.py reset finish-B). Drive one entity
+    # offline, reset while it is offline, recover it, then the MTBF sensor's
+    # total_offline_events must read 1 — the live outage was carried and completed,
+    # NOT dropped (pre-fix the recovery booked orphan seconds against count=0, so
+    # total_offline_events read 0 after a full down→reset→recover cycle).
+    # MTBF-gated: skip-loud if the disabled-by-default sensor is absent.
+    # ------------------------------------------------------------------
+    if ec_enabled(147):
+        print(
+            "\n=== EC147: reset_statistics mid-outage carries the live outage "
+            "(total_offline_events → 1 after down→reset→recover) ===",
+            flush=True,
+        )
+        mtbf_eid = f"{ctx['prefix']}_mtbf"
+
+        def _events_147():
+            s = gs_safe(mtbf_eid)
+            if s is None:
+                return None
+            return s.get("attributes", {}).get("total_offline_events")
+
+        if _events_147() is None:
+            print(
+                "  EC147: skipped (MTBF sensor disabled/not present on this group)",
+                flush=True,
+            )
+        else:
+            victim = ctx["entities"][0]
+            saved = gs_safe(victim)
+            # 1) Drive offline and wait for the outage to OPEN (cooldown elapses).
+            ss(victim, "unavailable", {"friendly_name": victim.split(".")[-1]})
+            wait_for(lambda: (gs_safe(victim) or {}).get("state"), "unavailable")
+            wait(WAIT_FOR_TIMEOUT // 2 or 20)  # let the cooldown + open edge land
+            # 2) Reset while still offline — the live outage must carry as #1.
+            api(
+                "POST",
+                "/api/services/entity_availability/reset_statistics",
+                {"group": ctx["title"]},
+            )
+            # 3) Recover; the carried outage completes and books against count=1.
+            if saved and _numeric(saved.get("state")):
+                ss(victim, saved["state"], saved.get("attributes") or {})
+            else:
+                ss(victim, "100", {"friendly_name": victim.split(".")[-1]})
+            wait_for(
+                lambda: (gs_safe(victim) or {}).get("state") != "unavailable", True
+            )
+            wait(WAIT_FOR_TIMEOUT // 2 or 20)
+            after = _events_147()
+            chk(
+                "EC147 live outage carried across reset completes as outage #1 "
+                "(total_offline_events == 1, not 0 orphan-seconds)",
+                isinstance(after, (int, float)) and after == 1,
+                True,
+                f"total_offline_events after down→reset→recover={after}",
+            )
+            restore_and_wait(ctx)
+
+    # ------------------------------------------------------------------
+    # EC148: a device that goes offline, is SUPPRESSED mid-outage, and recovers
+    # while suppressed must (a) not fire a spurious recovery event, (b) leave the
+    # group healthy, and (c) — when the MTBF sensor is present — book the outage as
+    # a counted event with a NON-zero MTTR (observed-portion), NOT the pre-fix
+    # 0-second phantom that dragged MTTR to 0.0. The reset at the end leaves the
+    # group clean for reuse.
+    # ------------------------------------------------------------------
+    if ec_enabled(148):
+        print(
+            "\n=== EC148: suppress-mid-outage recovery books the observed outage "
+            "(no 0-second phantom; group stays healthy) ===",
+            flush=True,
+        )
+        victim = ctx["entities"][0]
+        saved = gs_safe(victim)
+        # 1) Offline + open the outage, then accrue a MEASURABLE observed window
+        # BEFORE suppressing. The outage only OPENS after the group cooldown
+        # (~60s) elapses, and the observed portion booked at recovery must be big
+        # enough to round to a non-zero MTTR (minutes, precision 1 → need >~6s of
+        # observed downtime). Wait well past cooldown so both hold.
+        ss(victim, "unavailable", {"friendly_name": victim.split(".")[-1]})
+        wait_for(lambda: (gs_safe(victim) or {}).get("state"), "unavailable")
+        wait(max(WAIT_FOR_TIMEOUT, 90))  # > cooldown (open) + observed accrual
+        # 2) Suppress mid-outage.
+        api(
+            "POST",
+            "/api/services/entity_availability/suppress",
+            {"entity_id": victim, "group": ctx["title"]},
+        )
+        wait(3)
+        # 3) Recover while still suppressed — cleared silently, observed booked.
+        if saved and _numeric(saved.get("state")):
+            ss(victim, saved["state"], saved.get("attributes") or {})
+        else:
+            ss(victim, "100", {"friendly_name": victim.split(".")[-1]})
+        wait(WAIT_FOR_TIMEOUT // 2 or 20)
+        # 4) Unsuppress — must NOT fire a spurious recovery and group is healthy.
+        api(
+            "POST",
+            "/api/services/entity_availability/unsuppress",
+            {"entity_id": victim, "group": ctx["title"]},
+        )
+        wait(5)
+        v = gs_safe(victim)
+        chk(
+            "EC148 suppressed-recovery leaves the entity online (no stuck offline)",
+            v is not None and v.get("state") != "unavailable",
+            True,
+            f"victim state={v.get('state') if v else None}",
+        )
+        mtbf_eid = f"{ctx['prefix']}_mtbf"
+        mttr_eid = f"{ctx['prefix']}_mttr"
+        mtbf_s = gs_safe(mtbf_eid)
+        mttr_s = gs_safe(mttr_eid)
+        if mtbf_s is None or mttr_s is None:
+            print(
+                "  EC148: MTTR-value check skipped (MTBF/MTTR sensors disabled/"
+                "not present on this group); recovery/health asserted above",
+                flush=True,
+            )
+        else:
+            events = mtbf_s.get("attributes", {}).get("total_offline_events")
+            mttr_val = mttr_s.get("state")
+            # The outage was counted (events >= 1) and MTTR is STRICTLY POSITIVE —
+            # NOT the pre-fix 0.0 instant-repair phantom (which booked 0s but kept
+            # the count). `> 0.0` is load-bearing: `>= 0.0` would admit the exact
+            # 0.0 phantom this EC guards against (0.0 >= 0.0 is True).
+            mttr_num = None
+            try:
+                mttr_num = float(mttr_val)
+            except (TypeError, ValueError):
+                mttr_num = None
+            chk(
+                "EC148 suppressed-spanning outage counted with a real MTTR "
+                "(events>=1, MTTR numeric and > 0 — rejects the 0-second phantom)",
+                isinstance(events, (int, float))
+                and events >= 1
+                and mttr_num is not None
+                and mttr_num > 0.0,
+                True,
+                f"total_offline_events={events} mttr={mttr_val}",
+            )
+        # Clean the group for reuse.
+        api(
+            "POST",
+            "/api/services/entity_availability/reset_statistics",
+            {"group": ctx["title"]},
+        )
+        restore_and_wait(ctx)
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed

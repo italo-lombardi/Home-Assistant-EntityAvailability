@@ -364,6 +364,7 @@ Each is its own sensor (rather than one sensor with attributes) so MTBF and MTTR
 - The counters are all-time and event-driven — no extra database or storage growth, and no long-term statistics generated.
 - Reset them any time with the [`reset_statistics`](#entity_availabilityreset_statistics) action (e.g. after planned maintenance).
 - The math, for reference: `MTBF hours = (time monitored − total downtime) / number of failures / 3600`; `MTTR minutes = total downtime / number of failures / 60`.
+- Downtime is booked only for what was actually observed: an outage never counts before monitoring began or beyond a backward clock jump, and an outage that spans suppression counts only its pre-suppression portion (the suppressed span is excluded, matching the availability %). See **[BEHAVIOR_REFERENCE.md §11](BEHAVIOR_REFERENCE.md)** for the full rules.
 
 ---
 
