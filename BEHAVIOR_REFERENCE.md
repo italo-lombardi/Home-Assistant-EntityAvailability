@@ -35,15 +35,18 @@ Each poll, every axis is re-checked. An event fires only when an axis
 chosen when the group is created:
 
 - **Static** — an explicit list of entities you pick. Fixed until you edit it.
-- **By label** — one or more Home Assistant *labels*. Members = every entity
-  carrying a selected label **directly**, plus every entity belonging to a
-  **device** that carries it, deduped. The set is re-resolved **live**: tag an
-  entity or device and it joins within a short debounce (seconds); untag it and
-  it leaves. No restart, no re-save. One or more optional **non-essential
-  labels** add further members that are monitored but flagged non-essential —
-  an entity carrying a non-essential label joins even if it carries none of the
-  main labels (same as a classic group's non-essential entity field); a member
-  carrying both a main and a non-essential label is flagged non-essential.
+- **By label** — one or more Home Assistant *labels*. Both the **Labels to
+  Monitor** field and the optional **Non-Essential Labels** field accept
+  MULTIPLE labels; an entity matches if it carries ANY of the labels in a field
+  (union, not intersection). Members = every entity carrying any selected
+  monitor-label **directly**, plus every entity belonging to a **device** that
+  carries one, deduped. The set is re-resolved **live**: tag an entity or device
+  and it joins within a short debounce (seconds); untag it and it leaves. No
+  restart, no re-save. The **Non-Essential Labels** field adds further members
+  that are monitored but flagged non-essential — an entity carrying any
+  non-essential label joins even if it carries none of the monitor-labels (same
+  as a classic group's non-essential entity field); a member carrying both a
+  monitor-label and a non-essential label is flagged non-essential.
   Everything downstream (the four axes, suppression, availability
   windows, combined-group inclusion) is identical to a static group — only the
   membership *source* differs. Two consequences specific to label groups: (1) a
