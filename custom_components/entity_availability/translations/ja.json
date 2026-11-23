@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "デバイスごとにエンティティをまとめるには「デバイス名を表示」を有効にする必要があります。",
       "already_configured": "この名前のグループはすでに存在します。",
       "empty_group_name": "グループ名を入力してください。",
-      "not_enough_groups_selected": "結合するには少なくとも2つのグループを選択してください。"
+      "not_enough_groups_selected": "結合するには少なくとも2つのグループを選択してください。",
+      "no_labels": "少なくとも1つのラベルを選択してください。"
     },
     "abort": {
       "not_enough_groups": "この結合グループには、ロードされているソースグループが不足しています。先にグループを追加してください。"

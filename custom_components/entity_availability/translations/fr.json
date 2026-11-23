@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Regrouper les entités par appareil nécessite que « Afficher les noms d'appareils » soit activé.",
       "already_configured": "Un groupe avec ce nom existe déjà.",
       "empty_group_name": "Le nom du groupe ne peut pas être vide.",
-      "not_enough_groups_selected": "Sélectionnez au moins deux groupes à combiner."
+      "not_enough_groups_selected": "Sélectionnez au moins deux groupes à combiner.",
+      "no_labels": "Vous devez sélectionner au moins une étiquette."
     },
     "abort": {
       "not_enough_groups": "Ce groupe combiné n'a plus suffisamment de groupes sources chargés. Ajoutez d'abord d'autres groupes."

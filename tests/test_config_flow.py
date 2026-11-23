@@ -3734,7 +3734,7 @@ async def test_step_label_group_valid_resolves_and_advances(
         {
             CONF_GROUP_NAME: "My Labels",
             CONF_LABELS: [main],
-            CONF_NON_ESSENTIAL_LABEL: ne,
+            CONF_NON_ESSENTIAL_LABEL: [ne],
         },
     )
     assert result["type"] == FlowResultType.FORM
@@ -3767,12 +3767,59 @@ async def test_step_label_group_valid_resolves_and_advances(
     data = result["result"].data
     assert data[CONF_ENTRY_TYPE] == ENTRY_TYPE_LABEL
     assert data[CONF_LABELS] == [main]
-    assert data[CONF_NON_ESSENTIAL_LABEL] == ne
+    assert data[CONF_NON_ESSENTIAL_LABEL] == [ne]
     assert set(data[CONF_ENTITIES]) == {e_main, e_both}
-    assert data[CONF_NON_ESSENTIAL_ENTITIES] == [e_both]
 
 
-def _label_options_entry(hass: HomeAssistant, labels, ne_label=""):
+async def test_step_label_group_duplicate_name_aborted(hass: HomeAssistant) -> None:
+    """A second label group with the same name aborts (shared unique_id/slug), same
+    as the static group step — so two same-named label groups can't both be created."""
+    lbl = _make_label(hass, "Dup")
+    _label_entity(hass, "dup_a", {lbl})
+
+    result = await _init_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"entry_type": ENTRY_TYPE_LABEL}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_GROUP_NAME: "Dup Labels", CONF_LABELS: [lbl]},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_BAD_STATES: DEFAULT_BAD_STATES,
+            CONF_COOLDOWN: DEFAULT_COOLDOWN,
+            CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
+        },
+    )
+    with patch(
+        "custom_components.entity_availability.async_setup_entry",
+        return_value=True,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_BATTERY_THRESHOLD: 0,
+                CONF_AVAILABILITY_WINDOWS: DEFAULT_AVAILABILITY_WINDOWS,
+            },
+        )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+
+    # Second label group, same name → aborted at the label step.
+    result2 = await _init_flow(hass)
+    result2 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"], {"entry_type": ENTRY_TYPE_LABEL}
+    )
+    result2 = await hass.config_entries.flow.async_configure(
+        result2["flow_id"],
+        {CONF_GROUP_NAME: "Dup Labels", CONF_LABELS: [lbl]},
+    )
+    assert result2["type"] == FlowResultType.ABORT
+    assert result2["reason"] == "already_configured"
+
+
+def _label_options_entry(hass: HomeAssistant, labels, ne_labels=None):
     """Build + register a LABEL options-flow config entry."""
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -3781,7 +3828,7 @@ def _label_options_entry(hass: HomeAssistant, labels, ne_label=""):
             CONF_GROUP_NAME: "Label Group",
             CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
             CONF_LABELS: labels,
-            CONF_NON_ESSENTIAL_LABEL: ne_label,
+            CONF_NON_ESSENTIAL_LABEL: ne_labels or [],
             CONF_ENTITIES: [],
             CONF_NON_ESSENTIAL_ENTITIES: [],
             CONF_BAD_STATES: DEFAULT_BAD_STATES,
@@ -3824,7 +3871,7 @@ async def test_options_label_submit_reresolves(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             CONF_LABELS: [main],
-            CONF_NON_ESSENTIAL_LABEL: "",
+            CONF_NON_ESSENTIAL_LABEL: [],
             CONF_BAD_STATES: DEFAULT_BAD_STATES,
             CONF_COOLDOWN: DEFAULT_COOLDOWN,
             CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
@@ -3836,7 +3883,7 @@ async def test_options_label_submit_reresolves(hass: HomeAssistant) -> None:
     assert set(entry.data[CONF_ENTITIES]) == {e_main, e_two}
     assert entry.data[CONF_NON_ESSENTIAL_ENTITIES] == []
     assert entry.data[CONF_LABELS] == [main]
-    assert entry.data[CONF_NON_ESSENTIAL_LABEL] == ""
+    assert entry.data[CONF_NON_ESSENTIAL_LABEL] == []
 
 
 async def test_options_label_submit_with_ne_subset(hass: HomeAssistant) -> None:
@@ -3847,14 +3894,14 @@ async def test_options_label_submit_with_ne_subset(hass: HomeAssistant) -> None:
     ne = _make_label(hass, "NeOpt")
     e_a = _label_entity(hass, "ne_a", {main})
     e_b = _label_entity(hass, "ne_b", {main, ne})  # member AND non-essential
-    entry = _label_options_entry(hass, [main], ne_label=ne)
+    entry = _label_options_entry(hass, [main], ne_labels=[ne])
 
     result = await _setup_label_options(hass, entry)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
             CONF_LABELS: [main],
-            CONF_NON_ESSENTIAL_LABEL: ne,
+            CONF_NON_ESSENTIAL_LABEL: [ne],
             CONF_BAD_STATES: DEFAULT_BAD_STATES,
             CONF_COOLDOWN: DEFAULT_COOLDOWN,
             CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,
@@ -3877,7 +3924,7 @@ async def test_options_label_empty_labels_errors(hass: HomeAssistant) -> None:
         result["flow_id"],
         {
             CONF_LABELS: [],
-            CONF_NON_ESSENTIAL_LABEL: "",
+            CONF_NON_ESSENTIAL_LABEL: [],
             CONF_BAD_STATES: DEFAULT_BAD_STATES,
             CONF_COOLDOWN: DEFAULT_COOLDOWN,
             CONF_STALENESS_THRESHOLD: DEFAULT_STALENESS_THRESHOLD,

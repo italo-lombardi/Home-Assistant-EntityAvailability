@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Entiteiten samenvoegen per apparaat vereist dat „Apparaatnamen tonen“ is ingeschakeld.",
       "already_configured": "Een groep met deze naam bestaat al.",
       "empty_group_name": "Groepsnaam mag niet leeg zijn.",
-      "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren."
+      "not_enough_groups_selected": "Selecteer minstens twee groepen om te combineren.",
+      "no_labels": "Je moet minstens één label selecteren."
     },
     "abort": {
       "not_enough_groups": "Deze gecombineerde groep heeft niet meer genoeg brongroepen geladen. Voeg eerst meer groepen toe."

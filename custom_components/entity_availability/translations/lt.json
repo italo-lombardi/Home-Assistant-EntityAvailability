@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Norint sujungti objektus pagal įrenginį, turi būti įjungta „Rodyti įrenginių pavadinimus“.",
       "already_configured": "Grupė tokiu pavadinimu jau egzistuoja.",
       "empty_group_name": "Grupės pavadinimas negali būti tuščias.",
-      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui."
+      "not_enough_groups_selected": "Pasirinkite bent dvi grupes sujungimui.",
+      "no_labels": "Turite pasirinkti bent vieną žymą."
     },
     "abort": {
       "not_enough_groups": "Šioje jungtinėje grupėje nebėra pakankamai šaltinio grupių. Pirmiausia pridėkite daugiau grupių."

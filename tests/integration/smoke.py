@@ -8595,6 +8595,474 @@ for e in cfg['data']['entries']:
                     )
 
     # ------------------------------------------------------------------
+    # EC150: combined group over a MIX — one classic (static entity-list) group
+    # AND one label group. Proves (a) the combined aggregates BOTH members'
+    # entities and (b) a LIVE label change on the label-group member moves the
+    # combined's aggregate (total_entities) up and back down with no restart.
+    # Label registry has no REST route → uses websocket (ws_cmds); skip-loud if
+    # websocket-client absent. Self-cleans all three config entries + the label.
+    # Needs >= 3 real entities (A pre-labeled, classic member, C labeled live).
+    # ------------------------------------------------------------------
+    if ec_enabled(150):
+        print(
+            "\n=== EC150: combined group over a classic + label group (live move) ===",
+            flush=True,
+        )
+        if not _WS_AVAILABLE:
+            print("  EC150: SKIP — websocket-client not installed", flush=True)
+        elif len(ctx["entities"]) < 3:
+            print("  EC150: SKIP — need >= 3 entities in the fixture", flush=True)
+        else:
+            e_a = ctx["entities"][0]  # pre-labeled → in the label group up front
+            e_classic = ctx["entities"][1]  # static member of the classic group
+            e_c = ctx["entities"][2]  # labeled live → label group gains it
+
+            def _combined_total(name):
+                """total_entities of the combined summary whose friendly_name
+                matches `name`, or None if the summary is not up yet."""
+                for s in api("GET", "/api/states"):
+                    eid = s["entity_id"]
+                    if "entity_availability" in eid and eid.endswith(
+                        "_combined_summary"
+                    ):
+                        attrs = s.get("attributes", {})
+                        fn = attrs.get("friendly_name", "")
+                        if name.lower() in fn.lower():
+                            return attrs.get("total_entities")
+                return None
+
+            lbl_name = "ea_smoke_ec150"
+            label_eid = None
+            lg_entry = None
+            classic_entry = None
+            combined_entry = None
+            combined_name = "EC150 Combined"
+            try:
+                # 1) Create the label, capture its label_id.
+                res = ws_cmds(
+                    [{"type": "config/label_registry/create", "name": lbl_name}]
+                )
+                label_eid = (
+                    (res[0].get("result", {}) or {}).get("label_id") if res else None
+                )
+                if not (res and res[0].get("success") and label_eid):
+                    chk("EC150 label created via websocket", False, True, str(res))
+                else:
+                    # 2) Label entity A BEFORE building the label group.
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_a,
+                                "labels": [label_eid],
+                            }
+                        ]
+                    )
+                    # 3) Provision the label_group member.
+                    r = api(
+                        "POST",
+                        "/api/config/config_entries/flow",
+                        {"handler": "entity_availability"},
+                    )
+                    fid = r["flow_id"]
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"entry_type": "label_group"},
+                    )
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "group_name": "EC150 Label Member",
+                            "labels": [label_eid],
+                        },
+                    )
+                    api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                    r_lg = api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "battery_threshold": 0,
+                            "signal_enabled": False,
+                            "availability_windows": ["today"],
+                            "recovery_window": 5,
+                            "use_device_names": False,
+                            "collapse_devices": False,
+                        },
+                    )
+                    lg_entry = (r_lg.get("result") or {}).get("entry_id")
+                    # 4) Provision the classic (static entity-list) member.
+                    r = api(
+                        "POST",
+                        "/api/config/config_entries/flow",
+                        {"handler": "entity_availability"},
+                    )
+                    fid = r["flow_id"]
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {"entry_type": "group"},
+                    )
+                    api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "group_name": "EC150 Classic Member",
+                            "entities": [e_classic],
+                        },
+                    )
+                    api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                    r_cl = api(
+                        "POST",
+                        f"/api/config/config_entries/flow/{fid}",
+                        {
+                            "battery_threshold": 0,
+                            "signal_enabled": False,
+                            "availability_windows": ["today"],
+                            "recovery_window": 5,
+                            "use_device_names": False,
+                            "collapse_devices": False,
+                        },
+                    )
+                    classic_entry = (r_cl.get("result") or {}).get("entry_id")
+                    if r_lg.get("type") != "create_entry" or not lg_entry:
+                        chk("EC150 label_group member created", False, True, str(r_lg))
+                    elif r_cl.get("type") != "create_entry" or not classic_entry:
+                        chk("EC150 classic member created", False, True, str(r_cl))
+                    else:
+                        # 5) Build the combined over BOTH members (key by title).
+                        r = api(
+                            "POST",
+                            "/api/config/config_entries/flow",
+                            {"handler": "entity_availability"},
+                        )
+                        fid = r["flow_id"]
+                        r_u = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            {"entry_type": "combined_group"},
+                        )
+                        eid_title_map = json.loads(
+                            r_u.get("description_placeholders", {}).get(
+                                "eid_title_map", "{}"
+                            )
+                        )
+                        title_of = {eid: t for eid, t in eid_title_map.items()}
+                        submit = {"combined_name": combined_name}
+                        for eid in (lg_entry, classic_entry):
+                            title = title_of.get(eid)
+                            if title:
+                                submit[title] = "keep"
+                        r_c = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            submit,
+                        )
+                        combined_entry = (r_c.get("result") or {}).get("entry_id")
+                        if r_c.get("type") != "create_entry" or not combined_entry:
+                            chk("EC150 combined entry created", False, True, str(r_c))
+                        else:
+                            wait(5)
+                            # (a) the combined aggregates BOTH members (>= 2).
+                            base = wait_for(
+                                lambda: (_combined_total(combined_name) or 0) >= 2,
+                                True,
+                            )
+                            base_total = _combined_total(combined_name)
+                            chk(
+                                "EC150 combined aggregates classic + label members",
+                                base,
+                                True,
+                                f"total_entities={base_total}",
+                            )
+                            # (b) label C live → label member gains it → combined
+                            #     total must INCREASE (no restart).
+                            ws_cmds(
+                                [
+                                    {
+                                        "type": "config/entity_registry/update",
+                                        "entity_id": e_c,
+                                        "labels": [label_eid],
+                                    }
+                                ]
+                            )
+                            grew = wait_for(
+                                lambda: (
+                                    (_combined_total(combined_name) or 0)
+                                    > (base_total or 0)
+                                ),
+                                True,
+                            )
+                            chk(
+                                "EC150 live label change moves combined aggregate up",
+                                grew,
+                                True,
+                                f"before={base_total} after={_combined_total(combined_name)}",
+                            )
+                            # (c) de-label C → combined total must return to base.
+                            ws_cmds(
+                                [
+                                    {
+                                        "type": "config/entity_registry/update",
+                                        "entity_id": e_c,
+                                        "labels": [],
+                                    }
+                                ]
+                            )
+                            back = wait_for(
+                                lambda: _combined_total(combined_name) == base_total,
+                                True,
+                            )
+                            chk(
+                                "EC150 de-label returns combined aggregate to base",
+                                back,
+                                True,
+                                f"base={base_total} now={_combined_total(combined_name)}",
+                            )
+            except Exception as e:
+                chk("EC150 combined-over-mix flow completed", False, True, str(e))
+            finally:
+                # Delete combined first, then members, then strip labels + label.
+                for _entry in (combined_entry, lg_entry, classic_entry):
+                    if _entry:
+                        try:
+                            api(
+                                "DELETE",
+                                f"/api/config/config_entries/entry/{_entry}",
+                            )
+                        except Exception:  # teardown is best-effort
+                            pass
+                for _e in (e_a, e_c):
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": _e,
+                                "labels": [],
+                            }
+                        ]
+                    )
+                if label_eid:
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/label_registry/delete",
+                                "label_id": label_eid,
+                            }
+                        ]
+                    )
+
+    # ------------------------------------------------------------------
+    # EC151: combined group over TWO LABEL groups only (no classic member).
+    # Proves the combined works with label-only membership — it must aggregate
+    # both label groups' entities (total_entities >= 2). Label registry has no
+    # REST route → uses websocket (ws_cmds); skip-loud if websocket-client
+    # absent. Self-cleans all three config entries + both labels.
+    # Needs >= 2 real entities (one per label group).
+    # ------------------------------------------------------------------
+    if ec_enabled(151):
+        print(
+            "\n=== EC151: combined group over two label groups only ===",
+            flush=True,
+        )
+        if not _WS_AVAILABLE:
+            print("  EC151: SKIP — websocket-client not installed", flush=True)
+        elif len(ctx["entities"]) < 2:
+            print("  EC151: SKIP — need >= 2 entities in the fixture", flush=True)
+        else:
+            e_a = ctx["entities"][0]  # labeled with L2 → label group A
+            e_b = ctx["entities"][1]  # labeled with L3 → label group B
+
+            def _combined_total(name):
+                """total_entities of the combined summary whose friendly_name
+                matches `name`, or None if the summary is not up yet."""
+                for s in api("GET", "/api/states"):
+                    eid = s["entity_id"]
+                    if "entity_availability" in eid and eid.endswith(
+                        "_combined_summary"
+                    ):
+                        attrs = s.get("attributes", {})
+                        fn = attrs.get("friendly_name", "")
+                        if name.lower() in fn.lower():
+                            return attrs.get("total_entities")
+                return None
+
+            label_a = None
+            label_b = None
+            lg_a_entry = None
+            lg_b_entry = None
+            combined_entry = None
+            combined_name = "EC151 Combined"
+
+            def _make_label_group(label_id, group_name):
+                """Create a label_group entry on [label_id]; return its entry_id."""
+                r = api(
+                    "POST",
+                    "/api/config/config_entries/flow",
+                    {"handler": "entity_availability"},
+                )
+                fid = r["flow_id"]
+                api(
+                    "POST",
+                    f"/api/config/config_entries/flow/{fid}",
+                    {"entry_type": "label_group"},
+                )
+                api(
+                    "POST",
+                    f"/api/config/config_entries/flow/{fid}",
+                    {"group_name": group_name, "labels": [label_id]},
+                )
+                api("POST", f"/api/config/config_entries/flow/{fid}", {})
+                r_done = api(
+                    "POST",
+                    f"/api/config/config_entries/flow/{fid}",
+                    {
+                        "battery_threshold": 0,
+                        "signal_enabled": False,
+                        "availability_windows": ["today"],
+                        "recovery_window": 5,
+                        "use_device_names": False,
+                        "collapse_devices": False,
+                    },
+                )
+                if r_done.get("type") != "create_entry":
+                    return None
+                return (r_done.get("result") or {}).get("entry_id")
+
+            try:
+                # 1) Create two labels, label one entity each.
+                res = ws_cmds(
+                    [
+                        {
+                            "type": "config/label_registry/create",
+                            "name": "ea_smoke_ec151_a",
+                        },
+                        {
+                            "type": "config/label_registry/create",
+                            "name": "ea_smoke_ec151_b",
+                        },
+                    ]
+                )
+                label_a = (
+                    (res[0].get("result", {}) or {}).get("label_id")
+                    if res and len(res) > 0
+                    else None
+                )
+                label_b = (
+                    (res[1].get("result", {}) or {}).get("label_id")
+                    if res and len(res) > 1
+                    else None
+                )
+                if not (label_a and label_b):
+                    chk("EC151 two labels created via websocket", False, True, str(res))
+                else:
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_a,
+                                "labels": [label_a],
+                            },
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": e_b,
+                                "labels": [label_b],
+                            },
+                        ]
+                    )
+                    # 2) Provision two label_group members.
+                    lg_a_entry = _make_label_group(label_a, "EC151 Label A")
+                    lg_b_entry = _make_label_group(label_b, "EC151 Label B")
+                    if not lg_a_entry or not lg_b_entry:
+                        chk(
+                            "EC151 both label_group members created",
+                            bool(lg_a_entry and lg_b_entry),
+                            True,
+                            f"a={lg_a_entry} b={lg_b_entry}",
+                        )
+                    else:
+                        # 3) Build the combined over the TWO label groups only.
+                        r = api(
+                            "POST",
+                            "/api/config/config_entries/flow",
+                            {"handler": "entity_availability"},
+                        )
+                        fid = r["flow_id"]
+                        r_u = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            {"entry_type": "combined_group"},
+                        )
+                        eid_title_map = json.loads(
+                            r_u.get("description_placeholders", {}).get(
+                                "eid_title_map", "{}"
+                            )
+                        )
+                        title_of = {eid: t for eid, t in eid_title_map.items()}
+                        submit = {"combined_name": combined_name}
+                        for eid in (lg_a_entry, lg_b_entry):
+                            title = title_of.get(eid)
+                            if title:
+                                submit[title] = "keep"
+                        r_c = api(
+                            "POST",
+                            f"/api/config/config_entries/flow/{fid}",
+                            submit,
+                        )
+                        combined_entry = (r_c.get("result") or {}).get("entry_id")
+                        if r_c.get("type") != "create_entry" or not combined_entry:
+                            chk("EC151 combined entry created", False, True, str(r_c))
+                        else:
+                            wait(5)
+                            # Combined must aggregate both label groups (>= 2),
+                            # with NO classic member in the mix.
+                            agg = wait_for(
+                                lambda: (_combined_total(combined_name) or 0) >= 2,
+                                True,
+                            )
+                            chk(
+                                "EC151 combined aggregates two label-only members",
+                                agg,
+                                True,
+                                f"total_entities={_combined_total(combined_name)}",
+                            )
+            except Exception as e:
+                chk("EC151 combined-over-labels flow completed", False, True, str(e))
+            finally:
+                # Delete combined first, then both members, then strip + delete
+                # labels.
+                for _entry in (combined_entry, lg_a_entry, lg_b_entry):
+                    if _entry:
+                        try:
+                            api(
+                                "DELETE",
+                                f"/api/config/config_entries/entry/{_entry}",
+                            )
+                        except Exception:  # teardown is best-effort
+                            pass
+                for _e in (e_a, e_b):
+                    ws_cmds(
+                        [
+                            {
+                                "type": "config/entity_registry/update",
+                                "entity_id": _e,
+                                "labels": [],
+                            }
+                        ]
+                    )
+                for _lbl in (label_a, label_b):
+                    if _lbl:
+                        ws_cmds(
+                            [
+                                {
+                                    "type": "config/label_registry/delete",
+                                    "label_id": _lbl,
+                                }
+                            ]
+                        )
+
+    # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed
     # This calls the HA delete-entry API, then checks the .storage file is gone.
     # Runs last; does NOT restore (entry is gone). Only for isolated smoke runs

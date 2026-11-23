@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Agrupar entidades por dispositivo requiere que «Mostrar nombres de dispositivo» esté activado.",
       "already_configured": "Ya existe un grupo con este nombre.",
       "empty_group_name": "El nombre del grupo no puede estar vacío.",
-      "not_enough_groups_selected": "Seleccione al menos dos grupos para combinar."
+      "not_enough_groups_selected": "Seleccione al menos dos grupos para combinar.",
+      "no_labels": "Debe seleccionar al menos una etiqueta."
     },
     "abort": {
       "not_enough_groups": "Este grupo combinado ya no tiene suficientes grupos de origen cargados. Añada más grupos primero."

@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Gruparea entităților după dispozitiv necesită activarea opțiunii „Afișați numele dispozitivelor“.",
       "already_configured": "Există deja un grup cu acest nume.",
       "empty_group_name": "Numele grupului nu poate fi gol.",
-      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare."
+      "not_enough_groups_selected": "Selectați cel puțin două grupuri pentru combinare.",
+      "no_labels": "Trebuie să selectați cel puțin o etichetă."
     },
     "abort": {
       "not_enough_groups": "Acest grup combinat nu mai are suficiente grupuri sursă încărcate. Adăugați mai întâi mai multe grupuri."

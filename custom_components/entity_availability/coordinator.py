@@ -127,7 +127,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self.entry = entry
         self._is_label_group = entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_LABEL
         self._label_ids: list[str] = entry.data.get(CONF_LABELS, [])
-        self._non_essential_label: str = entry.data.get(CONF_NON_ESSENTIAL_LABEL, "")
+        self._non_essential_label: list[str] = entry.data.get(
+            CONF_NON_ESSENTIAL_LABEL, []
+        )
         self._bad_states: list[str] = entry.data.get(
             CONF_BAD_STATES, DEFAULT_BAD_STATES
         )
@@ -935,19 +937,41 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         transient registry hiccup — keep the prior membership rather than wipe to
         empty (which would prune every entity's stored history). A genuinely empty
         group is expressed by configuring no labels at all (self._label_ids == []).
+        The guard still drops any held member that no longer EXISTS in the entity
+        registry (deleted, not merely untagged — ``async_get`` returns None for a
+        deletion but an entry for an untag): this frees the one case the hiccup guard
+        would otherwise freeze forever — the label removed from its last entity, which
+        was then deleted — without reinstating the history-wipe the guard prevents.
         """
         resolved = resolve_label_members(self.hass, self._label_ids)
         if not resolved and self._label_ids and self._entities:
-            _LOGGER.debug(
-                "[%s] Label resolve returned empty for %s; keeping prior %d members",
-                self.group_name,
-                self._label_ids,
-                len(self._entities),
-            )
+            ent_reg = er.async_get(self.hass)
+            still_exist = [
+                e for e in self._entities if ent_reg.async_get(e) is not None
+            ]
+            if still_exist != self._entities:
+                _LOGGER.debug(
+                    "[%s] Empty resolve for %s; dropped %d deleted member(s), kept %d",
+                    self.group_name,
+                    self._label_ids,
+                    len(self._entities) - len(still_exist),
+                    len(still_exist),
+                )
+                self._entities = still_exist
+                self._non_essential = [
+                    e for e in self._non_essential if e in still_exist
+                ]
+            else:
+                _LOGGER.debug(
+                    "[%s] Label resolve returned empty for %s; keeping prior %d members",
+                    self.group_name,
+                    self._label_ids,
+                    len(self._entities),
+                )
             return
         self._entities = resolved
         if self._non_essential_label:
-            ne = set(resolve_label_members(self.hass, [self._non_essential_label]))
+            ne = set(resolve_label_members(self.hass, self._non_essential_label))
             self._non_essential = [e for e in resolved if e in ne]
         else:
             self._non_essential = []
@@ -1026,7 +1050,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         )
         self._invalidate_collapse()
         self._setup_state_listeners()
-        self.async_request_refresh()
+        # Schedule the async refresh as a task — this is a sync @callback, so a bare
+        # async_request_refresh() call would create an un-awaited coroutine that never
+        # runs (and warns), dropping the push until the next poll. A full refresh (not
+        # async_set_updated_data) is required: the sweep must run to build DeviceStates
+        # for newly-joined members before their state is published.
+        self.hass.async_create_task(self.async_request_refresh())
 
     @callback
     def _handle_state_change(self, event: Event) -> None:

@@ -34,11 +34,11 @@
                 "data": {
                     "group_name": "Group Name",
                     "labels": "Labels to Monitor",
-                    "non_essential_label": "Non-Essential Label"
+                    "non_essential_label": "Non-Essential Labels"
                 },
                 "data_description": {
                     "labels": "Every entity carrying one of these labels — directly or through its device — is monitored. The group re-resolves automatically when you tag or untag entities and devices.",
-                    "non_essential_label": "Members that also carry this label are treated as non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Leave empty to treat every member as essential."
+                    "non_essential_label": "Members that also carry ANY of these labels are treated as non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Leave empty to treat every member as essential."
                 }
             },
             "monitoring": {
@@ -109,7 +109,7 @@
                     "entities": "Entities to Monitor",
                     "non_essential_entities": "Non-Essential entities",
                     "labels": "Labels to Monitor",
-                    "non_essential_label": "Non-Essential Label",
+                    "non_essential_label": "Non-Essential Labels",
                     "bad_states": "States considered offline",
                     "cooldown": "Cooldown (seconds)",
                     "staleness_threshold": "Staleness threshold (minutes, 0 = disabled)",
@@ -125,7 +125,7 @@
                     "entities": "Entities to track for availability. These are fully monitored and included in all KPIs and alerts.",
                     "non_essential_entities": "Entities that don't affect your group's health score. Visible on the card and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and never trigger alerts. Use for devices where downtime is acceptable — a TV, a printer, a seasonal device.",
                     "labels": "Every entity carrying one of these labels — directly or through its device — is monitored. The group re-resolves automatically when you tag or untag entities and devices.",
-                    "non_essential_label": "Members that also carry this label are treated as non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Leave empty to treat every member as essential.",
+                    "non_essential_label": "Members that also carry ANY of these labels are treated as non-essential: shown and counted in totals, but excluded from all KPIs (availability %, offline count, MTBF, MTTR) and alerts. Leave empty to treat every member as essential.",
                     "bad_states": "Entity states that indicate an entity is offline (e.g., unavailable, unknown).",
                     "cooldown": "How long (in seconds) an entity must stay in a bad state before it is marked offline. Prevents false alarms from brief disconnections.",
                     "staleness_threshold": "If an entity hasn't changed state for this many minutes, mark it as degraded. Set to 0 to disable.",
@@ -163,7 +163,8 @@
             "collapse_requires_device_names": "Collapse entities by device requires Show device names to be enabled.",
             "empty_group_name": "Group name cannot be empty.",
             "not_enough_groups_selected": "Select at least two groups to combine.",
-            "already_configured": "A group with this name already exists."
+            "already_configured": "A group with this name already exists.",
+            "no_labels": "You must select at least one label."
         },
         "abort": {
             "not_enough_groups": "This combined group no longer has enough source groups loaded. Add more groups first."

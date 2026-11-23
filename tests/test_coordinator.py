@@ -8516,7 +8516,7 @@ class TestSaveRetentionFiltering:
         assert coord._availability_storage._buckets == {}
 
 
-def _make_label_group(hass, labels, *, ne_label="", entry_id="lbl_group"):
+def _make_label_group(hass, labels, *, ne_labels=None, entry_id="lbl_group"):
     """Build a label-group MockConfigEntry + coordinator (storage mocked)."""
     from custom_components.entity_availability.const import (
         CONF_ENTRY_TYPE,
@@ -8535,7 +8535,7 @@ def _make_label_group(hass, labels, *, ne_label="", entry_id="lbl_group"):
             CONF_GROUP_NAME: "Label Group",
             CONF_ENTRY_TYPE: ENTRY_TYPE_LABEL,
             CONF_LABELS: labels,
-            CONF_NON_ESSENTIAL_LABEL: ne_label,
+            CONF_NON_ESSENTIAL_LABEL: ne_labels or [],
             CONF_BAD_STATES: DEFAULT_BAD_STATES,
             CONF_BATTERY_THRESHOLD: DEFAULT_BATTERY_THRESHOLD,
             CONF_BATTERY_ENTITY_MAP: {},
@@ -8614,7 +8614,7 @@ async def test_label_group_non_essential_label_subsets_members(hass: HomeAssista
     c = ent_reg.async_get_or_create("binary_sensor", "t", "c", suggested_object_id="c")
     ent_reg.async_update_entity(c.entity_id, labels={ne})
 
-    coord = _make_label_group(hass, [main], ne_label=ne)
+    coord = _make_label_group(hass, [main], ne_labels=[ne])
     assert set(coord.monitored_entities) == {"binary_sensor.a", "binary_sensor.b"}
     assert coord._non_essential == ["binary_sensor.b"]
 
@@ -8641,6 +8641,36 @@ async def test_label_group_empty_resolve_keeps_prior_membership(hass: HomeAssist
     ):
         coord._resolve_label_membership()
     assert coord.monitored_entities == ["binary_sensor.k"]
+
+
+async def test_label_group_empty_resolve_drops_deleted_member(hass: HomeAssistant):
+    """When resolve is empty (label gone) AND a held member no longer EXISTS in the
+    registry (deleted, not merely untagged), the hiccup guard still drops it — closing
+    the freeze where a label removed from its last-then-deleted entity would be
+    monitored forever. A held member that STILL exists (transient hiccup) is kept."""
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import label_registry as lr
+
+    lbl = lr.async_get(hass).async_create("Del").label_id
+    ent_reg = er.async_get(hass)
+    gone = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "gone", suggested_object_id="gone"
+    )
+    stays = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "stays", suggested_object_id="stays"
+    )
+    ent_reg.async_update_entity(gone.entity_id, labels={lbl})
+    ent_reg.async_update_entity(stays.entity_id, labels={lbl})
+    coord = _make_label_group(hass, [lbl])
+    assert set(coord.monitored_entities) == {"binary_sensor.gone", "binary_sensor.stays"}
+
+    # Delete 'gone' from the registry AND strip the label from 'stays' so resolve
+    # returns [] (empty-guard path). 'gone' no longer exists → dropped; 'stays'
+    # still exists (just untagged) → kept as a possible transient hiccup.
+    ent_reg.async_remove(gone.entity_id)
+    ent_reg.async_update_entity(stays.entity_id, labels=set())
+    coord._resolve_label_membership()
+    assert coord.monitored_entities == ["binary_sensor.stays"]
 
 
 async def test_label_group_reresolve_prunes_ghost_device_state(hass: HomeAssistant):
@@ -8675,13 +8705,25 @@ async def test_label_group_reresolve_prunes_ghost_device_state(hass: HomeAssista
 
     # drop loses the label → membership shrinks; re-resolve + prune ghosts.
     ent_reg.async_update_entity(drop.entity_id, labels=set())
-    coord.async_request_refresh = MagicMock()
-    coord._reresolve_membership(None)
+    # Capture the scheduled task instead of letting it run. The push MUST be
+    # scheduled via hass.async_create_task — a bare async_request_refresh() in this
+    # sync callback would create an un-awaited coroutine that never runs. Close the
+    # captured coroutine so it doesn't warn.
+    scheduled = []
+
+    def _capture(coro):
+        scheduled.append(coro)
+        coro.close()
+        return MagicMock()
+
+    with patch.object(hass, "async_create_task", side_effect=_capture):
+        coord._reresolve_membership(None)
 
     assert coord.monitored_entities == ["binary_sensor.keep"]
     assert "binary_sensor.drop" not in coord._device_states
     assert "binary_sensor.drop" not in coord._suppressed
-    coord.async_request_refresh.assert_called_once()
+    assert len(scheduled) == 1  # the refresh was actually scheduled, not dropped
+    assert scheduled[0].__qualname__.endswith("async_request_refresh")
 
 
 async def test_label_group_setup_registry_listeners(hass: HomeAssistant):

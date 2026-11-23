@@ -35,6 +35,16 @@ def resolve_label_members(hass: HomeAssistant, label_ids: list[str]) -> list[str
     registry order per label), then device-derived entities, dedup preserving first
     sight.
 
+    DISABLED entities are excluded. On the DIRECT path ``async_entries_for_label``
+    returns disabled entities, so we filter ``disabled_by is None`` explicitly; on the
+    DEVICE path ``async_entries_for_device`` already excludes them by default. A
+    disabled entity has no state object, so monitoring it would count it offline
+    forever and poison the group's availability %, offline count and MTBF/MTTR; the
+    explicit filter also removes the asymmetry that would otherwise keep a disabled
+    entity when labeled directly but drop it when its device is labeled. HIDDEN
+    entities are kept — they still have a live state and are legitimately monitorable;
+    the user only hid them from dashboards.
+
     Returns [] when label_ids is empty (a label group with no labels monitors
     nothing). Note the empty-but-labels-set guard lives in the CALLER: an empty
     result for a non-empty label set can be a transient registry hiccup and must not
@@ -45,8 +55,13 @@ def resolve_label_members(hass: HomeAssistant, label_ids: list[str]) -> list[str
     seen: dict[str, None] = {}  # insertion-ordered set
     for label_id in label_ids:
         for ent in er.async_entries_for_label(ent_reg, label_id):
-            seen.setdefault(ent.entity_id, None)
+            # async_entries_for_label returns disabled entities; filter them here.
+            if ent.disabled_by is None:
+                seen.setdefault(ent.entity_id, None)
         for device in dr.async_entries_for_label(dev_reg, label_id):
+            # async_entries_for_device defaults include_disabled_entities=False, so
+            # the device path already excludes disabled entities — no filter needed
+            # (adding one would be dead code and symmetrically redundant).
             for ent in er.async_entries_for_device(ent_reg, device.id):
                 seen.setdefault(ent.entity_id, None)
     return list(seen)

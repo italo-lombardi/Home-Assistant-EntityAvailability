@@ -61,6 +61,53 @@ async def test_resolve_label_members_empty_label_list(hass: HomeAssistant) -> No
     assert resolve_label_members(hass, []) == []
 
 
+async def test_resolve_label_members_excludes_disabled(hass: HomeAssistant) -> None:
+    """A DISABLED entity is excluded on BOTH the direct and the device path.
+
+    A disabled entity has no state object — monitoring it would count it offline
+    forever and poison the group's KPIs. Without the filter the two paths disagree
+    (direct keeps disabled, device drops them), so the same disablement would resolve
+    differently depending on where the label sits. Both must drop it. An ENABLED
+    sibling on the same device still resolves, proving the device path isn't broken.
+    """
+    lbl = lr.async_get(hass).async_create("D").label_id
+    ent_reg = er.async_get(hass)
+    dev_reg = dr.async_get(hass)
+    reg = MockConfigEntry(domain=DOMAIN, entry_id="dis_reg", title="R")
+    reg.add_to_hass(hass)
+
+    # Direct path: a disabled entity labeled directly → must be dropped.
+    direct_dis = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "direct_dis", suggested_object_id="direct_dis"
+    )
+    ent_reg.async_update_entity(
+        direct_dis.entity_id, labels={lbl}, disabled_by=er.RegistryEntryDisabler.USER
+    )
+
+    # Device path: a labeled device with one disabled + one enabled entity.
+    device = dev_reg.async_get_or_create(
+        config_entry_id="dis_reg", identifiers={(DOMAIN, "dd")}, name="DD"
+    )
+    dev_reg.async_update_device(device.id, labels={lbl})
+    dev_dis = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "dev_dis", suggested_object_id="dev_dis"
+    )
+    ent_reg.async_update_entity(
+        dev_dis.entity_id,
+        device_id=device.id,
+        disabled_by=er.RegistryEntryDisabler.USER,
+    )
+    dev_ok = ent_reg.async_get_or_create(
+        "binary_sensor", "t", "dev_ok", suggested_object_id="dev_ok"
+    )
+    ent_reg.async_update_entity(dev_ok.entity_id, device_id=device.id)
+
+    members = resolve_label_members(hass, [lbl])
+    assert members == ["binary_sensor.dev_ok"]
+    assert "binary_sensor.direct_dis" not in members  # direct path drops disabled
+    assert "binary_sensor.dev_dis" not in members  # device path drops disabled
+
+
 def test_infer_network_type() -> None:
     """LQI/linkquality suffixes infer zigbee; everything else is generic."""
     assert infer_network_type("sensor.x_lqi") == "zigbee_lqi"

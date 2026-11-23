@@ -204,7 +204,7 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             group_name = user_input[CONF_GROUP_NAME].strip()
             labels = user_input.get(CONF_LABELS, [])
-            ne_label = user_input.get(CONF_NON_ESSENTIAL_LABEL, "")
+            ne_labels = user_input.get(CONF_NON_ESSENTIAL_LABEL, [])
 
             if not group_name:
                 errors[CONF_GROUP_NAME] = "empty_group_name"
@@ -218,14 +218,14 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
 
                 members = resolve_label_members(self.hass, labels)
                 ne = (
-                    set(resolve_label_members(self.hass, [ne_label]))
-                    if ne_label
+                    set(resolve_label_members(self.hass, ne_labels))
+                    if ne_labels
                     else set()
                 )
                 self._data[CONF_ENTRY_TYPE] = ENTRY_TYPE_LABEL
                 self._data[CONF_GROUP_NAME] = group_name
                 self._data[CONF_LABELS] = labels
-                self._data[CONF_NON_ESSENTIAL_LABEL] = ne_label
+                self._data[CONF_NON_ESSENTIAL_LABEL] = ne_labels
                 # Materialize current membership so the shared wizard steps
                 # (monitoring/advanced/battery/signal) and the coordinator read it
                 # exactly like a static group. The coordinator re-resolves live.
@@ -247,8 +247,8 @@ class EntityAvailabilityConfigFlow(ConfigFlow, domain=DOMAIN):
                 ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
                 vol.Optional(
                     CONF_NON_ESSENTIAL_LABEL,
-                    default=(user_input or {}).get(CONF_NON_ESSENTIAL_LABEL, ""),
-                ): selector.LabelSelector(selector.LabelSelectorConfig()),
+                    default=(user_input or {}).get(CONF_NON_ESSENTIAL_LABEL, []),
+                ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
             }
         )
 
@@ -601,11 +601,11 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
             is_label = self.config_entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_LABEL
             if is_label:
                 labels = user_input.pop(CONF_LABELS, [])
-                ne_label = user_input.pop(CONF_NON_ESSENTIAL_LABEL, "")
+                ne_labels = user_input.pop(CONF_NON_ESSENTIAL_LABEL, [])
                 members = resolve_label_members(self.hass, labels)
                 ne = (
-                    set(resolve_label_members(self.hass, [ne_label]))
-                    if ne_label
+                    set(resolve_label_members(self.hass, ne_labels))
+                    if ne_labels
                     else set()
                 )
                 monitored_raw = members
@@ -635,7 +635,7 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 self._data[CONF_NON_ESSENTIAL_ENTITIES] = non_essential
                 if is_label:
                     self._data[CONF_LABELS] = labels
-                    self._data[CONF_NON_ESSENTIAL_LABEL] = ne_label
+                    self._data[CONF_NON_ESSENTIAL_LABEL] = ne_labels
 
                 if self._data.get(CONF_BATTERY_THRESHOLD, 0) > 0:
                     return await self.async_step_battery_mapping()
@@ -670,8 +670,8 @@ class EntityAvailabilityOptionsFlow(OptionsFlow):
                 ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
                 vol.Optional(
                     CONF_NON_ESSENTIAL_LABEL,
-                    default=current.get(CONF_NON_ESSENTIAL_LABEL, ""),
-                ): selector.LabelSelector(selector.LabelSelectorConfig()),
+                    default=current.get(CONF_NON_ESSENTIAL_LABEL, []),
+                ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
             }
         else:
             membership_fields = {

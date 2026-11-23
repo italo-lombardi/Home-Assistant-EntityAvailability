@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Grupiranje entiteta po uređaju zahtijeva da je uključeno „Prikaži nazive uređaja“.",
       "already_configured": "Grupa s ovim nazivom već postoji.",
       "empty_group_name": "Naziv grupe ne smije biti prazan.",
-      "not_enough_groups_selected": "Odaberite najmanje dvije grupe za kombiniranje."
+      "not_enough_groups_selected": "Odaberite najmanje dvije grupe za kombiniranje.",
+      "no_labels": "Morate odabrati najmanje jednu oznaku."
     },
     "abort": {
       "not_enough_groups": "Ovaj kombinirani grupa više nema dovoljno izvornih grupa učitanih. Najprije dodajte više grupa."

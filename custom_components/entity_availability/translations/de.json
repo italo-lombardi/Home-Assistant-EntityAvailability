@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Entitäten nach Gerät zusammenfassen erfordert, dass „Gerätenamen anzeigen“ aktiviert ist.",
       "already_configured": "Eine Gruppe mit diesem Namen existiert bereits.",
       "empty_group_name": "Der Gruppenname darf nicht leer sein.",
-      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus."
+      "not_enough_groups_selected": "Wählen Sie mindestens zwei Gruppen zum Kombinieren aus.",
+      "no_labels": "Sie müssen mindestens ein Label auswählen."
     },
     "abort": {
       "not_enough_groups": "Diese kombinierte Gruppe hat nicht mehr genügend geladene Quellgruppen. Fügen Sie zuerst weitere Gruppen hinzu."

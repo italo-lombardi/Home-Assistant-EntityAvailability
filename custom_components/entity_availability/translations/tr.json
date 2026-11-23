@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Varlıkları cihaza göre birleştirmek için „Cihaz adlarını göster“ etkinleştirilmelidir.",
       "already_configured": "Bu adda bir grup zaten mevcut.",
       "empty_group_name": "Grup adı boş olamaz.",
-      "not_enough_groups_selected": "Birleştirmek için en az iki grup seçin."
+      "not_enough_groups_selected": "Birleştirmek için en az iki grup seçin.",
+      "no_labels": "En az bir etiket seçmelisiniz."
     },
     "abort": {
       "not_enough_groups": "Bu birleşik grup artık yeterli sayıda kaynak gruba sahip değil. Önce daha fazla grup ekleyin."

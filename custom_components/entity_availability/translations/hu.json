@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Az entitások eszközönkénti összevonásához engedélyezni kell az „Eszköznevek megjelenítése“ beállítást.",
       "already_configured": "Már létezik ilyen nevű csoport.",
       "empty_group_name": "A csoport neve nem lehet üres.",
-      "not_enough_groups_selected": "Legalább két csoportot válasszon ki az összesítéshez."
+      "not_enough_groups_selected": "Legalább két csoportot válasszon ki az összesítéshez.",
+      "no_labels": "Legalább egy címkét ki kell választani."
     },
     "abort": {
       "not_enough_groups": "Ennek az összesített csoportnak már nincs elegendő betöltött forráscsoport. Először adjon hozzá több csoportot."

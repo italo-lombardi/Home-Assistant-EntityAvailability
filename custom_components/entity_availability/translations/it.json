@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Raggruppa entità per dispositivo richiede che «Mostra nomi dispositivo» sia abilitato.",
       "already_configured": "Un gruppo con questo nome esiste già.",
       "empty_group_name": "Il nome del gruppo non può essere vuoto.",
-      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare."
+      "not_enough_groups_selected": "Seleziona almeno due gruppi da combinare.",
+      "no_labels": "Devi selezionare almeno un'etichetta."
     },
     "abort": {
       "not_enough_groups": "Questo gruppo combinato non ha più abbastanza gruppi sorgente caricati. Aggiungi prima altri gruppi."

@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Att slå ihop entiteter per enhet kräver att „Visa enhetsnamn“ är påslaget.",
       "already_configured": "En grupp med detta namn finns redan.",
       "empty_group_name": "Gruppnamnet kan inte vara tomt.",
-      "not_enough_groups_selected": "Välj minst två grupper att kombinera."
+      "not_enough_groups_selected": "Välj minst två grupper att kombinera.",
+      "no_labels": "Du måste välja minst en etikett."
     },
     "abort": {
       "not_enough_groups": "Den här kombinerade gruppen har inte längre tillräckligt många källgrupper inlästa. Lägg till fler grupper först."

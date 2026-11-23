@@ -163,7 +163,8 @@
       "collapse_requires_device_names": "Lai apvienotu entitātes pēc ierīces, jābūt ieslēgtam „Rādīt ierīces nosaukumus“.",
       "already_configured": "Grupa ar šādu nosaukumu jau eksistē.",
       "empty_group_name": "Grupas nosaukums nedrīkst būt tukšs.",
-      "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai."
+      "not_enough_groups_selected": "Izvēlieties vismaz divas grupas apvienošanai.",
+      "no_labels": "Jums jāizvēlas vismaz viena iezīme."
     },
     "abort": {
       "not_enough_groups": "Šajā apvienotajā grupā vairs nav pietiekami daudz avota grupu. Vispirms pievienojiet vairāk grupu."
