@@ -168,8 +168,15 @@ async def test_setup_registers_shutdown_hook_exactly_once(
         patch.object(
             EntityAvailabilityCoordinator, "_async_save_storage", new_callable=AsyncMock
         ),
+        # Mock first_refresh: on HA >= 2025.11 the real one raises ConfigEntryError
+        # unless the entry is in SETUP_IN_PROGRESS (HA's own setup state machine, not
+        # exercised when calling async_setup_entry directly). We only care that the
+        # unload hook is registered once by the time setup finishes, which the base
+        # __init__ (at construction) and our __init__.py flow both run regardless.
         patch.object(
-            EntityAvailabilityCoordinator, "_async_update_data", new_callable=AsyncMock
+            EntityAvailabilityCoordinator,
+            "async_config_entry_first_refresh",
+            new_callable=AsyncMock,
         ),
         patch.object(ea_init, "async_setup_services", new_callable=AsyncMock),
         patch.object(ea_init, "_async_install_card", new_callable=AsyncMock),
