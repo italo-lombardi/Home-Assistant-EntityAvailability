@@ -8,6 +8,7 @@ plan; each guard is mutation-verified (disable it → the test reds).
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
@@ -317,7 +318,9 @@ def test_generation_bump_rebuilds_shared_map(two_group_combined):
     Mutation: drop generation from the key (cache on entry_ids only, cross-tick)
     → after a device_states change + gen bump the stale map is served → the
     post-bump offline count stays 1 instead of dropping to 0 → reds. That is the
-    #151 stale-HIT revival.
+    #151 stale-HIT revival. The recovered DeviceState is REBOUND (a fresh object,
+    not an in-place flag flip) so a stale map keeps the old offline object and
+    the value assertion reds on its own — see the rebind note below.
     """
     hass, combined, coords = two_group_combined
     s = _sensor(hass, combined, coords)
@@ -327,9 +330,17 @@ def test_generation_bump_rebuilds_shared_map(two_group_combined):
     key_before = next(iter(store))
 
     # A device recovers + the coordinator bumps its generation (what every tick
-    # does at the end of _async_update_data / _invalidate_collapse).
-    coords[0]._device_states["binary_sensor.a2"].is_offline = False
-    coords[0]._device_states["binary_sensor.a2"].offline_since = None
+    # does at the end of _async_update_data / _invalidate_collapse). Replace the
+    # DeviceState with a NEW object (not an in-place flag flip): the KEEP path of
+    # _apply_ne_override returns the SAME object, which the cached map stores by
+    # reference — an in-place mutation would be visible THROUGH a stale map, so
+    # after_offline would drop to 0 even if the map were NOT rebuilt, making the
+    # value assertion below inert. Rebinding leaves any stale map holding the old
+    # (offline) object, so after_offline sticks at 1 unless a real rebuild runs.
+    old = coords[0]._device_states["binary_sensor.a2"]
+    coords[0]._device_states["binary_sensor.a2"] = dataclasses.replace(
+        old, is_offline=False, offline_since=None
+    )
     coords[0]._collapse_generation += 1
 
     after_offline = s.extra_state_attributes["offline"]
@@ -422,9 +433,11 @@ def test_parity_collapse_active_shared_hit(mock_hass: HomeAssistant):
     collapsed/udn_map/rk_groups tuple is byte-identical across the shared hit,
     not a slot-swapped or rebuilt-divergent map.
 
-    Mutation: drop the udn_map (or rep_of) slot from the stored tuple / don't
-    restore it on hit → the second sensor's entities_collapsed / row_members /
-    total diverge from the first → deep-equal reds.
+    Mutation: drop the rep_of slot from the stored tuple / don't restore it on
+    hit → the second sensor's entities_collapsed / row_members / total diverge
+    from the first → deep-equal reds. (The udn_map slot only feeds friendly-name
+    display, which is identical for this single-named-device fixture, so a
+    udn_map swap alone would NOT red here; rep_of is the discriminating guard.)
     """
     _register_entity(mock_hass, "binary_sensor.dev1_a", "dev1")
     _register_entity(mock_hass, "binary_sensor.dev1_b", "dev1")
