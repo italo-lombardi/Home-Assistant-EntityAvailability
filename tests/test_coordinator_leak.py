@@ -268,19 +268,24 @@ async def test_schedule_refresh_noops_after_shutdown(
     cannot re-create the 30s timer after async_shutdown cancelled it.
 
     MUTATION: remove the `if self._shutdown_requested: return` guard in
-    _schedule_refresh -> base re-arms _unsub_refresh -> not None -> red.
+    _schedule_refresh -> base _schedule_refresh is called even after shutdown -> red.
     """
     coord = _make_coord(hass, mock_config_entry)
-    coord._shutdown_requested = True
-    assert coord._unsub_refresh is None
 
-    coord._schedule_refresh()
+    # Spy on the BASE _schedule_refresh rather than arming a real loop.call_at
+    # timer: proving the guard gates delegation to super() is the whole contract,
+    # and it avoids leaving a live timer that the verify_cleanup fixture can flag
+    # as lingering (a timing-dependent flake).
+    import homeassistant.helpers.update_coordinator as uc
 
-    assert coord._unsub_refresh is None  # guard blocked the re-arm
+    with patch.object(uc.DataUpdateCoordinator, "_schedule_refresh") as base_sched:
+        # After shutdown: guard returns early, base is never called.
+        coord._shutdown_requested = True
+        coord._schedule_refresh()
+        base_sched.assert_not_called()
 
-    # Sanity: with the flag clear, the base DOES arm the timer (proves the guard,
-    # not a broken base call, is what suppresses it above).
-    coord._shutdown_requested = False
-    coord._schedule_refresh()
-    assert coord._unsub_refresh is not None
-    coord._async_unsub_refresh()  # clean up the armed timer
+        # With the flag clear: the override delegates to the base exactly once
+        # (proves the guard, not a broken override, is what suppressed it above).
+        coord._shutdown_requested = False
+        coord._schedule_refresh()
+        base_sched.assert_called_once()
