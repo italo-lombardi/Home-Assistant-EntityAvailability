@@ -20,12 +20,14 @@ from custom_components.entity_availability.combined_sensor import (
 )
 from custom_components.entity_availability.const import (
     CONF_AVAILABILITY_WINDOWS,
+    CONF_COLLAPSE_DEVICES,
     CONF_COMBINED_GROUPS,
     CONF_COMBINED_GROUPS_OVERRIDES,
     CONF_ENTITIES,
     CONF_ENTRY_TYPE,
     CONF_GROUP_NAME,
     CONF_NON_ESSENTIAL_ENTITIES,
+    CONF_USE_DEVICE_NAMES,
     DEFAULT_AVAILABILITY_WINDOWS,
     DM_CACHE_PREFIX,
     DOMAIN,
@@ -38,11 +40,18 @@ from custom_components.entity_availability.coordinator import (
     EntityAvailabilityCoordinator,
 )
 from custom_components.entity_availability.models import DeviceState
+from tests.test_collapse import _register_entity
 
 T0 = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
 
 
-def _group(entry_id: str, name: str, entities: list[str], ne: list[str] | None = None):
+def _group(
+    entry_id: str,
+    name: str,
+    entities: list[str],
+    ne: list[str] | None = None,
+    collapse: bool = False,
+):
     data = {
         CONF_ENTRY_TYPE: ENTRY_TYPE_GROUP,
         CONF_GROUP_NAME: name,
@@ -51,6 +60,9 @@ def _group(entry_id: str, name: str, entities: list[str], ne: list[str] | None =
     }
     if ne is not None:
         data[CONF_NON_ESSENTIAL_ENTITIES] = ne
+    if collapse:
+        data[CONF_USE_DEVICE_NAMES] = True
+        data[CONF_COLLAPSE_DEVICES] = True
     return MockConfigEntry(
         version=1,
         domain=DOMAIN,
@@ -304,52 +316,84 @@ def test_generation_bump_rebuilds_shared_map(two_group_combined):
 
     Mutation: drop generation from the key (cache on entry_ids only, cross-tick)
     → after a device_states change + gen bump the stale map is served → the
-    post-bump native_value is wrong → reds. That is the #151 stale-HIT revival.
+    post-bump offline count stays 1 instead of dropping to 0 → reds. That is the
+    #151 stale-HIT revival.
     """
     hass, combined, coords = two_group_combined
     s = _sensor(hass, combined, coords)
-    before = s.native_value
+    # Baseline: a2 is offline → the combined reports 1 offline.
+    before_offline = s.extra_state_attributes["offline"]
     store = hass.data[DOMAIN][f"{DM_CACHE_PREFIX}c_1"]
     key_before = next(iter(store))
 
     # A device recovers + the coordinator bumps its generation (what every tick
     # does at the end of _async_update_data / _invalidate_collapse).
     coords[0]._device_states["binary_sensor.a2"].is_offline = False
+    coords[0]._device_states["binary_sensor.a2"].offline_since = None
     coords[0]._collapse_generation += 1
 
-    after = s.native_value
+    after_offline = s.extra_state_attributes["offline"]
     key_after = next(iter(store))
     assert key_after != key_before, "generation bump must change the cache key"
     assert len(store) == 1, "stale-generation key must be evicted (single-entry)"
-    # native_value counts representatives; membership count is stable here, but
-    # the map was genuinely rebuilt under the new key (asserted above).
-    assert after == before  # 3 members either way; rebuild happened under new key
+    # VALUE assertion (the real stale-content guard): the offline count must
+    # DROP after the recovery+bump. If generation were dropped from the key, the
+    # stale map would be served on hit and offline would stick at its old value.
+    assert before_offline == 1, f"expected 1 offline at baseline, got {before_offline}"
+    assert after_offline == 0, (
+        f"offline must drop to 0 after recovery+gen-bump; got {after_offline} "
+        "(stuck = stale map served = generation missing from the key)"
+    )
 
 
 # --- C: shared store dies with the entry (unload teardown, #155-analog) ------
 
 
-def test_store_slot_dropped_on_unload(mock_hass: HomeAssistant):
-    """C: the per-combined-entry store must be a slot that is REMOVED on unload
-    (not just emptied), so a reload cannot serve a stale map under a recurring
-    (entry_ids, generations=0) key — the #155 survive-unload class.
+async def test_store_slot_created_on_setup_and_dropped_on_unload(
+    mock_hass: HomeAssistant,
+):
+    """C (#155-analog): the per-combined-entry store slot must be CREATED by the
+    real async_setup_entry and REMOVED by the real on_unload callback — so a
+    reload cannot serve a stale map under a recurring (entry_ids, gen=0) key.
 
-    This asserts the __init__ contract: setup creates the slot, the on_unload
-    hook pops it. We simulate the lifecycle at the hass.data level.
+    Drives the ACTUAL product teardown (entry._async_process_on_unload runs the
+    lambda __init__ registered), not a hand-rolled dict.pop — so deleting the
+    on_unload registration in __init__.py reds this test. (The earlier version
+    popped the slot itself and only proved dict.pop works.)
     """
-    eid = "c_unload"
-    # setup: slot created.
-    mock_hass.data[DOMAIN] = {}
-    slot = f"{DM_CACHE_PREFIX}{eid}"
-    mock_hass.data[DOMAIN][slot] = {}
-    mock_hass.data[DOMAIN][slot][("k",)] = "stale-map"
-    assert slot in mock_hass.data[DOMAIN]
-    # unload: the on_unload lambda pops the slot entirely.
-    mock_hass.data[DOMAIN].pop(slot, None)
-    assert slot not in mock_hass.data[DOMAIN], "slot must be GONE, not emptied"
-    # reload: a fresh empty slot, zero carry-over.
-    mock_hass.data[DOMAIN][slot] = {}
-    assert mock_hass.data[DOMAIN][slot] == {}
+    from custom_components.entity_availability import (
+        async_setup_entry as ea_async_setup_entry,
+    )
+
+    combined = _combined("c_unload", "Unload Combined", ["g_a", "g_b"])
+    combined.add_to_hass(mock_hass)
+    slot = f"{DM_CACHE_PREFIX}c_unload"
+
+    # Real setup: the combined branch creates the slot + registers the on_unload
+    # pop. Stub the platform forward + card install (not under test here).
+    with (
+        patch.object(
+            mock_hass.config_entries,
+            "async_forward_entry_setups",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "custom_components.entity_availability._async_install_card",
+            new_callable=AsyncMock,
+        ),
+    ):
+        ok = await ea_async_setup_entry(mock_hass, combined)
+    assert ok is True
+    assert slot in mock_hass.data[DOMAIN], "setup must create the store slot"
+    # Prove it would otherwise persist: seed a stale map.
+    mock_hass.data[DOMAIN][slot][("stale",)] = "old-map"
+
+    # Real unload: run the callbacks the entry registered (the __init__ lambda).
+    await combined._async_process_on_unload(mock_hass)
+    assert slot not in mock_hass.data[DOMAIN], (
+        "the on_unload hook must POP the slot (gone, not emptied) so a reload "
+        "starts fresh — guards the #155 survive-unload class"
+    )
 
 
 def test_missing_store_slot_degrades_safely(two_group_combined):
@@ -361,3 +405,124 @@ def test_missing_store_slot_degrades_safely(two_group_combined):
     s = _sensor(hass, combined, coords)
     # Still computes a correct value without raising.
     assert s.native_value == 3  # a1 + a2 + b1 representatives
+
+
+# --- Parity on the NON-TRIVIAL map configs (collapse-active, split-row) ------
+# The battery fixtures above exercise classic/collapse-off/divergent-NE only.
+# These cover the two configs where the stored tuple's collapsed / udn_map /
+# rep_of / rk_groups slots are NON-trivial — exactly where a shared-store slot
+# swap would corrupt output and the trivial fixtures can't catch it.
+
+
+def test_parity_collapse_active_shared_hit(mock_hass: HomeAssistant):
+    """COLLAPSE-ACTIVE parity: two entities on ONE device in a collapse-active
+    source group collapse to a single representative row (non-identity rep_of +
+    udn_map). A second sensor served from the shared store must publish the
+    IDENTICAL full attrs as the sensor that built the map — proving the restored
+    collapsed/udn_map/rk_groups tuple is byte-identical across the shared hit,
+    not a slot-swapped or rebuilt-divergent map.
+
+    Mutation: drop the udn_map (or rep_of) slot from the stored tuple / don't
+    restore it on hit → the second sensor's entities_collapsed / row_members /
+    total diverge from the first → deep-equal reds.
+    """
+    _register_entity(mock_hass, "binary_sensor.dev1_a", "dev1")
+    _register_entity(mock_hass, "binary_sensor.dev1_b", "dev1")
+    _register_entity(mock_hass, "binary_sensor.solo", "dev2")
+    ga = _group(
+        "g_col",
+        "Collapse Grp",
+        ["binary_sensor.dev1_a", "binary_sensor.dev1_b", "binary_sensor.solo"],
+        collapse=True,
+    )
+    gb = _group("g_other", "Other", ["binary_sensor.other1"])
+    combined = _combined("c_col", "Collapse Combined", ["g_col", "g_other"])
+    ca = _coord(
+        mock_hass,
+        ga,
+        {
+            "binary_sensor.dev1_a": DeviceState(
+                entity_id="binary_sensor.dev1_a", is_offline=True, offline_since=T0
+            ),
+            "binary_sensor.dev1_b": DeviceState(
+                entity_id="binary_sensor.dev1_b", is_offline=False
+            ),
+            "binary_sensor.solo": DeviceState(
+                entity_id="binary_sensor.solo", is_offline=False
+            ),
+        },
+    )
+    cb = _coord(
+        mock_hass,
+        gb,
+        {
+            "binary_sensor.other1": DeviceState(
+                entity_id="binary_sensor.other1", is_offline=False
+            ),
+        },
+    )
+    mock_hass.data[DOMAIN] = {"g_col": ca, "g_other": cb}
+    _store(mock_hass, "c_col")
+
+    s1 = _sensor(mock_hass, combined, [ca, cb])
+    s2 = _sensor(mock_hass, combined, [ca, cb])
+    s1.native_value  # prime the shared store (collapse build happens here)
+    # Full-attrs byte-identical across build-sensor vs hit-sensor.
+    assert s1.native_value == s2.native_value
+    assert s1.extra_state_attributes == s2.extra_state_attributes
+    # And collapse genuinely happened (non-trivial slots exercised): dev1_a+b
+    # collapse to one row → 3 reps (dev1, solo, other1), not 4 raw entities.
+    assert s1.native_value == 3
+
+
+def test_parity_divergent_fingerprint_shared_hit(mock_hass: HomeAssistant):
+    """DIVERGENT-FINGERPRINT parity: the SAME entity in two source groups with
+    DIFFERENT config (one collapse-active, one not) produces a split
+    ``eid::entry_id`` row — the exact case rk_groups' split-vs-union logic
+    exists for. Second sensor served from the store must match the first's full
+    attrs (incl. row_groups), proving the rk_groups side-output in the stored
+    tuple is restored correctly, not a stale/foreign per-sensor value.
+
+    Mutation: skip the rk_groups restore on a store hit → row_groups differs
+    between the two sensors → deep-equal reds (this is the side-output the
+    hoist newly shares, the genuinely-new risk).
+    """
+    _register_entity(mock_hass, "binary_sensor.shared", "devX")
+    # Group A: collapse-active, includes the shared entity.
+    ga = _group("g_dva", "Grp A", ["binary_sensor.shared"], collapse=True)
+    # Group B: collapse-OFF, includes the SAME entity → divergent fingerprint
+    # (udn differs) → the combined splits it into two rows keyed eid::entry_id.
+    gb = _group("g_dvb", "Grp B", ["binary_sensor.shared"])
+    combined = _combined("c_dv", "Divergent Combined", ["g_dva", "g_dvb"])
+    ca = _coord(
+        mock_hass,
+        ga,
+        {
+            "binary_sensor.shared": DeviceState(
+                entity_id="binary_sensor.shared", is_offline=False
+            ),
+        },
+    )
+    cb = _coord(
+        mock_hass,
+        gb,
+        {
+            "binary_sensor.shared": DeviceState(
+                entity_id="binary_sensor.shared", is_offline=False
+            ),
+        },
+    )
+    mock_hass.data[DOMAIN] = {"g_dva": ca, "g_dvb": cb}
+    _store(mock_hass, "c_dv")
+
+    s1 = _sensor(mock_hass, combined, [ca, cb])
+    s2 = _sensor(mock_hass, combined, [ca, cb])
+    s1.native_value  # prime
+    assert s1.native_value == s2.native_value
+    # row_groups is the rk_groups-backed attr — must be identical across the
+    # build-sensor and the store-hit sensor.
+    rg1 = s1.extra_state_attributes.get("row_groups")
+    rg2 = s2.extra_state_attributes.get("row_groups")
+    assert rg1 == rg2
+    # Full-attrs parity (catches any other slot swap on the divergent config).
+    assert s1.extra_state_attributes == s2.extra_state_attributes
