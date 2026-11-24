@@ -9311,17 +9311,41 @@ for e in cfg['data']['entries']:
                     True,
                     f"total={total!r} lo={lo} hi={hi} groups={groups}",
                 )
-                # (b) CROSS-READ STABILITY within one tick: two consecutive reads
-                # of the same settled state must be identical. The shared store
-                # serving a stale/foreign map to a re-read would diverge here.
-                st2 = gs(summary)
-                chk(
-                    "EC153 combined summary stable across reads (no shared-store "
-                    "divergence)",
-                    st2.get("state"),
-                    total,
-                    f"read1={total!r} read2={st2.get('state')!r}",
+                # (b) TWO-SENSOR SAME-TICK AGREEMENT (the real shared-store
+                # divergence probe). A re-GET of ONE entity reads the last-WRITTEN
+                # state object — it never re-reads the store, so it can't detect
+                # divergence (divergence commits at write time). Instead compare
+                # TWO DIFFERENT sensors of the SAME combined entry that each
+                # independently rebuild from the shared store in the same tick:
+                # the summary's offline aggregate vs the standalone offline_count
+                # sensor. If the shared store served one sensor a stale/foreign
+                # map, the two would disagree. The summary entity prefix
+                # (…_combined_summary) → the sibling (…_offline_count).
+                prefix = summary[: -len("_combined_summary")]
+                offline_count_eid = f"{prefix}_offline_count"
+                oc = gs_safe(offline_count_eid)
+                summary_offline = int(
+                    (st.get("attributes", {}) or {}).get("offline", 0)
                 )
+                if oc is None:
+                    print(
+                        "  EC153 (b): SKIP-LOUD — combined offline_count sensor "
+                        f"absent ({offline_count_eid})",
+                        flush=True,
+                    )
+                else:
+                    try:
+                        oc_n = int(oc.get("state"))
+                    except (TypeError, ValueError):
+                        oc_n = None
+                    chk(
+                        "EC153 two sensors of one combined agree on offline "
+                        "(shared map not divergent across sensors)",
+                        oc_n,
+                        summary_offline,
+                        f"offline_count={oc.get('state')!r} "
+                        f"summary.offline={summary_offline}",
+                    )
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed

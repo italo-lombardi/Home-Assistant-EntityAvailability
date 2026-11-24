@@ -10,7 +10,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.lovelace.resources import ResourceStorageCollection
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
 
@@ -110,7 +110,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # in-life and collapse_generation covers that in the key.
         store_key = f"{DM_CACHE_PREFIX}{entry.entry_id}"
         hass.data[DOMAIN][store_key] = {}
-        entry.async_on_unload(lambda: hass.data[DOMAIN].pop(store_key, None))
+
+        @callback
+        def _drop_dm_store() -> None:
+            # Must return None: HA's _async_process_on_unload awaits any non-None
+            # callback result, and dict.pop returns the popped value.
+            hass.data[DOMAIN].pop(store_key, None)
+
+        entry.async_on_unload(_drop_dm_store)
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         entry.async_on_unload(entry.add_update_listener(_async_update_options))
         await _async_install_card(hass)
