@@ -4,6 +4,10 @@ from typing import Literal
 
 DOMAIN = "entity_availability"
 
+# hass.data[DOMAIN] key prefix for a combined entry's shared device-map cache
+# (one per combined entry; see combined_sensor._build_device_map).
+DM_CACHE_PREFIX = "_dmcache_"
+
 SignalQuality = Literal["good", "ok", "poor"]
 
 # Config flow

@@ -27,6 +27,7 @@ from .const import (
     CONF_STALENESS_THRESHOLD,
     CONF_USE_DEVICE_NAMES,
     DEFAULT_BAD_STATES,
+    DM_CACHE_PREFIX,
     DOMAIN,
     EVENT_BATTERY_OK,
     EVENT_LOW_BATTERY,
@@ -178,14 +179,12 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         self._ne_overrides: dict[str, str] = ne_overrides or {}
         self._attr_device_info = _device_info(entry.entry_id, group_name)
         self._unsub_listeners: list[Callable[[], None]] = []
-        # Per-tick memo of the collapsed merged device map. Keyed by
-        # (active entry_ids, summed collapse generations) so the global
-        # re-collapse (registry lookups) runs once per tick, not per property read.
-        self._dm_cache_key: tuple | None = None
-        self._dm_cache: dict[str, Any] | None = None
+        # Per-tick collapsed device map: built once per combined group per tick
+        # and shared across the group's sensors via the per-entry store (see
+        # _dm_store / _build_device_map). _dm_full_cache is this sensor's handoff
+        # for _device_map_cached; _dm_rk_groups is the row_key→group-names
+        # side-output restored from the shared build.
         self._dm_full_cache: tuple[dict, dict, dict] | None = None
-        # row_key → set of source group names, set as a side output of
-        # _device_map_of (same cache lifecycle as _dm_full_cache).
         self._dm_rk_groups: dict[str, set[str]] = {}
 
     async def async_added_to_hass(self) -> None:
@@ -267,6 +266,24 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
             )
         return is_available
 
+    def _dm_store(self) -> dict[tuple, Any]:
+        """Return this combined entry's SHARED device-map cache.
+
+        One store per combined entry (created in __init__.async_setup_entry,
+        dropped on unload), shared by all ~15 of the entry's sensors so the
+        collapsed map is built ONCE per tick, not once per sensor. Scoped to the
+        entry so a reload cannot serve a stale map under a recurring
+        (entry_ids, generations=0) key. Falls back to a private dict if the slot
+        is missing (defensive — e.g. a sensor read racing teardown).
+        """
+        domain_data = self.hass.data.get(DOMAIN, {})
+        store = domain_data.get(f"{DM_CACHE_PREFIX}{self._entry.entry_id}")
+        if store is None:
+            # Slot gone (unload race) — degrade to a per-call throwaway so a
+            # late read still returns a correct map without resurrecting state.
+            store = {}
+        return store
+
     def _build_device_map(
         self,
         coords: list[EntityAvailabilityCoordinator],
@@ -274,19 +291,36 @@ class CombinedSensorBase(WriteDedupMixin, SensorEntity):
         """Return the representative device map across coordinators (one per row).
 
         Entities from use_device_names groups auto-collapse by device key.
-        Drives the combined total and event downtime lookups. Memoized per tick.
+        Drives the combined total and event downtime lookups. Memoized per tick
+        in the combined entry's SHARED store (built once, read by every sensor).
+        The key is (source entry_ids, per-coord collapse_generations): it never
+        needs an ne_overrides or owning-id term because the store is scoped per
+        combined entry (ne_overrides + config are frozen for the store's
+        lifetime — any change triggers a reload that destroys the store).
         """
         cache_key = (
             tuple(c.entry.entry_id for c in coords),
             tuple(c.collapse_generation for c in coords),
         )
-        if self._dm_cache_key == cache_key and self._dm_cache is not None:
-            return self._dm_cache
+        store = self._dm_store()
+        cached = store.get(cache_key)
+        if cached is not None:
+            collapsed, merged, rep_of, udn_map, rk_groups = cached
+            # Restore the rk_groups side-output onto this sensor so row_groups
+            # (which reads self._dm_rk_groups) sees the shared build's result.
+            self._dm_rk_groups = rk_groups
+            self._dm_full_cache = (merged, rep_of, udn_map)
+            return collapsed
+        # Miss: build once (sets self._dm_rk_groups as its side output), then
+        # publish the whole tuple to the shared store for the group's siblings.
         merged, rep_of, udn_map = self._device_map_of(coords)
         reps = dict.fromkeys(rep_of.values())
         collapsed = {eid: merged[eid] for eid in reps}
-        self._dm_cache_key = cache_key
-        self._dm_cache = collapsed
+        # Single-entry store: only the current generation's map is live; drop
+        # any prior-generation key so the store never grows (and never holds a
+        # stale map's DeviceState refs alive).
+        store.clear()
+        store[cache_key] = (collapsed, merged, rep_of, udn_map, self._dm_rk_groups)
         self._dm_full_cache = (merged, rep_of, udn_map)
         return collapsed
 
@@ -585,8 +619,9 @@ class CombinedGroupSensor(CombinedSensorBase):
         self._attr_translation_key = "combined_summary"
         self._unsub_bus: list[Callable[[], None]] = []
         # Memo of the heavy aggregated attrs dict, keyed on the same per-tick key
-        # as _dm_cache (entry_ids + collapse generations). _ea_dedup_attrs also
-        # forces a rebuild at each turn start — see extra_state_attributes.
+        # as the shared device map (entry_ids + collapse generations).
+        # _ea_dedup_attrs also forces a rebuild at each turn start — see
+        # extra_state_attributes.
         self._attrs_cache_key: tuple | None = None
         self._attrs_cache: dict[str, Any] | None = None
 
@@ -633,17 +668,18 @@ class CombinedGroupSensor(CombinedSensorBase):
         relays exactly once (see ``_relay``).
 
         Reads coord.device_states directly via ``_device_map_of`` (NOT the memoized
-        ``_device_map_cached``). The memo is keyed on (entry_ids, per-coord
+        ``_device_map_cached``). The shared map is keyed on (entry_ids, per-coord
         collapse_generation), and a coordinator bumps its generation only AFTER it
         fires (coordinator.py fire → generation bump). A bus event lands mid-sweep,
-        BEFORE the bump, so the memo is still keyed on the pre-bump generation: a
-        cached read would return the map built before this transition — stale by the
-        very entity that just flipped. Evicting the shared memo here would be worse:
-        it would repopulate ``_dm_cache`` under that same pre-bump key, so the
-        sensor's own state read (native_value/extra_state_attributes) would then hit
-        the relay's throwaway map instead of its own — corrupting the state count
-        (combined low_battery read 0/1/2 nondeterministically). So bypass the memo
-        entirely: build a private map, leave ``_dm_cache``/``_dm_cache_key`` alone.
+        BEFORE the bump, so the shared store is still keyed on the pre-bump
+        generation: a cached read would return the map built before this transition
+        — stale by the very entity that just flipped. Populating the shared store
+        here would be worse: it would write the per-combined-entry store under that
+        same pre-bump key, so every OTHER sensor's state read
+        (native_value/extra_state_attributes) would then hit the relay's throwaway
+        map instead of rebuilding — corrupting the state count (combined low_battery
+        read 0/1/2 nondeterministically). So bypass the store entirely: build a
+        private map via _device_map_of, never touch the shared store.
         """
         base = cat if cat in self._RELAY_PREDICATES else None
         if base is None:  # pragma: no cover — relay only passes the 4 base cats
@@ -652,7 +688,7 @@ class CombinedGroupSensor(CombinedSensorBase):
 
         coords = self._active_coordinators()
         # Private, uncached build off the live device_states — never read or write
-        # the shared sensor-state memo (_dm_cache/_dm_cache_key).
+        # the per-combined-entry shared device-map store (invariant #1).
         merged, rep_of, _ = self._device_map_of(coords)
         # dict.fromkeys dedups by entity_id while preserving sorted order: a shared
         # entity split into divergent rows (no shared udn — see _device_map_of /

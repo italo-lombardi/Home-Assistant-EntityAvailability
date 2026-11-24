@@ -629,7 +629,6 @@ class TestCombinedGroupSensor:
             new_callable=PropertyMock,
             return_value="Renamed Group",
         ):
-            sensor._dm_cache_key = None
             sensor._dm_full_cache = None
             after = sensor._ea_dedup_attrs()
         assert before["_ea_groupsig"] != after["_ea_groupsig"], (
@@ -681,7 +680,6 @@ class TestCombinedGroupSensor:
         # entry_ids + collapse generations, so without a bump it would hit the
         # stale memo instead of re-reading the live device_state).
         coord_a._device_states["binary_sensor.w1"].battery_level = 15
-        sensor._dm_cache_key = None
         sensor._dm_full_cache = None
         after = sensor._ea_dedup_attrs()
         count_after = sensor.native_value

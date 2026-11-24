@@ -16,6 +16,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import (
     CONF_ENTRY_TYPE,
+    DM_CACHE_PREFIX,
     DOMAIN,
     ENTRY_TYPE_COMBINED,
     ENTRY_TYPE_GROUP,
@@ -100,6 +101,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_COMBINED:
+        # Per-combined-entry shared device-map cache. One collapsed map is built
+        # per tick and shared across this group's ~15 sensors instead of each
+        # rebuilding it. Scoped to THIS entry (dies on unload below) so a reload
+        # cannot serve a stale map under a recurring (entry_ids, generations=0)
+        # key — config + ne_overrides are frozen for the store's lifetime because
+        # any change destroys the store (reload); only device_states mutate
+        # in-life and collapse_generation covers that in the key.
+        store_key = f"{DM_CACHE_PREFIX}{entry.entry_id}"
+        hass.data[DOMAIN][store_key] = {}
+        entry.async_on_unload(lambda: hass.data[DOMAIN].pop(store_key, None))
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
         entry.async_on_unload(entry.add_update_listener(_async_update_options))
         await _async_install_card(hass)
