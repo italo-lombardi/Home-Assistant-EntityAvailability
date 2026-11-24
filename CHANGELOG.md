@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.1] - 2026-11-25
+
+### Fixed
+- **Duplicate availability events after reloading a group are gone.** Reloading a group entry (or an options-save, which reloads it) could leave a *second* coordinator running in the background: it kept polling on its own 30-second timer with its own copy of every device's state, so a single entity going offline-then-online fired the `entity_availability_offline` / `entity_availability_recovered` events **twice** — once from the live coordinator and once, a few seconds later, from the leaked one. Automations keyed on those events ran twice. The root cause was that the coordinator's unload cleanup never cancelled the base poll timer; it now always does, and it also closes two narrower races where a label re-resolve or a state-change burst arriving during unload could re-arm the timer after cleanup. Existing installs clear any already-leaked coordinator on the next reload or restart.
+  - No change to event payloads, timing, or behavior for a group that is simply running — this only affects the unload/reload path.
+
 ## [0.8.0] - 2026-11-25
 
 ### Added

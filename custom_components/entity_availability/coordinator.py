@@ -478,8 +478,41 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         self._setup_registry_listeners()
 
     async def async_shutdown(self) -> None:
-        """Clean up on unload."""
+        """Clean up on unload.
+
+        super().async_shutdown() is the ONLY thing that cancels the base
+        DataUpdateCoordinator poll timer (self._unsub_refresh, re-armed every
+        tick by async_refresh's finally while self._listeners is non-empty) and
+        sets self._shutdown_requested = True. If it does not run, an unloaded or
+        reloaded coordinator keeps polling every SCAN_INTERVAL forever with its
+        own _device_states — a leaked second coordinator that independently
+        re-fires OFFLINE/RECOVERED for the same entity (observed in prod as
+        doubled availability events after a reload).
+
+        Order matters, three parts:
+
+        1. super().async_shutdown() runs FIRST so _shutdown_requested = True is
+           set before any of our own awaits below. A debounce timer or registry
+           event that fires during the final-save await then hits the
+           _shutdown_requested guards in _debounced_group_refresh /
+           _reresolve_membership and no-ops, instead of spawning an
+           async_refresh whose finally would re-arm the poll timer we just
+           cancelled (the label-group re-arm race).
+        2. Cancel the in-flight coalesced-refresh task: a refresh that is
+           already past async_refresh's shutdown guard would otherwise reach its
+           finally and re-arm _unsub_refresh after we cancelled it.
+        3. Then our own unsubscribes + final save. super() is pure cancel (no
+           I/O) and idempotent, so running it first — and even twice, via the
+           base's own on_unload hook — is safe.
+        """
         _LOGGER.debug("[%s] Shutting down coordinator", self.group_name)
+        # 1 + 2: stop the base poll timer and block any re-arm path before we
+        # start awaiting (teardown/save below yields the loop).
+        await super().async_shutdown()
+        if self._refresh_task is not None and not self._refresh_task.done():
+            self._refresh_task.cancel()
+        self._refresh_again = False
+        # 3: our own teardown + final save.
         if self._unsub_state_change is not None:
             self._unsub_state_change()
             self._unsub_state_change = None
@@ -489,15 +522,9 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         if self._label_refresh_timer is not None:
             self._label_refresh_timer()
             self._label_refresh_timer = None
-        # Cancel any pending debounce timer and stop the coalesced-refresh loop
-        # from re-running (_refresh_again=False). An in-flight refresh task is
-        # left to complete its current pass — it is short-lived and nulls
-        # _refresh_task itself in its finally, so we do not await it here.
         if self._refresh_timer is not None:
             self._refresh_timer()
             self._refresh_timer = None
-        self._refresh_again = False
-        # Final save
         if self._dirty:
             _LOGGER.debug("[%s] Saving dirty storage on shutdown", self.group_name)
             await self._async_save_storage()
@@ -1070,6 +1097,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         group) — accepted v1 behavior.
         """
         self._label_refresh_timer = None
+        # A registry event landing after shutdown must not re-resolve/refresh:
+        # the async_request_refresh task below runs async_refresh, whose finally
+        # re-arms the base poll timer (_unsub_refresh) that super().async_shutdown()
+        # cancelled — resurrecting the leaked second coordinator for label groups.
+        if self._shutdown_requested:
+            return
         before = set(self._entities)
         before_ne = set(self._non_essential)
         self._resolve_label_membership()
@@ -1149,6 +1182,12 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
         strictly serialized, never overlapping.
         """
         self._refresh_timer = None
+        # A debounce timer that fires after shutdown must NOT spawn a refresh:
+        # async_refresh's finally re-arms the base poll timer (_unsub_refresh)
+        # whenever self._listeners is non-empty, re-creating the leaked-coordinator
+        # 30s poll that super().async_shutdown() just cancelled.
+        if self._shutdown_requested:
+            return
         if self._refresh_task is not None and not self._refresh_task.done():
             self._refresh_again = True
             return

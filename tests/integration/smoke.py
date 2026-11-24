@@ -2980,6 +2980,14 @@ def _run_all_passes():
     _any_grp = ess_batt or signal_grp or numeric_batt or both_tiers or collapse_grp
     if _any_grp:
         passes.append(("label-group", _any_grp, "", label_group_ecs))
+    # 7) Leak-guard EC152: self-provisions its OWN single-entity group + reloads
+    #    it, so like the label-group ECs it needs no capability-matched target —
+    #    any discovered group satisfies discover(). Own pass so --all runs it
+    #    (ec_enabled is False for it inside every other pass). Skips-loud if
+    #    websocket-client is absent.
+    leak_ecs = {152}
+    if _any_grp:
+        passes.append(("leak-guard", _any_grp, "", leak_ecs))
 
     # DARK report: a family whose target is missing.
     dark = []
@@ -9105,6 +9113,114 @@ for e in cfg['data']['entries']:
                                     "label_id": _lbl,
                                 }
                             ]
+                        )
+
+    # EC152: no leaked second coordinator after reload. Regression guard for the
+    # prod duplicate-availability-event bug: async_shutdown that never called
+    # super() left the base 30s poll timer armed, so a reloaded entry ran TWO
+    # coordinators (3s phase-offset) that each independently fired RECOVERED for
+    # one recovery -> doubled events. Self-provisions its OWN single-entity group
+    # (prefix 'EA Fix ' so _teardown_smoke_fixtures auto-cleans it) on serene_booth
+    # only, never a shared/prod entity. Asserts EXACTLY ONE emit per transition —
+    # existing ECs only assert an event EXISTS (>=1), blind to the leak.
+    # NOTE: this behaviorally covers DEFECT 1 (missing super()); DEFECT 2
+    # (orphan-on-setup-raise) has no clean REST lever and is covered by unit tests.
+    if ec_enabled(152):
+        print(
+            "\n=== EC152: no leaked coordinator after reload (single emit) ===",
+            flush=True,
+        )
+        if not _WS_AVAILABLE:
+            print("  EC152: SKIP — websocket-client not installed", flush=True)
+        else:
+            reals = pick_real_entities(1)
+            if not reals:
+                print(
+                    "  EC152: SKIP — HA lacks a real sensor/binary_sensor entity",
+                    flush=True,
+                )
+            else:
+                target = reals[0]
+                fid = r_adv = entry_id = None
+                try:
+                    fid, r_adv = _create_group("EA Fix EC152 Leak", [target])
+                    if r_adv.get("type") != "create_entry":
+                        api("DELETE", f"/api/config/config_entries/flow/{fid}")
+                        chk(
+                            "EC152 single-entity group created",
+                            r_adv.get("type"),
+                            "create_entry",
+                            str(r_adv),
+                        )
+                    else:
+                        entry_id = r_adv["result"]["entry_id"]
+                        leak_ctx = {"entry_id": entry_id}
+                        # Clean online baseline.
+                        ss(target, "on", {"friendly_name": "EA Fix EC152"})
+                        wait(5)
+                        # Trigger the leak condition: reload TWICE (a leaked
+                        # coordinator from the first reload survives the second,
+                        # since the old async_shutdown never cancelled its timer).
+                        reload_entry(leak_ctx)
+                        reload_entry(leak_ctx)
+                        # Clear the 60s STARTUP_GRACE_PERIOD that each reload
+                        # re-armed — an offline/recovery inside the grace is
+                        # suppressed (no event), which would read as zero emits
+                        # and mask the leak. The leaked coordinator (if any) also
+                        # clears its own grace on the same clock, so after the wait
+                        # BOTH coordinators emit and the doubling is observable.
+                        ss(target, "on", {"friendly_name": "EA Fix EC152"})
+                        wait(65)
+                        # Capture OFFLINE — exactly one emit for our entry+entity.
+                        # Grace >= one SCAN_INTERVAL so a 3s-offset leaked
+                        # coordinator's re-emit on its own poll still lands in-window
+                        # (a short window could end before it re-fires -> false pass).
+                        offs = capture_events(
+                            "entity_availability_offline",
+                            lambda: ss(
+                                target, "unavailable", {"friendly_name": "EA Fix EC152"}
+                            ),
+                            post_trigger_grace=35,
+                        )
+                        mine = [
+                            e
+                            for e in offs
+                            if e.get("entry_id") == entry_id
+                            and e.get("entity_id") == target
+                        ]
+                        chk(
+                            "EC152 exactly ONE offline emit (no leaked coordinator)",
+                            len(mine),
+                            1,
+                            f"emits={len(mine)} payloads={offs}",
+                        )
+                        wait(5)
+                        # Capture RECOVERED — this is the exact assertion that
+                        # catches the prod bug (prod fired RECOVERED twice).
+                        recs = capture_events(
+                            "entity_availability_recovered",
+                            lambda: ss(target, "on", {"friendly_name": "EA Fix EC152"}),
+                            post_trigger_grace=35,
+                        )
+                        mine_r = [
+                            e
+                            for e in recs
+                            if e.get("entry_id") == entry_id
+                            and e.get("entity_id") == target
+                        ]
+                        chk(
+                            "EC152 exactly ONE recovered emit (no leaked coordinator)",
+                            len(mine_r),
+                            1,
+                            f"emits={len(mine_r)} payloads={recs}",
+                        )
+                except Exception as e:
+                    chk("EC152 leak-guard flow completed", False, True, str(e))
+                finally:
+                    if entry_id:
+                        api(
+                            "DELETE",
+                            f"/api/config/config_entries/entry/{entry_id}",
                         )
 
     # ------------------------------------------------------------------
