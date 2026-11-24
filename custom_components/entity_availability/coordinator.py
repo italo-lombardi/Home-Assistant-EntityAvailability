@@ -529,6 +529,24 @@ class EntityAvailabilityCoordinator(DataUpdateCoordinator[EntityAvailabilityData
             _LOGGER.debug("[%s] Saving dirty storage on shutdown", self.group_name)
             await self._async_save_storage()
 
+    @callback
+    def _schedule_refresh(self) -> None:
+        """Never re-arm the base poll timer once shutdown has started.
+
+        Belt-and-braces over the leak fix: the base ``_async_refresh`` finally
+        re-arms the poll timer via ``_schedule_refresh`` whenever ``self._listeners``
+        is non-empty, and ``_schedule_refresh`` itself has no shutdown guard. On the
+        real reload/unload path this cannot re-arm after ``async_shutdown`` because
+        HA removes the coordinator's listeners during ``async_unload_platforms``
+        (which runs before the on-unload ``async_shutdown`` hook), so ``_listeners``
+        is already empty. This guard makes that safety independent of HA's
+        unload ORDERING: a CancelledError unwinding through a suspended refresh — or
+        any other caller — can never re-create the 30s timer we just cancelled.
+        """
+        if self._shutdown_requested:
+            return
+        super()._schedule_refresh()
+
     async def _async_load_storage(self) -> None:
         """Load persisted availability data."""
         stored = await self._store.async_load()

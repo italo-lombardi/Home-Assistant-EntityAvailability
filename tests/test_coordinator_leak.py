@@ -257,3 +257,30 @@ async def test_debounced_refresh_noops_after_shutdown(
 
     mock_create.assert_not_called()
     assert coord._refresh_task is None
+
+
+async def test_schedule_refresh_noops_after_shutdown(
+    hass: HomeAssistant, mock_config_entry
+) -> None:
+    """The _schedule_refresh override must not re-arm the base poll timer once
+    shutdown has started — defends the leak fix against HA unload ORDERING, so a
+    CancelledError unwinding through a suspended base refresh (or any caller)
+    cannot re-create the 30s timer after async_shutdown cancelled it.
+
+    MUTATION: remove the `if self._shutdown_requested: return` guard in
+    _schedule_refresh -> base re-arms _unsub_refresh -> not None -> red.
+    """
+    coord = _make_coord(hass, mock_config_entry)
+    coord._shutdown_requested = True
+    assert coord._unsub_refresh is None
+
+    coord._schedule_refresh()
+
+    assert coord._unsub_refresh is None  # guard blocked the re-arm
+
+    # Sanity: with the flag clear, the base DOES arm the timer (proves the guard,
+    # not a broken base call, is what suppresses it above).
+    coord._shutdown_requested = False
+    coord._schedule_refresh()
+    assert coord._unsub_refresh is not None
+    coord._async_unsub_refresh()  # clean up the armed timer
