@@ -2942,7 +2942,7 @@ def _run_all_passes():
     #    the NE tier, the collapse fixture, and battery-level, which own passes.
     pass1_ecs = {
         n
-        for n in list(range(1, 93)) + [113, 114, 139, 140, 141, 142, 145, 146]
+        for n in list(range(1, 93)) + [113, 114, 139, 140, 141, 142, 145, 146, 153]
         if n not in ne_ecs
         and n not in collapse_ecs
         and n not in battery_level_ecs
@@ -9222,6 +9222,106 @@ for e in cfg['data']['entries']:
                             "DELETE",
                             f"/api/config/config_entries/entry/{entry_id}",
                         )
+
+    # EC153: device-map hoist — the per-combined-entry SHARED map store serves
+    # correct, internally-consistent, cross-read-STABLE values to all of a
+    # combined group's sensors. The hoist moved the collapsed-map cache from
+    # per-sensor instance state to one store per combined entry (built once per
+    # tick, shared across the group's ~15 sensors). A staleness/isolation bug in
+    # the shared store would surface as (a) the combined total disagreeing with
+    # its own per-group breakdown, or (b) two consecutive reads within one tick
+    # returning different values (one sensor served a stale/foreign map). This is
+    # the LIVE analog of the unit A1 parity test: proves the shared store is
+    # correct end-to-end on a running HA, not just in-process. Uses the EA Fix
+    # Combined group --all already provisions (>=2 source groups); skips-loud if
+    # the combined fixture is absent (isolated run without the combined pass).
+    if ec_enabled(153):
+        print(
+            "\n=== EC153: device-map hoist — shared combined map correct + stable ===",
+            flush=True,
+        )
+        combined_eid = None
+        for e in api("GET", "/api/config/config_entries/entry"):
+            if (
+                e.get("domain") == "entity_availability"
+                and "combined" in (e.get("title") or "").lower()
+                and (e.get("title") or "").startswith(_FIX_PREFIX)
+                and e.get("state") == "loaded"
+            ):
+                combined_eid = e["entry_id"]
+                break
+        if not combined_eid:
+            print(
+                "  EC153: SKIP — no loaded EA Fix Combined group "
+                "(run under --all or the combined pass)",
+                flush=True,
+            )
+        else:
+            # The combined SUMMARY sensor carries the aggregate total + the
+            # per-source-group breakdown; the hoisted map backs both. A combined
+            # group's summary entity ends in "_combined_summary" (NOT the classic
+            # "_group_summary") and does not publish an entry_id attr, so match it
+            # the same way the harness header does (line ~773): a "combined_summary"
+            # entity whose friendly_name carries the combined group's title.
+            combined_title = None
+            for e in api("GET", "/api/config/config_entries/entry"):
+                if e.get("entry_id") == combined_eid:
+                    combined_title = e.get("title") or ""
+                    break
+            summary = None
+            for s in api("GET", "/api/states"):
+                eid = s.get("entity_id", "")
+                if "entity_availability" in eid and "combined_summary" in eid:
+                    fn = str(s.get("attributes", {}).get("friendly_name", ""))
+                    if combined_title and combined_title.lower() in fn.lower():
+                        summary = eid
+                        break
+            if not summary:
+                print("  EC153: SKIP — combined summary sensor not found", flush=True)
+            else:
+                # (a) INTERNAL CONSISTENCY, dedup-aware: the published total is
+                # the DEDUPED representative count (a shared/collapsed entity
+                # counts ONCE), while each per-group `total` counts that group's
+                # own members (a shared entity is counted in BOTH groups). So the
+                # combined total must sit in [max single-group total, raw sum]:
+                # it can't drop below the biggest group (dedup never removes a
+                # group's unique members) and can't exceed the raw sum (no
+                # inflation). A divergent/stale shared map breaks these bounds.
+                # (Plain equality would FALSE-FAIL on the EA Fix Combined fixture,
+                # whose Twin member shares a collapsed entity — dedup by design.)
+                st = gs(summary)
+                total = st.get("state")
+                groups = (st.get("attributes", {}) or {}).get("groups", {}) or {}
+                try:
+                    total_n = int(total)
+                except (TypeError, ValueError):
+                    total_n = None
+                per_group_totals = [
+                    int(g.get("total", 0))
+                    for g in groups.values()
+                    if isinstance(g, dict)
+                ]
+                lo = max(per_group_totals) if per_group_totals else 0
+                hi = sum(per_group_totals)
+                in_bounds = total_n is not None and lo <= total_n <= hi
+                chk(
+                    "EC153 combined total within dedup bounds "
+                    "[max group, raw sum] (shared map consistent)",
+                    in_bounds,
+                    True,
+                    f"total={total!r} lo={lo} hi={hi} groups={groups}",
+                )
+                # (b) CROSS-READ STABILITY within one tick: two consecutive reads
+                # of the same settled state must be identical. The shared store
+                # serving a stale/foreign map to a re-read would diverge here.
+                st2 = gs(summary)
+                chk(
+                    "EC153 combined summary stable across reads (no shared-store "
+                    "divergence)",
+                    st2.get("state"),
+                    total,
+                    f"read1={total!r} read2={st2.get('state')!r}",
+                )
 
     # ------------------------------------------------------------------
     # EC125: async_remove_entry — storage file deleted when entry is removed
