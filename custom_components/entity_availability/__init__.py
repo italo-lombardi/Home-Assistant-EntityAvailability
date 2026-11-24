@@ -113,7 +113,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    entry.async_on_unload(coordinator.async_shutdown)
+    # NOTE: coordinator.async_shutdown is NOT registered here. The base
+    # DataUpdateCoordinator.__init__ already registers it as an on_unload hook
+    # (config_entry is passed at construction, line above), so an explicit
+    # registration would invoke async_shutdown — and its super() poll-timer
+    # cancel plus final save — TWICE on every unload/reload.
     entry.async_on_unload(entry.add_update_listener(_async_update_options))
 
     await async_setup_services(hass)
